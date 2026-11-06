@@ -88,7 +88,13 @@ pub struct ControlRead {
 
 impl ControlRead {
     const fn register((index, length): (u16, u16)) -> Self {
-        Self { request_type: REQUEST_TYPE_READ, request: REQUEST_READ, value: 0, index, length }
+        Self {
+            request_type: REQUEST_TYPE_READ,
+            request: REQUEST_READ,
+            value: 0,
+            index,
+            length,
+        }
     }
 }
 
@@ -214,7 +220,11 @@ pub struct UsbInputSelection {
 impl UsbInputSelection {
     /// Returns `None` if `source` is not selectable on `channel`.
     pub fn new(channel: UsbInputChannel, source: UsbAudioSource) -> Option<Self> {
-        usb_input_value(channel, source).map(|value| Self { channel, source, value })
+        usb_input_value(channel, source).map(|value| Self {
+            channel,
+            source,
+            value,
+        })
     }
 
     pub fn channel(&self) -> UsbInputChannel {
@@ -256,9 +266,9 @@ fn usb_input_value(channel: UsbInputChannel, source: UsbAudioSource) -> Option<u
         (c, PreFader(ch)) if ch as u8 == c => 0x05,
         (c, PostFader(ch)) if ch as u8 == c => 0x06,
         (c, ControlTone(ch, tone)) if ch as u8 == c => match tone {
-            ControlTone::Line => 0x01,
-            ControlTone::Digital => 0x02,
-            ControlTone::Phono => 0x03,
+            self::ControlTone::Line => 0x01,
+            self::ControlTone::Digital => 0x02,
+            self::ControlTone::Phono => 0x03,
         },
         _ => return None,
     };
@@ -281,7 +291,10 @@ pub enum Flx10Setting {
     JogRingColor(JogRingColor),
     /// Escape hatch for experiments on hardware: write `value` to `index`
     /// with the standard write request.
-    Raw { index: u16, value: u16 },
+    Raw {
+        index: u16,
+        value: u16,
+    },
 }
 
 const fn hi(v: u8) -> u16 {
@@ -380,9 +393,14 @@ mod device {
         /// Executes a read request and returns the bytes received.
         pub fn read(&self, r: ControlRead) -> Result<Vec<u8>, UsbSettingsError> {
             let mut buf = vec![0u8; usize::from(r.length)];
-            let n = self
-                .handle
-                .read_control(r.request_type, r.request, r.value, r.index, &mut buf, TIMEOUT)?;
+            let n = self.handle.read_control(
+                r.request_type,
+                r.request,
+                r.value,
+                r.index,
+                &mut buf,
+                TIMEOUT,
+            )?;
             buf.truncate(n);
             Ok(buf)
         }
@@ -390,8 +408,10 @@ mod device {
         /// Reads the firmware version.
         pub fn firmware_version(&self) -> Result<FirmwareVersion, UsbSettingsError> {
             let data = self.read(firmware_version_read())?;
-            FirmwareVersion::decode(&data)
-                .ok_or(UsbSettingsError::ShortRead { expected: 2, got: data.len() })
+            FirmwareVersion::decode(&data).ok_or(UsbSettingsError::ShortRead {
+                expected: 2,
+                got: data.len(),
+            })
         }
     }
 }
@@ -408,23 +428,74 @@ mod tests {
     #[test]
     fn simple_settings_match_recovered_constants() {
         use Flx10Setting::*;
-        assert_eq!(wire(FaderStart(super::FaderStart::Off)), (0x40, 0x03, 0x0000, 0xC013, 0));
-        assert_eq!(wire(FaderStart(super::FaderStart::OnWithSync)), (0x40, 0x03, 0x0100, 0xC013, 0));
-        assert_eq!(wire(FaderStart(super::FaderStart::On)), (0x40, 0x03, 0x0200, 0xC013, 0));
-        assert_eq!(wire(RecOut(super::RecOut::WithMic)), (0x40, 0x03, 0x0000, 0xC01D, 0));
-        assert_eq!(wire(RecOut(super::RecOut::WithoutMic)), (0x40, 0x03, 0x0100, 0xC01D, 0));
-        assert_eq!(wire(TimeMode(super::TimeMode::Elapsed)), (0x40, 0x03, 0x0000, 0xC026, 0));
-        assert_eq!(wire(TimeMode(super::TimeMode::Remaining)), (0x40, 0x03, 0x0100, 0xC026, 0));
+        assert_eq!(
+            wire(FaderStart(super::FaderStart::Off)),
+            (0x40, 0x03, 0x0000, 0xC013, 0)
+        );
+        assert_eq!(
+            wire(FaderStart(super::FaderStart::OnWithSync)),
+            (0x40, 0x03, 0x0100, 0xC013, 0)
+        );
+        assert_eq!(
+            wire(FaderStart(super::FaderStart::On)),
+            (0x40, 0x03, 0x0200, 0xC013, 0)
+        );
+        assert_eq!(
+            wire(RecOut(super::RecOut::WithMic)),
+            (0x40, 0x03, 0x0000, 0xC01D, 0)
+        );
+        assert_eq!(
+            wire(RecOut(super::RecOut::WithoutMic)),
+            (0x40, 0x03, 0x0100, 0xC01D, 0)
+        );
+        assert_eq!(
+            wire(TimeMode(super::TimeMode::Elapsed)),
+            (0x40, 0x03, 0x0000, 0xC026, 0)
+        );
+        assert_eq!(
+            wire(TimeMode(super::TimeMode::Remaining)),
+            (0x40, 0x03, 0x0100, 0xC026, 0)
+        );
         assert_eq!(wire(VirtualDeckMode(true)), (0x40, 0x03, 0x0100, 0xC027, 0));
-        assert_eq!(wire(VirtualDeckMode(false)), (0x40, 0x03, 0x0000, 0xC027, 0));
-        assert_eq!(wire(SlipModeFlashing(true)), (0x40, 0x03, 0x0100, 0xC028, 0));
-        assert_eq!(wire(SlipModeFlashing(false)), (0x40, 0x03, 0x0000, 0xC028, 0));
-        assert_eq!(wire(SlipButtonLed(super::SlipButtonLed::Lit)), (0x40, 0x03, 0x0000, 0xC029, 0));
-        assert_eq!(wire(SlipButtonLed(super::SlipButtonLed::Blink)), (0x40, 0x03, 0x0100, 0xC029, 0));
-        assert_eq!(wire(JogRingColor(super::JogRingColor::Mode1)), (0x40, 0x03, 0x0000, 0xC02B, 0));
-        assert_eq!(wire(JogRingColor(super::JogRingColor::Mode2)), (0x40, 0x03, 0x0100, 0xC02B, 0));
-        assert_eq!(wire(JogRingColor(super::JogRingColor::Mode3)), (0x40, 0x03, 0x0200, 0xC02B, 0));
-        assert_eq!(wire(Raw { index: 0x1234, value: 0xABCD }), (0x40, 0x03, 0xABCD, 0x1234, 0));
+        assert_eq!(
+            wire(VirtualDeckMode(false)),
+            (0x40, 0x03, 0x0000, 0xC027, 0)
+        );
+        assert_eq!(
+            wire(SlipModeFlashing(true)),
+            (0x40, 0x03, 0x0100, 0xC028, 0)
+        );
+        assert_eq!(
+            wire(SlipModeFlashing(false)),
+            (0x40, 0x03, 0x0000, 0xC028, 0)
+        );
+        assert_eq!(
+            wire(SlipButtonLed(super::SlipButtonLed::Lit)),
+            (0x40, 0x03, 0x0000, 0xC029, 0)
+        );
+        assert_eq!(
+            wire(SlipButtonLed(super::SlipButtonLed::Blink)),
+            (0x40, 0x03, 0x0100, 0xC029, 0)
+        );
+        assert_eq!(
+            wire(JogRingColor(super::JogRingColor::Mode1)),
+            (0x40, 0x03, 0x0000, 0xC02B, 0)
+        );
+        assert_eq!(
+            wire(JogRingColor(super::JogRingColor::Mode2)),
+            (0x40, 0x03, 0x0100, 0xC02B, 0)
+        );
+        assert_eq!(
+            wire(JogRingColor(super::JogRingColor::Mode3)),
+            (0x40, 0x03, 0x0200, 0xC02B, 0)
+        );
+        assert_eq!(
+            wire(Raw {
+                index: 0x1234,
+                value: 0xABCD
+            }),
+            (0x40, 0x03, 0xABCD, 0x1234, 0)
+        );
     }
 
     #[test]
@@ -438,7 +509,10 @@ mod tests {
             BoostLevel::ZeroDb,
         ];
         for (i, b) in all.into_iter().enumerate() {
-            assert_eq!(wire(Flx10Setting::BoostLevel(b)), (0x40, 0x03, (i as u16) << 8, 0x8003, 0));
+            assert_eq!(
+                wire(Flx10Setting::BoostLevel(b)),
+                (0x40, 0x03, (i as u16) << 8, 0x8003, 0)
+            );
         }
     }
 
@@ -509,7 +583,13 @@ mod tests {
         let r = firmware_version_read();
         assert_eq!(
             r,
-            ControlRead { request_type: 0xC0, request: 0x00, value: 0, index: 0xC001, length: 2 }
+            ControlRead {
+                request_type: 0xC0,
+                request: 0x00,
+                value: 0,
+                index: 0xC001,
+                length: 2
+            }
         );
         let v = FirmwareVersion::decode(&[0x02, 0x01]).unwrap();
         assert_eq!(v, FirmwareVersion(0x0102));
@@ -520,7 +600,10 @@ mod tests {
 
     #[test]
     fn vendor_defaults_encode() {
-        let d: Vec<_> = vendor_defaults().into_iter().map(|s| (encode(s).index, encode(s).value)).collect();
+        let d: Vec<_> = vendor_defaults()
+            .into_iter()
+            .map(|s| (encode(s).index, encode(s).value))
+            .collect();
         assert_eq!(
             d,
             [
