@@ -4,7 +4,7 @@
 import { ListView } from "std-widgets.slint";
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, Glyph } from "controls.slint";
+import { Caps, Glyph, TipArea } from "controls.slint";
 import { TrackRow } from "structs.slint";
 
 export global Columns {
@@ -39,7 +39,11 @@ component HeaderCell inherits Rectangle {
         kind: root.descending ? "down" : "up";
         tone: Theme.bone;
     }
-    TouchArea { mouse-cursor: pointer; clicked => { root.sort(root.column); } }
+    TipArea {
+        tooltip: root.sort-column == root.column ? @tr("Sorted by this column — click to reverse") : @tr("Sort by this column");
+        mouse-cursor: pointer;
+        clicked => { root.sort(root.column); }
+    }
 }
 
 component Cell inherits Text {

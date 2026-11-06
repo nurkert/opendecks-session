@@ -1,0 +1,134 @@
+// Tooltips (SPEC §12.3): what a control does and its current keyboard
+// shortcut, after a short hover.
+//
+// Controls use `TipArea` in place of `TouchArea` and pass `tooltip` (the
+// text) and optionally `command` (a keymap action id such as
+// "deck1.play"). Hovering registers the tooltip in the `TooltipState`
+// global; one `TooltipLayer`, placed last in each window, draws it. The
+// shortcut is looked up from Rust when the hover starts, so it always shows
+// the binding in effect.
+
+import { Theme } from "tokens.slint";
+
+export global TooltipState {
+    // The tooltip being shown or waiting for its delay.
+    in-out property <string> text;
+    in-out property <string> keys;
+    // Pointer position in window coordinates.
+    in-out property <length> x;
+    in-out property <length> y;
+    // Waiting for the hover delay; then shown.
+    in-out property <bool> pending;
+    in-out property <bool> shown;
+    // The hover that owns the tooltip; a leave from another area is ignored.
+    in-out property <int> owner: -1;
+    property <int> serial;
+
+    // The current binding of a keymap action ("" when unbound), set by Rust.
+    pure callback shortcut-for(string) -> string;
+
+    // A pointer entered an area; returns the id the area leaves with.
+    public function enter(text: string, command: string, x: length, y: length) -> int {
+        self.serial += 1;
+        self.owner = self.serial;
+        self.text = text;
+        self.keys = command == "" ? "" : self.shortcut-for(command);
+        self.x = x;
+        self.y = y;
+        self.shown = false;
+        self.pending = text != "";
+        return self.serial;
+    }
+
+    // The pointer moved inside the area: the tooltip opens where it rests.
+    public function moved(id: int, x: length, y: length) {
+        if (self.owner == id && !self.shown) {
+            self.x = x;
+            self.y = y;
+        }
+    }
+
+    public function leave(id: int) {
+        if (self.owner == id) {
+            self.dismiss();
+        }
+    }
+
+    // Press, leave or any other reason to hide.
+    public function dismiss() {
+        self.pending = false;
+        self.shown = false;
+        self.owner = -1;
+    }
+}
+
+// A TouchArea that shows a tooltip on hover and hides it on press.
+export component TipArea inherits TouchArea {
+    in property <string> tooltip;
+    in property <string> command;
+    property <int> tip-id: -1;
+    changed has-hover => {
+        if (self.has-hover) {
+            self.tip-id = TooltipState.enter(self.tooltip, self.command, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+        } else {
+            TooltipState.leave(self.tip-id);
+        }
+    }
+    changed mouse-x => { TooltipState.moved(self.tip-id, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+    changed mouse-y => { TooltipState.moved(self.tip-id, self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y); }
+    changed pressed => {
+        if (self.pressed) {
+            TooltipState.dismiss();
+        }
+    }
+}
+
+// Draws the tooltip: a small plate with a 1px rule, no shadow, below and
+// right of the pointer, kept inside the window. Place it last in a window,
+// filling it; it takes no input.
+export component TooltipLayer inherits Rectangle {
+    // Hover delay before the tooltip opens.
+    in property <duration> delay: 500ms;
+    Timer {
+        interval: root.delay;
+        running: TooltipState.pending;
+        triggered => {
+            TooltipState.pending = false;
+            TooltipState.shown = true;
+        }
+    }
+    if TooltipState.shown: Rectangle {
+        property <length> w: min(lay.preferred-width, root.width - 8px);
+        property <length> h: lay.preferred-height;
+        width: self.w;
+        height: self.h;
+        // Below-right of the pointer; flipped above it near the bottom edge.
+        x: max(4px, min(TooltipState.x + 10px, root.width - self.w - 4px));
+        y: TooltipState.y + 22px + self.h > root.height - 4px ? max(4px, TooltipState.y - self.h - 8px) : TooltipState.y + 22px;
+        background: Theme.plate;
+        border-width: 1px;
+        border-color: Theme.rule-strong;
+        lay := HorizontalLayout {
+            padding-left: 8px;
+            padding-right: 8px;
+            padding-top: 4px;
+            padding-bottom: 4px;
+            spacing: 10px;
+            Text {
+                text: TooltipState.text;
+                font-family: Theme.family; font-size: 12px;
+                color: Theme.bone;
+                vertical-alignment: center;
+                wrap: word-wrap;
+                max-width: 320px;
+            }
+            if TooltipState.keys != "": Text {
+                text: TooltipState.keys;
+                font-family: Theme.family; font-size: 11px; font-weight: 600; letter-spacing: 1px;
+                color: Theme.bone-2;
+                vertical-alignment: center;
+                horizontal-stretch: 0;
+            }
+        }
+    }
+}

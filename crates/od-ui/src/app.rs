@@ -107,6 +107,7 @@ impl App {
         fx::wire(&app);
         sampler::wire(&app);
         preferences::wire(&app);
+        crate::appearance::wire(&app);
         engine::start(&app);
         decks::autoload(&app);
 
@@ -174,6 +175,7 @@ impl App {
                 WorkerEvent::Message(m) => self.status(m),
             }
         }
+        crate::appearance::tick(self);
         if devices::poll(self) {
             need_refresh = true;
         }

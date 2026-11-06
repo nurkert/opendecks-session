@@ -10,11 +10,12 @@
 //!   [`mixer`], [`fx`], [`sampler`], [`recorder`], [`devices`],
 //!   [`preferences`] (with [`settings`] and the [`keymap`]), plus [`engine`] (audio lifecycle, frame tick) and
 //!   [`controller`] (MIDI)
-//! - [`render`]: waveform images
+//! - [`render`]: waveform images; [`appearance`]: dark / light / system
 
 slint::include_modules!();
 
 mod app;
+mod appearance;
 mod browser;
 mod commands;
 mod controller;

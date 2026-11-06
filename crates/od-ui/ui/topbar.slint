@@ -3,11 +3,13 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, PlateButton, Glyph } from "controls.slint";
+import { Caps, PlateButton, Glyph, TipArea } from "controls.slint";
 
 component ModeTab inherits Rectangle {
     in property <string> label;
     in property <bool> current;
+    in property <string> tooltip;
+    in property <string> command;
     callback clicked();
     min-width: t.preferred-width + 32px;
     background: root.current ? Theme.plate : touch.has-hover ? Theme.ground-band : transparent;
@@ -20,7 +22,7 @@ component ModeTab inherits Rectangle {
         font-family: Theme.family; font-size: 13px; font-weight: 600; letter-spacing: 2.4px;
         color: root.current ? Theme.bone : Theme.bone-3;
     }
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    touch := TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
 
 export component TopBar inherits Rectangle {
@@ -36,6 +38,7 @@ export component TopBar inherits Rectangle {
     callback toggle-recording();
     callback undo();
     callback open-preferences();
+    callback cycle-appearance();
     height: 44px;
     background: Theme.ground;
 
@@ -56,10 +59,29 @@ export component TopBar inherits Rectangle {
             }
             Caps { x: 132px; height: parent.height; text: "SESSION"; font-size: 9px; letter-spacing: 3px; vertical-alignment: center; }
         }
-        ModeTab { label: @tr("PREPARE"); current: root.mode == "prepare"; clicked => { root.set-mode("prepare"); } }
-        ModeTab { label: @tr("PERFORM"); current: root.mode == "perform"; clicked => { root.set-mode("perform"); } }
+        ModeTab { label: @tr("PREPARE"); tooltip: @tr("Prepare: library, beatgrids, cues and sticks"); command: "mode.prepare"; current: root.mode == "prepare"; clicked => { root.set-mode("prepare"); } }
+        ModeTab { label: @tr("PERFORM"); tooltip: @tr("Perform: decks and mixer"); command: "mode.perform"; current: root.mode == "perform"; clicked => { root.set-mode("perform"); } }
         Rectangle { width: 24px; }
         Caps { text: root.status; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        // Appearance: moon (dark), sun (light), half disc (follow system);
+        // a click moves on to the next mode.
+        Rectangle {
+            width: 36px;
+            Rectangle {
+                y: 8px; height: parent.height - 16px;
+                background: at.has-hover ? Theme.plate : transparent;
+            }
+            Glyph {
+                x: (parent.width - 10px) / 2; y: (parent.height - 10px) / 2;
+                kind: Theme.appearance == "light" ? "sun" : Theme.appearance == "system" ? "auto" : "moon";
+                tone: at.has-hover ? Theme.bone : Theme.bone-2;
+            }
+            at := TipArea {
+                tooltip: Theme.appearance == "light" ? @tr("Appearance: light — click for system") : Theme.appearance == "system" ? @tr("Appearance: follows the system — click for dark") : @tr("Appearance: dark — click for light");
+                mouse-cursor: pointer;
+                clicked => { root.cycle-appearance(); }
+            }
+        }
         // Preferences (⌘, / Ctrl+,).
         Rectangle {
             width: 36px;
@@ -68,13 +90,13 @@ export component TopBar inherits Rectangle {
                 background: gt.has-hover ? Theme.plate : transparent;
             }
             Glyph { x: (parent.width - 10px) / 2; y: (parent.height - 10px) / 2; kind: "gear"; tone: gt.has-hover ? Theme.bone : Theme.bone-2; }
-            gt := TouchArea { mouse-cursor: pointer; clicked => { root.open-preferences(); } }
+            gt := TipArea { tooltip: @tr("Preferences"); command: "prefs.open"; mouse-cursor: pointer; clicked => { root.open-preferences(); } }
         }
         Rectangle { width: 4px; }
         if root.undo-label != "": Rectangle {
             width: u.preferred-width + 24px;
             u := Caps { text: @tr("UNDO  {}  ⌘Z", root.undo-label); vertical-alignment: center; height: parent.height; }
-            TouchArea { mouse-cursor: pointer; clicked => { root.undo(); } }
+            TipArea { tooltip: @tr("Undo the last change"); command: "library.undo"; mouse-cursor: pointer; clicked => { root.undo(); } }
         }
         Rectangle { width: 8px; }
         // Recording: always one click away, as on the hardware.
@@ -96,7 +118,7 @@ export component TopBar inherits Rectangle {
                 font-family: Theme.family; font-size: 12px; font-weight: 600; letter-spacing: 1.8px;
                 color: root.recording ? Theme.bone : Theme.bone-2; vertical-alignment: center;
             }
-            rt := TouchArea { mouse-cursor: pointer; clicked => { root.toggle-recording(); } }
+            rt := TipArea { tooltip: root.recording ? @tr("Stop recording") : @tr("Record the master output"); command: "record.toggle"; mouse-cursor: pointer; clicked => { root.toggle-recording(); } }
         }
     }
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }

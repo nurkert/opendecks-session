@@ -3,6 +3,9 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
+import { TipArea, TooltipState } from "tooltip.slint";
+
+export { TipArea, TooltipState }
 
 // Hairline marks drawn as paths instead of typed characters.
 export component Glyph inherits Path {
@@ -12,8 +15,8 @@ export component Glyph inherits Path {
     height: 10px;
     viewbox-width: 10;
     viewbox-height: 10;
-    stroke: kind == "play" ? transparent : root.tone;
-    fill: kind == "play" || kind == "pause" ? root.tone : transparent;
+    stroke: kind == "play" || kind == "auto" ? transparent : root.tone;
+    fill: kind == "play" || kind == "pause" || kind == "auto" ? root.tone : transparent;
     stroke-width: 1.2px;
     commands: kind == "play" ? "M 1 0 L 10 5 L 1 10 Z"
         : kind == "pause" ? "M 1 0 L 4 0 L 4 10 L 1 10 Z M 6 0 L 9 0 L 9 10 L 6 10 Z"
@@ -25,7 +28,12 @@ export component Glyph inherits Path {
         : kind == "up" ? "M 5 10 L 5 1 M 1.5 4.5 L 5 1 L 8.5 4.5"
         : kind == "down" ? "M 5 0 L 5 9 M 1.5 5.5 L 5 9 L 8.5 5.5"
         : kind == "close" ? "M 1 1 L 9 9 M 9 1 L 1 9"
-        : kind == "gear" ? "M 5 3 A 2 2 0 1 0 5 7 A 2 2 0 1 0 5 3 M 5 0 L 5 2 M 5 8 L 5 10 M 0 5 L 2 5 M 8 5 L 10 5 M 1.5 1.5 L 2.9 2.9 M 7.1 7.1 L 8.5 8.5 M 8.5 1.5 L 7.1 2.9 M 2.9 7.1 L 1.5 8.5"
+        // A six-tooth cog with its hub (not a sun: that is the light mode).
+        : kind == "gear" ? "M 8.06 3.76 L 8.34 4.35 L 9.75 4.33 L 9.75 5.67 L 8.34 5.65 L 8.06 6.24 L 7.60 7.03 L 7.23 7.57 L 7.96 8.78 L 6.80 9.45 L 6.11 8.21 L 5.46 8.27 L 4.54 8.27 L 3.89 8.21 L 3.20 9.45 L 2.04 8.78 L 2.77 7.57 L 2.40 7.03 L 1.94 6.24 L 1.66 5.65 L 0.25 5.67 L 0.25 4.33 L 1.66 4.35 L 1.94 3.76 L 2.40 2.97 L 2.77 2.43 L 2.04 1.22 L 3.20 0.55 L 3.89 1.79 L 4.54 1.73 L 5.46 1.73 L 6.11 1.79 L 6.80 0.55 L 7.96 1.22 L 7.23 2.43 L 7.60 2.97 Z M 5 3.6 A 1.4 1.4 0 1 0 5 6.4 A 1.4 1.4 0 1 0 5 3.6"
+        // Appearance: sun (light), crescent moon (dark), half disc (system).
+        : kind == "sun" ? "M 5 3 A 2 2 0 1 0 5 7 A 2 2 0 1 0 5 3 M 8.30 5.00 L 9.80 5.00 M 7.33 7.33 L 8.39 8.39 M 5.00 8.30 L 5.00 9.80 M 2.67 7.33 L 1.61 8.39 M 1.70 5.00 L 0.20 5.00 M 2.67 2.67 L 1.61 1.61 M 5.00 1.70 L 5.00 0.20 M 7.33 2.67 L 8.39 1.61"
+        : kind == "moon" ? "M 6.2 0.8 A 4.4 4.4 0 1 0 9.2 7 A 3.6 3.6 0 1 1 6.2 0.8 Z"
+        : kind == "auto" ? "M 5 0.6 A 4.4 4.4 0 0 0 5 9.4 Z M 5 0.6 A 4.4 4.4 0 0 1 5 9.4 L 5 8.3 A 3.3 3.3 0 0 0 5 1.7 Z"
         : "M 0 5 L 10 5 M 6 1 L 10 5 L 6 9";
 }
 
@@ -53,6 +61,9 @@ component Outline inherits Rectangle {
 }
 
 export component PlateButton inherits Rectangle {
+    // Hover help (SPEC §12.3): the text and the keymap action whose binding it shows.
+    in property <string> tooltip;
+    in property <string> command;
     in property <string> label;
     in property <string> glyph;
     in property <color> tone: Theme.bone-3;
@@ -90,7 +101,7 @@ export component PlateButton inherits Rectangle {
         kind: root.glyph;
         tone: Theme.bone-2;
     }
-    touch := TouchArea {
+    touch := TipArea { tooltip: root.tooltip; command: root.command;
         enabled: root.enabled;
         mouse-cursor: root.enabled ? pointer : default;
         clicked => { root.clicked(); }
@@ -133,6 +144,9 @@ export component Field inherits Rectangle {
 
 // Two-state switch drawn as a line that is either solid or struck.
 export component LineToggle inherits Rectangle {
+    // Hover help (SPEC §12.3): the text and the keymap action whose binding it shows.
+    in property <string> tooltip;
+    in property <string> command;
     in property <string> label;
     in-out property <bool> checked;
     in property <color> tone: Theme.live;
@@ -148,7 +162,7 @@ export component LineToggle inherits Rectangle {
         color: root.checked ? Theme.bone : Theme.bone-2;
         vertical-alignment: center;
     }
-    TouchArea {
+    TipArea { tooltip: root.tooltip; command: root.command;
         mouse-cursor: pointer;
         clicked => { root.checked = !root.checked; root.toggled(root.checked); }
     }
@@ -158,6 +172,9 @@ export component LineToggle inherits Rectangle {
 // value; double-click resets it. Bipolar knobs (EQ, FX) light the arc from
 // the centre.
 export component Knob inherits Rectangle {
+    // Hover help (SPEC §12.3): the text and the keymap action whose binding it shows.
+    in property <string> tooltip;
+    in property <string> command;
     in-out property <float> value: 0;
     in property <float> minimum: -1;
     in property <float> maximum: 1;
@@ -196,7 +213,7 @@ export component Knob inherits Rectangle {
         horizontal-alignment: center;
     }
     property <float> start;
-    touch := TouchArea {
+    touch := TipArea { tooltip: root.tooltip; command: root.command;
         mouse-cursor: ns-resize;
         pointer-event(ev) => {
             if (ev.kind == PointerEventKind.down) { root.start = root.value; }
@@ -213,6 +230,9 @@ export component Knob inherits Rectangle {
 
 // Vertical fader: a track line with a plate handle.
 export component Fader inherits Rectangle {
+    // Hover help (SPEC §12.3): the text and the keymap action whose binding it shows.
+    in property <string> tooltip;
+    in property <string> command;
     in-out property <float> value: 0;
     in property <color> tone: Theme.bone;
     callback changed(float);
@@ -231,7 +251,7 @@ export component Fader inherits Rectangle {
         border-width: 1px; border-color: touch.has-hover ? Theme.bone-2 : Theme.bone-3;
         Rectangle { y: 5px; height: 2px; x: 3px; width: parent.width - 6px; background: Theme.bone; }
     }
-    touch := TouchArea {
+    touch := TipArea { tooltip: root.tooltip; command: root.command;
         mouse-cursor: ns-resize;
         moved => {
             if (self.pressed) {
@@ -250,6 +270,9 @@ export component Fader inherits Rectangle {
 
 // Small state button: outlined plate, the line lights in `tone` when on.
 export component Toggle inherits Rectangle {
+    // Hover help (SPEC §12.3): the text and the keymap action whose binding it shows.
+    in property <string> tooltip;
+    in property <string> command;
     in property <string> label;
     in property <bool> on;
     in property <color> tone: Theme.attention;
@@ -270,12 +293,15 @@ export component Toggle inherits Rectangle {
         color: !root.enabled ? Theme.bone-3.with-alpha(0.55) : root.on ? Theme.bone : Theme.bone-2;
         horizontal-alignment: center; vertical-alignment: center;
     }
-    touch := TouchArea { enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.clicked(); } }
+    touch := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.clicked(); } }
 }
 
 // Draggable divider between two panes. `horizontal` = a horizontal bar that
 // moves vertically. Reports the pointer delta; double-click resets.
 export component Splitter inherits Rectangle {
+    // Hover help (SPEC §12.3): the text and the keymap action whose binding it shows.
+    in property <string> tooltip;
+    in property <string> command;
     in property <bool> horizontal: true;
     callback dragged(length);
     callback reset();
@@ -303,7 +329,7 @@ export component Splitter inherits Rectangle {
         height: root.horizontal ? 3px : 28px;
         background: touch.has-hover || touch.pressed ? Theme.bone-3 : Theme.rule-strong;
     }
-    touch := TouchArea {
+    touch := TipArea { tooltip: root.tooltip; command: root.command;
         mouse-cursor: root.horizontal ? row-resize : col-resize;
         moved => {
             if (self.pressed) {
@@ -317,6 +343,9 @@ export component Splitter inherits Rectangle {
 // Jog display: a platter ring with a rotating position mark, the track's
 // progress as tick marks around the ring and readouts in the centre.
 export component Jog inherits Rectangle {
+    // Hover help (SPEC §12.3): the text and the keymap action whose binding it shows.
+    in property <string> tooltip;
+    in property <string> command;
     in property <float> angle;        // degrees, platter rotation
     in property <float> progress;     // 0..1 through the track
     in property <bool> playing;
@@ -367,11 +396,14 @@ export component Jog inherits Rectangle {
         Text { text: root.main-text; font-family: Theme.family; font-size: root.size > 120px ? 24px : 18px; font-weight: 600; color: Theme.bone; horizontal-alignment: center; }
         Text { text: root.sub-text; font-family: Theme.family; font-size: 11px; color: Theme.bone-2; horizontal-alignment: center; }
     }
-    TouchArea { mouse-cursor: pointer; clicked => { root.touched(); } }
+    TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.touched(); } }
 }
 
 // Round transport button (CUE / PLAY) drawn as a ring with a mark.
 export component Transport inherits Rectangle {
+    // Hover help (SPEC §12.3): the text and the keymap action whose binding it shows.
+    in property <string> tooltip;
+    in property <string> command;
     in property <string> kind: "play";
     in property <bool> on;
     in property <color> tone: Theme.live;
@@ -393,5 +425,5 @@ export component Transport inherits Rectangle {
         kind: root.on ? "pause" : "play";
         tone: root.on ? root.tone : Theme.bone-2;
     }
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    touch := TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.clicked(); } }
 }

@@ -48,6 +48,8 @@ pub struct ViewSettings {
     pub colorblind_safe: bool,
     pub high_contrast: bool,
     pub reduced_motion: bool,
+    /// "dark", "light" or "system" (follow the OS appearance).
+    pub appearance: String,
     /// "3band" or "blue".
     pub waveform: String,
     pub phrases: bool,
@@ -122,6 +124,7 @@ impl Default for ViewSettings {
             colorblind_safe: false,
             high_contrast: false,
             reduced_motion: false,
+            appearance: "dark".into(),
             waveform: "3band".into(),
             phrases: true,
             bar_counter: "to-phrase".into(),
@@ -151,6 +154,8 @@ impl Default for AdvancedSettings {
 pub const BUFFER_SIZES: [u32; 6] = [0, 64, 128, 256, 512, 1024];
 pub const SAMPLE_RATES: [u32; 3] = [0, 44_100, 48_000];
 pub const SCALES: [f32; 6] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+/// Appearance modes, in the order the top-bar button cycles them.
+pub const APPEARANCES: [&str; 3] = ["dark", "light", "system"];
 pub const BPM_RANGES: [(u32, u32); 5] = [(58, 115), (68, 135), (78, 155), (87, 175), (98, 195)];
 
 impl Settings {
@@ -175,6 +180,9 @@ impl Settings {
         }
         if !["", "en", "de"].contains(&v.language.as_str()) {
             v.language = String::new();
+        }
+        if !APPEARANCES.contains(&v.appearance.as_str()) {
+            v.appearance = "dark".into();
         }
         if !["3band", "blue"].contains(&v.waveform.as_str()) {
             v.waveform = "3band".into();
@@ -239,6 +247,7 @@ pub struct Overrides {
     pub colorblind_safe: Option<bool>,
     pub high_contrast: Option<bool>,
     pub reduced_motion: Option<bool>,
+    pub appearance: Option<String>,
 }
 
 impl Overrides {
@@ -262,6 +271,10 @@ impl Overrides {
         }
         if let Some(b) = self.reduced_motion {
             s.view.reduced_motion = b;
+        }
+        if let Some(a) = &self.appearance {
+            s.view.appearance = a.clone();
+            s = s.sanitized();
         }
         s
     }
@@ -318,6 +331,7 @@ mod tests {
         s.view.key_notation = "openkey".into();
         s.view.scale = 1.25;
         s.view.high_contrast = true;
+        s.view.appearance = "system".into();
         s.analysis.bpm_min = 78;
         s.analysis.bpm_max = 155;
         s.recording.format = "flac".into();
@@ -331,6 +345,9 @@ mod tests {
         let s = Settings::from_json(r#"{"view": {"scale": 9.0, "key_notation": "solfege"}, "audio": {"buffer": 512}}"#);
         assert_eq!(s.view.scale, 1.0);
         assert_eq!(s.view.key_notation, "camelot");
+        assert_eq!(s.view.appearance, "dark");
+        assert_eq!(Settings::from_json(r#"{"view": {"appearance": "sepia"}}"#).view.appearance, "dark");
+        assert_eq!(Settings::from_json(r#"{"view": {"appearance": "light"}}"#).view.appearance, "light");
         assert_eq!(s.audio.buffer, 512);
         assert_eq!(s.audio.headphones, "auto");
         assert!(s.analysis.auto_analyse);

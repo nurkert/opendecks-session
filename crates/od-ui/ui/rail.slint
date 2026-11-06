@@ -4,7 +4,7 @@
 import { ListView } from "std-widgets.slint";
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, Glyph } from "controls.slint";
+import { Caps, Glyph, TipArea } from "controls.slint";
 import { TreeRow } from "structs.slint";
 
 component SectionTick inherits Rectangle {
@@ -103,7 +103,7 @@ export component TreeItem inherits Rectangle {
         background: Theme.plate-raised;
         border-width: 1px; border-color: Theme.live;
         Glyph { kind: "plus"; tone: Theme.bone; }
-        TouchArea { mouse-cursor: pointer; clicked => { root.add(); } }
+        TipArea { tooltip: @tr("Add the selected tracks to this list"); mouse-cursor: pointer; clicked => { root.add(); } }
     }
 }
 
