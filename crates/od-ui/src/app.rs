@@ -26,6 +26,9 @@ pub struct AppConfig {
     pub key_notation: KeyNotation,
     /// "de" selects German; anything else English.
     pub language: String,
+    /// Fixed window size in logical pixels (e.g. to emulate a Pi display);
+    /// disables full screen in kiosk mode.
+    pub window: Option<(u32, u32)>,
 }
 
 pub(crate) struct State {
@@ -202,7 +205,22 @@ impl App {
         ui.set_kiosk(config.kiosk);
         if config.kiosk {
             ui.set_mode("perform".into());
-            ui.window().set_fullscreen(true);
+            ui.set_browser_open(false);
+        }
+        match config.window {
+            Some((w, h)) => {
+                let size = slint::LogicalSize::new(w as f32, h as f32);
+                ui.window().set_size(size);
+                // The first layout pass may resize the window; apply again once shown.
+                let weak = ui.as_weak();
+                slint::Timer::single_shot(std::time::Duration::from_millis(150), move || {
+                    if let Some(ui) = weak.upgrade() {
+                        ui.window().set_size(size);
+                    }
+                });
+            }
+            None if config.kiosk => ui.window().set_fullscreen(true),
+            None => {}
         }
         let (wtx, wrx) = unbounded();
         let analysis = Rc::new(AnalysisWorker::start(config.library_path.clone(), config.lite, wtx.clone()));

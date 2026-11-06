@@ -50,8 +50,8 @@ export component AppWindow inherits Window {
     title: "OpenDecks Session";
     preferred-width: 1440px;
     preferred-height: 900px;
-    min-width: 1180px;
-    min-height: 640px;
+    min-width: root.kiosk ? 480px : 1180px;
+    min-height: root.kiosk ? 320px : 640px;
     background: Theme.ground;
     default-font-family: Theme.family;
     default-font-size: Theme.body;
@@ -124,6 +124,9 @@ export component AppWindow inherits Window {
     in property <string> engine-message;
     in property <bool> focus-mode;
     in property <int> focus-deck: 1;
+    // Library browser below the decks (kiosk: a separate screen).
+    in-out property <bool> browser-open: true;
+    in property <bool> small-screen;
 
     // Status band.
     in property <float> analysis-progress;
@@ -469,8 +472,12 @@ export component AppWindow inherits Window {
             // ── Perform ───────────────────────────────────────────────
             if root.mode == "perform": VerticalLayout {
               horizontal-stretch: 1;
-              PerformView {
+              if !(root.kiosk && root.browser-open): PerformView {
                 vertical-stretch: 3;
+                show-browse-button: root.kiosk;
+                tight: root.small-screen;
+                browser-open: root.browser-open;
+                toggle-browser => { root.browser-open = !root.browser-open; }
                 decks: root.decks;
                 recording: root.recording;
                 recording-time: root.recording-time;
@@ -489,7 +496,7 @@ export component AppWindow inherits Window {
                 set-deck-count(n) => { root.set-deck-count(n); }
               }
               // Library browser: browse encoder moves, press loads.
-              Rectangle {
+              if root.browser-open: Rectangle {
                 vertical-stretch: 1;
                 min-height: 160px;
                 HLine { y: 0; width: parent.width; tone: Theme.rule; }
@@ -499,6 +506,11 @@ export component AppWindow inherits Window {
                     HorizontalLayout {
                         spacing: 10px;
                         height: 32px;
+                        if root.kiosk: PlateButton {
+                            horizontal-stretch: 0; compact: true;
+                            label: @tr("DECKS"); tone: Theme.w486;
+                            clicked => { root.browser-open = false; }
+                        }
                         Caps { text: root.node-title + "  ·  " + root.node-sub; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; }
                         Field {

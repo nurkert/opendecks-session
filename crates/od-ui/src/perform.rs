@@ -263,6 +263,9 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
 /// playing (Perform) or start the preview (Prepare).
 pub(crate) fn load_selected_into_free_deck(app: &App) {
     let Some(track) = app.state.borrow().current else { return };
+    if app.state.borrow().config.kiosk {
+        app.ui.set_browser_open(false);
+    }
     if app.ui.get_mode() == "prepare" {
         toggle_preview(app);
         return;
@@ -486,6 +489,7 @@ fn handle_action(app: &App, action: ControlAction) {
         ControlAction::HeadphoneLevel(v) => send(app, Command::Mixer(MixerCommand::SetHeadphoneLevel(v))),
         ControlAction::Browse(b) => match b {
             BrowseAction::Rotate { delta, .. } => {
+                app.ui.set_browser_open(true);
                 let (len, cur) = {
                     let st = app.state.borrow();
                     (app.ui.get_tracks().iter_len(), st.current)
@@ -496,7 +500,12 @@ fn handle_action(app: &App, action: ControlAction) {
                     app.ui.invoke_key_pressed(slint::SharedString::from(key), false, false);
                 }
             }
-            BrowseAction::Press { .. } => load_selected_into_free_deck(app),
+            BrowseAction::Press { .. } => {
+                load_selected_into_free_deck(app);
+                if app.state.borrow().config.kiosk {
+                    app.ui.set_browser_open(false);
+                }
+            }
             BrowseAction::Back => {
                 if app.state.borrow().config.kiosk {
                     app.cycle_list(true);
@@ -572,6 +581,11 @@ fn feedback(app: &App) {
 }
 
 fn frame(app: &App) {
+    let scale = app.ui.window().scale_factor();
+    let small = (app.ui.window().size().height as f32 / scale) < 620.0;
+    if app.ui.get_small_screen() != small {
+        app.ui.set_small_screen(small);
+    }
     // Prepared tracks → engine.
     let prepared: Vec<Prepared> = app.perform.borrow().prepared_rx.try_iter().collect();
     for pr in prepared {

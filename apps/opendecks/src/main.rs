@@ -7,6 +7,7 @@
 //!   --scale <factor>    UI scale factor
 //!   --lang en|de        interface language (default: from the system)
 //!   --keys camelot|openkey|musical
+//!   --window WxH        fixed window size (emulate a Pi display)
 
 use od_core::KeyNotation;
 
@@ -26,6 +27,7 @@ fn main() -> anyhow::Result<()> {
     let mut kiosk = false;
     let mut lang = std::env::var("LANG").unwrap_or_default();
     let mut keys = KeyNotation::Camelot;
+    let mut window = None;
     while let Some(a) = args.next() {
         match a.as_str() {
             "--library" => library = args.next().map(Into::into).unwrap_or(library),
@@ -38,6 +40,12 @@ fn main() -> anyhow::Result<()> {
                 }
             }
             "--lang" => lang = args.next().unwrap_or_default(),
+            "--window" => {
+                window = args.next().and_then(|v| {
+                    let (w, h) = v.split_once('x')?;
+                    Some((w.parse().ok()?, h.parse().ok()?))
+                })
+            }
             "--keys" => {
                 keys = match args.next().as_deref() {
                     Some("openkey") => KeyNotation::OpenKey,
@@ -53,5 +61,5 @@ fn main() -> anyhow::Result<()> {
         }
     }
     tracing::info!(library = %library.display(), lite, kiosk, "starting OpenDecks Session");
-    od_ui::run(od_ui::AppConfig { library_path: library, lite, kiosk, key_notation: keys, language: lang })
+    od_ui::run(od_ui::AppConfig { library_path: library, lite, kiosk, key_notation: keys, language: lang, window })
 }

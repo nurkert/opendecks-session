@@ -53,7 +53,8 @@ export component DeckPlate inherits Rectangle {
         color: root.tone;
     }
 
-    VerticalLayout {
+    min-height: body.min-height;
+    body := VerticalLayout {
         x: 52px; width: parent.width - 60px;
         padding-top: 8px; padding-bottom: 8px;
         spacing: 6px;
@@ -149,6 +150,9 @@ export component PerformView inherits Rectangle {
     in property <string> engine-message;
     in property <bool> focus-mode;
     in property <int> focus-deck: 1;
+    in property <bool> show-browse-button;
+    in property <bool> browser-open;
+    callback toggle-browser();
     callback toggle-play(int);
     callback cue(int);
     callback sync(int);
@@ -157,19 +161,28 @@ export component PerformView inherits Rectangle {
     callback toggle-recording();
     callback set-deck-count(int);
 
+    // Small screens (7" Pi display): compact deck plates. Set from Rust
+    // from the window size (a layout-derived value would be recursive).
+    in property <bool> tight;
     VerticalLayout {
-        padding: 16px;
-        spacing: 10px;
+        padding: root.tight ? 10px : 16px;
+        spacing: root.tight ? 6px : 10px;
         HorizontalLayout {
-            spacing: 18px;
-            height: 40px;
+            spacing: root.tight ? 10px : 18px;
+            height: root.tight ? 32px : 40px;
             Text {
                 text: "PERFORM";
-                font-family: Theme.family; font-size: Theme.rank-b; font-weight: 600; letter-spacing: 4px;
+                font-family: Theme.family; font-size: root.tight ? 17px : Theme.rank-b; font-weight: 600; letter-spacing: root.tight ? 3px : 4px;
                 color: Theme.bone; vertical-alignment: center;
             }
             Caps { text: root.engine-ready ? @tr("MASTER {} BPM", root.master-bpm) : root.engine-message; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; }
+            if root.show-browse-button: PlateButton {
+                horizontal-stretch: 0; compact: true;
+                label: root.browser-open ? @tr("DECKS") : @tr("BROWSE");
+                tone: Theme.w486; active: root.browser-open;
+                clicked => { root.toggle-browser(); }
+            }
             PlateButton { horizontal-stretch: 0; compact: true; label: @tr("2 DECKS"); active: root.decks.length == 2; clicked => { root.set-deck-count(2); } }
             PlateButton { horizontal-stretch: 0; compact: true; label: @tr("4 DECKS"); active: root.decks.length == 4; clicked => { root.set-deck-count(4); } }
             PlateButton {
@@ -184,7 +197,7 @@ export component PerformView inherits Rectangle {
         for d[i] in root.decks: DeckPlate {
             vertical-stretch: 1;
             deck: d;
-            compact: root.decks.length > 2;
+            compact: root.decks.length > 2 || root.tight;
             visible: !root.focus-mode || d.deck == root.focus-deck;
             toggle-play => { root.toggle-play(d.deck); }
             cue => { root.cue(d.deck); }
