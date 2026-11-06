@@ -56,7 +56,8 @@ cargo build --release -p opendecks -p od-cli
 ```
 
 Options: `--library <path>`, `--profile lite|full`, `--kiosk`,
-`--scale <factor>`, `--lang en|de`, `--keys camelot|openkey|musical`.
+`--scale <factor>`, `--lang en|de`, `--keys camelot|openkey|musical`,
+`--colorblind`, `--high-contrast`, `--no-motion`, `--window WxH`.
 
 Packages: `packaging/macos/build-dmg.sh` (.app/.dmg),
 `packaging/linux/build-appimage.sh` (AppImage),

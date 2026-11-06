@@ -8,6 +8,8 @@ import { DeviceRow, VolumeRow } from "structs.slint";
 export component DeviceLine inherits Rectangle {
     in property <DeviceRow> device;
     in property <bool> roomy: false;
+    // Selection: a single sodium tick, never a fill.
+    in property <bool> selected: false;
     callback sync();
     callback eject();
     callback open();
@@ -24,6 +26,10 @@ export component DeviceLine inherits Rectangle {
         device.state == "error" ? Theme.fault :
         device.state == "syncing" ? Theme.attention : Theme.bone-3;
 
+    if root.selected: Rectangle {
+        x: -14px; y: 18px; width: 10px; height: 2px;
+        background: Theme.attention;
+    }
     if root.device.state != "syncing": VLine { x: 0; y: 8px; height: parent.height - 16px; form: root.form; tone: root.tone; }
     // Syncing: the dashed line fills up to solid by progress.
     if root.device.state == "syncing": Rectangle {

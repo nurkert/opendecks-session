@@ -13,6 +13,17 @@ const BONE_DIM: [u8; 3] = [0x6E, 0x6A, 0x62];
 const LOW: [u8; 3] = [0xEF, 0x5A, 0x5A];
 const MID: [u8; 3] = [0x82, 0xD1, 0x6B];
 const HIGH: [u8; 3] = [0x4F, 0xB8, 0xF0];
+/// Colour-blind-safe band marks (Okabe–Ito vermillion, bluish green, sky blue).
+const LOW_CB: [u8; 3] = [0xD5, 0x5E, 0x00];
+const MID_CB: [u8; 3] = [0x00, 0x9E, 0x73];
+const HIGH_CB: [u8; 3] = [0x56, 0xB4, 0xE9];
+
+static COLORBLIND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// Switches waveform band marks to the colour-blind-safe palette.
+pub fn set_colorblind_safe(on: bool) {
+    COLORBLIND.store(on, std::sync::atomic::Ordering::Relaxed);
+}
 const BEAT: [u8; 3] = [0x3A, 0x39, 0x36];
 const DOWNBEAT: [u8; 3] = [0x8B, 0x86, 0x7B];
 /// 589 nm, dimmed: phrase ticks on the overview.
@@ -25,7 +36,9 @@ fn band_mark(c: &WaveformColumn) -> Option<[u8; 3]> {
     if sum < 30.0 {
         return None;
     }
-    let (best, share) = [(LOW, l), (MID, m), (HIGH, h)]
+    let cb = COLORBLIND.load(std::sync::atomic::Ordering::Relaxed);
+    let (low, mid, high) = if cb { (LOW_CB, MID_CB, HIGH_CB) } else { (LOW, MID, HIGH) };
+    let (best, share) = [(low, l), (mid, m), (high, h)]
         .into_iter()
         .map(|(rgb, v)| (rgb, v / sum))
         .max_by(|a, b| a.1.total_cmp(&b.1))?;

@@ -29,6 +29,10 @@ pub struct AppConfig {
     /// Fixed window size in logical pixels (e.g. to emulate a Pi display);
     /// disables full screen in kiosk mode.
     pub window: Option<(u32, u32)>,
+    pub colorblind_safe: bool,
+    pub high_contrast: bool,
+    /// Animations; always off in the Lite profile.
+    pub motion: bool,
 }
 
 pub(crate) struct State {
@@ -203,6 +207,13 @@ impl App {
             od_i18n::set_language(od_i18n::Language::German);
         }
         ui.set_kiosk(config.kiosk);
+        {
+            let theme = ui.global::<crate::Theme>();
+            theme.set_colorblind_safe(config.colorblind_safe);
+            theme.set_high_contrast(config.high_contrast);
+            theme.set_motion(config.motion && !config.lite);
+            crate::render::set_colorblind_safe(config.colorblind_safe);
+        }
         if config.kiosk {
             ui.global::<crate::Theme>().set_row_height(44.0);
         }

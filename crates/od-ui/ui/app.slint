@@ -321,7 +321,7 @@ export component AppWindow inherits Window {
                                 for d in root.devices: DeviceLine {
                                     device: d;
                                     roomy: true;
-                                    background: d.id == root.device-selected ? Theme.ground-band : transparent;
+                                    selected: d.id == root.device-selected;
                                     sync => { root.sync-device(d.id); }
                                     eject => { root.eject-device(d.id); }
                                     open => { root.open-device(d.id); }

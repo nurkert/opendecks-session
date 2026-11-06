@@ -51,10 +51,6 @@ component TreeItem inherits Rectangle {
         x: Theme.rail-x - 6px; y: parent.height / 2 - 1px; width: 14px; height: 2px;
         background: Theme.attention;
     }
-    if root.selected: Rectangle {
-        x: Theme.rail-x - 6px; y: parent.height / 2 + 2px; width: 14px; height: 1px;
-        background: Theme.attention;
-    }
     property <length> indent: Theme.rail-x + 20px + root.item.depth * 14px;
 
     if root.item.has-children: Rectangle {

@@ -1,0 +1,722 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-06T12:25:01.440642+00:00",
+  "title": "Design System: OpenDecks Session",
+  "extensions": {
+    "colorMeta": {
+      "ground": {
+        "role": "neutral",
+        "displayName": "Charcoal Ground",
+        "canonical": "#151514",
+        "oklch": "oklch(19.5% 0.002 106.6)",
+        "tonalRamp": [
+          "#0B0B0A",
+          "#252524",
+          "#424241",
+          "#616160",
+          "#828281",
+          "#A5A5A4",
+          "#C9C9C8",
+          "#EEEEED"
+        ]
+      },
+      "ground-band": {
+        "role": "neutral",
+        "displayName": "Band Charcoal",
+        "canonical": "#1A1A19",
+        "oklch": "oklch(21.7% 0.002 106.6)",
+        "tonalRamp": [
+          "#0B0B0A",
+          "#252524",
+          "#424241",
+          "#616160",
+          "#828281",
+          "#A5A5A4",
+          "#C9C9C8",
+          "#EEEEED"
+        ]
+      },
+      "plate": {
+        "role": "neutral",
+        "displayName": "Ash Plate",
+        "canonical": "#21211F",
+        "oklch": "oklch(24.7% 0.004 106.7)",
+        "tonalRamp": [
+          "#0B0B09",
+          "#252523",
+          "#424240",
+          "#61615F",
+          "#828280",
+          "#A5A5A2",
+          "#C9C9C6",
+          "#EFEFEC"
+        ]
+      },
+      "plate-raised": {
+        "role": "neutral",
+        "displayName": "Raised Ash",
+        "canonical": "#2A2A27",
+        "oklch": "oklch(28.4% 0.005 106.7)",
+        "tonalRamp": [
+          "#0B0B09",
+          "#252522",
+          "#42423F",
+          "#61615E",
+          "#82827F",
+          "#A5A5A1",
+          "#C9C9C5",
+          "#EFEFEB"
+        ]
+      },
+      "rule": {
+        "role": "neutral",
+        "displayName": "Rule",
+        "canonical": "#33322F",
+        "oklch": "oklch(31.7% 0.005 91.6)",
+        "tonalRamp": [
+          "#0C0B09",
+          "#262522",
+          "#43423F",
+          "#62615E",
+          "#83827F",
+          "#A6A5A1",
+          "#CAC9C5",
+          "#F0EEEA"
+        ]
+      },
+      "rule-strong": {
+        "role": "neutral",
+        "displayName": "Strong Rule",
+        "canonical": "#4B4A46",
+        "oklch": "oklch(40.9% 0.007 95.2)",
+        "tonalRamp": [
+          "#0C0B08",
+          "#262521",
+          "#43423E",
+          "#62615D",
+          "#83827E",
+          "#A6A5A0",
+          "#CAC9C4",
+          "#F0EEEA"
+        ]
+      },
+      "bone": {
+        "role": "neutral",
+        "displayName": "Bone",
+        "canonical": "#E6E0D2",
+        "oklch": "oklch(90.8% 0.020 87.5)",
+        "tonalRamp": [
+          "#0F0B03",
+          "#29251A",
+          "#464236",
+          "#666155",
+          "#878275",
+          "#AAA597",
+          "#CFC9BB",
+          "#F4EEE0"
+        ]
+      },
+      "bone-2": {
+        "role": "neutral",
+        "displayName": "Bone 2",
+        "canonical": "#B7B1A4",
+        "oklch": "oklch(76.2% 0.019 86.2)",
+        "tonalRamp": [
+          "#0F0B03",
+          "#29251A",
+          "#474136",
+          "#666155",
+          "#878275",
+          "#AAA498",
+          "#CFC9BB",
+          "#F4EEE0"
+        ]
+      },
+      "bone-3": {
+        "role": "neutral",
+        "displayName": "Bone 3",
+        "canonical": "#8B867B",
+        "oklch": "oklch(62.1% 0.017 86.5)",
+        "tonalRamp": [
+          "#0E0B04",
+          "#29251C",
+          "#464238",
+          "#656156",
+          "#878277",
+          "#AAA599",
+          "#CEC9BD",
+          "#F3EEE2"
+        ]
+      },
+      "w405-violet": {
+        "role": "tertiary",
+        "displayName": "Violet 405 (deck 4)",
+        "canonical": "#9B7BFF",
+        "oklch": "oklch(67.4% 0.188 291.7)",
+        "tonalRamp": [
+          "#170047",
+          "#2D006A",
+          "#48268E",
+          "#6649B3",
+          "#866CD9",
+          "#A890FF",
+          "#CBB4FF",
+          "#F0DAFF"
+        ]
+      },
+      "w436-indigo": {
+        "role": "tertiary",
+        "displayName": "Indigo 436",
+        "canonical": "#7C83FF",
+        "oklch": "oklch(66.4% 0.181 277.8)",
+        "tonalRamp": [
+          "#0E0049",
+          "#1D066C",
+          "#343090",
+          "#5053B6",
+          "#6E75DC",
+          "#8F99FF",
+          "#B2BEFF",
+          "#D6E4FF"
+        ]
+      },
+      "w486-cyan": {
+        "role": "tertiary",
+        "displayName": "Cyan 486 (deck 1)",
+        "canonical": "#4FB8F0",
+        "oklch": "oklch(74.4% 0.125 235.4)",
+        "tonalRamp": [
+          "#000A30",
+          "#002950",
+          "#004872",
+          "#006995",
+          "#358CB9",
+          "#5BAFDE",
+          "#80D4FF",
+          "#A6FAFF"
+        ]
+      },
+      "w546-green": {
+        "role": "secondary",
+        "displayName": "Green 546 (live)",
+        "canonical": "#82D16B",
+        "oklch": "oklch(78.6% 0.157 139.0)",
+        "tonalRamp": [
+          "#001400",
+          "#003200",
+          "#0E5100",
+          "#33721E",
+          "#559542",
+          "#78B965",
+          "#9BDE88",
+          "#C0FFAD"
+        ]
+      },
+      "w589-sodium": {
+        "role": "primary",
+        "displayName": "Sodium 589",
+        "canonical": "#F5CE4A",
+        "oklch": "oklch(86.2% 0.151 92.2)",
+        "tonalRamp": [
+          "#1D0200",
+          "#3B1E00",
+          "#5A3D00",
+          "#7B5D00",
+          "#9E7F00",
+          "#C2A235",
+          "#E7C65E",
+          "#FFEC84"
+        ]
+      },
+      "w615-orange": {
+        "role": "tertiary",
+        "displayName": "Orange 615 (deck 2)",
+        "canonical": "#F39047",
+        "oklch": "oklch(74.5% 0.148 54.4)",
+        "tonalRamp": [
+          "#2C0000",
+          "#4E0100",
+          "#712800",
+          "#964900",
+          "#BB6B2F",
+          "#E18E53",
+          "#FFB277",
+          "#FFD89C"
+        ]
+      },
+      "w656-deep-red": {
+        "role": "secondary",
+        "displayName": "Deep Red 656 (fault)",
+        "canonical": "#EF5A5A",
+        "oklch": "oklch(66.4% 0.184 23.6)",
+        "tonalRamp": [
+          "#360000",
+          "#5B0000",
+          "#810013",
+          "#A83033",
+          "#CF5553",
+          "#F87975",
+          "#FF9D97",
+          "#FFC3BC"
+        ]
+      },
+      "w405-violet-cb": {
+        "role": "tertiary",
+        "displayName": "Violet 405 (deck 4) (colour-blind safe)",
+        "canonical": "#CC79A7",
+        "oklch": "oklch(67.9% 0.118 346.3)",
+        "tonalRamp": [
+          "#230013",
+          "#44072F",
+          "#66284D",
+          "#89486D",
+          "#AD698F",
+          "#D38BB2",
+          "#FAAFD7",
+          "#FFD4FC"
+        ]
+      },
+      "w486-cyan-cb": {
+        "role": "tertiary",
+        "displayName": "Cyan 486 (deck 1) (colour-blind safe)",
+        "canonical": "#56B4E9",
+        "oklch": "oklch(73.5% 0.117 236.2)",
+        "tonalRamp": [
+          "#000A2E",
+          "#00294E",
+          "#00486F",
+          "#136992",
+          "#3E8BB6",
+          "#63AFDB",
+          "#87D4FF",
+          "#ACFAFF"
+        ]
+      },
+      "w546-green-cb": {
+        "role": "secondary",
+        "displayName": "Green 546 (live) (colour-blind safe)",
+        "canonical": "#009E73",
+        "oklch": "oklch(62.0% 0.130 165.5)",
+        "tonalRamp": [
+          "#001601",
+          "#003417",
+          "#005333",
+          "#007452",
+          "#2F9772",
+          "#58BB94",
+          "#7EE0B8",
+          "#A4FFDD"
+        ]
+      },
+      "w589-sodium-cb": {
+        "role": "primary",
+        "displayName": "Sodium 589 (colour-blind safe)",
+        "canonical": "#F0E442",
+        "oklch": "oklch(90.2% 0.172 105.0)",
+        "tonalRamp": [
+          "#170700",
+          "#322400",
+          "#4F4300",
+          "#6F6300",
+          "#908600",
+          "#B3A91D",
+          "#D8CE4F",
+          "#FDF477"
+        ]
+      },
+      "w615-orange-cb": {
+        "role": "tertiary",
+        "displayName": "Orange 615 (deck 2) (colour-blind safe)",
+        "canonical": "#E69F00",
+        "oklch": "oklch(75.3% 0.158 76.8)",
+        "tonalRamp": [
+          "#260000",
+          "#461200",
+          "#683300",
+          "#8B5300",
+          "#AF7500",
+          "#D49831",
+          "#FABD5B",
+          "#FFE281"
+        ]
+      },
+      "w656-deep-red-cb": {
+        "role": "secondary",
+        "displayName": "Deep Red 656 (fault) (colour-blind safe)",
+        "canonical": "#D55E00",
+        "oklch": "oklch(62.1% 0.170 47.5)",
+        "tonalRamp": [
+          "#310000",
+          "#550000",
+          "#7A1A00",
+          "#A03F00",
+          "#C66228",
+          "#ED864E",
+          "#FFAA72",
+          "#FFD097"
+        ]
+      },
+      "ground-hc": {
+        "role": "neutral",
+        "displayName": "Charcoal Ground (high contrast)",
+        "canonical": "#0B0B0B",
+        "oklch": "oklch(15.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "ground-band-hc": {
+        "role": "neutral",
+        "displayName": "Band Charcoal (high contrast)",
+        "canonical": "#121212",
+        "oklch": "oklch(18.2% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "plate-hc": {
+        "role": "neutral",
+        "displayName": "Ash Plate (high contrast)",
+        "canonical": "#1C1C1B",
+        "oklch": "oklch(22.6% 0.002 106.6)",
+        "tonalRamp": [
+          "#0B0B0A",
+          "#252524",
+          "#424241",
+          "#616160",
+          "#828281",
+          "#A5A5A4",
+          "#C9C9C8",
+          "#EEEEED"
+        ]
+      },
+      "rule-hc": {
+        "role": "neutral",
+        "displayName": "Rule (high contrast)",
+        "canonical": "#4B4A46",
+        "oklch": "oklch(40.9% 0.007 95.2)",
+        "tonalRamp": [
+          "#0C0B08",
+          "#262521",
+          "#43423E",
+          "#62615D",
+          "#83827E",
+          "#A6A5A0",
+          "#CAC9C4",
+          "#F0EEEA"
+        ]
+      },
+      "bone-hc": {
+        "role": "neutral",
+        "displayName": "Bone (high contrast)",
+        "canonical": "#FFFFFF",
+        "oklch": "oklch(100.0% 0.000 89.9)",
+        "tonalRamp": [
+          "#0B0B0B",
+          "#252525",
+          "#424242",
+          "#616161",
+          "#828282",
+          "#A5A5A5",
+          "#C9C9C9",
+          "#EEEEEE"
+        ]
+      },
+      "bone-2-hc": {
+        "role": "neutral",
+        "displayName": "Bone 2 (high contrast)",
+        "canonical": "#E6E0D2",
+        "oklch": "oklch(90.8% 0.020 87.5)",
+        "tonalRamp": [
+          "#0F0B03",
+          "#29251A",
+          "#464236",
+          "#666155",
+          "#878275",
+          "#AAA597",
+          "#CFC9BB",
+          "#F4EEE0"
+        ]
+      },
+      "bone-3-hc": {
+        "role": "neutral",
+        "displayName": "Bone 3 (high contrast)",
+        "canonical": "#B7B1A4",
+        "oklch": "oklch(76.2% 0.019 86.2)",
+        "tonalRamp": [
+          "#0F0B03",
+          "#29251A",
+          "#474136",
+          "#666155",
+          "#878275",
+          "#AAA498",
+          "#CFC9BB",
+          "#F4EEE0"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Deck numerals (34px, 26px compact) and kiosk BPM/REMAIN readouts."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "List and section titles, PERFORM title, track-plate readings (at 500)."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Selected track on the plate; deck titles 18/15px; stick and recording names 15px."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Table cells, tree names, prose."
+      },
+      "nav": {
+        "displayName": "Rail Section",
+        "purpose": "Rail section labels, tracked caps."
+      },
+      "button-label": {
+        "displayName": "Plate Label",
+        "purpose": "Plate button caps; compact 11px / 1.4px."
+      },
+      "label": {
+        "displayName": "Index Caps",
+        "purpose": "Table headers, readout labels, metadata legends (10px and 9px sub-steps)."
+      }
+    },
+    "shadows": [],
+    "lineWeights": [
+      {
+        "name": "hair",
+        "value": "1px",
+        "highContrast": "2px",
+        "purpose": "Rules, outlines, marker lines, playhead strands."
+      },
+      {
+        "name": "line",
+        "value": "2px",
+        "purpose": "Deck, device, cue and lead lines."
+      },
+      {
+        "name": "line-selected",
+        "value": "3px",
+        "purpose": "Selected set-flow position only."
+      },
+      {
+        "name": "dash",
+        "value": "4px on / 3px off (7px period)",
+        "purpose": "Dashed form for lines and active outlines."
+      },
+      {
+        "name": "double-gap",
+        "value": "3px",
+        "purpose": "Gap between the two strands of a doubled line."
+      }
+    ],
+    "motion": [
+      {
+        "name": "spring",
+        "value": "cubic-bezier(0.34, 1.4, 0.64, 1)",
+        "duration": "320ms",
+        "purpose": "Device syncing fill (dashed to solid) with one damped overshoot. Only consumer in the build; overshoot unverified by recording."
+      },
+      {
+        "name": "progress",
+        "value": "ease-out",
+        "duration": "180ms",
+        "purpose": "Progress line fill."
+      },
+      {
+        "name": "rail-tick",
+        "value": "ease-out",
+        "duration": "160ms",
+        "purpose": "Current section tick lengthening."
+      },
+      {
+        "name": "plate-hover",
+        "value": "linear",
+        "duration": "90ms",
+        "purpose": "Plate button background on hover / press."
+      },
+      {
+        "name": "motion-off",
+        "value": "0ms",
+        "purpose": "Every animation is gated on Theme.motion."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "kiosk-min",
+        "value": "480x320",
+        "purpose": "Kiosk window minimum; 44px rows and touch plates."
+      },
+      {
+        "name": "kiosk-small",
+        "value": "800x480",
+        "purpose": "Tight perform layout (set from Rust by window size): compact deck plates, transport row dropped."
+      },
+      {
+        "name": "desktop-min",
+        "value": "1180x640"
+      },
+      {
+        "name": "desktop-preferred",
+        "value": "1440x900"
+      }
+    ],
+    "groundTexture": {
+      "value": "640x4 vertical banding, random walk of +/-3 levels around #151514, stretched over the window",
+      "source": "crates/od-ui/src/render.rs ground_texture()"
+    },
+    "waveform": {
+      "column": "bone-2 #B7B1A4 hairline every 2px, dimmed #6E6A62 for played audio, on #1A1A19",
+      "bandMark": "1px at column top in 656 (low) / 546 (mid) / 486 (high) when one band holds >55% of energy",
+      "beatTick": "#3A3936 (1/8 height) ; downbeat #8B867B (1/4 height), top and bottom",
+      "phraseTick": "dimmed sodium #B89B3A every 16 bars in overview margins"
+    }
+  },
+  "components": [
+    {
+      "name": "Plate Button",
+      "kind": "button",
+      "refersTo": "button-plate",
+      "description": "Outlined square plate led by a 2px emission line in its wavelength; hover warms to ash plate, press to raised ash.",
+      "html": "<button class=\"ds-plate\" style=\"--tone:#82D16B\">ADD MUSIC</button>",
+      "css": ".ds-plate{position:relative;height:32px;padding:0 30px 0 22px;background:transparent;border:1px solid #4B4A46;border-radius:0;color:#E6E0D2;font-family:'Barlow Semi Condensed',sans-serif;font-size:12px;font-weight:500;letter-spacing:1.8px;cursor:pointer;transition:background 90ms linear}.ds-plate::before{content:'';position:absolute;left:10px;top:6px;bottom:6px;width:2px;background:var(--tone,#8B867B)}.ds-plate:hover{background:#21211F}.ds-plate:active{background:#2A2A27}.ds-plate:focus-visible{outline:1px dashed var(--tone,#8B867B);outline-offset:-1px}"
+    },
+    {
+      "name": "Plate Button (active)",
+      "kind": "button",
+      "refersTo": "button-plate",
+      "description": "Toggled-on plate: the outline turns dashed in the plate's tone.",
+      "html": "<button class=\"ds-plate-active\">PLAY</button>",
+      "css": ".ds-plate-active{position:relative;height:26px;padding:0 30px 0 22px;background:transparent;border:1px dashed #82D16B;border-radius:0;color:#E6E0D2;font-family:'Barlow Semi Condensed',sans-serif;font-size:11px;font-weight:500;letter-spacing:1.4px;cursor:pointer;transition:background 90ms linear}.ds-plate-active::before{content:'';position:absolute;left:10px;top:6px;bottom:6px;width:2px;background:#82D16B}.ds-plate-active:hover{background:#21211F}"
+    },
+    {
+      "name": "Plate Button (disabled)",
+      "kind": "button",
+      "refersTo": "button-plate-disabled",
+      "description": "Disabled plate: lead line dimmed to 45% and struck by a deep-red tick; label bone-3.",
+      "html": "<button class=\"ds-plate-off\" disabled>+10 MS</button>",
+      "css": ".ds-plate-off{position:relative;height:26px;padding:0 30px 0 22px;background:transparent;border:1px solid #4B4A46;border-radius:0;color:#8B867B;font-family:'Barlow Semi Condensed',sans-serif;font-size:11px;font-weight:500;letter-spacing:1.4px}.ds-plate-off::before{content:'';position:absolute;left:10px;top:6px;bottom:6px;width:2px;background:rgba(139,134,123,.45)}.ds-plate-off::after{content:'';position:absolute;left:6px;top:50%;width:10px;height:1px;background:#EF5A5A}"
+    },
+    {
+      "name": "Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Text field on an ash plate with a hairline lead line; focus dashes the outline in the field's tone.",
+      "html": "<label class=\"ds-field\"><input placeholder=\"SEARCH  ⌘F\"></label>",
+      "css": ".ds-field{position:relative;display:block;height:32px;background:#21211F;border:1px solid #33322F}.ds-field::before{content:'';position:absolute;left:10px;top:8px;bottom:8px;width:1px;background:#8B867B}.ds-field input{width:100%;height:100%;box-sizing:border-box;padding:0 8px 0 22px;background:transparent;border:0;outline:0;color:#E6E0D2;font-family:'Barlow Semi Condensed',sans-serif;font-size:14px}.ds-field input::placeholder{color:#8B867B;font-size:12px;letter-spacing:1.4px}.ds-field:focus-within{border:1px dashed #4FB8F0}.ds-field:focus-within::before{background:#4FB8F0}"
+    },
+    {
+      "name": "Rail",
+      "kind": "nav",
+      "refersTo": "rail",
+      "description": "Section ticks hanging off the off-centre rail; the current tick lengthens in the section's wavelength.",
+      "html": "<nav class=\"ds-rail\"><a class=\"ds-tick ds-cur\" style=\"--tone:#4FB8F0\">LIBRARY<small>TRACKS &amp; PLAYLISTS</small></a><a class=\"ds-tick\" style=\"--tone:#82D16B\">DEVICES<small>USB STICKS</small></a><a class=\"ds-tick\" style=\"--tone:#EF5A5A\">RECORDINGS<small>MIXES</small></a></nav>",
+      "css": ".ds-rail{position:relative;width:232px;padding:8px 0;background:#151514;border-left:0}.ds-rail::before{content:'';position:absolute;left:28px;top:0;bottom:0;width:1px;background:#4B4A46}.ds-tick{position:relative;display:block;height:40px;padding:6px 0 0 48px;box-sizing:border-box;color:#B7B1A4;font-family:'Barlow Semi Condensed',sans-serif;font-size:13px;font-weight:600;letter-spacing:2.2px;cursor:pointer}.ds-tick small{display:block;color:#8B867B;font-size:10px;font-weight:500;letter-spacing:1.6px}.ds-tick::before{content:'';position:absolute;left:22px;top:14px;width:12px;height:1px;background:#8B867B;transition:width 160ms ease-out}.ds-tick:hover{color:#E6E0D2}.ds-cur{color:#E6E0D2}.ds-cur::before{width:18px;height:2px;background:var(--tone)}"
+    },
+    {
+      "name": "Track Row",
+      "kind": "custom",
+      "refersTo": "track-row",
+      "description": "Bone legends in tabular columns; selection is a sodium tick at the left, never a fill.",
+      "html": "<div class=\"ds-row ds-sel\"><span class=\"ds-t\">Kommissar (Original Mix)</span><span class=\"ds-a\">Pazoo, NoooN</span><span class=\"ds-n\">170.0</span><span class=\"ds-n\">3A</span><span class=\"ds-n ds-d\">2:44</span></div><div class=\"ds-row\"><span class=\"ds-t\">Urgi (Original Mix)</span><span class=\"ds-a\">Etzu Mahkayah</span><span class=\"ds-n\">127.0</span><span class=\"ds-n\">11A</span><span class=\"ds-n ds-d\">6:52</span></div>",
+      "css": ".ds-row{position:relative;display:flex;gap:12px;align-items:center;height:28px;padding:0 12px 0 16px;color:#B7B1A4;font-family:'Barlow Semi Condensed',sans-serif;font-size:14px;background:#151514}.ds-row:hover{background:#1A1A19}.ds-t{flex:3}.ds-a{flex:2;color:#8B867B}.ds-n{width:52px;text-align:right;font-variant-numeric:tabular-nums}.ds-d{color:#8B867B}.ds-sel{color:#E6E0D2}.ds-sel .ds-t{font-weight:500}.ds-sel .ds-a{color:#B7B1A4}.ds-sel::before{content:'';position:absolute;left:0;top:13px;width:12px;height:2px;background:#F5CE4A}"
+    },
+    {
+      "name": "Device Line",
+      "kind": "custom",
+      "refersTo": "device-line",
+      "description": "One stick, one line: solid green in sync, dashed sodium pending, struck error, syncing fills dashed to solid.",
+      "html": "<div class=\"ds-dev\"><i class=\"ds-dev-line\"></i><b>Red Stick</b><span>In sync · 11:35</span><small>29.0 GB FREE OF 994.7 GB · PIONEER + OPENDECKS</small></div><div class=\"ds-dev\"><i class=\"ds-dev-line ds-pending\"></i><b>Blue Stick</b><span>3 changes pending</span><small>14.2 GB FREE</small></div>",
+      "css": ".ds-dev{position:relative;height:64px;padding:8px 0 0 18px;box-sizing:border-box;background:#151514;font-family:'Barlow Semi Condensed',sans-serif;}.ds-dev b{display:block;color:#E6E0D2;font-size:15px;font-weight:600}.ds-dev span{display:block;color:#8B867B;font-size:12px;letter-spacing:.6px}.ds-dev small{display:block;color:#8B867B;font-size:10px;font-weight:500;letter-spacing:1.6px}.ds-dev-line{position:absolute;left:0;top:8px;bottom:8px;width:2px;background:#82D16B}.ds-pending{background:repeating-linear-gradient(to bottom,#F5CE4A 0 4px,transparent 4px 7px)}"
+    },
+    {
+      "name": "Hot Cue Ruler",
+      "kind": "custom",
+      "refersTo": "track-row",
+      "description": "Letters A to H on a strong-rule baseline: set cues solid in their colour, empty slots dashed bone-3.",
+      "html": "<div class=\"ds-ruler\"><span style=\"--c:#82D16B\" class=\"ds-set\">A<em>0:32</em></span><span style=\"--c:#4FB8F0\" class=\"ds-set\">B<em>1:04</em></span><span>C</span><span>D</span><span>E</span><span>F</span><span>G</span><span>H</span></div>",
+      "css": ".ds-ruler{display:flex;height:52px;border-bottom:0;background:#151514;position:relative;font-family:'Barlow Semi Condensed',sans-serif;}.ds-ruler::after{content:'';position:absolute;left:0;right:0;bottom:18px;height:1px;background:#4B4A46}.ds-ruler span{position:relative;flex:1;padding:2px 0 0 12px;color:#8B867B;font-size:14px;font-weight:600}.ds-ruler span::before{content:'';position:absolute;left:6px;top:4px;bottom:18px;width:1px;background:repeating-linear-gradient(to bottom,#8B867B 0 4px,transparent 4px 7px)}.ds-ruler span:hover{background:#21211F}.ds-ruler .ds-set{color:#E6E0D2}.ds-ruler .ds-set::before{width:2px;background:var(--c)}.ds-ruler em{position:absolute;left:4px;bottom:2px;font-style:normal;font-size:10px;font-weight:400;color:#8B867B}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Emission-Line Rail",
+    "overview": "OpenDecks Session is a calibrated instrument, not a dashboard. Every surface registers against one vertical rail set off-centre at the left edge (28px in from the window), and every signal (deck, cue point, sync state, harmonic fit, transition clash) appears as a 1 to 2px emission line at one of seven fixed wavelengths on a charcoal continuum. Bone legends set in one condensed grotesque carry the words; the lines carry the state. The result reads like a spectrograph plate: dense, quiet, and exact, legible in a dark club, on a bright terrace (high-contrast variant), and on a 7\" Pi touchscreen.\n\nState is carried by the form of a line, never by its hue alone. Solid means live or in sync, dashed means pending or out of date, half-height means stale or missing, struck (dimmed line crossed by a deep-red tick) means error or disabled, and doubled means the element outranks its neighbours. Colour is a second, redundant channel, and every deck colour sits next to its numeral, every cue colour next to its letter.\n\nThe world refuses the category default of grey panels, glowing neon waveforms, gradients and boxed widgets. Containers are not drawn; columns are separated by single hairline rules and alignment. Waveforms are bone hairline columns with charcoal gaps; colour enters them only as a 1px band mark where one frequency band clearly dominates.",
+    "keyCharacteristics": [
+      "One off-centre rail that brand, sections, the library tree and selection ticks all hang from.",
+      "Colour only as hairline emission lines, deck numerals, cue letters and short semantic legends.",
+      "State by line form: solid, dashed, half, struck, double.",
+      "Outlined plates, never filled buttons or rounded cards; square corners everywhere except the rail's two terminal nodes.",
+      "One family (Barlow Semi Condensed), ranked by size, tracking and ink.",
+      "Flat: no shadows, no glow, no gradients; depth is three steps of charcoal."
+    ],
+    "rules": [
+      {
+        "name": "The Second Channel Rule",
+        "body": "Colour never carries state alone. Every coloured line also has a form, every deck colour sits beside its numeral, every cue colour beside its letter.",
+        "section": "colors"
+      },
+      {
+        "name": "The Fixed Wavelength Rule",
+        "body": "Each wavelength keeps its role across the product: deck 1 = 486, deck 2 = 615, deck 3 = 546, deck 4 = 405; live = 546, attention = 589, fault = 656. Never introduce an eighth hue or a tint between lines.",
+        "section": "colors"
+      },
+      {
+        "name": "The Doubled Sodium Rule",
+        "body": "A doubled sodium line means \"this is where now is\" or \"this needs you\": playheads and preview cursors, a track loaded on a deck, changes from players awaiting review. A master deck is its own deck line doubled. Do not double anything else.",
+        "section": "colors"
+      },
+      {
+        "name": "The Ink Rank Rule",
+        "body": "Hierarchy is size, tracking and ink (bone, bone-2, bone-3), not colour. Coloured text is limited to deck numerals, fault messages and short semantic legends such as LOCKED.",
+        "section": "typography"
+      },
+      {
+        "name": "The Tabular Column Rule",
+        "body": "BPM, KEY, TIME and RATING sit right-aligned in fixed columns (58, 46, 52, 74px) so values read down the page like a register.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat Plate Rule",
+        "body": "Surfaces never lift. A press darkens to raised ash; a hover warms to ash plate; nothing casts a shadow or emits light.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do carry every state in line form first (solid live, dashed pending, half stale/missing, struck error/disabled, double outranks) and in colour second.",
+      "Do pair every deck colour with its numeral and every cue colour with its letter.",
+      "Do mark selection with a sodium tick on the rail side, not a background.",
+      "Do build buttons as outlined square plates led by a short emission line; show the active state with a dashed outline.",
+      "Do keep text in the three bone inks and rank it by size and tracking; set legends in tracked caps.",
+      "Do draw glyphs as hairline paths and waveforms as bone hairline columns with 1px band marks.",
+      "Do raise touch targets to 44px in kiosk (rows, perform header plates, kiosk browser field).",
+      "Do gate every animation on the motion switch, at 0ms when off."
+    ],
+    "donts": [
+      "Don't use gradients, glow, blur or drop shadows anywhere, including on waveforms and playheads.",
+      "Don't box content into cards or panels, and don't round corners; columns are separated by hairline rules only.",
+      "Don't fill a waveform with colour or tint it by frequency; colour enters only as a 1px mark on dominant-band columns.",
+      "Don't let colour be the only carrier of state, and don't add a hue outside the seven wavelengths.",
+      "Don't use doubled sodium for anything other than playheads and cursors, a track loaded on a deck, or something that needs the DJ's attention.",
+      "Don't use typed symbols or an icon font for glyphs; draw hairline paths.",
+      "Don't resemble rekordbox or any AlphaTheta / Pioneer DJ visual identity."
+    ]
+  }
+}

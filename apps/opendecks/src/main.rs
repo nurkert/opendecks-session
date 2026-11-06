@@ -8,6 +8,9 @@
 //!   --lang en|de        interface language (default: from the system)
 //!   --keys camelot|openkey|musical
 //!   --window WxH        fixed window size (emulate a Pi display)
+//!   --colorblind        colour-blind-safe palette
+//!   --high-contrast     high-contrast palette (bright light)
+//!   --no-motion         no animations (always off in the Lite profile)
 
 use od_core::KeyNotation;
 
@@ -28,6 +31,7 @@ fn main() -> anyhow::Result<()> {
     let mut lang = std::env::var("LANG").unwrap_or_default();
     let mut keys = KeyNotation::Camelot;
     let mut window = None;
+    let (mut colorblind_safe, mut high_contrast, mut motion) = (false, false, true);
     while let Some(a) = args.next() {
         match a.as_str() {
             "--library" => library = args.next().map(Into::into).unwrap_or(library),
@@ -40,6 +44,9 @@ fn main() -> anyhow::Result<()> {
                 }
             }
             "--lang" => lang = args.next().unwrap_or_default(),
+            "--colorblind" => colorblind_safe = true,
+            "--high-contrast" => high_contrast = true,
+            "--no-motion" => motion = false,
             "--window" => {
                 window = args.next().and_then(|v| {
                     let (w, h) = v.split_once('x')?;
@@ -54,12 +61,12 @@ fn main() -> anyhow::Result<()> {
                 }
             }
             "--help" | "-h" => {
-                println!("opendecks [--library PATH] [--profile lite|full] [--kiosk] [--scale F] [--lang en|de] [--keys camelot|openkey|musical]");
+                println!("opendecks [--library PATH] [--profile lite|full] [--kiosk] [--scale F] [--lang en|de] [--keys camelot|openkey|musical] [--colorblind] [--high-contrast] [--no-motion] [--window WxH]");
                 return Ok(());
             }
             other => anyhow::bail!("unknown option {other}"),
         }
     }
     tracing::info!(library = %library.display(), lite, kiosk, "starting OpenDecks Session");
-    od_ui::run(od_ui::AppConfig { library_path: library, lite, kiosk, key_notation: keys, language: lang, window })
+    od_ui::run(od_ui::AppConfig { library_path: library, lite, kiosk, key_notation: keys, language: lang, window, colorblind_safe, high_contrast, motion })
 }
