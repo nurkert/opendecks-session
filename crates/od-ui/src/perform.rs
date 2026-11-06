@@ -65,6 +65,7 @@ pub(crate) struct Perform {
     timer: slint::Timer,
     last_frame: Instant,
     controller_name: Option<String>,
+    loaded_from_stick: bool,
 }
 
 impl Default for Perform {
@@ -88,6 +89,7 @@ impl Default for Perform {
             timer: slint::Timer::default(),
             last_frame: Instant::now(),
             controller_name: None,
+            loaded_from_stick: false,
         }
     }
 }
@@ -240,7 +242,7 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
         title: t.tags.title.clone(),
         artist: t.tags.artist.clone(),
         key: t.key.map(|k| k.format(st.config.key_notation)).unwrap_or_default(),
-        overview: render::overview(&analysis.waveform, (900.0 * scale) as u32, (30.0 * scale) as u32),
+        overview: render::overview(&analysis.waveform, &analysis.beatgrid, t.duration, (900.0 * scale) as u32, (30.0 * scale) as u32),
         waveform: analysis.waveform.clone(),
         grid: analysis.beatgrid.clone(),
         cues: marks,
@@ -251,6 +253,7 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
     drop(st);
     app.ui.set_engine_message(format!("Loading {} …", meta.title).into());
     app.perform.borrow_mut().pending[deck] = Some(meta);
+    app.perform.borrow_mut().loaded_from_stick = app.state.borrow().read_only();
     std::thread::spawn(move || match TrackData::load(track, &path, rate, grid, &cues, gain) {
         Ok(data) => {
             let _ = tx.send(Prepared { deck, data, play_from });
@@ -280,6 +283,18 @@ pub(crate) fn load_selected_into_free_deck(app: &App) {
         (0..count).find(|&d| !playing[d] && p.loaded[d].is_none()).or_else(|| (0..count).find(|&d| !playing[d])).unwrap_or(0)
     };
     load_track(app, deck, track, None);
+}
+
+impl Perform {
+    /// Tracks currently loaded on decks (preview deck excluded), 0-based decks.
+    pub(crate) fn loaded_decks(&self) -> Vec<(TrackId, usize)> {
+        (0..self.deck_count).filter_map(|d| self.loaded[d].as_ref().map(|l| (l.id, d))).collect()
+    }
+
+    /// Whether loaded tracks came from a stick (ids then refer to it).
+    pub(crate) fn source_is_stick(&self) -> bool {
+        self.loaded_from_stick
+    }
 }
 
 pub(crate) fn toggle_preview(app: &App) {
@@ -594,6 +609,7 @@ fn frame(app: &App) {
         let Some(meta) = meta else { continue };
         let title = meta.title.clone();
         app.perform.borrow_mut().loaded[deck] = Some(meta);
+        app.refresh_tracks();
         deck_cmd(app, deck, DeckCommand::Load(pr.data));
         if let Some(t) = play_from {
             deck_cmd(app, deck, DeckCommand::Seek { seconds: t });
@@ -723,7 +739,7 @@ fn frame(app: &App) {
         .collect();
     drop(p);
     app.ui.set_decks(ModelRc::new(VecModel::from(decks)));
-    app.ui.set_master_bpm(format!("{:.1}", state.master_bpm).into());
+    app.ui.set_master_bpm(if state.master_deck.is_some() { format!("{:.1}", state.master_bpm) } else { String::new() }.into());
     app.ui.set_crossfader((state.crossfader + 1.0) / 2.0);
     app.ui.set_engine_ready(true);
     if let Some(h) = app.perform.borrow().host.as_ref() {
@@ -806,6 +822,7 @@ pub(crate) fn wire(app: &Rc<App>) {
                 if let (Ok(d), Ok(t)) = (d.trim().parse::<usize>(), t.trim().parse::<i64>()) {
                     if (1..=DECKS).contains(&d) {
                         load_track(app, d - 1, TrackId(t), None);
+                        app.ui.set_browser_open(false);
                     }
                 }
             }

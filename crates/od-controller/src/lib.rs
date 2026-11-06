@@ -9,10 +9,13 @@
 //! - [`output`]: diffed, rate-limited LED/meter output.
 //! - [`monitor`] and [`learn`]: MIDI monitor and MIDI learn.
 //! - `io` (feature `midi-io`): midir port discovery, hot-plug, threads.
+//! - [`flx10_settings`]: DDJ-FLX10 device settings as USB vendor control
+//!   transfers (rusb device access behind feature `usb-settings`).
 
 pub mod action;
 pub mod device_module;
 pub mod feedback;
+pub mod flx10_settings;
 #[cfg(feature = "midi-io")]
 pub mod io;
 pub mod learn;

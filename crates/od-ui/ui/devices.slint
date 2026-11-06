@@ -24,7 +24,18 @@ export component DeviceLine inherits Rectangle {
         device.state == "error" ? Theme.fault :
         device.state == "syncing" ? Theme.attention : Theme.bone-3;
 
-    VLine { x: 0; y: 8px; height: parent.height - 16px; form: root.form; tone: root.tone; }
+    if root.device.state != "syncing": VLine { x: 0; y: 8px; height: parent.height - 16px; form: root.form; tone: root.tone; }
+    // Syncing: the dashed line fills up to solid by progress.
+    if root.device.state == "syncing": Rectangle {
+        x: 0; y: 8px; width: Theme.line; height: parent.height - 16px;
+        VLine { height: parent.height; form: "dashed"; tone: Theme.attention.with-alpha(0.6); }
+        Rectangle {
+            y: parent.height * (1 - clamp(root.device.progress, 0, 1));
+            height: parent.height * clamp(root.device.progress, 0, 1);
+            background: Theme.live;
+            animate y, height { duration: Theme.motion ? 320ms : 0ms; easing: Theme.spring; }
+        }
+    }
     Text {
         x: 18px; y: 8px; width: parent.width - 176px;
         text: root.device.name;
@@ -39,12 +50,7 @@ export component DeviceLine inherits Rectangle {
         color: root.device.state == "error" ? Theme.fault : Theme.bone-3;
         overflow: elide;
     }
-    if root.device.state == "syncing": ProgressLine {
-        x: 18px; y: 50px; width: parent.width - 176px;
-        progress: root.device.progress;
-        tone: Theme.attention;
-    }
-    if root.device.state != "syncing": Caps {
+    Caps {
         x: 18px; y: 46px;
         text: root.device.space + (root.device.formats == "" ? "" : "  ·  " + root.device.formats);
         font-size: 10px;

@@ -32,6 +32,8 @@ export struct TrackRow {
     selected: bool,
     // Transition note in sets.
     note: string,
+    // Deck (1-based) the track is loaded on, 0 if none.
+    deck: int,
 }
 
 export struct CueMark {

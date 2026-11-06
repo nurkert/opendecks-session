@@ -128,6 +128,7 @@ export component AppWindow inherits Window {
     // Library browser below the decks (kiosk: a separate screen).
     in-out property <bool> browser-open: true;
     in property <bool> small-screen;
+    in property <image> ground-texture;
 
     // Status band.
     in property <float> analysis-progress;
@@ -188,6 +189,8 @@ export component AppWindow inherits Window {
     callback key-pressed(string, bool, bool) -> bool;
 
     forward-focus: keys;
+    // The charcoal continuum behind everything.
+    Image { width: root.width; height: root.height; source: root.ground-texture; image-fit: fill; }
     keys := FocusScope {
         key-pressed(event) => {
             if (root.key-pressed(event.text, event.modifiers.control || event.modifiers.meta, event.modifiers.shift)) {
@@ -251,10 +254,10 @@ export component AppWindow inherits Window {
                                 edited(t) => { root.search(t); }
                             }
                             if !root.read-only: PlateButton { compact: true; label: @tr("ADD MUSIC"); tone: Theme.live; clicked => { root.import-folder(); } }
-                            if !root.read-only: PlateButton { compact: true; label: @tr("PLAYLIST"); glyph: "+"; clicked => { root.create-node("playlist"); } }
-                            if !root.read-only: PlateButton { compact: true; label: @tr("SET"); glyph: "+"; tone: Theme.attention; clicked => { root.create-node("set"); } }
-                            if !root.read-only: PlateButton { compact: true; label: @tr("SMART"); glyph: "+"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
-                            if !root.read-only: PlateButton { compact: true; label: @tr("FOLDER"); glyph: "+"; clicked => { root.create-node("folder"); } }
+                            if !root.read-only: PlateButton { compact: true; label: @tr("PLAYLIST"); glyph: "plus"; clicked => { root.create-node("playlist"); } }
+                            if !root.read-only: PlateButton { compact: true; label: @tr("SET"); glyph: "plus"; tone: Theme.attention; clicked => { root.create-node("set"); } }
+                            if !root.read-only: PlateButton { compact: true; label: @tr("SMART"); glyph: "plus"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
+                            if !root.read-only: PlateButton { compact: true; label: @tr("FOLDER"); glyph: "plus"; clicked => { root.create-node("folder"); } }
                             if root.node-kind != "all" && !root.read-only: PlateButton { compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
                         }
                         if root.section == "library" && root.node-kind == "smart": VerticalLayout {
@@ -430,7 +433,6 @@ export component AppWindow inherits Window {
                             analyse => { root.analyse-selected(); }
                             toggle-preview => { root.toggle-preview(); }
                         }
-                        Rectangle { vertical-stretch: 1; }
                         DeviceBoard {
                             devices: root.devices;
                             volumes: root.volumes;
@@ -440,6 +442,7 @@ export component AppWindow inherits Window {
                             open(id) => { root.open-device(id); }
                             register(i) => { root.register-volume(i); }
                         }
+                        Rectangle { vertical-stretch: 1; }
                     }
                 }
 

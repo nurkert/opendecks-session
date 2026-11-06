@@ -11,6 +11,9 @@ default = ["midi-io"]
 # Real MIDI I/O through midir (CoreMIDI on macOS, ALSA on Linux). Without it
 # the mapping, feedback, monitor and learn logic still builds and is testable.
 midi-io = ["dep:midir"]
+# DDJ-FLX10 device settings over USB vendor control transfers (needs libusb).
+# The pure encoder in `flx10_settings` builds without it.
+usb-settings = ["dep:rusb"]
 
 [dependencies]
 od-core.workspace = true
@@ -20,6 +23,7 @@ thiserror.workspace = true
 tracing.workspace = true
 crossbeam-channel.workspace = true
 midir = { version = "0.11", optional = true }
+rusb = { version = "0.9", optional = true }
 
 [[example]]
 name = "midi_monitor"

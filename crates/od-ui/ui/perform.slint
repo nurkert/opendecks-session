@@ -41,8 +41,10 @@ export component DeckPlate inherits Rectangle {
     callback seek(float);
     callback hot-cue(int);
 
+    in property <bool> large-readouts;
+    // Kiosk: touch-sized transport and hot cue plates.
+    in property <bool> touch;
     property <color> tone: Theme.deck-color(root.deck.deck);
-    background: Theme.ground;
 
     // Deck line and numeral.
     VLine { x: 0; y: 0; height: parent.height; weight: 2px; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
@@ -74,10 +76,10 @@ export component DeckPlate inherits Rectangle {
                     overflow: elide;
                 }
             }
-            Readout { label: "BPM"; value: root.deck.bpm; size: root.compact ? 18px : 24px; }
+            Readout { label: "BPM"; value: root.deck.bpm; size: root.large-readouts ? 34px : root.compact ? 18px : 28px; }
             Readout { label: @tr("TEMPO"); value: root.deck.tempo; size: root.compact ? 14px : 16px; tone: Theme.bone-2; }
-            Readout { label: @tr("KEY"); value: root.deck.key; size: root.compact ? 18px : 24px; }
-            Readout { label: @tr("REMAIN"); value: root.deck.remaining; size: root.compact ? 18px : 24px; }
+            Readout { label: @tr("KEY"); value: root.deck.key; size: root.large-readouts ? 26px : root.compact ? 18px : 24px; }
+            Readout { label: @tr("REMAIN"); value: root.deck.remaining; size: root.large-readouts ? 34px : root.compact ? 18px : 28px; }
         }
         // Scrolling waveform; the centre line is the playhead.
         Rectangle {
@@ -85,7 +87,11 @@ export component DeckPlate inherits Rectangle {
             min-height: 48px;
             background: Theme.ground-band;
             Image { width: parent.width; height: parent.height; source: root.deck.waveform; image-fit: fill; }
-            VLine { x: parent.width / 2 - 3px; height: parent.height; weight: 1px; form: "double"; tone: Theme.attention; }
+            VLine {
+                x: parent.width / 2 - 3px; height: parent.height; weight: 1px;
+                form: root.deck.loaded ? "double" : "half";
+                tone: root.deck.loaded ? Theme.attention : Theme.rule-strong;
+            }
         }
         // Overview with position and cue lines.
         Rectangle {
@@ -100,7 +106,7 @@ export component DeckPlate inherits Rectangle {
                 tone: c.slot >= 0 ? Theme.cue-color(c.slot) : Theme.bone;
                 form: c.slot >= 0 ? "solid" : "dashed";
             }
-            VLine { x: parent.width * root.deck.progress; height: parent.height; weight: 1px; form: "double"; tone: Theme.attention; }
+            if root.deck.loaded: VLine { x: parent.width * root.deck.progress; height: parent.height; weight: 1px; form: "double"; tone: Theme.attention; }
             TouchArea { clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
         }
         HorizontalLayout {
@@ -116,12 +122,13 @@ export component DeckPlate inherits Rectangle {
         }
         if !root.compact: HorizontalLayout {
             spacing: 6px;
-            PlateButton { compact: true; label: "CUE"; tone: Theme.attention; clicked => { root.cue(); } }
-            PlateButton { compact: true; label: root.deck.playing ? @tr("PAUSE") : @tr("PLAY"); tone: Theme.live; active: root.deck.playing; clicked => { root.toggle-play(); } }
-            PlateButton { compact: true; label: "SYNC"; tone: Theme.w486; active: root.deck.sync; clicked => { root.sync(); } }
+            PlateButton { compact: true; tall: root.touch; label: "CUE"; tone: Theme.attention; clicked => { root.cue(); } }
+            PlateButton { compact: true; tall: root.touch; label: root.deck.playing ? @tr("PAUSE") : @tr("PLAY"); tone: Theme.live; active: root.deck.playing; clicked => { root.toggle-play(); } }
+            PlateButton { compact: true; tall: root.touch; label: "SYNC"; tone: Theme.w486; active: root.deck.sync; clicked => { root.sync(); } }
             Rectangle { horizontal-stretch: 1; }
             for i in 8: PlateButton {
                 compact: true;
+                tall: root.touch;
                 label: ["A", "B", "C", "D", "E", "F", "G", "H"][i];
                 tone: Theme.cue-color(i);
                 clicked => { root.hot-cue(i); }
@@ -169,24 +176,30 @@ export component PerformView inherits Rectangle {
         spacing: root.tight ? 6px : 10px;
         HorizontalLayout {
             spacing: root.tight ? 10px : 18px;
-            height: root.tight ? 32px : 40px;
+            height: root.show-browse-button ? 48px : root.tight ? 32px : 40px;
             Text {
                 text: "PERFORM";
                 font-family: Theme.family; font-size: root.tight ? 17px : Theme.rank-b; font-weight: 600; letter-spacing: root.tight ? 3px : 4px;
                 color: Theme.bone; vertical-alignment: center;
             }
-            Caps { text: root.engine-ready ? @tr("MASTER {} BPM", root.master-bpm) : root.engine-message; vertical-alignment: center; }
+            Caps {
+                text: !root.engine-ready ? root.engine-message : root.master-bpm == "" ? @tr("NO MASTER") : @tr("MASTER {} BPM", root.master-bpm);
+                vertical-alignment: center;
+            }
             Rectangle { horizontal-stretch: 1; }
             if root.show-browse-button: PlateButton {
                 horizontal-stretch: 0; compact: true;
+                tall: root.tight || root.show-browse-button;
                 label: root.browser-open ? @tr("DECKS") : @tr("BROWSE");
                 tone: Theme.w486; active: root.browser-open;
                 clicked => { root.toggle-browser(); }
             }
-            PlateButton { horizontal-stretch: 0; compact: true; label: @tr("2 DECKS"); active: root.decks.length == 2; clicked => { root.set-deck-count(2); } }
-            PlateButton { horizontal-stretch: 0; compact: true; label: @tr("4 DECKS"); active: root.decks.length == 4; clicked => { root.set-deck-count(4); } }
+            PlateButton { horizontal-stretch: 0; compact: true; tall: root.show-browse-button; label: @tr("2 DECKS"); active: root.decks.length == 2; clicked => { root.set-deck-count(2); } }
+            PlateButton { horizontal-stretch: 0; compact: true; tall: root.show-browse-button; label: @tr("4 DECKS"); active: root.decks.length == 4; clicked => { root.set-deck-count(4); } }
             PlateButton {
                 horizontal-stretch: 0;
+                compact: true;
+                tall: root.show-browse-button;
                 label: root.recording ? @tr("REC {}", root.recording-time) : @tr("RECORD");
                 tone: Theme.fault;
                 active: root.recording;
@@ -198,6 +211,8 @@ export component PerformView inherits Rectangle {
             vertical-stretch: 1;
             deck: d;
             compact: root.decks.length > 2 || root.tight;
+            large-readouts: root.tight && root.decks.length <= 2;
+            touch: root.show-browse-button;
             visible: !root.focus-mode || d.deck == root.focus-deck;
             toggle-play => { root.toggle-play(d.deck); }
             cue => { root.cue(d.deck); }

@@ -203,9 +203,11 @@ impl App {
             od_i18n::set_language(od_i18n::Language::German);
         }
         ui.set_kiosk(config.kiosk);
+        ui.set_ground_texture(crate::render::ground_texture());
         if config.kiosk {
             ui.set_mode("perform".into());
-            ui.set_browser_open(false);
+            // Nothing is loaded yet: start on the browse screen.
+            ui.set_browser_open(true);
         }
         match config.window {
             Some((w, h)) => {
@@ -405,7 +407,14 @@ impl App {
                 name: name.clone().into(),
                 kind: "stick".into(),
                 depth: 0,
-                count: open.and_then(|s| s.library.track_count().ok()).unwrap_or(0) as i32,
+                count: match open {
+                    Some(s) => s.library.track_count().unwrap_or(0) as i32,
+                    None => od_format_native::Stick::open(&st.sticks[i].1)
+                        .ok()
+                        .flatten()
+                        .and_then(|s| s.library.track_count().ok())
+                        .unwrap_or(0) as i32,
+                },
                 length_frac: 0.0,
                 duration: SharedString::new(),
                 has_children: false,
@@ -451,10 +460,11 @@ impl App {
         self.ui.set_selected_node(selected);
     }
 
-    fn refresh_tracks(&self) {
+    pub(crate) fn refresh_tracks(&self) {
         let st = self.state.borrow();
         let current_key = st.current.and_then(|id| st.rows.iter().find(|t| t.id == id)).and_then(|t| t.key);
         let kind = st.node_kind();
+        let loaded = if st.read_only() == self.perform.borrow().source_is_stick() { self.perform.borrow().loaded_decks() } else { Vec::new() };
         let entries = match (st.node, kind) {
             (Some(n), Some(NodeKind::Set)) => st.src().entries(n).unwrap_or_default(),
             _ => vec![],
@@ -486,6 +496,7 @@ impl App {
                 missing: t.missing,
                 selected: st.selection.contains(&i),
                 note: SharedString::new(),
+                deck: loaded.iter().find(|(id, _)| *id == t.id).map(|(_, d)| *d as i32 + 1).unwrap_or(0),
             })
             .collect();
         let total: f64 = st.rows.iter().map(|t| t.duration).sum();
@@ -578,7 +589,7 @@ impl App {
         );
         self.ui.set_grid_locked(grid.as_ref().is_some_and(|(g, _)| g.locked));
         let scale = self.ui.window().scale_factor();
-        self.ui.set_track_overview(render::overview(&analysis.waveform, (300.0 * scale) as u32, (92.0 * scale) as u32));
+        self.ui.set_track_overview(render::overview(&analysis.waveform, &analysis.beatgrid, t.duration, (300.0 * scale) as u32, (92.0 * scale) as u32));
         let marks: Vec<CueMark> = cues
             .iter()
             .map(|c| {
@@ -626,7 +637,7 @@ impl App {
                     DeviceState::InSync => (
                         "in-sync",
                         match s.device.last_sync.as_deref() {
-                            Some(t) => format!("In sync · {}", &t[..16.min(t.len())].replace('T', " ")),
+                            Some(t) => format!("In sync · {}", t.get(11..16).unwrap_or(t)),
                             None => "In sync".to_string(),
                         },
                         1.0,

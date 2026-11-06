@@ -4,6 +4,24 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 
+// Hairline marks drawn as paths instead of typed characters.
+export component Glyph inherits Path {
+    in property <string> kind: "plus";
+    in property <color> tone: Theme.bone-2;
+    width: 10px;
+    height: 10px;
+    viewbox-width: 10;
+    viewbox-height: 10;
+    stroke: root.tone;
+    stroke-width: 1.2px;
+    commands: kind == "plus" ? "M 5 0 L 5 10 M 0 5 L 10 5"
+        : kind == "minus" ? "M 0 5 L 10 5"
+        : kind == "up" ? "M 5 10 L 5 1 M 1.5 4.5 L 5 1 L 8.5 4.5"
+        : kind == "down" ? "M 5 0 L 5 9 M 1.5 5.5 L 5 9 L 8.5 5.5"
+        : kind == "close" ? "M 1 1 L 9 9 M 9 1 L 1 9"
+        : "M 0 5 L 10 5 M 6 1 L 10 5 L 6 9";
+}
+
 export component Caps inherits Text {
     font-family: Theme.family;
     font-size: Theme.index;
@@ -36,8 +54,9 @@ export component PlateButton inherits Rectangle {
     in property <bool> compact: false;
     callback clicked();
 
+    in property <bool> tall: false;
     min-width: lbl.preferred-width + (glyph != "" ? 22px : 0px) + 30px;
-    height: compact ? 26px : 32px;
+    height: tall ? 44px : compact ? 26px : 32px;
     background: touch.pressed && enabled ? Theme.plate-raised : touch.has-hover && enabled ? Theme.plate : transparent;
     animate background { duration: Theme.motion ? 90ms : 0ms; }
 
@@ -58,14 +77,11 @@ export component PlateButton inherits Rectangle {
         vertical-alignment: center;
         height: parent.height;
     }
-    if root.glyph != "": Text {
-        x: parent.width - 22px;
-        text: root.glyph;
-        font-family: Theme.family;
-        font-size: 15px;
-        color: Theme.bone-2;
-        vertical-alignment: center;
-        height: parent.height;
+    if root.glyph != "": Glyph {
+        x: parent.width - 20px;
+        y: (parent.height - self.height) / 2;
+        kind: root.glyph;
+        tone: Theme.bone-2;
     }
     touch := TouchArea {
         enabled: root.enabled;

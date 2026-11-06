@@ -136,6 +136,10 @@ msgid "UNDO  {}  ⌘Z"
 msgstr "RÜCKGÄNGIG  {}  ⌘Z"
 
 msgctxt "AppWindow"
+msgid "DECKS"
+msgstr "DECKS"
+
+msgctxt "AppWindow"
 msgid "SEARCH"
 msgstr "SUCHEN"
 
@@ -212,8 +216,20 @@ msgid "PAUSE"
 msgstr "PAUSE"
 
 msgctxt "PerformView"
+msgid "NO MASTER"
+msgstr "KEIN MASTER"
+
+msgctxt "PerformView"
 msgid "MASTER {} BPM"
 msgstr "MASTER {} BPM"
+
+msgctxt "PerformView"
+msgid "DECKS"
+msgstr "DECKS"
+
+msgctxt "PerformView"
+msgid "BROWSE"
+msgstr "DURCHSUCHEN"
 
 msgctxt "PerformView"
 msgid "2 DECKS"
@@ -230,10 +246,6 @@ msgstr "REC {}"
 msgctxt "PerformView"
 msgid "RECORD"
 msgstr "AUFNEHMEN"
-
-msgctxt "CueSlot"
-msgid "set"
-msgstr "setzen"
 
 msgctxt "TrackPlate"
 msgid "NO TRACK SELECTED"
@@ -264,8 +276,12 @@ msgid "ANALYSE"
 msgstr "ANALYSIEREN"
 
 msgctxt "TrackPlate"
-msgid "HOT CUES — CLICK AN EMPTY SLOT TO SET IT AT THE CURSOR"
-msgstr "HOT CUES — LEEREN SLOT KLICKEN, UM IHN AM CURSOR ZU SETZEN"
+msgid "HOT CUES"
+msgstr "HOT CUES"
+
+msgctxt "TrackPlate"
+msgid "Click an empty letter to set it at the cursor"
+msgstr "Leeren Buchstaben klicken, um ihn am Cursor zu setzen"
 
 msgctxt "TrackPlate"
 msgid "BEATGRID"
@@ -274,6 +290,14 @@ msgstr "BEATGRID"
 msgctxt "TrackPlate"
 msgid "LOCKED"
 msgstr "GESPERRT"
+
+msgctxt "TrackPlate"
+msgid "HALF"
+msgstr "HALB"
+
+msgctxt "TrackPlate"
+msgid "DOUBLE"
+msgstr "DOPPELT"
 
 msgctxt "TrackPlate"
 msgid "DOWNBEAT AT CURSOR"

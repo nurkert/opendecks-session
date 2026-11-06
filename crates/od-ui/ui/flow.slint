@@ -31,15 +31,18 @@ export component SetFlow inherits Rectangle {
             y: 102px - max(6px, 92px * p.energy);
             height: max(6px, 92px * p.energy);
             weight: i == root.selected ? 3px : 2px;
-            tone: i == root.selected ? Theme.attention : Theme.w486;
+            tone: i == root.selected ? Theme.attention : Theme.bone-2;
         }
-        if root.column-width >= 44px: Text {
-            x: 14px; y: 70px;
+        // Labels: every position when there is room, otherwise every Nth
+        // position and always the selected one.
+        property <bool> labelled: root.column-width >= 44px || i == root.selected || Math.mod(i, Math.ceil(48px / max(1px, root.column-width))) == 0;
+        if labelled: Text {
+            x: 10px; y: 70px;
             text: p.bpm;
             font-family: Theme.family; font-size: 13px; font-weight: 500; color: Theme.bone;
         }
-        if root.column-width >= 44px: Text {
-            x: 14px; y: 86px;
+        if labelled: Text {
+            x: 10px; y: 86px;
             text: p.key;
             font-family: Theme.family; font-size: 12px; color: Theme.bone-2;
         }

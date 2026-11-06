@@ -15,12 +15,12 @@ export global Theme {
     in-out property <bool> motion: true;
 
     // Charcoal continuum.
-    out property <color> ground: high-contrast ? #0B0B0C : #141517;
-    out property <color> ground-band: high-contrast ? #121314 : #18191C;
-    out property <color> plate: high-contrast ? #1C1D20 : #1F2023;
-    out property <color> plate-raised: #26282C;
-    out property <color> rule: high-contrast ? #4A4D53 : #303237;
-    out property <color> rule-strong: #4A4D53;
+    out property <color> ground: high-contrast ? #0B0B0B : #151514;
+    out property <color> ground-band: high-contrast ? #121212 : #1A1A19;
+    out property <color> plate: high-contrast ? #1C1C1B : #21211F;
+    out property <color> plate-raised: #2A2A27;
+    out property <color> rule: high-contrast ? #4B4A46 : #33322F;
+    out property <color> rule-strong: #4B4A46;
 
     // Bone legends (contrast on ground: 13.6:1, 8.7:1, 5.0:1).
     out property <color> bone: high-contrast ? #FFFFFF : #E6E0D2;
@@ -40,6 +40,9 @@ export global Theme {
     out property <color> live: w546;
     out property <color> attention: w589;
     out property <color> fault: w656;
+
+    // State changes slide with one damped overshoot.
+    out property <easing> spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
     // Line weights.
     out property <length> hair: high-contrast ? 2px : 1px;

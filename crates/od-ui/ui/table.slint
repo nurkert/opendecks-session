@@ -4,7 +4,7 @@
 import { ListView } from "std-widgets.slint";
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps } from "controls.slint";
+import { Caps, Glyph } from "controls.slint";
 import { TrackRow } from "structs.slint";
 
 export global Columns {
@@ -23,18 +23,26 @@ component HeaderCell inherits Rectangle {
     in property <bool> descending;
     in property <TextHorizontalAlignment> align: left;
     callback sort(string);
-    Caps {
+    lbl := Caps {
         width: parent.width;
         height: parent.height;
         horizontal-alignment: root.align;
         vertical-alignment: center;
-        text: root.label + (root.sort-column == root.column ? (root.descending ? "  ↓" : "  ↑") : "");
+        text: root.label;
         color: root.sort-column == root.column ? Theme.bone : Theme.bone-3;
+    }
+    if root.sort-column == root.column: Glyph {
+        x: root.align == TextHorizontalAlignment.right ? parent.width - lbl.preferred-width - 14px : lbl.preferred-width + 6px;
+        y: (parent.height - 8px) / 2;
+        width: 8px; height: 8px;
+        kind: root.descending ? "down" : "up";
+        tone: Theme.bone;
     }
     TouchArea { mouse-cursor: pointer; clicked => { root.sort(root.column); } }
 }
 
 component Cell inherits Text {
+    horizontal-alignment: left;
     font-family: Theme.family;
     font-size: Theme.body;
     vertical-alignment: center;
@@ -49,13 +57,23 @@ component TrackLine inherits Rectangle {
     height: Theme.row-height;
     background: touch.has-hover ? Theme.ground-band : transparent;
 
+    // Selection: one horizontal sodium tick on the rail side.
     if root.item.selected: Rectangle {
-        x: 0; y: 6px; width: 2px; height: parent.height - 12px;
+        x: 0; y: parent.height / 2 - 1px; width: 12px; height: 2px;
         background: Theme.attention;
     }
-    if root.item.selected: Rectangle {
-        x: 5px; y: 6px; width: 2px; height: parent.height - 12px;
-        background: Theme.attention;
+    // Loaded on a deck: doubled sodium plus that deck's line and numeral.
+    if root.item.deck > 0: Rectangle {
+        x: 0; width: 30px; height: parent.height;
+        VLine { x: 14px; y: 6px; height: parent.height - 12px; weight: 1px; form: "double"; tone: Theme.attention; }
+        VLine { x: 22px; y: 6px; height: parent.height - 12px; weight: 2px; tone: Theme.deck-color(root.item.deck); }
+        Text {
+            x: 0; height: parent.height; width: 12px;
+            text: root.item.deck;
+            font-family: Theme.family; font-size: 11px; font-weight: 600;
+            color: Theme.deck-color(root.item.deck);
+            vertical-alignment: center; horizontal-alignment: center;
+        }
     }
     property <color> ink: root.item.missing ? Theme.bone-3 : root.item.selected ? Theme.bone : Theme.bone-2;
 
@@ -70,9 +88,18 @@ component TrackLine inherits Rectangle {
             horizontal-alignment: right;
             font-size: 12px;
         }
-        Cell { horizontal-stretch: 3; text: root.item.title; color: root.ink; font-weight: root.item.selected ? 500 : 400; }
-        Cell { horizontal-stretch: 2; text: root.item.artist; color: root.item.selected ? Theme.bone-2 : Theme.bone-3; }
-        Cell { horizontal-stretch: 1; text: root.item.genre; color: Theme.bone-3; font-size: 13px; }
+        Rectangle {
+            horizontal-stretch: 3;
+            Cell { x: 0; width: parent.width; text: root.item.title; color: root.ink; font-weight: root.item.selected ? 500 : 400; }
+        }
+        Rectangle {
+            horizontal-stretch: 2;
+            Cell { x: 0; width: parent.width; text: root.item.artist; color: root.item.selected ? Theme.bone-2 : Theme.bone-3; }
+        }
+        Rectangle {
+            horizontal-stretch: 1;
+            Cell { x: 0; width: parent.width; text: root.item.genre; color: Theme.bone-3; font-size: 13px; }
+        }
         Cell { width: Columns.bpm; text: root.item.bpm; color: root.ink; horizontal-alignment: right; }
         Rectangle {
             width: Columns.key;
@@ -104,10 +131,10 @@ component TrackLine inherits Rectangle {
                 }
             }
         }
-        // Analysis state: solid analysed, half-height pending, struck missing file.
+        // Analysis state: nothing when analysed, half-height pending, struck missing file.
         Rectangle {
             width: Columns.state;
-            VLine {
+            if root.item.missing || !root.item.analysed: VLine {
                 x: parent.width / 2; y: 7px; height: parent.height - 14px; weight: 1px;
                 tone: root.item.missing ? Theme.fault : root.item.analysed ? Theme.bone-3 : Theme.attention;
                 form: root.item.missing ? "struck" : root.item.analysed ? "solid" : "half";
