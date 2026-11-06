@@ -2,9 +2,15 @@
 //!
 //! Root folders are user-chosen and kept in the library meta
 //! (`explorer.roots`, a JSON list; `~/Music` until the user changes it).
-//! Folders are listed lazily when expanded. Selecting a folder lists its
-//! audio files in the track table at once (file names, or library data for
-//! files already in the collection); tags are read in the background and
+//! Every root is a tree of its sub-folders, to any depth. Folders are listed
+//! lazily: a folder's sub-folders are read when it is expanded (or selected),
+//! and each listed sub-folder is probed once for whether it has sub-folders
+//! of its own, so the expand mark only shows where there is something to
+//! expand. Selecting a folder expands it and lists its audio files in the
+//! track table at once (file names, or library data for files already in
+//! the collection); with "include subfolders" (`explorer.recursive`, kept in
+//! the library meta) the files of all its sub-folders are listed as well —
+//! rekordbox only lists the folder itself. Tags are read in the background and
 //! fill in as they arrive. Loading a file adds it to the collection through
 //! the same import as ADD MUSIC, queues its analysis and then loads it to a
 //! deck (Perform) or the preview player (Prepare). Files are never copied.
@@ -23,6 +29,11 @@ use std::path::{Path, PathBuf};
 use std::rc::Rc;
 
 const META_ROOTS: &str = "explorer.roots";
+const META_RECURSIVE: &str = "explorer.recursive";
+/// Recursive listing stops at this folder depth below the opened folder.
+pub(crate) const MAX_DEPTH: usize = 32;
+/// Recursive listing stops after this many files (huge trees stay usable).
+pub(crate) const MAX_FILES: usize = 20_000;
 
 /// One audio file of the open folder.
 #[derive(Clone, Debug, Default, PartialEq)]
@@ -99,6 +110,10 @@ pub(crate) struct ExplorerState {
     pub expanded: HashSet<PathBuf>,
     /// Sub-folders of listed folders.
     children: HashMap<PathBuf, Vec<PathBuf>>,
+    /// Whether a not yet listed folder has sub-folders (probed once).
+    has_subdirs: HashMap<PathBuf, bool>,
+    /// List the files of sub-folders too ("include subfolders").
+    pub recursive: bool,
     /// Folder paths of the sidebar rows, by row id.
     visible: Vec<PathBuf>,
     /// The folder shown in the track list, if any.
@@ -153,10 +168,50 @@ pub(crate) fn list_dir(dir: &Path) -> (Vec<PathBuf>, Vec<PathBuf>) {
     (dirs, files)
 }
 
+/// Whether `dir` has at least one sub-folder the Explorer shows. Stops at the
+/// first one found.
+pub(crate) fn has_subdirs(dir: &Path) -> bool {
+    let Ok(read) = std::fs::read_dir(dir) else { return false };
+    read.flatten().any(|e| {
+        !hidden_dir(&e.file_name().to_string_lossy()) && std::fs::metadata(e.path()).is_ok_and(|m| m.is_dir())
+    })
+}
+
+/// Audio files of `dir`. With `recursive`, the files of all sub-folders
+/// follow the folder's own files, depth first, each folder sorted by name
+/// (hidden and player data folders skipped, symlink loops followed once, at
+/// most [`MAX_DEPTH`] levels and [`MAX_FILES`] files).
+pub(crate) fn list_files(dir: &Path, recursive: bool) -> Vec<PathBuf> {
+    if !recursive {
+        return list_dir(dir).1;
+    }
+    fn walk(dir: &Path, depth: usize, seen: &mut HashSet<PathBuf>, out: &mut Vec<PathBuf>) {
+        if out.len() >= MAX_FILES {
+            return;
+        }
+        let real = std::fs::canonicalize(dir).unwrap_or_else(|_| dir.to_path_buf());
+        if !seen.insert(real) {
+            return;
+        }
+        let (dirs, files) = list_dir(dir);
+        let room = MAX_FILES - out.len();
+        out.extend(files.into_iter().take(room));
+        if depth < MAX_DEPTH {
+            for d in dirs {
+                walk(&d, depth + 1, seen, out);
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(dir, 0, &mut HashSet::new(), &mut out);
+    out
+}
+
 impl ExplorerState {
     pub fn load(lib: &Library) -> Self {
         let stored = lib.meta(META_ROOTS).ok().flatten();
-        Self { roots: parse_roots(stored.as_deref(), default_root()), ..Default::default() }
+        let recursive = lib.meta(META_RECURSIVE).ok().flatten().is_some_and(|v| v == "1");
+        Self { roots: parse_roots(stored.as_deref(), default_root()), recursive, ..Default::default() }
     }
 
     fn save(&self, lib: &mut Library) {
@@ -189,13 +244,40 @@ impl ExplorerState {
         *selection = self.files.iter().enumerate().filter(|(_, f)| selected.contains(&f.path)).map(|(i, _)| i).collect();
     }
 
-    /// Sub-folders of `dir`, listed on first use.
+    /// Sub-folders of `dir`, listed on first use. Each sub-folder is probed
+    /// for sub-folders of its own (one level, not listed).
     fn children_of(&mut self, dir: &Path) -> &[PathBuf] {
         if !self.children.contains_key(dir) {
             let (dirs, _) = list_dir(dir);
+            for d in &dirs {
+                self.has_subdirs.insert(d.clone(), has_subdirs(d));
+            }
             self.children.insert(dir.to_path_buf(), dirs);
         }
         &self.children[dir]
+    }
+
+    /// Whether `dir` gets an expand mark.
+    fn expandable(&mut self, dir: &Path) -> bool {
+        if let Some(c) = self.children.get(dir) {
+            return !c.is_empty();
+        }
+        *self.has_subdirs.entry(dir.to_path_buf()).or_insert_with(|| has_subdirs(dir))
+    }
+
+    /// Expands or collapses `dir`. Expanding re-lists it (folders change on
+    /// disk).
+    pub fn toggle(&mut self, dir: &Path) {
+        if !self.expanded.remove(dir) {
+            self.expand(dir);
+        }
+    }
+
+    /// Expands `dir`, re-reading its sub-folders.
+    pub fn expand(&mut self, dir: &Path) {
+        self.children.remove(dir);
+        self.has_subdirs.remove(dir);
+        self.expanded.insert(dir.to_path_buf());
     }
 
     /// Sidebar rows for the roots and expanded folders.
@@ -204,8 +286,7 @@ impl ExplorerState {
         let mut paths = Vec::new();
         fn walk(st: &mut ExplorerState, dir: &Path, depth: i32, root: bool, out: &mut Vec<ExplorerRow>, paths: &mut Vec<PathBuf>) {
             let expanded = st.expanded.contains(dir);
-            // Unlisted folders may have children until we look.
-            let has_children = st.children.get(dir).is_none_or(|c| !c.is_empty());
+            let has_children = st.expandable(dir);
             let name = if root { dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| dir.display().to_string()) } else { dir.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default() };
             out.push(ExplorerRow {
                 id: paths.len() as i32,
@@ -221,6 +302,7 @@ impl ExplorerState {
                 let kids = st.children_of(dir).to_vec();
                 if let Some(r) = out.last_mut() {
                     r.has_children = !kids.is_empty();
+                    r.expanded = !kids.is_empty();
                 }
                 for k in kids {
                     walk(st, &k, depth + 1, false, out, paths);
@@ -393,6 +475,7 @@ pub(crate) fn refresh_files(app: &App) {
     let name = folder.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| folder.display().to_string());
     ui.set_node_title(name.into());
     ui.set_node_kind("explorer".into());
+    ui.set_explorer_recursive(ex.recursive);
     ui.set_node_sub(od_i18n::trf("{} TRACKS  ·  {}", &[&ex.files.len(), &format::time(total)]).into());
     ui.set_read_only(false);
     ui.set_register_target(SharedString::new());
@@ -404,7 +487,7 @@ pub(crate) fn refresh_files(app: &App) {
 fn open_folder(app: &App, dir: PathBuf) {
     let (generation, untagged) = {
         let mut st = app.state.borrow_mut();
-        let (_, paths) = list_dir(&dir);
+        let paths = list_files(&dir, st.explorer.recursive);
         let files: Vec<ExplorerFile> = paths
             .into_iter()
             .map(|p| match st.lib.track_by_path(&p).ok().flatten() {
@@ -422,6 +505,8 @@ fn open_folder(app: &App, dir: PathBuf) {
         st.browser.sort = String::new();
         st.browser.descending = false;
         st.explorer.close();
+        // Selecting a folder also shows its sub-folders (rekordbox-like).
+        st.explorer.expand(&dir);
         st.explorer.open = Some(dir);
         let untagged = files.iter().filter(|f| !f.tagged).map(|f| f.path.clone()).collect();
         st.explorer.files = files;
@@ -576,6 +661,21 @@ fn add_roots(app: &App) {
     refresh_tree(app);
 }
 
+/// "Include subfolders": stored, and the open folder is listed again.
+fn set_recursive(app: &App, on: bool) {
+    let open = {
+        let mut st = app.state.borrow_mut();
+        let st = &mut *st;
+        st.explorer.recursive = on;
+        let _ = st.lib.set_meta(META_RECURSIVE, if on { "1" } else { "0" });
+        st.explorer.open.clone()
+    };
+    match open {
+        Some(dir) => open_folder(app, dir),
+        None => app.ui.set_explorer_recursive(on),
+    }
+}
+
 fn remove_root(app: &App, row: i32) {
     let closed = {
         let mut st = app.state.borrow_mut();
@@ -612,14 +712,11 @@ pub(crate) fn wire(app: &Rc<App>) {
         {
             let mut st = a.state.borrow_mut();
             let Some(p) = st.explorer.path_of(row) else { return };
-            if !st.explorer.expanded.remove(&p) {
-                // Re-list on every expand: folders change on disk.
-                st.explorer.children.remove(&p);
-                st.explorer.expanded.insert(p);
-            }
+            st.explorer.toggle(&p);
         }
         refresh_tree(&a);
     }));
+    ui.on_explorer_set_recursive(handler!(app, |a, on: bool| set_recursive(&a, on)));
     ui.on_explorer_add_root(handler!(app, |a| add_roots(&a)));
     ui.on_explorer_remove_root(handler!(app, |a, row: i32| remove_root(&a, row)));
 }
@@ -685,11 +782,178 @@ mod tests {
         assert_eq!(rows.iter().map(|r| r.name.to_string()).collect::<Vec<_>>()[1], "Sub");
         assert_eq!(rows[1].depth, 1);
         assert_eq!(st.path_of(1), Some(dir.join("Sub")));
-        // "Sub" is listed on expand only; until then it may have children.
-        assert!(rows[1].has_children);
+        // "Sub" has no sub-folders: no expand mark, also once expanded.
+        assert!(!rows[1].has_children);
         st.expanded.insert(dir.join("Sub"));
         assert!(!st.rows()[1].has_children);
         let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    /// A fresh directory tree for one test.
+    fn tree(name: &str, dirs: &[&str], files: &[&str]) -> PathBuf {
+        let root = std::env::temp_dir().join(format!("od-explorer-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(&root).unwrap();
+        for d in dirs {
+            std::fs::create_dir_all(root.join(d)).unwrap();
+        }
+        for f in files {
+            std::fs::write(root.join(f), b"").unwrap();
+        }
+        root
+    }
+
+    fn names(rows: &[ExplorerRow]) -> Vec<(String, i32)> {
+        rows.iter().map(|r| (r.name.to_string(), r.depth)).collect()
+    }
+
+    #[test]
+    fn nested_folders_any_depth_listed_lazily() {
+        let root = tree(
+            "nested",
+            &["Sets/2024/Summer/Opening", "Sets/2025", "Sets/.cache/x", "Sets/PIONEER/USBANLZ", "Sets/abc"],
+            &[],
+        );
+        let sets = root.join("Sets");
+        let mut st = ExplorerState { roots: vec![sets.clone()], ..Default::default() };
+        let rows = st.rows();
+        assert_eq!(names(&rows), vec![("Sets".into(), 0)]);
+        assert!(rows[0].has_children && !rows[0].expanded);
+        // Nothing below the root is listed before it is expanded.
+        assert!(st.children.is_empty());
+
+        st.toggle(&sets);
+        let rows = st.rows();
+        // Hidden and player data folders are skipped; names sort case-insensitively.
+        assert_eq!(names(&rows), vec![("Sets".into(), 0), ("2024".into(), 1), ("2025".into(), 1), ("abc".into(), 1)]);
+        assert!(rows[0].expanded);
+        // Probed one level: only "2024" has sub-folders, so only it gets a mark.
+        assert_eq!(rows.iter().map(|r| r.has_children).collect::<Vec<_>>(), vec![true, true, false, false]);
+        // "2024" itself is not listed yet.
+        assert!(!st.children.contains_key(&sets.join("2024")));
+
+        st.toggle(&sets.join("2024"));
+        st.toggle(&sets.join("2024/Summer"));
+        let rows = st.rows();
+        assert_eq!(
+            names(&rows),
+            vec![
+                ("Sets".into(), 0),
+                ("2024".into(), 1),
+                ("Summer".into(), 2),
+                ("Opening".into(), 3),
+                ("2025".into(), 1),
+                ("abc".into(), 1)
+            ]
+        );
+        assert_eq!(st.path_of(3), Some(sets.join("2024/Summer/Opening")));
+        assert!(!rows[3].has_children);
+
+        // Collapsing hides the subtree; expanding again re-reads the disk.
+        st.toggle(&sets.join("2024"));
+        assert_eq!(st.rows().len(), 4);
+        std::fs::create_dir_all(sets.join("2024/Winter")).unwrap();
+        st.toggle(&sets.join("2024"));
+        let rows = st.rows();
+        assert!(names(&rows).contains(&("Winter".into(), 2)));
+        // Summer stayed expanded underneath.
+        assert!(names(&rows).contains(&("Opening".into(), 3)));
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn deep_trees_have_no_depth_limit_in_the_sidebar() {
+        let deep: String = (0..40).map(|i| format!("d{i}")).collect::<Vec<_>>().join("/");
+        let root = tree("deep", &[&deep], &[]);
+        let mut st = ExplorerState { roots: vec![root.clone()], ..Default::default() };
+        let mut p = root.clone();
+        st.toggle(&p);
+        for i in 0..40 {
+            p = p.join(format!("d{i}"));
+            st.toggle(&p);
+        }
+        let rows = st.rows();
+        assert_eq!(rows.len(), 41);
+        assert_eq!(rows.last().unwrap().depth, 40);
+        assert!(!rows.last().unwrap().has_children);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn selecting_expands_a_folder() {
+        let root = tree("select", &["A/B"], &[]);
+        let mut st = ExplorerState { roots: vec![root.clone()], ..Default::default() };
+        st.expand(&root);
+        st.expand(&root.join("A"));
+        assert_eq!(names(&st.rows()).len(), 3);
+        // A folder without sub-folders shows no expand mark even when "expanded".
+        st.expand(&root.join("A/B"));
+        let rows = st.rows();
+        assert!(!rows[2].has_children && !rows[2].expanded);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn files_of_the_folder_or_all_subfolders() {
+        let root = tree(
+            "files",
+            &["S/b", "S/a/deep", "S/.hidden", "S/rekordbox"],
+            &[
+                "S/z.mp3",
+                "S/A.flac",
+                "S/cover.jpg",
+                "S/b/b1.wav",
+                "S/a/a2.mp3",
+                "S/a/A1.aiff",
+                "S/a/deep/d.m4a",
+                "S/.hidden/h.mp3",
+                "S/rekordbox/r.mp3",
+                "S/a/.x.mp3",
+            ],
+        );
+        let s = root.join("S");
+        assert_eq!(list_files(&s, false), vec![s.join("A.flac"), s.join("z.mp3")]);
+        assert_eq!(
+            list_files(&s, true),
+            vec![
+                s.join("A.flac"),
+                s.join("z.mp3"),
+                s.join("a/A1.aiff"),
+                s.join("a/a2.mp3"),
+                s.join("a/deep/d.m4a"),
+                s.join("b/b1.wav"),
+            ]
+        );
+        // A folder with only sub-folders lists nothing on its own.
+        let empty = tree("files-empty", &["Only/Sub"], &["Only/Sub/x.mp3"]);
+        assert!(list_files(&empty.join("Only"), false).is_empty());
+        assert_eq!(list_files(&empty.join("Only"), true), vec![empty.join("Only/Sub/x.mp3")]);
+        let _ = std::fs::remove_dir_all(&root);
+        let _ = std::fs::remove_dir_all(&empty);
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn recursive_listing_survives_symlink_loops() {
+        let root = tree("loop", &["L/sub"], &["L/sub/x.mp3"]);
+        std::os::unix::fs::symlink(root.join("L"), root.join("L/sub/back")).unwrap();
+        let files = list_files(&root.join("L"), true);
+        assert_eq!(files, vec![root.join("L/sub/x.mp3")]);
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[test]
+    fn recursive_listing_stops_at_max_depth() {
+        let deep: String = (0..MAX_DEPTH + 3).map(|i| format!("d{i}")).collect::<Vec<_>>().join("/");
+        let root = tree("maxdepth", &[&deep], &[]);
+        let mut p = root.clone();
+        for i in 0..MAX_DEPTH + 3 {
+            p = p.join(format!("d{i}"));
+            std::fs::write(p.join("t.mp3"), b"").unwrap();
+        }
+        // Levels 1..=MAX_DEPTH below the opened folder.
+        assert_eq!(list_files(&root, true).len(), MAX_DEPTH);
+        let _ = std::fs::remove_dir_all(&root);
     }
 
     #[test]

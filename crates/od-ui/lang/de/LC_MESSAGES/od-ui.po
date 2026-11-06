@@ -739,3 +739,8 @@ msgstr "AUFNEHMEN"
 #~ msgctxt "PerformView"
 #~ msgid "RECORD"
 #~ msgstr "AUFNEHMEN"
+
+#: ui/app.slint
+msgctxt "AppWindow"
+msgid "Include subfolders"
+msgstr "Unterordner einbeziehen"

@@ -81,6 +81,8 @@ export component AppWindow inherits Window {
     // Explorer: folders on disk.
     in property <[ExplorerRow]> explorer;
     in property <int> explorer-selected: -1;
+    // Explorer folder list also shows the files of all sub-folders.
+    in-out property <bool> explorer-recursive;
 
     // Selected track.
     in property <bool> has-track;
@@ -174,6 +176,7 @@ export component AppWindow inherits Window {
     callback explorer-toggle(int);
     callback explorer-add-root();
     callback explorer-remove-root(int);
+    callback explorer-set-recursive(bool);
     callback seek(float);
     callback hot-cue(int);
     callback remove-hot-cue(int);
@@ -417,6 +420,12 @@ export component AppWindow inherits Window {
                         Rectangle { horizontal-stretch: 1; }
                         if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; clicked => { root.find-moved-files(); } }
                         if root.node-kind == "all" && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; clicked => { root.import-folder(); } }
+                        if root.node-kind == "explorer": LineToggle {
+                            horizontal-stretch: 0;
+                            label: @tr("Include subfolders");
+                            checked <=> root.explorer-recursive;
+                            toggled(v) => { root.explorer-set-recursive(v); }
+                        }
                         if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && !root.read-only && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
                         Field {
                             width: 260px;
