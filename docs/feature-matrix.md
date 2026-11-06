@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 205 features; 197 in scope: 79 DONE (40 %), 29 PARTIAL, 25 ENGINE-ONLY, 64 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
+**Summary:** 206 features; 198 in scope: 79 DONE (40 %), 29 PARTIAL, 25 ENGINE-ONLY, 65 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
 
 The reference list is the rekordbox 7 feature set (top plan) relevant to a DJ who prepares in
 EXPORT mode and plays in PERFORMANCE mode with a DDJ-FLX10 / DDJ-FLX4, extended by the
@@ -83,6 +83,7 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Sub-browser (second tree + list for dragging between playlists) | MISSING | (UX §1.6, §4 P4.12) | — | P3 |
 | Automatic database backups (rotating) | DONE (beyond rekordbox) | `crates/od-library/src/backup.rs`; (SPEC §5.3) | 1 |  |
 | Export / import the whole library as one archive (database + analysis, optional audio) | MISSING | (SPEC §5.3) | — | P3 |
+| MCP server: full library access for preparing sets with an LLM | MISSING | Owner request 2026-11-06 (SPEC §5.6). Beyond rekordbox.; (SPEC §5.6) | — | **P1** |
 
 ## 2. Analysis
 
@@ -313,10 +314,10 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | DONE | 79 |
 | PARTIAL | 29 |
 | ENGINE-ONLY | 25 |
-| MISSING | 64 |
+| MISSING | 65 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 6 |
-| **Total** | **205** |
+| **Total** | **206** |
 
 ## P1 gaps and implementation notes
 

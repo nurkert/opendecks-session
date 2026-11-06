@@ -264,6 +264,26 @@ Pioneer players" in the device view.
   from Explorer adds it to the collection and analyses it in the
   background, like rekordbox.
 
+### 5.6 MCP server for set preparation with an LLM (owner requirement 2026-11-06)
+
+- `od-mcp` is a Model Context Protocol server (stdio, and optionally a
+  local-only HTTP transport) that gives an LLM client such as Claude full
+  access to the library for preparing sets together with the DJ.
+- **Read:** every track field (title, artist, album, genre, label, year,
+  comment, rating, colour, My Tag, BPM, key in all notations, duration,
+  energy, loudness, phrases, cues, play count, date added, histories),
+  playlists, sets with transition notes, smart lists, search with filters
+  (BPM range, key compatibility, genre, energy, rating, tags), harmonic
+  neighbours and BPM-compatible candidates, set flow analysis (BPM / key /
+  energy curve, clashes).
+- **Write:** create sets and playlists, add / remove / reorder tracks,
+  transition notes, tags, ratings and colours, smart list rules. Every
+  write goes through the library's undo journal (one undo step per tool
+  call, labelled "MCP: …") and the change log, so sticks sync as usual.
+- Runs against the same library the app uses (concurrent access through
+  SQLite); no network beyond the local transport; the app shows MCP edits
+  live. Setup instructions for Claude Desktop / Claude Code in the docs.
+
 ## 6. Analysis
 
 - Pure Rust: BPM and beatgrid (including bar/downbeat detection), musical key,

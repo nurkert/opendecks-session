@@ -2593,3 +2593,15 @@ tests = []
 evidence = []
 note = "Owner request 2026-11-06 (SPEC §10.3c)."
 spec = "SPEC §10.3c"
+
+[[feature]]
+id = "mcp-set-preparation"
+area = "browser"
+name = "MCP server: full library access for preparing sets with an LLM"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+evidence = []
+note = "Owner request 2026-11-06 (SPEC §5.6). Beyond rekordbox."
+spec = "SPEC §5.6"
