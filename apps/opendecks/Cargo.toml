@@ -37,6 +37,7 @@ depends = "$auto, udisks2"
 assets = [
     ["target/release/opendecks", "usr/bin/", "755"],
     ["target/release/od-cli", "usr/bin/", "755"],
+    ["target/release/opendecks-mcp", "usr/bin/", "755"],
     ["../../mappings/**/*", "usr/share/opendecks/mappings/", "644"],
     ["../../packaging/linux/opendecks.desktop", "usr/share/applications/org.opendecks.Session.desktop", "644"],
     ["../../packaging/assets/icon.svg", "usr/share/icons/hicolor/scalable/apps/opendecks.svg", "644"],

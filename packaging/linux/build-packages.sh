@@ -5,7 +5,7 @@ set -eu
 cd "$(dirname "$0")/../.."
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 DEB_ARCH=$(dpkg --print-architecture)
-cargo build --release --locked -p opendecks -p od-cli
+cargo build --release --locked -p opendecks -p od-cli -p od-mcp
 mkdir -p target/dist
 
 # .deb
@@ -15,7 +15,7 @@ cargo deb --no-build -p opendecks -o "target/dist/opendecks-session_${VERSION}_$
 # Portable tar.gz
 T="target/dist/opendecks-session-${VERSION}-linux-$(uname -m)"
 rm -rf "$T" && mkdir -p "$T"
-cp target/release/opendecks target/release/od-cli "$T/"
+cp target/release/opendecks target/release/od-cli target/release/opendecks-mcp "$T/"
 cp -R mappings "$T/mappings"
 cp README.md LICENSE packaging/linux/opendecks.desktop packaging/assets/icon.svg "$T/"
 tar -C target/dist -czf "$T.tar.gz" "$(basename "$T")"

@@ -7,12 +7,12 @@ set -eu
 cd "$(dirname "$0")/../.."
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 ARCH=$(uname -m)
-cargo build --release --locked -p opendecks -p od-cli
+cargo build --release --locked -p opendecks -p od-cli -p od-mcp
 
 DIST=target/dist
 APP="$DIST/OpenDecks Session.app"
 rm -rf "$APP" && mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
-cp target/release/opendecks target/release/od-cli "$APP/Contents/MacOS/"
+cp target/release/opendecks target/release/od-cli target/release/opendecks-mcp "$APP/Contents/MacOS/"
 cp -R mappings "$APP/Contents/Resources/mappings"
 cp packaging/assets/OpenDecks.icns "$APP/Contents/Resources/OpenDecks.icns"
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -54,6 +54,7 @@ for lib in "$APP"/Contents/Frameworks/*.dylib; do
   codesign --force $SIGN "$lib"
 done
 codesign --force $SIGN "$APP/Contents/MacOS/od-cli"
+codesign --force $SIGN "$APP/Contents/MacOS/opendecks-mcp"
 codesign --force $SIGN "$APP"
 codesign --verify --deep --strict "$APP"
 

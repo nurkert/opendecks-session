@@ -15,7 +15,7 @@ id "$USER_NAME" >/dev/null 2>&1 || useradd -m -s /bin/bash "$USER_NAME"
 usermod -aG audio,video,input,render,plugdev "$USER_NAME"
 
 install -d /opt/opendecks
-install -m755 "$HERE/opendecks" "$HERE/od-cli" /opt/opendecks/
+install -m755 "$HERE/opendecks" "$HERE/od-cli" "$HERE/opendecks-mcp" /opt/opendecks/
 rm -rf /opt/opendecks/mappings && cp -R "$HERE/mappings" /opt/opendecks/mappings
 
 # Real-time audio for the audio group.

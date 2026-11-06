@@ -4,10 +4,10 @@ set -eu
 cd "$(dirname "$0")/../.."
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 ARCH=$(uname -m)
-[ -x target/release/opendecks ] || cargo build --release --locked -p opendecks -p od-cli
+[ -x target/release/opendecks ] || cargo build --release --locked -p opendecks -p od-cli -p od-mcp
 APPDIR=target/dist/AppDir
 rm -rf "$APPDIR" && mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/opendecks"
-cp target/release/opendecks target/release/od-cli "$APPDIR/usr/bin/"
+cp target/release/opendecks target/release/od-cli target/release/opendecks-mcp "$APPDIR/usr/bin/"
 cp -R mappings "$APPDIR/usr/share/opendecks/mappings"
 # The tool lives outside target/dist so it never ends up in a release.
 TOOL=target/tools/linuxdeploy-$ARCH.AppImage

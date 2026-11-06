@@ -30,6 +30,7 @@ jobs:
           hdiutil attach target/dist/*.dmg -mountpoint /tmp/od -nobrowse
           "/tmp/od/OpenDecks Session.app/Contents/MacOS/opendecks" --help
           "/tmp/od/OpenDecks Session.app/Contents/MacOS/od-cli" --version
+          "/tmp/od/OpenDecks Session.app/Contents/MacOS/opendecks-mcp" --version
           hdiutil detach /tmp/od
       - uses: actions/upload-artifact@v4
         with:
@@ -58,6 +59,7 @@ jobs:
           apt-get install -y ./target/dist/opendecks-session_*.deb
           opendecks --help
           od-cli --version
+          opendecks-mcp --version
           test -f /usr/share/opendecks/mappings/pioneer/ddj-flx10.toml
       - name: Raspberry Pi kiosk bundle
         if: matrix.runner == 'ubuntu-24.04-arm'
