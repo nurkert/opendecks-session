@@ -1,0 +1,161 @@
+//! Audio engine lifecycle and the frame tick that projects engine state into
+//! the deck and mixer view models.
+
+use crate::app::App;
+use crate::{controller, decks, explorer, mixer, player, recorder};
+use od_engine::{Command, DeckCommand, Engine, EngineConfig, EngineState, Profile};
+use slint::ComponentHandle;
+use std::rc::Rc;
+use std::time::{Duration, Instant};
+
+pub(crate) struct EngineHost {
+    pub engine: Option<Engine>,
+    host: Option<od_audio_io::AudioHost>,
+    /// Device line or the reason audio is not running.
+    pub message: String,
+    timer: slint::Timer,
+    last_feedback: Instant,
+}
+
+impl Default for EngineHost {
+    fn default() -> Self {
+        Self {
+            engine: None,
+            host: None,
+            message: od_i18n::tr("Audio starts when you load a track").into(),
+            timer: slint::Timer::default(),
+            last_feedback: Instant::now(),
+        }
+    }
+}
+
+impl EngineHost {
+    pub fn sample_rate(&self) -> u32 {
+        self.engine.as_ref().map(|e| e.config().sample_rate).unwrap_or(48_000)
+    }
+}
+
+/// The current engine state, if audio runs.
+pub(crate) fn snapshot(app: &App) -> Option<EngineState> {
+    app.engine.borrow_mut().engine.as_mut().map(|e| *e.state())
+}
+
+/// Starts audio on first use. Prefers the controller's audio interface.
+pub(crate) fn ensure_engine(app: &App) -> bool {
+    if app.engine.borrow().engine.is_some() {
+        return true;
+    }
+    let lite = app.state.borrow().config.lite;
+    let device = od_audio_io::list_devices(od_audio_io::Backend::Default)
+        .ok()
+        .and_then(|devs| devs.into_iter().find(|d| d.name.contains("DDJ") || d.name.contains("FLX")).map(|d| d.name));
+    let mut cfg = od_audio_io::AudioConfig { device: device.clone(), buffer_frames: Some(if lite { 256 } else { 128 }), ..Default::default() };
+    let negotiated = match od_audio_io::AudioHost::negotiate(&cfg) {
+        Ok(n) => n,
+        Err(e) => {
+            app.engine.borrow_mut().message = format!("No audio output: {e}");
+            return false;
+        }
+    };
+    cfg.sample_rate = Some(negotiated.sample_rate);
+    let (mut engine, processor) = Engine::new(EngineConfig {
+        sample_rate: negotiated.sample_rate,
+        max_block: 2048,
+        decks: decks::DECKS,
+        profile: if lite { Profile::Lite } else { Profile::Full },
+    });
+    match od_audio_io::AudioHost::start(&cfg, processor) {
+        Ok(host) => {
+            if let Some(tap) = engine.take_record_tap() {
+                recorder::attach(app, tap, negotiated.sample_rate);
+            }
+            let mut h = app.engine.borrow_mut();
+            h.message = format!(
+                "{} · {} Hz{}",
+                negotiated.device_name,
+                negotiated.sample_rate,
+                if negotiated.routing.headphones.is_some() { " · headphones on 3/4" } else { "" }
+            );
+            h.engine = Some(engine);
+            h.host = Some(host);
+            true
+        }
+        Err(e) => {
+            app.engine.borrow_mut().message = format!("Audio could not start: {e}");
+            false
+        }
+    }
+}
+
+pub(crate) fn send(app: &App, cmd: Command) {
+    if let Some(e) = app.engine.borrow_mut().engine.as_mut() {
+        if let Err(err) = e.send(cmd) {
+            tracing::warn!(error = ?err, "engine queue full");
+        }
+    }
+}
+
+pub(crate) fn deck_cmd(app: &App, deck: usize, cmd: DeckCommand) {
+    send(app, Command::Deck(deck, cmd));
+}
+
+/// Shows the engine message (device line, loading, errors).
+pub(crate) fn show_message(app: &App) {
+    let msg = app.engine.borrow().message.clone();
+    app.ui.set_engine_message(msg.into());
+}
+
+fn frame(app: &App) {
+    let scale = app.ui.window().scale_factor();
+    let small = (app.ui.window().size().height as f32 / scale) < 620.0;
+    if app.ui.get_small_screen() != small {
+        app.ui.set_small_screen(small);
+    }
+    decks::receive_prepared(app);
+    decks::poll_stems(app);
+    explorer::poll(app);
+    controller::poll(app);
+
+    let state = app.engine.borrow_mut().engine.as_mut().map(|e| {
+        e.collect_garbage();
+        *e.state()
+    });
+    let Some(state) = state else {
+        // Before audio starts: empty deck plates, so the layout is complete.
+        if app.ui.get_mode() == "perform" {
+            decks::show_empty(app);
+        }
+        return;
+    };
+    player::follow_preview(app, &state);
+    recorder::frame(app, &state);
+    if app.ui.get_mode() != "perform" {
+        return;
+    }
+    decks::project(app, &state);
+    mixer::project(app, &state);
+    app.ui.set_engine_ready(true);
+    if let Some(h) = app.engine.borrow().host.as_ref() {
+        let s = h.stats();
+        if s.xruns > 0 || s.overruns > 0 {
+            app.ui.set_engine_message(format!("Audio dropouts: {}", s.xruns + s.overruns).into());
+        }
+    }
+}
+
+/// Starts the frame timer (60 Hz, 30 Hz in Lite) and shows the engine line.
+pub(crate) fn start(app: &Rc<App>) {
+    let lite = app.state.borrow().config.lite;
+    let period = Duration::from_millis(if lite { 33 } else { 16 });
+    let w = Rc::downgrade(app);
+    app.engine.borrow().timer.start(slint::TimerMode::Repeated, period, move || {
+        let Some(app) = w.upgrade() else { return };
+        frame(&app);
+        let due = app.engine.borrow().last_feedback.elapsed() >= Duration::from_millis(40);
+        if due {
+            app.engine.borrow_mut().last_feedback = Instant::now();
+            controller::feedback(&app);
+        }
+    });
+    show_message(app);
+}

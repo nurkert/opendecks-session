@@ -1,0 +1,313 @@
+//! Prepare player: the selected track's waveforms, cursor, hot / memory
+//! cues, grid editing and the preview (played on the hidden preview deck).
+
+use crate::app::{App, handler};
+use crate::models::model;
+use crate::{CueMark, HotCueSlot, PhraseMark, decks, engine, format, render};
+use od_core::{Beatgrid, Cue, CueKind, TrackId};
+use od_engine::{ChannelCommand, Command, DeckCommand};
+use slint::ComponentHandle;
+use std::rc::Rc;
+
+#[derive(Default)]
+pub(crate) struct PlayerState {
+    /// The track shown in the player (and loaded by LOAD / double-click).
+    pub current: Option<TrackId>,
+    /// Cursor in the selected track, seconds.
+    pub cursor: f64,
+    /// The preview deck is playing the selected track.
+    pub previewing: bool,
+}
+
+/// Cue markers as fractions of the track; `with_time` adds the cue time.
+pub(crate) fn cue_marks(cues: &[Cue], duration: f64, with_time: bool) -> Vec<CueMark> {
+    let duration = duration.max(0.001);
+    cues.iter()
+        .map(|c| CueMark {
+            slot: match c.kind {
+                CueKind::Hot(s) => s as i32,
+                CueKind::Memory => -1,
+            },
+            letter: c.kind.hot_slot_letter().map(|l| l.to_string()).unwrap_or_default().into(),
+            pos: (c.start / duration) as f32,
+            end: (c.loop_end.unwrap_or(c.start) / duration) as f32,
+            is_loop: c.is_loop(),
+            time: if with_time { format::cue_time(c.start).into() } else { Default::default() },
+            label: c.label.clone().into(),
+        })
+        .collect()
+}
+
+/// The eight hot cue slots A–H.
+pub(crate) fn hot_cue_slots(cues: &[Cue]) -> Vec<HotCueSlot> {
+    (0..8u8)
+        .map(|s| {
+            let c = cues.iter().find(|c| c.kind == CueKind::Hot(s));
+            HotCueSlot {
+                slot: s as i32,
+                letter: ((b'A' + s) as char).to_string().into(),
+                set: c.is_some(),
+                time: c.map(|c| format::cue_time(c.start)).unwrap_or_default().into(),
+                label: c.map(|c| c.label.clone()).unwrap_or_default().into(),
+            }
+        })
+        .collect()
+}
+
+/// Phrase blocks as fractions of the track, for the phrase bars.
+pub(crate) fn phrase_marks(phrases: &[od_core::Phrase], grid: &Beatgrid, duration: f64) -> Vec<PhraseMark> {
+    let at = |beat: u32| grid.beats.get(beat as usize).map(|b| b.time).unwrap_or(duration);
+    phrases
+        .iter()
+        .filter(|_| duration > 0.0)
+        .map(|p| {
+            let [r, g, b] = render::phrase_rgb(p.kind);
+            PhraseMark {
+                pos: (at(p.start_beat) / duration) as f32,
+                end: (at(p.end_beat) / duration).min(1.0) as f32,
+                label: render::phrase_label(p.kind).into(),
+                tone: slint::Color::from_rgb_u8(r, g, b),
+            }
+        })
+        .collect()
+}
+
+/// Moves the cursor to the nearest beat when within 80 ms of it.
+pub(crate) fn snap_to_beat(grid: &Beatgrid, t: f64) -> f64 {
+    grid.beat_position(t).and_then(|b| grid.time_of_beat(b.round())).filter(|s| (s - t).abs() < 0.08).unwrap_or(t)
+}
+
+pub(crate) fn refresh_detail(app: &App) {
+    let st = app.state.borrow();
+    let Some(id) = st.player.current else {
+        app.ui.set_has_track(false);
+        return;
+    };
+    let Ok(t) = st.src().track(id) else {
+        app.ui.set_has_track(false);
+        return;
+    };
+    let ui = &app.ui;
+    let analysis = st.src().analysis(id).unwrap_or_default();
+    let grid = st.src().beatgrid_with_source(id).ok().flatten();
+    let cues = st.src().cues(id).unwrap_or_default();
+    let duration = t.duration.max(0.001);
+    ui.set_has_track(true);
+    ui.set_track_title(t.tags.title.clone().into());
+    ui.set_track_artist(t.tags.artist.clone().into());
+    ui.set_track_bpm(t.bpm.map(|b| format!("{b:.2}")).unwrap_or_default().into());
+    ui.set_track_key(st.key_text(&t).into());
+    ui.set_track_duration(format::time(t.duration).into());
+    ui.set_track_analysed(t.analysis_version >= od_analysis::ANALYSIS_VERSION);
+    ui.set_grid_source(od_i18n::tr(&grid.as_ref().map(|(_, s)| s.as_str().to_uppercase()).unwrap_or_else(|| "NONE".into())).to_string().into());
+    ui.set_grid_locked(grid.as_ref().is_some_and(|(g, _)| g.locked));
+    let scale = ui.window().scale_factor();
+    ui.set_track_overview(render::overview(&analysis.waveform, &analysis.beatgrid, t.duration, (1000.0 * scale) as u32, (48.0 * scale) as u32));
+    ui.set_track_phrases(model(phrase_marks(&analysis.phrases, &analysis.beatgrid, t.duration)));
+    ui.set_track_cues(model(cue_marks(&cues, t.duration, true)));
+    let slots = hot_cue_slots(&cues);
+    ui.set_hot_cues_top(model(slots[..4].to_vec()));
+    ui.set_hot_cues_bottom(model(slots[4..].to_vec()));
+    ui.set_hot_cues(model(slots));
+    ui.set_cursor((st.player.cursor / duration) as f32);
+    ui.set_track_position(format::cue_time(st.player.cursor).into());
+    let width = ((ui.window().size().width as f32 / scale - 680.0).max(300.0) * scale) as u32;
+    ui.set_track_detail(render::detail(&analysis.waveform, &analysis.beatgrid, &analysis.phrases, st.player.cursor, 8.0, width, (150.0 * scale) as u32));
+}
+
+/// Space / play button: start or pause the preview of the selected track.
+pub(crate) fn toggle_preview(app: &App) {
+    let previewing = app.state.borrow().player.previewing;
+    if previewing {
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Pause);
+        set_previewing(app, false);
+        return;
+    }
+    let (track, cursor) = {
+        let st = app.state.borrow();
+        (st.player.current, st.player.cursor)
+    };
+    let Some(track) = track else { return };
+    let already = app.decks.borrow().loaded_id(decks::PREVIEW_DECK) == Some(track);
+    if already {
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Seek { seconds: cursor });
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Play);
+    } else {
+        decks::load_track(app, decks::PREVIEW_DECK, track, Some(cursor));
+    }
+    set_previewing(app, true);
+    // The preview deck is audible on the master at full level.
+    engine::send(app, Command::Channel(decks::PREVIEW_DECK, ChannelCommand::SetFader(1.0)));
+}
+
+fn set_previewing(app: &App, on: bool) {
+    app.state.borrow_mut().player.previewing = on;
+    app.ui.set_previewing(on);
+}
+
+/// Follows the cursor to the preview deck after a seek.
+fn preview_seek(app: &App) {
+    let (previewing, cursor) = {
+        let st = app.state.borrow();
+        (st.player.previewing, st.player.cursor)
+    };
+    if previewing {
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Seek { seconds: cursor });
+    }
+}
+
+/// Frame tick: the cursor follows the preview deck.
+pub(crate) fn follow_preview(app: &App, state: &od_engine::EngineState) {
+    if !app.state.borrow().player.previewing {
+        return;
+    }
+    let d = &state.decks[decks::PREVIEW_DECK];
+    let current = app.state.borrow().player.current;
+    if d.track == current && d.track.is_some() {
+        app.state.borrow_mut().player.cursor = d.position;
+        if d.duration > 0.0 {
+            app.ui.set_cursor((d.position / d.duration) as f32);
+        }
+    }
+    if d.at_end {
+        set_previewing(app, false);
+    }
+}
+
+fn move_cursor(app: &App, f: impl FnOnce(&mut crate::state::AppState)) {
+    f(&mut app.state.borrow_mut());
+    preview_seek(app);
+    refresh_detail(app);
+}
+
+fn edit_grid(app: &App, f: impl FnOnce(&mut Beatgrid, f64)) {
+    if app.guard_read_only() {
+        return;
+    }
+    let (id, cursor) = {
+        let st = app.state.borrow();
+        match st.player.current {
+            Some(id) => (id, st.player.cursor),
+            None => return,
+        }
+    };
+    let grid = app.state.borrow().lib.beatgrid(id).ok().flatten();
+    let Some(mut grid) = grid else {
+        app.status("This track has no beatgrid yet — analyse it first");
+        return;
+    };
+    f(&mut grid, cursor);
+    let r = app.state.borrow_mut().lib.set_beatgrid(id, grid);
+    if app.report(r).is_some() {
+        app.after_edit("");
+    }
+}
+
+/// Replaces the cues of the current track (library only).
+fn edit_cues(app: &App, label: &str, f: impl FnOnce(&mut Vec<Cue>, f64)) {
+    if app.guard_read_only() {
+        return;
+    }
+    let (id, cursor) = {
+        let st = app.state.borrow();
+        match st.player.current {
+            Some(id) => (id, st.player.cursor),
+            None => return,
+        }
+    };
+    let mut cues = app.state.borrow().lib.cues(id).unwrap_or_default();
+    f(&mut cues, cursor);
+    let r = app.state.borrow_mut().lib.set_cues(id, cues);
+    if app.report(r).is_some() {
+        app.after_edit(label);
+    }
+}
+
+pub(crate) fn wire(app: &Rc<App>) {
+    let ui = &app.ui;
+    ui.on_seek(handler!(app, |a, p: f32| move_cursor(&a, |st| {
+        let id = st.player.current;
+        let d = id.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
+        let t = p as f64 * d;
+        let grid = id.and_then(|id| st.src().beatgrid(id).ok().flatten());
+        st.player.cursor = grid.map(|g| snap_to_beat(&g, t)).unwrap_or(t);
+    })));
+    ui.on_nudge(handler!(app, |a, d: f32| move_cursor(&a, |st| {
+        let dur = st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
+        st.player.cursor = (st.player.cursor + d as f64).clamp(0.0, dur);
+    })));
+    // CUE: back to the first memory cue, or the start.
+    ui.on_jump_start(handler!(app, |a| move_cursor(&a, |st| {
+        let first = st
+            .player
+            .current
+            .and_then(|id| st.src().cues(id).ok())
+            .and_then(|c| c.iter().filter(|c| c.kind == CueKind::Memory).map(|c| c.start).reduce(f64::min));
+        st.player.cursor = first.unwrap_or(0.0);
+    })));
+    ui.on_hot_cue(handler!(app, |a, slot: i32| {
+        let Some(id) = a.state.borrow().player.current else { return };
+        let cues = a.state.borrow().src().cues(id).unwrap_or_default();
+        if let Some(c) = cues.iter().find(|c| c.kind == CueKind::Hot(slot as u8)) {
+            let start = c.start;
+            move_cursor(&a, |st| st.player.cursor = start);
+        } else {
+            edit_cues(&a, &format!("Hot cue {} set", (b'A' + slot as u8) as char), |cues, cursor| cues.push(Cue::hot(slot as u8, cursor)));
+        }
+    }));
+    ui.on_remove_hot_cue(handler!(app, |a, slot: i32| edit_cues(&a, "Hot cue removed", |cues, _| cues.retain(|c| c.kind != CueKind::Hot(slot as u8)))));
+    ui.on_add_memory_cue(handler!(app, |a| edit_cues(&a, "Memory cue added", |cues, cursor| cues.push(Cue::memory(cursor)))));
+    ui.on_grid_shift(handler!(app, |a, ms: i32| edit_grid(&a, |g, _| g.shift(ms as f64 / 1000.0))));
+    ui.on_grid_scale(handler!(app, |a, f: f32| edit_grid(&a, |g, _| {
+        let Some(first) = g.beats.first().copied() else { return };
+        let bpm = g.dominant_bpm().unwrap_or(first.bpm) * f as f64;
+        let end = g.beats.last().map(|b| b.time).unwrap_or(0.0) + 1.0;
+        *g = Beatgrid::constant(bpm, first.time, first.bar_position, end);
+    })));
+    ui.on_grid_downbeat(handler!(app, |a| edit_grid(&a, |g, cursor| {
+        if let Some(i) = g.beat_position(cursor).map(|b| b.round().max(0.0) as usize) {
+            g.set_downbeat(i.min(g.beats.len().saturating_sub(1)));
+        }
+    })));
+    ui.on_grid_lock(handler!(app, |a| edit_grid(&a, |g, _| g.locked = !g.locked)));
+    ui.on_analyse_selected(handler!(app, |a| {
+        if a.guard_read_only() {
+            return;
+        }
+        let id = a.state.borrow().player.current;
+        if let Some(id) = id {
+            let _ = a.state.borrow().lib.conn().execute("UPDATE track SET analysis_version = 0 WHERE id = ?1", [id.0]);
+            let _ = a.analysis.wake.send(());
+            a.status("Queued for analysis");
+        }
+    }));
+    ui.on_toggle_preview(handler!(app, |a| toggle_preview(&a)));
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn cue_projection() {
+        let cues = vec![Cue::hot(1, 30.0), Cue::memory(15.0)];
+        let marks = cue_marks(&cues, 60.0, true);
+        assert_eq!(marks[0].slot, 1);
+        assert_eq!(marks[0].letter, "B");
+        assert_eq!(marks[0].pos, 0.5);
+        assert_eq!(marks[0].time, "0:30.000");
+        assert_eq!(marks[1].slot, -1);
+        assert_eq!(cue_marks(&cues, 60.0, false)[0].time, "");
+        let slots = hot_cue_slots(&cues);
+        assert_eq!(slots.len(), 8);
+        assert!(!slots[0].set && slots[1].set);
+        assert_eq!(slots[7].letter, "H");
+    }
+
+    #[test]
+    fn cursor_snaps_near_beats_only() {
+        let g = Beatgrid::constant(120.0, 0.0, 1, 60.0);
+        assert!((snap_to_beat(&g, 1.03) - 1.0).abs() < 1e-9);
+        assert!((snap_to_beat(&g, 1.2) - 1.2).abs() < 1e-9);
+    }
+}

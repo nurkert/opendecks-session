@@ -1,0 +1,410 @@
+//! Browser: the tree (collection, lists, sticks), the track list, search,
+//! sort, selection, list editing, smart rules and set notes.
+
+mod tracks;
+mod tree;
+
+pub(crate) use tracks::{default_descending, refresh_tracks};
+pub(crate) use tree::{refresh_tree, stick_root_id};
+
+use crate::app::{App, handler};
+use crate::models::Rows;
+use crate::workers::spawn_import;
+use crate::{TrackRow, decks, player, smart_text};
+use od_core::TrackId;
+use od_library::{NodeId, NodeKind, TrackRecord};
+use slint::{Model, SharedString};
+use std::collections::{BTreeSet, HashMap, HashSet};
+use std::path::PathBuf;
+use std::rc::Rc;
+
+pub(crate) struct BrowserState {
+    pub node: Option<NodeId>,
+    pub sort: String,
+    pub descending: bool,
+    pub search: String,
+    pub rows: Vec<TrackRecord>,
+    /// Selected row indices (of the list on screen).
+    pub selection: BTreeSet<usize>,
+    pub anchor: Option<usize>,
+    pub expanded: HashSet<NodeId>,
+    /// Selected position in a set's flow.
+    pub flow_selected: Option<usize>,
+    /// Mounted sticks carrying an OpenDecks library: (name, root).
+    pub sticks: Vec<(String, PathBuf)>,
+    /// The stick being browsed (read-only source), with its index in `sticks`.
+    pub stick: Option<(usize, od_format_native::Stick)>,
+    /// Mini overview waveforms for the PREVIEW column, by (stick?, track).
+    pub previews: HashMap<(bool, TrackId), slint::Image>,
+}
+
+impl Default for BrowserState {
+    fn default() -> Self {
+        Self {
+            node: None,
+            sort: "date_added".into(),
+            descending: true,
+            search: String::new(),
+            rows: Vec::new(),
+            selection: BTreeSet::new(),
+            anchor: None,
+            expanded: HashSet::new(),
+            flow_selected: None,
+            sticks: Vec::new(),
+            stick: None,
+            previews: HashMap::new(),
+        }
+    }
+}
+
+impl BrowserState {
+    /// Lists with an order of their own sort by position, the rest newest first.
+    pub fn reset_sort(&mut self, in_list: bool) {
+        self.sort = if in_list { "position".into() } else { "date_added".into() };
+        self.descending = !in_list;
+    }
+}
+
+/// Persistent view models of the browser.
+#[derive(Default)]
+pub(crate) struct BrowserViews {
+    pub tracks: Rows<TrackRow>,
+}
+
+/// Restores the last list and track at start-up.
+pub(crate) fn restore(app: &App, node: Option<NodeId>, track: Option<TrackId>) {
+    let mut st = app.state.borrow_mut();
+    if let Some(n) = node.filter(|n| st.lib.node(*n).is_ok()) {
+        st.browser.node = Some(n);
+        let in_list = st.lib.node(n).is_ok_and(|n| n.kind.has_entries());
+        st.browser.reset_sort(in_list);
+        let mut p = st.lib.node(n).ok().and_then(|n| n.parent);
+        while let Some(x) = p {
+            st.browser.expanded.insert(x);
+            p = st.lib.node(x).ok().and_then(|n| n.parent);
+        }
+    }
+    st.load_rows();
+    if let Some(t) = track {
+        if let Some(i) = st.browser.rows.iter().position(|r| r.id == t) {
+            st.browser.selection = [i].into_iter().collect();
+            st.browser.anchor = Some(i);
+            st.player.current = Some(t);
+            if st.node_kind() == Some(NodeKind::Set) {
+                st.browser.flow_selected = Some(i);
+            }
+        }
+    }
+}
+
+/// Selects row `i` (plain, ⌘-toggle or ⇧-range) and shows its track.
+pub(crate) fn select_row(app: &App, i: usize, toggle: bool, range: bool) {
+    {
+        let mut st = app.state.borrow_mut();
+        let b = &mut st.browser;
+        if range {
+            let a = b.anchor.unwrap_or(i);
+            b.selection = (a.min(i)..=a.max(i)).collect();
+        } else if toggle {
+            if !b.selection.remove(&i) {
+                b.selection.insert(i);
+            }
+            b.anchor = Some(i);
+        } else {
+            b.selection = [i].into_iter().collect();
+            b.anchor = Some(i);
+        }
+        let new = if st.explorer.open.is_some() { st.explorer.track_at(i) } else { st.browser.rows.get(i).map(|t| t.id) };
+        if new != st.player.current {
+            st.player.current = new;
+            st.player.cursor = 0.0;
+        }
+        if st.node_kind() == Some(NodeKind::Set) && st.explorer.open.is_none() {
+            st.browser.flow_selected = Some(i);
+        }
+    }
+    refresh_tracks(app);
+    player::refresh_detail(app);
+}
+
+/// Arrow keys: move the selection one row.
+pub(crate) fn step_selection(app: &App, up: bool) {
+    let (len, cur) = {
+        let st = app.state.borrow();
+        (st.row_count(), st.browser.selection.iter().next_back().copied())
+    };
+    if len == 0 {
+        return;
+    }
+    let next = match cur {
+        None => 0,
+        Some(c) if up => c.saturating_sub(1),
+        Some(c) => (c + 1).min(len - 1),
+    };
+    select_row(app, next, false, false);
+    app.ui.set_focus_row(next as i32);
+}
+
+/// Selects the next (or previous) list in the tree; used by the
+/// controller's back button in kiosk mode.
+pub(crate) fn cycle_list(app: &App, forward: bool) {
+    let ids: Vec<i32> = app.ui.get_tree().iter().map(|r| r.id).collect();
+    if ids.is_empty() {
+        return;
+    }
+    let cur = app.ui.get_selected_node();
+    let i = ids.iter().position(|&x| x == cur).unwrap_or(0);
+    let next = if forward { (i + 1) % ids.len() } else { (i + ids.len() - 1) % ids.len() };
+    app.ui.invoke_select_node(ids[next]);
+}
+
+/// Removes the selected rows from the open playlist or set.
+pub(crate) fn remove_selected(app: &App) {
+    {
+        let st = app.state.borrow();
+        if st.read_only() || st.explorer.open.is_some() {
+            return;
+        }
+    }
+    let (node, positions) = {
+        let st = app.state.borrow();
+        (st.browser.node, st.browser.selection.iter().copied().collect::<Vec<_>>())
+    };
+    let Some(n) = node else { return };
+    if positions.is_empty() || !app.state.borrow().lib.node(n).is_ok_and(|n| n.kind.has_entries()) {
+        return;
+    }
+    // Rows may be re-sorted; map rows back to entry positions.
+    let entries = app.state.borrow().lib.entries(n).unwrap_or_default();
+    let ids: Vec<TrackId> = app.state.borrow().selected_ids();
+    let mut entry_positions: Vec<usize> = Vec::new();
+    for id in &ids {
+        if let Some(i) = (0..entries.len()).find(|i| entries[*i].track == *id && !entry_positions.contains(i)) {
+            entry_positions.push(i);
+        }
+    }
+    let r = app.state.borrow_mut().lib.remove_from_node(n, &entry_positions);
+    if app.report(r).is_some() {
+        app.state.borrow_mut().browser.selection.clear();
+        app.after_edit(&format!("Removed {} track(s) — ⌘Z to undo", entry_positions.len()));
+    }
+}
+
+/// Opens a tree entry: a library list, "All tracks", a stick or a list on it.
+fn select_node(app: &App, id: i32) {
+    {
+        let mut st = app.state.borrow_mut();
+        st.explorer.close();
+        match tree::decode_stick_id(id) {
+            Some((i, node)) => {
+                let reuse = st.browser.stick.as_ref().is_some_and(|(j, _)| *j == i);
+                if !reuse {
+                    let root = st.browser.sticks.get(i).map(|s| s.1.clone());
+                    st.browser.stick = root.and_then(|r| od_format_native::Stick::open(&r).ok().flatten()).map(|s| (i, s));
+                }
+                st.browser.node = node;
+                st.player.current = None;
+            }
+            None => {
+                if st.browser.stick.take().is_some() {
+                    st.player.current = None;
+                }
+                st.browser.node = if id < 0 { None } else { Some(NodeId(id as i64)) };
+            }
+        }
+        st.browser.selection.clear();
+        st.browser.flow_selected = None;
+        st.browser.search.clear();
+        let in_list = st.browser.node.is_some_and(|n| st.src().node(n).is_ok_and(|n| n.kind.has_entries()));
+        st.browser.reset_sort(in_list);
+        if let (Some(n), false) = (st.browser.node, st.read_only()) {
+            if st.lib.node(n).is_ok_and(|n| n.kind == NodeKind::Folder) {
+                st.browser.expanded.insert(n);
+            }
+        }
+    }
+    app.ui.set_search_text(SharedString::new());
+    app.ui.set_section("library".into());
+    app.state.borrow_mut().load_rows();
+    refresh_tree(app);
+    refresh_tracks(app);
+    crate::explorer::refresh_tree(app);
+}
+
+fn create_node(app: &App, kind: &str) {
+    if app.state.borrow().read_only() || app.state.borrow().explorer.open.is_some() {
+        let mut st = app.state.borrow_mut();
+        st.explorer.close();
+        st.browser.stick = None;
+        st.browser.node = None;
+        st.browser.selection.clear();
+    }
+    let (kind, name) = match kind {
+        "folder" => (NodeKind::Folder, "New folder"),
+        "set" => (NodeKind::Set, "New set"),
+        "smart" => (NodeKind::Smart, "New smart list"),
+        _ => (NodeKind::Playlist, "New playlist"),
+    };
+    let parent = {
+        let st = app.state.borrow();
+        st.browser.node.and_then(|n| st.lib.node(n).ok()).filter(|n| n.kind == NodeKind::Folder).map(|n| n.id)
+    };
+    let selected = app.state.borrow().selected_ids();
+    let r = app.state.borrow_mut().lib.create_node(parent, kind, name);
+    if let Some(id) = app.report(r) {
+        if kind.has_entries() && !selected.is_empty() && app.state.borrow().browser.node.is_none() {
+            let _ = app.state.borrow_mut().lib.add_to_node(id, &selected, None);
+        }
+        {
+            let mut st = app.state.borrow_mut();
+            if let Some(p) = parent {
+                st.browser.expanded.insert(p);
+            }
+            st.browser.node = Some(id);
+            st.browser.selection.clear();
+            st.browser.sort = if kind.has_entries() { "position".into() } else { "date_added".into() };
+        }
+        app.after_edit("Created — click the title to rename it");
+        crate::explorer::refresh_tree(app);
+    }
+}
+
+pub(crate) fn wire(app: &Rc<App>) {
+    let ui = &app.ui;
+    ui.on_select_node(handler!(app, |a, id: i32| select_node(&a, id)));
+    ui.on_toggle_node(handler!(app, |a, id: i32| {
+        {
+            let mut st = a.state.borrow_mut();
+            let n = NodeId(id as i64);
+            if !st.browser.expanded.remove(&n) {
+                st.browser.expanded.insert(n);
+            }
+        }
+        refresh_tree(&a);
+    }));
+    ui.on_add_to_node(handler!(app, |a, id: i32| {
+        if a.guard_read_only() {
+            return;
+        }
+        let ids = a.state.borrow().selected_ids();
+        let name = a.state.borrow().lib.node(NodeId(id as i64)).map(|n| n.name).unwrap_or_default();
+        let r = a.state.borrow_mut().lib.add_to_node(NodeId(id as i64), &ids, None);
+        if a.report(r).is_some() {
+            a.after_edit(&format!("Added {} track(s) to {name}", ids.len()));
+        }
+    }));
+    ui.on_create_node(handler!(app, |a, kind: SharedString| create_node(&a, kind.as_str())));
+    ui.on_rename_node(handler!(app, |a, name: SharedString| {
+        if a.guard_read_only() {
+            return;
+        }
+        let node = a.state.borrow().browser.node;
+        if let Some(n) = node.filter(|_| a.state.borrow().explorer.open.is_none()) {
+            let r = a.state.borrow_mut().lib.rename_node(n, name.trim());
+            if a.report(r).is_some() {
+                a.after_edit("Renamed");
+            }
+        }
+    }));
+    ui.on_delete_node(handler!(app, |a| {
+        if a.guard_read_only() {
+            return;
+        }
+        let node = a.state.borrow().browser.node;
+        if let Some(n) = node.filter(|_| a.state.borrow().explorer.open.is_none()) {
+            let r = a.state.borrow_mut().lib.delete_node(n);
+            if a.report(r).is_some() {
+                a.state.borrow_mut().browser.node = None;
+                a.after_edit("Deleted — ⌘Z brings it back");
+            }
+        }
+    }));
+    ui.on_remove_selected(handler!(app, |a| remove_selected(&a)));
+    ui.on_search(handler!(app, |a, q: SharedString| {
+        a.state.borrow_mut().browser.search = q.to_string();
+        a.state.borrow_mut().load_rows();
+        refresh_tracks(&a);
+    }));
+    ui.on_set_smart_rule(handler!(app, |a, text: SharedString| {
+        if a.guard_read_only() {
+            return;
+        }
+        match smart_text::parse(&text) {
+            Ok(rule) => {
+                a.ui.set_smart_rule_error(SharedString::new());
+                let node = a.state.borrow().browser.node;
+                if let Some(n) = node {
+                    let r = a.state.borrow_mut().lib.set_smart_rule(n, rule);
+                    if a.report(r).is_some() {
+                        a.after_edit("Rules updated");
+                    }
+                }
+            }
+            Err(e) => a.ui.set_smart_rule_error(e.into()),
+        }
+    }));
+    ui.on_sort(handler!(app, |a, col: SharedString| {
+        {
+            let mut st = a.state.borrow_mut();
+            let b = &mut st.browser;
+            if b.sort == col.as_str() {
+                b.descending = !b.descending;
+            } else {
+                b.sort = col.to_string();
+                b.descending = default_descending(col.as_str());
+            }
+            if b.sort == "position" {
+                b.descending = false;
+            }
+        }
+        a.state.borrow_mut().load_rows();
+        refresh_tracks(&a);
+    }));
+    ui.on_row_clicked(handler!(app, |a, i: i32, toggle: bool, range: bool| select_row(&a, i as usize, toggle, range)));
+    ui.on_row_activated(handler!(app, |a, i: i32| {
+        select_row(&a, i as usize, false, false);
+        if a.state.borrow().explorer.open.is_some() {
+            crate::explorer::activate(&a, i as usize, None);
+        } else {
+            decks::load_selected_into_free_deck(&a);
+        }
+    }));
+    ui.on_import_folder(handler!(app, |a| {
+        let Some(dirs) = rfd::FileDialog::new().set_title("Add music folder").pick_folders() else { return };
+        let path = a.state.borrow().config.library_path.clone();
+        spawn_import(path, dirs, a.worker_tx.clone(), a.analysis.wake.clone());
+        a.status("Adding music…");
+    }));
+    ui.on_import_rekordbox(handler!(app, |a| crate::import::run_rekordbox_import(&a)));
+    ui.on_flow_select(handler!(app, |a, i: i32| select_row(&a, i as usize, false, false)));
+    ui.on_set_transition_note(handler!(app, |a, text: SharedString| {
+        if a.guard_read_only() {
+            return;
+        }
+        let (node, pos) = {
+            let st = a.state.borrow();
+            (st.browser.node, st.browser.flow_selected)
+        };
+        if let (Some(n), Some(p)) = (node, pos) {
+            let r = a.state.borrow_mut().lib.set_entry_note(n, p, text.trim());
+            if a.report(r).is_some() {
+                a.after_edit("Transition note saved");
+            }
+        }
+    }));
+    ui.on_find_moved_files(handler!(app, |a| {
+        let Some(dirs) = rfd::FileDialog::new().set_title("Where are the moved files?").pick_folders() else { return };
+        let found = a.state.borrow().lib.find_relocations(&dirs, od_decode::content_hash);
+        match found {
+            Ok(rel) if rel.is_empty() => a.status("No moved files found in that folder"),
+            Ok(rel) => {
+                let n = rel.len();
+                let r = a.state.borrow_mut().lib.apply_relocations(&rel);
+                if a.report(r).is_some() {
+                    a.after_edit(&format!("Found {n} moved file(s)"));
+                }
+            }
+            Err(e) => a.status(format!("{e}")),
+        }
+    }));
+}
