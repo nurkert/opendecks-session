@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 204 features; 196 in scope: 79 DONE (40 %), 29 PARTIAL, 25 ENGINE-ONLY, 63 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
+**Summary:** 205 features; 197 in scope: 79 DONE (40 %), 29 PARTIAL, 25 ENGINE-ONLY, 64 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
 
 The reference list is the rekordbox 7 feature set (top plan) relevant to a DJ who prepares in
 EXPORT mode and plays in PERFORMANCE mode with a DDJ-FLX10 / DDJ-FLX4, extended by the
@@ -164,6 +164,7 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Pad mode: Memory Cue | MISSING | (UX §1.3) | — | P3 |
 | Pad mode: Sequence Call | MISSING | (UX §1.3) | — | P3 |
 | Pad mode: Active Censor | MISSING | (UX §1.3) | — | P3 |
+| CDJ practice mode: CDJ-3000-like screens and behaviour driven by the controller | MISSING | Owner request 2026-11-06 (SPEC §10.3c).; (SPEC §10.3c) | — | P2 |
 
 ## 5. Mixer
 
@@ -312,10 +313,10 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | DONE | 79 |
 | PARTIAL | 29 |
 | ENGINE-ONLY | 25 |
-| MISSING | 63 |
+| MISSING | 64 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 6 |
-| **Total** | **204** |
+| **Total** | **205** |
 
 ## P1 gaps and implementation notes
 

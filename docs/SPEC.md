@@ -447,6 +447,21 @@ implemented with `rusb` in the FLX10 device module.
   triggering, sample sync to the master tempo, a step sequencer with
   pattern recording and saved sequences.
 
+### 10.3c CDJ practice mode (owner requirement 2026-11-06)
+
+A Perform sub-mode that prepares a DJ who only owns a controller (FLX10)
+for club players: per deck the screen mirrors a CDJ-3000's display
+structure and behaviour — browse screen (source → list, track info),
+playing screen with zoomable waveform, overview, beat/bar counter,
+remaining time, tempo with range and master tempo, hot cue / memory cue
+call, loops and beat jump as on the player, the CDJ load and cue rules
+(cue point set while paused, back cue, cue/play stutter, needle search),
+and no software-only help unless enabled (no on-screen sync, no stems,
+optional "beat sync" like the player's). The controller's jog, tempo and
+pads drive it like a CDJ; a short guided checklist teaches the CDJ
+workflow (insert stick, browse, load, cue, beatmatch by ear). Mixer stays
+as in Perform.
+
 ### 10.3b Out of scope
 
 Streaming services, cloud, DVS, lighting, video, Pro DJ Link (later).

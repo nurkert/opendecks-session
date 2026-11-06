@@ -2581,3 +2581,15 @@ exclusion = "cloud"
 tests = []
 note = "needs online accounts; SPEC §2 offline-first"
 
+
+[[feature]]
+id = "perform-cdj-mode"
+area = "deck"
+name = "CDJ practice mode: CDJ-3000-like screens and behaviour driven by the controller"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+evidence = []
+note = "Owner request 2026-11-06 (SPEC §10.3c)."
+spec = "SPEC §10.3c"
