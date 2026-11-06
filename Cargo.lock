@@ -4145,6 +4145,8 @@ dependencies = [
  "od-devices",
  "od-engine",
  "od-format-native",
+ "od-i18n",
+ "od-import-rekordbox",
  "od-library",
  "od-recorder",
  "rayon",
@@ -4177,6 +4179,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "od-core",
+ "od-i18n",
  "od-library",
  "od-ui",
  "slint",

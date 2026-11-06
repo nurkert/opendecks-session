@@ -15,7 +15,7 @@ jobs:
       - run: brew install rubberband pkg-config
       - run: packaging/macos/build-dmg.sh
       - uses: actions/upload-artifact@v4
-        with: { name: macos-dmg, path: target/dist/*.dmg }
+        with: { name: macos-dmg, path: "target/dist/*.dmg" }
 
   linux:
     strategy:
@@ -28,7 +28,7 @@ jobs:
       - run: packaging/linux/install-build-deps.sh
       - run: packaging/linux/build-appimage.sh
       - uses: actions/upload-artifact@v4
-        with: { name: appimage-${{ matrix.os }}, path: target/dist/*.AppImage }
+        with: { name: appimage-${{ matrix.os }}, path: "target/dist/*.AppImage" }
 
   raspberry-pi:
     runs-on: ubuntu-24.04-arm
@@ -38,4 +38,4 @@ jobs:
       - run: packaging/linux/install-build-deps.sh
       - run: packaging/raspberry-pi/build-bundle.sh
       - uses: actions/upload-artifact@v4
-        with: { name: raspberry-pi-bundle, path: target/dist/*.tar.gz }
+        with: { name: raspberry-pi-bundle, path: "target/dist/*.tar.gz" }
