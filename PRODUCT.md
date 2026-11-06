@@ -35,7 +35,7 @@ See docs/SPEC.md (authoritative). Highlights: two work modes (Prepare, Perform),
 
 ## Brand Commitments
 
-Name: OpenDecks Session. Layout and workflow follow the conventions rekordbox users know (players/decks on top, browser below, tree on the left, USB devices with sync in the sidebar, Export-like Prepare and Performance modes) so they feel at home immediately (decided by the owner on 2026-11-06). The visual identity stays our own: the emission-line world from DESIGN.md; no rekordbox or AlphaTheta/Pioneer DJ assets, icons, colours or styling; product names only used descriptively. Dark, high contrast, calm and precise; one accent colour per deck.
+Name: OpenDecks Session. Layout and workflow mirror rekordbox closely — same regions, proportions and control order — and the feature set matches rekordbox 7's top plan except for streaming, cloud, video, lighting and DVS (decided by the owner on 2026-11-06). The visual identity stays our own: the emission-line world from DESIGN.md; no rekordbox or AlphaTheta/Pioneer DJ assets, icons, colours or styling; product names only used descriptively. Dark, high contrast, calm and precise; one accent colour per deck.
 
 ## Evidence on Hand
 

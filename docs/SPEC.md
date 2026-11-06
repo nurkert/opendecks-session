@@ -1,8 +1,12 @@
 # OpenDecks Session — Specification
 
-Status: agreed in the requirements session of 2026-11-06. This document is the
-goal for implementation. Anything not stated here is out of scope until it is
-added to this document.
+Status: version 2, revised 2026-11-06 on the owner's request: the goal is a
+full-featured, open-source DJ toolkit with the feature set of rekordbox 7 at
+its highest plan (minus streaming, cloud, video and lighting), arranged the
+way rekordbox users know it, in OpenDecks' own visual language. This
+document is the goal for implementation. Anything not stated here is out of
+scope until it is added to this document. `docs/feature-matrix.md` tracks
+every feature against the code.
 
 ## 1. Vision
 
@@ -13,9 +17,18 @@ macOS, Linux, and as a standalone unit built from a Raspberry Pi attached to a
 controller.
 
 It is an independent product. It is interoperable with the Pioneer DJ USB
-export format and with Pioneer DJ controllers, but it does not reuse
-rekordbox assets, layouts, or visual identity, and after a one-time migration
-it never reads rekordbox directories again.
+export format and with Pioneer DJ controllers. Its **arrangement and
+workflow follow rekordbox conventions** (players on top, browser below, tree
+on the left, Export-like Prepare and Performance-like Perform modes) so a
+rekordbox user is at home immediately; its **visual language is its own**
+(DESIGN.md) and it reuses no rekordbox assets. After a one-time migration it
+never reads rekordbox directories again.
+
+The feature set is **identical to rekordbox 7's top plan** except for the
+fixed exclusions below: library, analysis, cue and grid editing, Explorer playback
+straight from folders, stems, all FX, sampler and sequencer, recording, USB
+export with automatic sync. Fixed exclusions: streaming services, cloud sync and
+accounts (offline-first), video, lighting, DVS.
 
 ### Core problems it solves
 
@@ -125,6 +138,30 @@ Crate boundaries are firm: format crates do not depend on the UI, the engine
 does not depend on the library database, and everything below `od-ui` is
 usable headless through `od-cli` (which also drives automated tests).
 
+### 4.1a UI architecture (od-ui, rebuilt in v2)
+
+The UI crate is organised by feature, each module owning its view model,
+its Slint component and its command handlers:
+
+| Module | Owns |
+|---|---|
+| `shell` | window, top bar, mode switch, splitters and pane sizes, status band, key bindings |
+| `browser` | tree (collection, playlists, sets, smart lists, histories, devices, Explorer), track list, columns, search, filters, tag editing, drag and drop |
+| `explorer` | file-system roots, folder listing, import-on-load |
+| `player` | Prepare player: waveform, cue / loop / grid editors |
+| `decks` | deck view models, waveform lanes, pads and pad modes |
+| `mixer` | channels, master, headphones, crossfader |
+| `fx` | Beat FX, Color FX, Pad FX, Release FX panels |
+| `sampler` | sampler slots, banks, sequencer |
+| `recorder` | recording control, recordings list, tracklists |
+| `devices` | sticks, sync status, export |
+| `preferences` | settings window: audio, controller, view, analysis, keyboard |
+
+A single `AppState` holds the domain state; modules mutate it only through
+commands, and a frame tick projects engine state into the deck and mixer
+view models. Long work (decode, analysis, separation, sync, export) runs on
+workers and reports through channels; the UI thread never blocks.
+
 ### 4.2 Threads and real-time rules
 
 - **Audio thread**: owned by `od-audio-io`, runs `od-engine`. No allocation,
@@ -204,6 +241,25 @@ MP3, AAC/M4A, ALAC, FLAC, WAV, AIFF, OGG Vorbis, Opus, decoded with
 symphonia. Files that a Pioneer player cannot play (for example Opus) are
 still exported to the OpenDecks format but flagged as "not playable on
 Pioneer players" in the device view.
+
+### 5.5 Browser features
+
+- Tree: Collection, Playlists (folders, playlists, smart lists, sets),
+  Histories (automatic per session), Explorer (folders on disk), Devices,
+  Recordings, Tag list (a staging list), Related tracks and Track
+  suggestion panels.
+- Track list: configurable and re-orderable columns (incl. preview
+  waveform, artwork, rating, colour, comment, My Tag, key, BPM, time,
+  date added, play count, bitrate), multi-sort, inline editing of tags,
+  rating and colour, drag and drop to playlists / decks / sticks,
+  reordering in playlists and sets.
+- Search with filters (BPM range, key match, rating, colour, My Tag,
+  genre), key and BPM matching against the master deck.
+- My Tag: user-defined tag categories and values, usable in smart lists.
+- Histories: every performance session is logged as a history list.
+- **Explorer:** browse folders on disk and play directly; loading a file
+  from Explorer adds it to the collection and analyses it in the
+  background, like rekordbox.
 
 ## 6. Analysis
 
@@ -343,40 +399,54 @@ implemented with `rusb` in the FLX10 device module.
 
 ## 10. Perform
 
-### 10.1 Features (v1)
+### 10.1 Decks
 
-- 4 decks (2 for FLX4), deck layer switching.
-- Tempo fader with ranges, **Sync** (BPM and phase, beat-aware), master deck,
-  **Quantize**.
-- **Keylock** with Rubber Band.
-- Hot cues A–H, memory cues, loops (manual, auto-loop in beats, halve/double,
-  loop roll), **Slip** mode, beat jump, reverse, censor-style slip reverse.
-- Mixer: per-channel trim/auto-gain, 3-band EQ (isolator or classic),
-  colour FX filter, channel fader, crossfader with curves, master and
-  headphone cue/mix, VU meters.
-- Beat FX (small set, e.g. echo, delay, reverb, flanger, phaser, roll,
-  filter, trans) and Color FX (filter, echo, noise, space, crush).
-- Sampler with banks, triggered from pads.
-- Pad modes: Hot Cue, Beat Loop, Beat Jump, Sampler.
-- Waveforms: overview + zoomable scrolling waveform per deck, beat markers,
-  cue markers, phrase colours; stacked layout for 2 and 4 decks.
-- Library browser usable fully from the controller (browse, load, back,
-  shift-sort).
+- 2 or 4 decks (2 for FLX4), deck layer switching, layouts for 2 and 4
+  decks and a browser-maximised layout.
+- Tempo fader with ranges (±6/10/16 %, WIDE), **Sync** (BPM and phase,
+  beat-aware), master deck, **Quantize**, key lock (Rubber Band), key shift
+  and key sync.
+- Hot cues A–H with banks, memory cues, loops (manual, auto beat loop,
+  halve/double, loop roll, active loop, saved loops), **Slip**, beat jump
+  (configurable size), reverse, censor, needle search, auto cue.
+- Jog display with position, remaining time, phrase and bar counter.
+- Waveforms: three-band colour (RGB and blue variants), overview with phrase
+  bar, zoomable scrolling waveform per deck with beat grid, cues and
+  phrases; stacked for 2 and 4 decks.
+- Pad modes: Hot Cue, Pad FX, Beat Jump, Sampler, Keyboard, Key Shift, Beat
+  Loop, Slicer.
 
-### 10.2 Stems (added 2026-11-06 on the owner's request)
+### 10.2 Mixer and FX
+
+- Per channel trim / auto gain, 3-band EQ (isolator or classic), Color FX
+  knob, fader with curves, CUE; crossfader with assign and curves; master,
+  booth, headphone cue / mix / level; meters.
+- **Beat FX:** two units, echo, delay, ping pong, reverb, flanger, phaser,
+  roll, slip roll, filter, trans, pitch, vinyl brake, helix, spiral; beat
+  length, level/depth, channel assign, tap.
+- **Color FX:** filter, echo, noise, space, crush, pitch, dub echo, sweep.
+- **Pad FX** and **Release FX** (vinyl brake, backspin, echo out).
+
+### 10.3 Stems
 
 - Four parts per track: vocals, drums, bass and instrumental (INST = mix −
   vocals − drums − bass), separated offline by a local ONNX model that is
   downloaded once on demand; nothing leaves the machine.
 - Separation runs in the background and is cached per track; a deck shows
-  SEPARATING… until the parts are ready and the mute toggles then work
-  instantly and click-free.
+  that it is separating until the parts are ready, then the part mutes and
+  levels work instantly and click-free; stem FX per part.
 - Desktop (Full profile) separates; the Raspberry Pi plays parts that were
   separated on the desktop.
 
-### 10.3 Out of scope for v1
+### 10.3a Sampler
 
-DVS, lighting, streaming services, Pro DJ Link, video.
+- 16 slots in banks, one-shot / loop / gate, per-slot gain, quantised
+  triggering, sample sync to the master tempo, a step sequencer with
+  pattern recording and saved sequences.
+
+### 10.3b Out of scope
+
+Streaming services, cloud, DVS, lighting, video, Pro DJ Link (later).
 
 ### 10.4 Audio I/O
 
@@ -388,6 +458,9 @@ DVS, lighting, streaming services, Pro DJ Link, video.
 
 ## 11. Recording
 
+- REC is always one click away in the top bar (and on the controller); a
+  recording panel shows level, elapsed time, file size and the tracklist
+  as it grows.
 - Records the master output of the engine.
 - Formats: WAV or FLAC (lossless), optionally MP3 in addition.
 - One-button start/stop in the UI and mappable to the controller.
@@ -399,17 +472,22 @@ DVS, lighting, streaming services, Pro DJ Link, video.
 
 ## 12. Design and UX
 
-- Own identity: dark, high contrast for club lighting, calm and precise, one
-  accent colour per deck. No resemblance to rekordbox's layout or styling.
-- Designed with the design skill before UI implementation: design tokens
-  (colour, typography, spacing), component library in Slint, key screens
-  (Prepare library, set editor, device sidebar, Perform 2-deck and 4-deck,
-  kiosk) in both profiles.
-- Interaction principles: every state (sync status, analysis progress,
-  recording) is visible at a glance; no modal dialogs during performance;
-  keyboard shortcuts for all Prepare actions; touch targets ≥ 9 mm in kiosk.
-- Accessibility: scalable UI, colour-blind-safe deck/cue colour palette
-  option.
+- **Layout mirrors rekordbox closely** (owner decision 2026-11-06): the
+  same regions in the same places and proportions, the same order of
+  controls inside decks, mixer, FX and browser, the same panel toggles and
+  the same flows (load, browse, record, export). A rekordbox user must
+  recognise it instantly. `docs/ux-study/rekordbox-layout.md` is the
+  reference; deviations need a documented reason.
+- Visual language is OpenDecks' own (DESIGN.md): charcoal ground, bone
+  legends, emission-line accents, one colour per deck; no rekordbox assets,
+  icons or colours.
+- One grid: flat panes separated by shared 1px rules that line up across the
+  window; draggable splitters (double-click resets) whose sizes persist.
+- Every state (sync status, analysis, separation, recording) is visible at
+  a glance; no modal dialogs during performance; keyboard shortcuts for all
+  Prepare actions; touch targets ≥ 9 mm in kiosk.
+- Accessibility: scalable UI, colour-blind-safe palette, high-contrast
+  option, text contrast ≥ 4.5:1.
 
 ## 13. Performance targets
 
@@ -473,9 +551,27 @@ format with the FLX10 for 1 hour with 4 decks without dropouts at ≥ 30 fps.
 - FLX10 device settings and jog displays via the reverse-engineered USB
   protocol.
 
-### M5 — Later
+### M5 — Feature parity (v2)
 
-OneLibrary export, LAN sync between desktop and Pi,
+In phases, tracked in `docs/feature-matrix.md`:
+
+1. **P1 everyday:** UI architecture rebuild (§4.1a), Explorer, cue changes
+   from performing persisted, track tag editing, playlist/set reordering
+   and drag and drop, full cue / loop / grid editor, Beat FX and Color FX
+   panels and controller wiring, all mapped controller inputs working,
+   Preferences window.
+2. **P2 depth:** hot cue banks, pad modes (Pad FX, Keyboard, Key Shift,
+   Slicer, Beat Loop), Release FX, sampler panel and sequencer, histories,
+   My Tag, related tracks / track suggestion, key shift / key sync,
+   recording panel with live tracklist and auto split.
+3. **P3 polish:** layouts and panel toggles, waveform options, column
+   customisation, matching filters, booth output, censor, saved loops.
+
+Accepted when every non-out-of-scope row of the feature matrix is DONE.
+
+### M6 — Later
+
+OneLibrary export, LAN sync between desktop and Pi, Pro DJ Link, DVS,
 more controllers, real-player CDJ validation if not done earlier.
 
 ## 16. Open items and risks
