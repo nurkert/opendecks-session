@@ -1,6 +1,7 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine, ProgressLine } from "lines.slint";
-import { Caps, PlateButton, Field, LineToggle, Splitter } from "controls.slint";
+import { Caps, PlateButton, Field, LineToggle, Splitter, TooltipState } from "controls.slint";
+import { TooltipLayer } from "tooltip.slint";
 import { Sidebar } from "sidebar.slint";
 import { TopBar } from "topbar.slint";
 import { PreparePlayer } from "player.slint";
@@ -12,7 +13,7 @@ import { PreferencesWindow, KeyRow } from "preferences.slint";
 import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion } from "structs.slint";
 
 export { PreferencesWindow, KeyRow }
-export { Theme, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion }
+export { Theme, TooltipState, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion }
 
 export struct ProposalRow {
     index: int,
@@ -220,6 +221,12 @@ export component AppWindow inherits Window {
     // Held keys (pitch bend) end on release.
     callback key-released(string);
     callback open-preferences();
+    // Appearance: the top-bar button cycles dark → light → system; Rust
+    // hears every change of the effective palette (waveform images).
+    callback cycle-appearance();
+    callback appearance-changed(bool);
+    property <bool> theme-light: Theme.light;
+    changed theme-light => { root.appearance-changed(self.theme-light); }
     // Each change focuses the search field (keyboard: search).
     in property <int> search-focus;
     // Preferences > View: phrases on the waveforms.
@@ -266,8 +273,8 @@ export component AppWindow inherits Window {
     }
 
     forward-focus: keys;
-    // The charcoal continuum behind everything.
-    Image { width: root.width; height: root.height; source: root.ground-texture; image-fit: fill; }
+    // The charcoal continuum behind everything (plain paper in light mode).
+    if !Theme.light: Image { width: root.width; height: root.height; source: root.ground-texture; image-fit: fill; }
     keys := FocusScope {
         key-pressed(event) => {
             if (root.key-pressed(event.text, event.modifiers.control, event.modifiers.meta, event.modifiers.alt, event.modifiers.shift)) {
@@ -283,6 +290,7 @@ export component AppWindow inherits Window {
         VerticalLayout {
             TopBar {
                 open-preferences => { root.open-preferences(); }
+                cycle-appearance => { root.cycle-appearance(); }
                 mode: root.mode;
                 kiosk: root.kiosk;
                 show-record: root.mode != "perform";
@@ -384,6 +392,7 @@ export component AppWindow inherits Window {
             }
             if !root.kiosk: Splitter {
                 horizontal: true;
+                tooltip: @tr("Drag to resize, double-click to reset");
                 dragged(d) => { root.upper-height = clamp(upper.height + d, upper.min-height, root.height - 260px); }
                 reset => { root.upper-height = 0px; }
             }
@@ -423,6 +432,7 @@ export component AppWindow inherits Window {
                 }
                 if !root.kiosk: Splitter {
                     horizontal: false;
+                    tooltip: @tr("Drag to resize, double-click to reset");
                     dragged(d) => { root.sidebar-width = clamp(root.sidebar-width + d, 180px, 480px); }
                     reset => { root.sidebar-width = 260px; }
                 }
@@ -439,7 +449,7 @@ export component AppWindow inherits Window {
                         height: root.kiosk ? 44px : 32px;
                         if root.kiosk: PlateButton {
                             horizontal-stretch: 0; compact: true; tall: true;
-                            label: @tr("DECKS"); tone: Theme.w486;
+                            label: @tr("DECKS"); tone: Theme.w486; tooltip: @tr("Back to the decks");
                             clicked => { root.browser-open = false; }
                         }
                         title := TextInput {
@@ -454,9 +464,9 @@ export component AppWindow inherits Window {
                         }
                         Caps { text: root.node-sub; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; }
-                        if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; clicked => { root.find-moved-files(); } }
-                        if root.node-kind == "all" && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; clicked => { root.import-folder(); } }
-                        if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && !root.read-only && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
+                        if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; tooltip: @tr("Search a folder for tracks whose files have moved"); command: "browser.find.moved"; clicked => { root.find-moved-files(); } }
+                        if root.node-kind == "all" && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; tooltip: @tr("Add a music folder"); command: "browser.add.music"; clicked => { root.import-folder(); } }
+                        if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && !root.read-only && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; tooltip: @tr("Delete the open list"); command: "browser.delete.list"; clicked => { root.delete-node(); } }
                         Field {
                             property <int> focus-request: root.search-focus;
                             changed focus-request => { self.focus-field(); }
@@ -511,8 +521,8 @@ export component AppWindow inherits Window {
                     if root.section == "library" && root.node-kind == "all" && root.tracks.length == 0: HorizontalLayout {
                         alignment: center;
                         spacing: 10px;
-                        PlateButton { label: @tr("ADD MUSIC FOLDER"); tone: Theme.live; clicked => { root.import-folder(); } }
-                        PlateButton { label: @tr("IMPORT FROM REKORDBOX"); tone: Theme.w486; clicked => { root.import-rekordbox(); } }
+                        PlateButton { label: @tr("ADD MUSIC FOLDER"); tone: Theme.live; tooltip: @tr("Add a music folder"); command: "browser.add.music"; clicked => { root.import-folder(); } }
+                        PlateButton { label: @tr("IMPORT FROM REKORDBOX"); tone: Theme.w486; tooltip: @tr("Import playlists, cues and grids from rekordbox"); command: "browser.import.rekordbox"; clicked => { root.import-rekordbox(); } }
                     }
 
                     // ── Devices section ──
@@ -548,8 +558,8 @@ export component AppWindow inherits Window {
                             Caps { text: @tr("FORMATS"); }
                             HorizontalLayout {
                                 spacing: 18px;
-                                LineToggle { label: @tr("Pioneer players (export.pdb)"); checked: root.device-pioneer; toggled(v) => { root.set-device-formats(v, root.device-opendecks); } }
-                                LineToggle { label: @tr("OpenDecks"); checked: root.device-opendecks; toggled(v) => { root.set-device-formats(root.device-pioneer, v); } }
+                                LineToggle { label: @tr("Pioneer players (export.pdb)"); tooltip: @tr("Write the database Pioneer CDJs and XDJs read"); checked: root.device-pioneer; toggled(v) => { root.set-device-formats(v, root.device-opendecks); } }
+                                LineToggle { label: @tr("OpenDecks"); tooltip: @tr("Write the OpenDecks library for other OpenDecks setups"); checked: root.device-opendecks; toggled(v) => { root.set-device-formats(root.device-pioneer, v); } }
                             }
                             Caps { text: @tr("CONTENT — LISTS ON THIS STICK"); }
                             Rectangle {
@@ -576,14 +586,14 @@ export component AppWindow inherits Window {
                                     Text { text: p.title; font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; overflow: elide; }
                                     Text { text: p.detail; font-family: Theme.family; font-size: 12px; color: Theme.bone-3; overflow: elide; }
                                 }
-                                PlateButton { compact: true; label: p.kind == "history" ? @tr("IMPORT") : @tr("TAKE STICK CUES"); tone: Theme.live; clicked => { root.accept-proposal(p.index); } }
-                                PlateButton { compact: true; label: p.kind == "history" ? @tr("DISMISS") : @tr("KEEP LIBRARY"); clicked => { root.reject-proposal(p.index); } }
+                                PlateButton { compact: true; label: p.kind == "history" ? @tr("IMPORT") : @tr("TAKE STICK CUES"); tone: Theme.live; tooltip: p.kind == "history" ? @tr("Import the play history from the stick") : @tr("Replace the library cues with the ones edited on the players"); clicked => { root.accept-proposal(p.index); } }
+                                PlateButton { compact: true; label: p.kind == "history" ? @tr("DISMISS") : @tr("KEEP LIBRARY"); tooltip: p.kind == "history" ? @tr("Ignore this history") : @tr("Keep the library cues; the stick gets them at the next sync"); clicked => { root.reject-proposal(p.index); } }
                             }
                             HorizontalLayout {
                                 spacing: 8px;
-                                PlateButton { compact: true; label: @tr("SYNC NOW"); tone: Theme.live; clicked => { root.sync-device(root.device-selected); } }
-                                PlateButton { compact: true; label: @tr("REBUILD STICK"); tone: Theme.attention; clicked => { root.rebuild-device(root.device-selected); } }
-                                PlateButton { compact: true; label: @tr("FORGET"); tone: Theme.fault; clicked => { root.forget-device(root.device-selected); } }
+                                PlateButton { compact: true; label: @tr("SYNC NOW"); tone: Theme.live; tooltip: @tr("Sync this stick now"); command: "devices.sync"; clicked => { root.sync-device(root.device-selected); } }
+                                PlateButton { compact: true; label: @tr("REBUILD STICK"); tone: Theme.attention; tooltip: @tr("Write the whole stick again from the library"); clicked => { root.rebuild-device(root.device-selected); } }
+                                PlateButton { compact: true; label: @tr("FORGET"); tone: Theme.fault; tooltip: @tr("Stop keeping this stick in sync"); clicked => { root.forget-device(root.device-selected); } }
                             }
                         }
                     }
@@ -606,8 +616,8 @@ export component AppWindow inherits Window {
                             HorizontalLayout {
                                 x: parent.width - 250px; y: 8px; width: 250px; height: 26px;
                                 spacing: 6px; alignment: end;
-                                PlateButton { compact: true; label: @tr("SHOW FILE"); clicked => { root.reveal-recording(r.id); } }
-                                PlateButton { compact: true; label: @tr("SPLIT INTO TRACKS"); tone: Theme.w656; clicked => { root.split-recording(r.id); } }
+                                PlateButton { compact: true; label: @tr("SHOW FILE"); tooltip: @tr("Show the recording in the file manager"); clicked => { root.reveal-recording(r.id); } }
+                                PlateButton { compact: true; label: @tr("SPLIT INTO TRACKS"); tone: Theme.w656; tooltip: @tr("Cut the recording into one file per played track"); clicked => { root.split-recording(r.id); } }
                             }
                         }
                         Rectangle { vertical-stretch: 1; }
@@ -638,4 +648,7 @@ export component AppWindow inherits Window {
             }
         }
     }
+
+    // Tooltips draw above everything.
+    TooltipLayer { }
 }

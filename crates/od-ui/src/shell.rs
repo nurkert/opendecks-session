@@ -71,6 +71,7 @@ pub(crate) fn apply_theme(theme: &crate::Theme<'_>, settings: &Settings, lite: b
     theme.set_colorblind_safe(settings.view.colorblind_safe);
     theme.set_high_contrast(settings.view.high_contrast);
     theme.set_motion(!settings.view.reduced_motion && !lite);
+    crate::appearance::apply(theme, &settings.view.appearance);
     crate::render::set_colorblind_safe(settings.view.colorblind_safe);
 }
 
@@ -162,8 +163,26 @@ fn key(app: &Rc<App>, text: &str, control: bool, meta: bool, alt: bool, shift: b
     }
 }
 
+/// The shortcut a tooltip shows for a keymap action: its bindings in
+/// effect, as the platform writes them ("" when unbound or unknown).
+pub(crate) fn shortcut_text(keymap: &crate::keymap::Keymap, id: &str) -> String {
+    let platform = keymap.platform();
+    keymap.bindings(id).iter().map(|c| c.display(platform)).collect::<Vec<_>>().join("  ·  ")
+}
+
+/// Tooltips of a window look up the current binding when they open.
+pub(crate) fn wire_tooltips(app: &Rc<App>, tips: &crate::TooltipState<'_>) {
+    let weak = Rc::downgrade(app);
+    tips.on_shortcut_for(move |id| {
+        let Some(app) = weak.upgrade() else { return SharedString::new() };
+        let st = app.state.borrow();
+        shortcut_text(&st.keymap, id.as_str()).into()
+    });
+}
+
 pub(crate) fn wire(app: &Rc<App>) {
     let ui = &app.ui;
+    wire_tooltips(app, &ui.global::<crate::TooltipState>());
     ui.on_select_section(handler!(app, |a, s: SharedString| {
         a.ui.set_section(s.clone());
         match s.as_str() {
@@ -190,6 +209,20 @@ pub(crate) fn wire(app: &Rc<App>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn tooltip_shortcut_follows_the_keymap() {
+        use crate::keymap::{Chord, Keymap, Platform};
+        let mut k = Keymap::new(Platform::Mac);
+        assert_eq!(shortcut_text(&k, "deck1.play"), "Z");
+        assert_eq!(shortcut_text(&k, "prefs.open"), Chord::parse("Mod+,", Platform::Mac).unwrap().display(Platform::Mac));
+        let p = Chord::parse("Shift+P", Platform::Mac).unwrap();
+        k.set("deck1.play", vec![p.clone()]);
+        assert_eq!(shortcut_text(&k, "deck1.play"), p.display(Platform::Mac));
+        k.set("deck1.play", Vec::new());
+        assert_eq!(shortcut_text(&k, "deck1.play"), "");
+        assert_eq!(shortcut_text(&k, "no.such"), "");
+    }
 
     #[test]
     fn pane_sizes_parse() {

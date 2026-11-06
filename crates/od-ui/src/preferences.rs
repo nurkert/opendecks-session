@@ -92,6 +92,7 @@ pub(crate) fn open(app: &Rc<App>) {
         if Platform::current() == Platform::Mac { od_i18n::tr("OPEN WITH ⌘,  ·  CLOSE WITH ESC OR ⌘W") } else { od_i18n::tr("OPEN WITH CTRL+,  ·  CLOSE WITH ESC OR CTRL+W") }.into(),
     );
     wire_window(app, &w);
+    shell::wire_tooltips(app, &w.global::<crate::TooltipState>());
     app.prefs.borrow_mut().window = Some(w);
     refresh(app);
     if let Some(w) = app.prefs.borrow().window.as_ref() {
@@ -115,6 +116,11 @@ fn with_window(app: &App, f: impl FnOnce(&PreferencesWindow)) {
     if let Some(w) = w.and_then(|w| w.upgrade()) {
         f(&w);
     }
+}
+
+/// Runs `f` on the Preferences window's theme, if the window exists.
+pub(crate) fn with_theme(app: &App, f: impl FnOnce(&crate::Theme<'_>)) {
+    with_window(app, |w| f(&w.global::<crate::Theme>()));
 }
 
 fn index_of<T: PartialEq>(list: &[T], v: &T) -> i32 {
@@ -164,6 +170,7 @@ pub(crate) fn refresh(app: &App) {
         w.set_colorblind(s.view.colorblind_safe);
         w.set_high_contrast(s.view.high_contrast);
         w.set_reduced_motion(s.view.reduced_motion);
+        w.set_appearance(index_of(&crate::settings::APPEARANCES, &s.view.appearance.as_str()));
         w.set_waveform(index_of(&["3band", "blue"], &s.view.waveform.as_str()));
         w.set_phrases(s.view.phrases);
         // Analysis.
@@ -463,6 +470,10 @@ fn choose(app: &App, key: &str, i: i32) {
         "view.language" => change(app, |s| s.view.language = ["", "en", "de"].get(i).unwrap_or(&"").to_string()),
         "view.notation" => change(app, |s| s.view.key_notation = ["camelot", "openkey", "musical"].get(i).unwrap_or(&"camelot").to_string()),
         "view.scale" => change(app, |s| s.view.scale = SCALES.get(i).copied().unwrap_or(1.0)),
+        "view.appearance" => {
+            crate::appearance::set(app, crate::settings::APPEARANCES.get(i).unwrap_or(&"dark"));
+            return;
+        }
         "view.waveform" => change(app, |s| s.view.waveform = ["3band", "blue"].get(i).unwrap_or(&"3band").to_string()),
         "analysis.bpm" => {
             let (a, b) = BPM_RANGES.get(i).copied().unwrap_or((87, 175));

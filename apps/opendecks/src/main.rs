@@ -15,6 +15,8 @@
 //!   --colorblind        colour-blind-safe palette
 //!   --high-contrast     high-contrast palette (bright light)
 //!   --no-motion         no animations (always off in the Lite profile)
+//!   --appearance dark|light|system
+//!                       colour appearance (system follows the OS)
 
 use od_core::KeyNotation;
 
@@ -42,6 +44,7 @@ fn main() -> anyhow::Result<()> {
             "--colorblind" => config.overrides.colorblind_safe = Some(true),
             "--high-contrast" => config.overrides.high_contrast = Some(true),
             "--no-motion" => config.overrides.reduced_motion = Some(true),
+            "--appearance" => config.overrides.appearance = args.next(),
             "--window" => {
                 config.window = args.next().and_then(|v| {
                     let (w, h) = v.split_once('x')?;
@@ -56,7 +59,7 @@ fn main() -> anyhow::Result<()> {
                 })
             }
             "--help" | "-h" => {
-                println!("opendecks [--library PATH] [--profile lite|full] [--kiosk] [--scale F] [--lang en|de] [--keys camelot|openkey|musical] [--colorblind] [--high-contrast] [--no-motion] [--window WxH]");
+                println!("opendecks [--library PATH] [--profile lite|full] [--kiosk] [--scale F] [--lang en|de] [--keys camelot|openkey|musical] [--colorblind] [--high-contrast] [--no-motion] [--appearance dark|light|system] [--window WxH]");
                 return Ok(());
             }
             other => anyhow::bail!("unknown option {other}"),

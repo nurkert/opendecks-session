@@ -66,11 +66,11 @@ export component DeviceLine inherits Rectangle {
         spacing: 6px;
         alignment: end;
         if root.device.connected && root.device.state != "syncing": PlateButton {
-            compact: true; label: @tr("SYNC"); tone: Theme.live;
+            compact: true; label: @tr("SYNC"); tone: Theme.live; tooltip: @tr("Sync this stick now"); command: "devices.sync";
             clicked => { root.sync(); }
         }
         if root.device.connected: PlateButton {
-            compact: true; label: @tr("EJECT"); tone: Theme.bone-3;
+            compact: true; label: @tr("EJECT"); tone: Theme.bone-3; tooltip: @tr("Eject this stick"); command: "devices.eject";
             clicked => { root.eject(); }
         }
     }
