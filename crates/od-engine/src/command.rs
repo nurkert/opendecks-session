@@ -227,6 +227,10 @@ pub enum DeckCommand {
     /// Censor: plays in reverse while held (`true`) and resumes on release
     /// where normal playback would be (slip), whether or not slip is on.
     Censor(bool),
+    /// SEARCH buttons (FF / REW): while non-zero the playhead runs at this
+    /// many times real time (positive forward, negative backward), audibly,
+    /// whether or not the deck plays; 0 releases. Keylock is bypassed.
+    Search(f64),
     /// Auto cue on load (default on), see [`DeckCommand::Load`]. Kept across
     /// loads.
     SetAutoCue(bool),

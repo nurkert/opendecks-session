@@ -228,8 +228,10 @@ fn process_never_allocates() {
         ],
         vec![
             Command::Deck(0, DeckCommand::Censor(false)),
+            Command::Deck(2, DeckCommand::Search(-4.0)),
             Command::Deck(1, DeckCommand::Slicer(SlicerCommand::Enable { beats: 4.0, loop_mode: false })),
         ],
+        vec![Command::Deck(2, DeckCommand::Search(0.0))],
         vec![Command::Deck(1, DeckCommand::Slicer(SlicerCommand::Pad { slice: 5, pressed: true }))],
         vec![
             Command::Deck(1, DeckCommand::Slicer(SlicerCommand::Pad { slice: 5, pressed: false })),

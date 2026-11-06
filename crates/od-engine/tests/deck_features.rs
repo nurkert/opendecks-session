@@ -178,6 +178,31 @@ fn censor_reverses_and_resumes_where_playback_would_be() {
 }
 
 #[test]
+fn search_runs_the_playhead_fast_while_held() {
+    let mut rig = Rig::new(2);
+    rig.deck(0, DeckCommand::Load(ramp_track(1, 30.0, 120.0)));
+    rig.deck(0, DeckCommand::Seek { seconds: 10.0 });
+    // Paused deck: FF moves at 4x real time and is audible.
+    rig.deck(0, DeckCommand::Search(4.0));
+    let out = rig.render(375); // one second
+    assert!((rig.state().decks[0].position - 14.0).abs() < 0.01, "{}", rig.state().decks[0].position);
+    assert!(out.iter().any(|s| *s != 0.0));
+    // Release: stays where search left it, still paused.
+    rig.deck(0, DeckCommand::Search(0.0));
+    rig.render(375);
+    let st = rig.state().decks[0];
+    assert!(!st.playing && (st.position - 14.0).abs() < 0.01);
+    // REW while playing, then playback continues at 1x from there.
+    rig.deck(0, DeckCommand::Play);
+    rig.deck(0, DeckCommand::Search(-4.0));
+    rig.render(375);
+    assert!((rig.state().decks[0].position - 10.0).abs() < 0.02, "{}", rig.state().decks[0].position);
+    rig.deck(0, DeckCommand::Search(0.0));
+    rig.render(375);
+    assert!((rig.state().decks[0].position - 11.0).abs() < 0.02, "{}", rig.state().decks[0].position);
+}
+
+#[test]
 fn beat_jump_size_setting() {
     let mut rig = Rig::new(2);
     rig.deck(0, DeckCommand::Load(ramp_track(1, 30.0, 120.0)));

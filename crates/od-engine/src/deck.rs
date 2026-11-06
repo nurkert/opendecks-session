@@ -116,6 +116,8 @@ pub(crate) struct Deck {
     auto_cue: bool,
     beat_jump_size: f64,
     censor: bool,
+    /// Search speed while a SEARCH button is held (0 = off).
+    search: f64,
     /// Armed active loop (frames).
     active_loop: Option<(f64, f64)>,
     slicer: Option<Slicer>,
@@ -199,6 +201,7 @@ impl Deck {
             auto_cue: true,
             beat_jump_size: 4.0,
             censor: false,
+            search: 0.0,
             active_loop: None,
             slicer: None,
             loop_in: None,
@@ -542,6 +545,7 @@ impl Deck {
                 }
             }
             DeckCommand::Censor(on) => self.set_censor(on),
+            DeckCommand::Search(rate) => self.search = rate.clamp(-16.0, 16.0),
             DeckCommand::SavedLoop(dir) => self.memory_cue(dir, true, ctx),
             DeckCommand::SetActiveLoop(range) => {
                 self.active_loop = range
@@ -1282,7 +1286,10 @@ impl Deck {
         }
 
         let scratching = self.jog_touched && self.jog_mode == JogMode::Vinyl;
-        if scratching || (self.scratch_speed != 0.0 && !self.playing) {
+        if self.search != 0.0 {
+            self.scratch_speed = 0.0;
+            self.speed = self.search;
+        } else if scratching || (self.scratch_speed != 0.0 && !self.playing) {
             // Follow the jog: consume pending movement with a short time constant.
             let alpha = 1.0 - (-block_s / SCRATCH_SMOOTHING_S).exp();
             let mv = self.jog_pending * alpha;
@@ -1304,6 +1311,7 @@ impl Deck {
 
     fn use_keylock(&self) -> bool {
         (self.keylock || self.key_shift != 0.0)
+            && self.search == 0.0
             && self.stretcher.is_some()
             && self.playing
             && self.speed > 0.05
