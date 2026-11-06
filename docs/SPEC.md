@@ -51,7 +51,7 @@ accounts (offline-first), video, lighting, DVS.
 | Not supported | Windows (explicitly, permanently), 32-bit OS, Raspberry Pi 3 and older |
 | UI | Slint; GPU-rendered waveforms embedded in the Slint scene |
 | UI languages | English (base), German; i18n from day one |
-| Network | Offline-first. No accounts, no cloud, no telemetry. Crash reports are written locally only |
+| Network | Offline-first. No accounts, no cloud, no telemetry. Crash reports are written locally only. Single exception: the update check (§14.1), which only reads GitHub's public releases, sends no user data and can be switched off |
 | Repository | `git@github.com:nurkert/opendecks-session.git`, this directory is the workspace root |
 
 ### Legal and clean-room rules
@@ -520,6 +520,25 @@ Streaming services, cloud, DVS, lighting, video, Pro DJ Link (later).
   default conflicts per platform, user overrides round-trip, and the
   Prepare command table is 100 % reachable by keyboard (§16.4).
 
+### 12.3 Interaction details (owner requirements 2026-11-06)
+
+- **Tooltips** on every button, toggle, knob and pad: what it does and its
+  current keyboard shortcut from the keymap, after a short hover delay.
+- **Waveform zoom:** the mouse wheel / trackpad scroll on any zoomed
+  waveform changes its time span (and so the grid spacing), as in
+  rekordbox; per-deck zoom with reset; zoom keys in the keymap.
+- **Smooth scrolling:** zoomed waveforms move at the display refresh rate
+  without stutter: the playhead position is interpolated between engine
+  updates and the waveform is drawn from pre-rendered tiles that are only
+  translated per frame.
+- **Responsive window:** the window can be resized freely down to 800 × 480;
+  decks switch to the compact layout, the mixer collapses and browser
+  columns hide by priority as space shrinks — nothing clips or overlaps.
+- **Appearance:** dark, light and "follow system" modes, switchable in
+  Preferences and the top bar; the emission-line identity holds in both
+  (light mode: paper ground, ink legends, the same wavelengths darkened for
+  contrast).
+
 ## 13. Performance targets
 
 | Metric | Desktop (Apple Silicon) | Raspberry Pi 4 (Lite) |
@@ -542,6 +561,22 @@ Streaming services, cloud, DVS, lighting, video, Pro DJ Link (later).
 - Tests: unit tests per crate, format golden tests, engine offline-render
   tests (bit-exact where possible), mapping tests from recorded MIDI streams,
   UI smoke tests.
+
+### 14.1 Updates
+
+- On start (and daily while running) the app checks the GitHub releases of
+  the project for a newer version (semver, pre-releases only when opted
+  in). Only the public releases API is contacted; no identifiers are sent.
+  The check can be switched off in Preferences; it never runs in Perform
+  while audio is playing and never interrupts a performance.
+- When an update exists, a non-modal notice offers **Install now**,
+  **Release notes** and **Later / skip this version**, as in rekordbox.
+- Install: download the matching asset, verify it against the release's
+  `SHA256SUMS`, then replace the app and restart — macOS: the `.app`
+  bundle; Linux AppImage: the AppImage file; `.deb`: download and hand to
+  the system installer (pkexec / apt) or, when that is not possible,
+  open the release page. A failed or interrupted update leaves the
+  current version working.
 
 ## 15. Milestones and acceptance criteria
 
