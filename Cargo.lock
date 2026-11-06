@@ -3976,7 +3976,9 @@ dependencies = [
 name = "od-audio-io"
 version = "0.1.0"
 dependencies = [
+ "anyhow",
  "cpal",
+ "od-analysis",
  "od-core",
  "od-decode",
  "od-engine",

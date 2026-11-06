@@ -22,5 +22,7 @@ cpal = "0.18"
 rtrb = "0.4"
 
 [dev-dependencies]
+anyhow.workspace = true
+od-analysis.workspace = true
 od-decode.workspace = true
 od-core.workspace = true

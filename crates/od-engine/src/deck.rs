@@ -67,10 +67,17 @@ pub(crate) struct Deck {
     key_shift: f32,
     stretcher: Option<Stretcher>,
     kl_active: bool,
+    /// The stretcher is being primed over several blocks; output comes from
+    /// the resampler until the playhead reaches `kl_target`.
+    kl_priming: bool,
+    /// Input frame at which the primed stretcher's output starts.
+    kl_target: f64,
     kl_feed_pos: i64,
     kl_discard: usize,
     kl_in: [Vec<f32>; 2],
     kl_out: [Vec<f32>; 2],
+    /// Resampler output used to crossfade into the stretcher output.
+    kl_mix: Vec<f32>,
 
     cue_point: f64,
     cue_preview: bool,
@@ -129,6 +136,9 @@ impl Deck {
             key_shift: 0.0,
             stretcher,
             kl_active: false,
+            kl_priming: false,
+            kl_target: 0.0,
+            kl_mix: vec![0.0; MAX_FEED * 2],
             kl_feed_pos: 0,
             kl_discard: 0,
             kl_in: [vec![0.0; MAX_FEED], vec![0.0; MAX_FEED]],
@@ -245,6 +255,7 @@ impl Deck {
     fn jump_to(&mut self, frames: f64) {
         self.pos = frames.clamp(0.0, self.frames().max(0.0));
         self.kl_active = false;
+        self.kl_priming = false;
         self.at_end = false;
         if self.sync {
             self.sync_snap_pending = true;
@@ -941,12 +952,18 @@ impl Deck {
         if self.speed == 0.0 {
             out.fill(0.0);
             self.kl_active = false;
+            self.kl_priming = false;
             return;
         }
         if self.use_keylock() {
-            self.render_keylock(out, n);
+            if self.kl_active {
+                self.render_keylock(out, n);
+            } else {
+                self.render_priming(out, n);
+            }
         } else {
             self.kl_active = false;
+            self.kl_priming = false;
             self.render_resample(out, n);
         }
         self.check_end(ctx);
@@ -969,6 +986,144 @@ impl Deck {
         if self.pos < 0.0 {
             self.pos = 0.0;
         }
+    }
+
+    /// Frames the playhead travels (forward, following an active loop)
+    /// until it reaches `target`, or `None` if it has already passed it.
+    fn frames_until(&self, target: f64) -> Option<f64> {
+        let d = target - self.pos;
+        if d >= 0.0 {
+            return Some(d);
+        }
+        match (self.loop_active, self.loop_in, self.loop_out) {
+            (true, Some(i), Some(o)) if o > i && target >= i && self.pos <= o => Some((o - self.pos) + (target - i)),
+            _ => None,
+        }
+    }
+
+    /// Feeds the stretcher from `kl_feed_pos` with at most `budget` input
+    /// frames, until `need` output frames are available.
+    fn kl_feed(&mut self, st: &mut Stretcher, track: &TrackData, need: usize, budget: usize) {
+        let frames = track.frames() as i64;
+        let loop_range = match (self.loop_active, self.loop_in, self.loop_out) {
+            (true, Some(i), Some(o)) if o - i >= 2.0 => Some((i.round() as i64, o.round() as i64)),
+            _ => None,
+        };
+        let mut fed = 0;
+        while st.available() < need && fed < budget {
+            let req = st.samples_required().clamp(64, MAX_FEED).min(budget - fed).max(64);
+            let [l, r] = &mut self.kl_in;
+            let mut p = self.kl_feed_pos;
+            for k in 0..req {
+                if p < 0 || p >= frames {
+                    l[k] = 0.0;
+                    r[k] = 0.0;
+                } else {
+                    let j = p as usize * 2;
+                    l[k] = track.samples[j];
+                    r[k] = track.samples[j + 1];
+                }
+                p += 1;
+                if let Some((i, o)) = loop_range
+                    && p >= o
+                {
+                    p = i + (p - o);
+                }
+            }
+            self.kl_feed_pos = p;
+            st.process(&l[..req], &r[..req]);
+            fed += req;
+        }
+    }
+
+    /// Drops the stretcher's start delay as its output becomes available.
+    fn kl_drop_discard(&mut self, st: &mut Stretcher) {
+        while self.kl_discard > 0 {
+            let [l, r] = &mut self.kl_out;
+            let k = self.kl_discard.min(l.len()).min(st.available());
+            if k == 0 {
+                break;
+            }
+            let got = st.retrieve(&mut l[..k], &mut r[..k]);
+            if got == 0 {
+                break;
+            }
+            self.kl_discard -= got;
+        }
+    }
+
+    /// Keylock (re-)start without a load spike: the stretcher is primed a
+    /// little at a time while the resampler plays; at `kl_target` the output
+    /// crossfades into the stretcher.
+    fn render_priming(&mut self, out: &mut [f32], n: usize) {
+        let Some(mut st) = self.stretcher.take() else {
+            self.render_resample(out, n);
+            return;
+        };
+        let Some(track) = self.track.take() else {
+            self.stretcher = Some(st);
+            return;
+        };
+        // Input fed per block: twice real time keeps a prime well inside the
+        // block budget even for the R3 engine and several decks at once.
+        let budget = (n * 2).max(256);
+        let restart = !self.kl_priming || self.frames_until(self.kl_target).is_none();
+        if restart {
+            st.reset();
+            st.set_time_ratio(1.0 / self.speed);
+            let pad = st.preferred_start_pad();
+            let delay = st.start_delay();
+            let prime = (pad + delay + n) as f64;
+            // The playhead moves `speed` frames per output frame while the
+            // stretcher is fed `budget / n` input frames per output frame.
+            let ahead = prime * self.speed * n as f64 / budget as f64 * 1.5 + 2.0 * n as f64 * self.speed;
+            let mut target = (self.pos + ahead).round();
+            if let (true, Some(i), Some(o)) = (self.loop_active, self.loop_in, self.loop_out)
+                && o > i
+                && target >= o
+            {
+                target = i + (target - o).rem_euclid(o - i);
+            }
+            self.kl_target = target;
+            self.kl_feed_pos = target as i64 - pad as i64;
+            self.kl_discard = delay;
+            self.kl_priming = true;
+        }
+        st.set_time_ratio(1.0 / self.speed);
+        st.set_pitch_scale(2f64.powf(self.key_shift as f64 / 12.0));
+        self.kl_feed(&mut st, &track, self.kl_discard + n, budget);
+        self.kl_drop_discard(&mut st);
+        let ready = self.kl_discard == 0 && st.available() >= n;
+        let until = self.frames_until(self.kl_target).unwrap_or(f64::MAX);
+        let k = ((until / self.speed).ceil() as usize).min(n);
+        self.track = Some(track);
+        self.stretcher = Some(st);
+        // Resampler up to the target.
+        self.render_resample(&mut out[..k * 2], k);
+        if k >= n || !ready {
+            if k < n {
+                self.render_resample(&mut out[k * 2..], n - k);
+            }
+            return;
+        }
+        // Switch at the target: render both and crossfade over 64 frames.
+        let m = n - k;
+        let saved = self.pos;
+        let mut mix = std::mem::take(&mut self.kl_mix);
+        self.render_resample(&mut mix[..m * 2], m);
+        self.pos = saved;
+        self.kl_priming = false;
+        self.kl_active = true;
+        self.render_keylock(&mut out[k * 2..], m);
+        let fade = m.min(64);
+        for i in 0..fade {
+            let w = (i + 1) as f32 / (fade + 1) as f32;
+            for c in 0..2 {
+                let j = (k + i) * 2 + c;
+                out[j] = out[j] * w + mix[i * 2 + c] * (1.0 - w);
+            }
+        }
+        self.kl_mix = mix;
     }
 
     fn render_resample(&mut self, out: &mut [f32], n: usize) {
@@ -1035,13 +1190,6 @@ impl Deck {
             (true, Some(i), Some(o)) if o - i >= 2.0 => Some((i.round() as i64, o.round() as i64)),
             _ => None,
         };
-        if !self.kl_active {
-            st.reset();
-            let pad = st.preferred_start_pad();
-            self.kl_feed_pos = self.pos.round() as i64 - pad as i64;
-            self.kl_discard = st.start_delay();
-            self.kl_active = true;
-        }
         let frames = track.frames() as i64;
         // Feed until enough output is available.
         let mut guard = 0;
@@ -1072,7 +1220,10 @@ impl Deck {
         // Drop the start delay after a (re-)prime.
         while self.kl_discard > 0 {
             let [l, r] = &mut self.kl_out;
-            let k = self.kl_discard.min(l.len());
+            let k = self.kl_discard.min(l.len()).min(st.available());
+            if k == 0 {
+                break;
+            }
             let got = st.retrieve(&mut l[..k], &mut r[..k]);
             if got == 0 {
                 break;
@@ -1080,7 +1231,8 @@ impl Deck {
             self.kl_discard -= got;
         }
         let [l, r] = &mut self.kl_out;
-        let got = st.retrieve(&mut l[..n], &mut r[..n]);
+        let want = n.min(st.available());
+        let got = if want > 0 { st.retrieve(&mut l[..want], &mut r[..want]) } else { 0 };
         for (i, f) in out.as_chunks_mut::<2>().0.iter_mut().take(n).enumerate() {
             if i < got {
                 f[0] = l[i];
