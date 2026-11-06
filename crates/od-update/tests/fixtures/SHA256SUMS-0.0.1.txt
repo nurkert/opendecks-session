@@ -1,0 +1,9 @@
+69c580a186589980e0b7b97ccc469f4187fca3cb02245ead62f64926dad865d0  OpenDecks-Session-0.0.1-aarch64.AppImage
+ac054b8c10dfcdb2a73f424422c63048e8830209544f84aeac969714b6f9cc21  OpenDecks-Session-0.0.1-macos-arm64.dmg
+98b04d8d59b2c797cb1c8ca8266a47d1887da9d09783637ed8164c602e6ecb41  OpenDecks-Session-0.0.1-macos-x86_64.dmg
+01db1f9d6793574264dfc82b1f0c1a69a2e16f18b9d0d4a6d59ebc03bd81602c  OpenDecks-Session-0.0.1-x86_64.AppImage
+dd66745e5533bf26b46b9ecb46edad471934d334e4197b668588ffb249ef1d10  opendecks-pi-0.0.1.tar.gz
+c84d38e8e6b0cfb50765e0d442218011c86d7425ecd4bd2dfe10d85d1fa9b3fb  opendecks-session-0.0.1-linux-aarch64.tar.gz
+27a335bc48db992233b3498b16539d83e64be05300a6f1d10d128c34c9db6f6c  opendecks-session-0.0.1-linux-x86_64.tar.gz
+cb14f0e6fc6a5e6eced1bf8bd5ce2e0e1817eb0624c9065779b228858ca1395d  opendecks-session_0.0.1_amd64.deb
+693dc716d572619455986deb50a0e255abbff11f0857dbb39c17f623b042c89c  opendecks-session_0.0.1_arm64.deb
