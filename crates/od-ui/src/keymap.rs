@@ -305,6 +305,7 @@ pub enum Group {
     Browser,
     Player,
     Deck(u8),
+    Fx,
     Sampler,
 }
 
@@ -316,6 +317,7 @@ impl Group {
             Group::Browser => "Browser".into(),
             Group::Player => "Prepare player".into(),
             Group::Deck(n) => format!("Deck {n}"),
+            Group::Fx => "Effects".into(),
             Group::Sampler => "Sampler".into(),
         }
     }
@@ -468,6 +470,12 @@ fn build() -> Vec<Action> {
         keylock: &'static str,
         beat_loops: [&'static str; 5],
         clear_extra: [&'static str; 3],
+        pad_next: &'static str,
+        pad_prev: &'static str,
+        cue_bank: &'static str,
+        key_sync: &'static str,
+        key_up: &'static str,
+        key_down: &'static str,
     }
     let sides = [
         Side {
@@ -487,6 +495,12 @@ fn build() -> Vec<Action> {
             keylock: "Shift+5",
             beat_loops: ["Mod+1", "Mod+2", "Mod+3", "Mod+4", "Mod+5"],
             clear_extra: ["Mod+Alt+Shift+1", "Mod+Alt+Shift+2", "Mod+Alt+Shift+3"],
+            pad_next: "Mod+Shift+D",
+            pad_prev: "Mod+Shift+S",
+            cue_bank: "Mod+Shift+G",
+            key_sync: "Mod+Shift+X",
+            key_up: "Mod+Shift+V",
+            key_down: "Mod+Shift+C",
         },
         Side {
             play: "N",
@@ -505,6 +519,12 @@ fn build() -> Vec<Action> {
             keylock: "Shift+0",
             beat_loops: ["Mod+6", "Mod+7", "Mod+8", "Mod+9", "Mod+0"],
             clear_extra: ["Mod+Alt+Shift+6", "Mod+Alt+Shift+7", "Mod+Alt+Shift+8"],
+            pad_next: "Mod+Shift+;",
+            pad_prev: "Mod+Shift+K",
+            cue_bank: "Mod+Shift+J",
+            key_sync: "Mod+Shift+B",
+            key_up: "Mod+Shift+.",
+            key_down: "Mod+Shift+,",
         },
     ];
     let shift = |k: &str| format!("Shift+{k}");
@@ -542,6 +562,12 @@ fn build() -> Vec<Action> {
         }
         b.add(d("memory.next"), "Next memory cue", None, g, Perform, &[s.mem_next]);
         b.add(d("memory.prev"), "Previous memory cue", None, g, Perform, &[s.mem_prev]);
+        b.add(d("padmode.next"), "Next pad mode", None, g, Perform, &[s.pad_next]);
+        b.add(d("padmode.prev"), "Previous pad mode", None, g, Perform, &[s.pad_prev]);
+        b.add(d("hotcue.bank"), "Next hot cue bank", None, g, Perform, &[s.cue_bank]);
+        b.add(d("keysync"), "Key sync on / off", None, g, Perform, &[s.key_sync]);
+        b.add(d("keyshift.up"), "Key shift up a semitone", None, g, Perform, &[s.key_up]);
+        b.add(d("keyshift.down"), "Key shift down a semitone", None, g, Perform, &[s.key_down]);
     }
 
     // ── Decks 3 and 4: function keys ──
@@ -562,10 +588,46 @@ fn build() -> Vec<Action> {
         b.add(d("jump.fwd"), "Beat jump forward", None, g, Perform, &[&f(11)]);
     }
 
-    // ── Sampler: the bottom letter row ──
-    for (i, k) in ["X", "C", "V", "B", "M", ",", ".", "/"].iter().enumerate() {
-        b.add(format!("sampler.slot{}", i + 1), "Sampler slot {}", Some((i + 1).to_string()), Group::Sampler, Perform, &[k]);
+    // ── Effects: Shift on the bottom row, FX 1 left, FX 2 right ──
+    let g = Group::Fx;
+    b.add_split("perform.fx.panel", "Show / hide the Beat FX panel", None, g, Perform, &["Mod+Alt+F"], &["Alt+F"]);
+    struct Unit {
+        on: &'static str,
+        next: &'static str,
+        down: &'static str,
+        up: &'static str,
+        tap: &'static str,
+        release: [&'static str; 3],
     }
+    let units = [
+        Unit { on: "Shift+Z", next: "Shift+X", down: "Shift+C", up: "Shift+V", tap: "Shift+B", release: ["Mod+Shift+W", "Mod+Shift+E", "Mod+Shift+R"] },
+        Unit { on: "Shift+N", next: "Shift+M", down: "Shift+,", up: "Shift+.", tap: "Shift+/", release: ["Mod+Shift+Y", "Mod+Shift+U", "Mod+Shift+H"] },
+    ];
+    for (i, u) in units.iter().enumerate() {
+        let n = (i + 1).to_string();
+        let f = |x: &str| format!("fx{}.{x}", i + 1);
+        b.add(f("on"), "FX {} on / off", Some(n.clone()), g, Perform, &[u.on]);
+        b.add(f("next"), "FX {}: next effect", Some(n.clone()), g, Perform, &[u.next]);
+        b.add(f("beat.down"), "FX {}: shorter beat", Some(n.clone()), g, Perform, &[u.down]);
+        b.add(f("beat.up"), "FX {}: longer beat", Some(n.clone()), g, Perform, &[u.up]);
+        b.add(f("tap"), "FX {}: tap the tempo", Some(n.clone()), g, Perform, &[u.tap]);
+        b.add(f("release.brake"), "FX {}: vinyl brake (hold)", Some(n.clone()), g, Perform, &[u.release[0]]);
+        b.add(f("release.backspin"), "FX {}: backspin (hold)", Some(n.clone()), g, Perform, &[u.release[1]]);
+        b.add(f("release.echo"), "FX {}: echo out (hold)", Some(n.clone()), g, Perform, &[u.release[2]]);
+    }
+    b.add("colorfx.next", "Colour FX: next", None, g, Perform, &["Shift+J"]);
+    b.add("colorfx.prev", "Colour FX: previous", None, g, Perform, &["Shift+S"]);
+
+    // ── Sampler: the bottom letter row ──
+    let g = Group::Sampler;
+    b.add_split("perform.sampler.panel", "Show / hide the sampler panel", None, g, Perform, &["Mod+Alt+S"], &["Alt+S"]);
+    for (i, k) in ["X", "C", "V", "B", "M", ",", ".", "/"].iter().enumerate() {
+        b.add(format!("sampler.slot{}", i + 1), "Sampler slot {}", Some((i + 1).to_string()), g, Perform, &[k]);
+    }
+    b.add("sampler.bank.prev", "Previous sampler bank", None, g, Perform, &["Shift+R"]);
+    b.add("sampler.bank.next", "Next sampler bank", None, g, Perform, &["Shift+T"]);
+    b.add("sampler.seq.play", "Start / stop the sequencer", None, g, Perform, &["Shift+O"]);
+    b.add("sampler.stop.all", "Stop all samples", None, g, Perform, &["Shift+P"]);
     b.actions
 }
 
@@ -928,7 +990,8 @@ mod tests {
         for id in [
             "prefs.open", "library.undo", "library.redo", "mode.prepare", "mode.perform", "record.toggle", "browser.search", "browser.up", "browser.down",
             "browser.load.deck1", "player.memory.add", "player.cue.next", "player.hotcue.a", "deck1.play", "deck1.cue", "deck1.sync", "deck1.hotcue.a",
-            "deck1.hotcue.h", "deck1.loop.4", "deck1.jump.fwd", "deck2.play", "deck4.play", "sampler.slot8",
+            "deck1.hotcue.h", "deck1.loop.4", "deck1.jump.fwd", "deck2.play", "deck4.play", "sampler.slot8", "perform.fx.panel", "perform.sampler.panel",
+            "fx1.on", "fx2.release.echo", "colorfx.next", "deck1.padmode.next", "deck2.keysync", "deck1.hotcue.bank", "sampler.bank.next",
         ] {
             assert!(action(id).is_some(), "{id}");
         }

@@ -101,6 +101,17 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
             }
         }
         "perform.quantize" => ui.invoke_deck_quantize(1),
+        "perform.fx.panel" => crate::fx::toggle_panel(app),
+        "perform.sampler.panel" => crate::sampler::toggle_panel(app),
+        "colorfx.next" => crate::fx::step_color_fx(app, 1),
+        "colorfx.prev" => crate::fx::step_color_fx(app, -1),
+        "sampler.bank.prev" => crate::sampler::step_bank_by(app, -1),
+        "sampler.bank.next" => crate::sampler::step_bank_by(app, 1),
+        "sampler.seq.play" => crate::sampler::toggle_seq_play(app),
+        "sampler.stop.all" => {
+            engine::ensure_engine(app);
+            engine::send(app, od_engine::Command::Sampler(od_engine::SamplerCommand::StopAll));
+        }
         "browser.search" => {
             if ui.get_section() != "library" {
                 ui.invoke_select_section(S::from("library"));
@@ -156,6 +167,10 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
             } else if let Some(n) = id.strip_prefix("sampler.slot").and_then(|n| n.parse::<usize>().ok()) {
                 engine::ensure_engine(app);
                 engine::send(app, od_engine::Command::Sampler(od_engine::SamplerCommand::Trigger { slot: n - 1 }));
+            } else if let Some((unit, action)) = id.strip_prefix("fx").and_then(|r| r.split_once('.')) {
+                if let Ok(n) = unit.parse::<usize>() {
+                    fx_action(app, id, n.saturating_sub(1), action);
+                }
             } else if let Some((deck, action)) = id.strip_prefix("deck").and_then(|r| r.split_once('.')) {
                 if let Ok(n) = deck.parse::<usize>() {
                     deck_action(app, n, action);
@@ -165,6 +180,43 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
             }
         }
     }
+}
+
+/// Marks a held keyboard action that is not a deck's (Release FX).
+const NO_DECK: usize = usize::MAX;
+
+/// Beat FX unit actions (0-based unit).
+fn fx_action(app: &App, id: &str, u: usize, action: &str) {
+    use crate::fx;
+    use od_engine::ReleaseFxKind as R;
+    let release = |kind| {
+        app.held.borrow_mut().push((id.to_string(), NO_DECK));
+        fx::release(app, u, kind, true);
+    };
+    match action {
+        "on" => fx::toggle_on(app, u),
+        "next" => fx::step_unit_kind(app, u, 1),
+        "beat.down" => fx::step_unit_beats(app, u, -1),
+        "beat.up" => fx::step_unit_beats(app, u, 1),
+        "tap" => fx::tap(app, u),
+        "release.brake" => release(R::VinylBrake),
+        "release.backspin" => release(R::Backspin),
+        "release.echo" => release(R::EchoOut),
+        a => tracing::warn!(action = a, "unknown FX action"),
+    }
+}
+
+/// Ends a held Release FX started by the keyboard action `id`.
+fn end_fx_release(app: &App, id: &str) {
+    use od_engine::ReleaseFxKind as R;
+    let Some((unit, action)) = id.strip_prefix("fx").and_then(|r| r.split_once('.')) else { return };
+    let u = unit.parse::<usize>().unwrap_or(1).saturating_sub(1);
+    let kind = match action {
+        "release.brake" => R::VinylBrake,
+        "release.backspin" => R::Backspin,
+        _ => R::EchoOut,
+    };
+    crate::fx::release(app, u, kind, false);
 }
 
 /// Deck actions (1-based deck number).
@@ -212,6 +264,23 @@ fn deck_action(app: &App, n: usize, action: &str) {
                 }
                 "memory.next" => Some(D::MemoryCue(MemoryCueJump::Next)),
                 "memory.prev" => Some(D::MemoryCue(MemoryCueJump::Previous)),
+                "padmode.next" | "padmode.prev" => {
+                    let mode = crate::pads::step_mode(app.decks.borrow().pad_mode[i], if action == "padmode.next" { 1 } else { -1 });
+                    crate::decks::set_pad_mode(app, i, mode);
+                    None
+                }
+                "hotcue.bank" => {
+                    let bank = state().map(|s| s.hot_cue_bank).unwrap_or(0);
+                    Some(D::SetHotCueBank(crate::pads::step_hot_cue_bank(bank, 1)))
+                }
+                "keysync" => {
+                    crate::decks::toggle_key_sync(app, i);
+                    None
+                }
+                "keyshift.up" | "keyshift.down" => {
+                    crate::decks::key_shift(app, i, if action == "keyshift.up" { 1 } else { -1 });
+                    None
+                }
                 a => {
                     if let Some(l) = a.strip_prefix("hotcue.clear.") {
                         Some(D::DeleteHotCue { slot: slot(l) })
@@ -238,17 +307,26 @@ pub(crate) fn release(app: &App, text: &str) {
     let keymap_hits: Vec<String> = {
         let st = app.state.borrow();
         held.iter()
-            .filter(|(a, deck)| st.keymap.bindings(&format!("deck{}.{a}", deck + 1)).iter().any(|c| c.key == chord.key))
+            .filter(|(a, deck)| st.keymap.bindings(&held_id(a, *deck)).iter().any(|c| c.key == chord.key))
             .map(|(a, d)| format!("{d}{a}"))
             .collect()
     };
     let mut keep = Vec::new();
     for (a, deck) in held {
         if keymap_hits.contains(&format!("{deck}{a}")) {
-            engine::deck_cmd(app, deck, od_engine::DeckCommand::SetPitchBend(0.0));
+            if deck == NO_DECK {
+                end_fx_release(app, &a);
+            } else {
+                engine::deck_cmd(app, deck, od_engine::DeckCommand::SetPitchBend(0.0));
+            }
         } else {
             keep.push((a, deck));
         }
     }
     *app.held.borrow_mut() = keep;
+}
+
+/// The action id of a held entry.
+fn held_id(action: &str, deck: usize) -> String {
+    if deck == NO_DECK { action.to_string() } else { format!("deck{}.{action}", deck + 1) }
 }

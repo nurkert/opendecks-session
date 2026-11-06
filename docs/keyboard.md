@@ -3,7 +3,7 @@
 Every user action of OpenDecks Session is a command in one registry
 (`crates/od-ui/src/keymap.rs`) with an id, a default binding per platform
 and optional user bindings (SPEC §12.2). The registry currently holds
-**178 actions**; every one has a default binding, and no two defaults
+**214 actions**; every one has a default binding, and no two defaults
 collide where they apply (checked by tests, together with this table).
 
 ## Changing bindings
@@ -179,6 +179,12 @@ Perform). Text fields keep the keys they type.
 | 8-beat loop | `deck1.loop.8` | Perform | `⌘5` | `Ctrl+5` |
 | Next memory cue | `deck1.memory.next` | Perform | `T` | `T` |
 | Previous memory cue | `deck1.memory.prev` | Perform | `R` | `R` |
+| Next pad mode | `deck1.padmode.next` | Perform | `⇧⌘D` | `Ctrl+Shift+D` |
+| Previous pad mode | `deck1.padmode.prev` | Perform | `⇧⌘S` | `Ctrl+Shift+S` |
+| Next hot cue bank | `deck1.hotcue.bank` | Perform | `⇧⌘G` | `Ctrl+Shift+G` |
+| Key sync on / off | `deck1.keysync` | Perform | `⇧⌘X` | `Ctrl+Shift+X` |
+| Key shift up a semitone | `deck1.keyshift.up` | Perform | `⇧⌘V` | `Ctrl+Shift+V` |
+| Key shift down a semitone | `deck1.keyshift.down` | Perform | `⇧⌘C` | `Ctrl+Shift+C` |
 | **Deck 2** | | | | |
 | Play / pause | `deck2.play` | Perform | `N` | `N` |
 | Cue | `deck2.cue` | Perform | `H` | `H` |
@@ -221,6 +227,12 @@ Perform). Text fields keep the keys they type.
 | 8-beat loop | `deck2.loop.8` | Perform | `⌘0` | `Ctrl+0` |
 | Next memory cue | `deck2.memory.next` | Perform | `P` | `P` |
 | Previous memory cue | `deck2.memory.prev` | Perform | `O` | `O` |
+| Next pad mode | `deck2.padmode.next` | Perform | `⇧⌘;` | `Ctrl+Shift+;` |
+| Previous pad mode | `deck2.padmode.prev` | Perform | `⇧⌘K` | `Ctrl+Shift+K` |
+| Next hot cue bank | `deck2.hotcue.bank` | Perform | `⇧⌘J` | `Ctrl+Shift+J` |
+| Key sync on / off | `deck2.keysync` | Perform | `⇧⌘B` | `Ctrl+Shift+B` |
+| Key shift up a semitone | `deck2.keyshift.up` | Perform | `⇧⌘.` | `Ctrl+Shift+.` |
+| Key shift down a semitone | `deck2.keyshift.down` | Perform | `⇧⌘,` | `Ctrl+Shift+,` |
 | **Deck 3** | | | | |
 | Cue | `deck3.cue` | Perform | `F1` | `F1` |
 | Play / pause | `deck3.play` | Perform | `F2` | `F2` |
@@ -245,7 +257,28 @@ Perform). Text fields keep the keys they type.
 | Exit / reloop | `deck4.loop.exit` | Perform | `⇧F9` | `Shift+F9` |
 | Beat jump back | `deck4.jump.back` | Perform | `⇧F10` | `Shift+F10` |
 | Beat jump forward | `deck4.jump.fwd` | Perform | `⇧F11` | `Shift+F11` |
+| **Effects** | | | | |
+| Show / hide the Beat FX panel | `perform.fx.panel` | Perform | `⌥⌘F` | `Alt+F` |
+| FX 1 on / off | `fx1.on` | Perform | `⇧Z` | `Shift+Z` |
+| FX 1: next effect | `fx1.next` | Perform | `⇧X` | `Shift+X` |
+| FX 1: shorter beat | `fx1.beat.down` | Perform | `⇧C` | `Shift+C` |
+| FX 1: longer beat | `fx1.beat.up` | Perform | `⇧V` | `Shift+V` |
+| FX 1: tap the tempo | `fx1.tap` | Perform | `⇧B` | `Shift+B` |
+| FX 1: vinyl brake (hold) | `fx1.release.brake` | Perform | `⇧⌘W` | `Ctrl+Shift+W` |
+| FX 1: backspin (hold) | `fx1.release.backspin` | Perform | `⇧⌘E` | `Ctrl+Shift+E` |
+| FX 1: echo out (hold) | `fx1.release.echo` | Perform | `⇧⌘R` | `Ctrl+Shift+R` |
+| FX 2 on / off | `fx2.on` | Perform | `⇧N` | `Shift+N` |
+| FX 2: next effect | `fx2.next` | Perform | `⇧M` | `Shift+M` |
+| FX 2: shorter beat | `fx2.beat.down` | Perform | `⇧,` | `Shift+,` |
+| FX 2: longer beat | `fx2.beat.up` | Perform | `⇧.` | `Shift+.` |
+| FX 2: tap the tempo | `fx2.tap` | Perform | `⇧/` | `Shift+/` |
+| FX 2: vinyl brake (hold) | `fx2.release.brake` | Perform | `⇧⌘Y` | `Ctrl+Shift+Y` |
+| FX 2: backspin (hold) | `fx2.release.backspin` | Perform | `⇧⌘U` | `Ctrl+Shift+U` |
+| FX 2: echo out (hold) | `fx2.release.echo` | Perform | `⇧⌘H` | `Ctrl+Shift+H` |
+| Colour FX: next | `colorfx.next` | Perform | `⇧J` | `Shift+J` |
+| Colour FX: previous | `colorfx.prev` | Perform | `⇧S` | `Shift+S` |
 | **Sampler** | | | | |
+| Show / hide the sampler panel | `perform.sampler.panel` | Perform | `⌥⌘S` | `Alt+S` |
 | Sampler slot 1 | `sampler.slot1` | Perform | `X` | `X` |
 | Sampler slot 2 | `sampler.slot2` | Perform | `C` | `C` |
 | Sampler slot 3 | `sampler.slot3` | Perform | `V` | `V` |
@@ -254,3 +287,7 @@ Perform). Text fields keep the keys they type.
 | Sampler slot 6 | `sampler.slot6` | Perform | `,` | `,` |
 | Sampler slot 7 | `sampler.slot7` | Perform | `.` | `.` |
 | Sampler slot 8 | `sampler.slot8` | Perform | `/` | `/` |
+| Previous sampler bank | `sampler.bank.prev` | Perform | `⇧R` | `Shift+R` |
+| Next sampler bank | `sampler.bank.next` | Perform | `⇧T` | `Shift+T` |
+| Start / stop the sequencer | `sampler.seq.play` | Perform | `⇧O` | `Shift+O` |
+| Stop all samples | `sampler.stop.all` | Perform | `⇧P` | `Shift+P` |
