@@ -1,0 +1,78 @@
+// Emission lines: the only carriers of colour. State is line form:
+//   "solid"  full height, live / in sync
+//   "dashed" pending / out of date
+//   "half"   half height, stale / missing
+//   "struck" crossed, error / disabled
+//   "double" doubled, outranks neighbours (master, now playing, attention)
+
+import { Theme } from "tokens.slint";
+
+export component VLine inherits Rectangle {
+    in property <color> tone: Theme.bone-3;
+    in property <string> form: "solid";
+    in property <length> weight: Theme.line;
+    width: form == "double" ? weight * 2 + 3px : weight;
+
+    if form == "solid": Rectangle {
+        x: 0; y: 0; width: root.weight; height: root.height;
+        background: root.tone;
+    }
+    if form == "half": Rectangle {
+        x: 0; y: root.height / 2; width: root.weight; height: root.height / 2;
+        background: root.tone;
+    }
+    if form == "double": Rectangle {
+        x: 0; width: root.weight; height: root.height; background: root.tone;
+    }
+    if form == "double": Rectangle {
+        x: root.weight + 3px; width: root.weight; height: root.height; background: root.tone;
+    }
+    if form == "dashed": Rectangle {
+        clip: true;
+        width: root.weight; height: root.height;
+        for i in Math.ceil(root.height / 7px): Rectangle {
+            x: 0; y: i * 7px; width: root.weight; height: 4px;
+            background: root.tone;
+        }
+    }
+    if form == "struck": Rectangle {
+        width: root.weight; height: root.height;
+        Rectangle { x: 0; width: root.weight; height: root.height; background: root.tone.with-alpha(0.45); }
+        Rectangle {
+            x: -4px; y: root.height / 2 - 0.5px; width: root.weight + 8px; height: 1px;
+            background: Theme.fault;
+        }
+    }
+}
+
+export component HLine inherits Rectangle {
+    in property <color> tone: Theme.rule;
+    in property <string> form: "solid";
+    height: Theme.hair;
+
+    if form == "solid": Rectangle { width: root.width; height: root.height; background: root.tone; }
+    if form == "dashed": Rectangle {
+        clip: true;
+        width: root.width; height: root.height;
+        for i in Math.ceil(root.width / 7px): Rectangle {
+            x: i * 7px; y: 0; width: 4px; height: root.height;
+            background: root.tone;
+        }
+    }
+}
+
+// A horizontal progress line: the filled part is solid, the rest dashed.
+export component ProgressLine inherits Rectangle {
+    in property <float> progress: 0;
+    in property <color> tone: Theme.live;
+    height: Theme.line;
+    clip: true;
+
+    HLine { y: 0; width: parent.width; height: parent.height; tone: root.tone.with-alpha(0.5); form: "dashed"; }
+    Rectangle {
+        x: 0; y: 0; height: parent.height;
+        width: parent.width * clamp(root.progress, 0, 1);
+        background: root.tone;
+        animate width { duration: Theme.motion ? 180ms : 0ms; easing: ease-out; }
+    }
+}

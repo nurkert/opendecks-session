@@ -1,0 +1,176 @@
+// Track table: no boxes, no fills; bone legends in tabular columns, the
+// selected row marked by a rail tick.
+
+import { ListView } from "std-widgets.slint";
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps } from "controls.slint";
+import { TrackRow } from "structs.slint";
+
+export global Columns {
+    out property <length> pos: 34px;
+    out property <length> bpm: 58px;
+    out property <length> key: 46px;
+    out property <length> time: 52px;
+    out property <length> rating: 58px;
+    out property <length> state: 18px;
+}
+
+component HeaderCell inherits Rectangle {
+    in property <string> label;
+    in property <string> column;
+    in property <string> sort-column;
+    in property <bool> descending;
+    in property <TextHorizontalAlignment> align: left;
+    callback sort(string);
+    Caps {
+        width: parent.width;
+        height: parent.height;
+        horizontal-alignment: root.align;
+        vertical-alignment: center;
+        text: root.label + (root.sort-column == root.column ? (root.descending ? "  ↓" : "  ↑") : "");
+        color: root.sort-column == root.column ? Theme.bone : Theme.bone-3;
+    }
+    TouchArea { mouse-cursor: pointer; clicked => { root.sort(root.column); } }
+}
+
+component Cell inherits Text {
+    font-family: Theme.family;
+    font-size: Theme.body;
+    vertical-alignment: center;
+    overflow: elide;
+}
+
+component TrackLine inherits Rectangle {
+    in property <TrackRow> item;
+    in property <bool> show-position;
+    callback clicked(bool, bool);
+    callback double-clicked();
+    height: Theme.row-height;
+    background: touch.has-hover ? Theme.ground-band : transparent;
+
+    if root.item.selected: Rectangle {
+        x: 0; y: 6px; width: 2px; height: parent.height - 12px;
+        background: Theme.attention;
+    }
+    if root.item.selected: Rectangle {
+        x: 5px; y: 6px; width: 2px; height: parent.height - 12px;
+        background: Theme.attention;
+    }
+    property <color> ink: root.item.missing ? Theme.bone-3 : root.item.selected ? Theme.bone : Theme.bone-2;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: 12px;
+        Cell {
+            width: Columns.pos;
+            text: root.show-position ? root.item.position : "";
+            color: Theme.bone-3;
+            horizontal-alignment: right;
+            font-size: 12px;
+        }
+        Cell { horizontal-stretch: 3; text: root.item.title; color: root.ink; font-weight: root.item.selected ? 500 : 400; }
+        Cell { horizontal-stretch: 2; text: root.item.artist; color: root.item.selected ? Theme.bone-2 : Theme.bone-3; }
+        Cell { horizontal-stretch: 1; text: root.item.genre; color: Theme.bone-3; font-size: 13px; }
+        Cell { width: Columns.bpm; text: root.item.bpm; color: root.ink; horizontal-alignment: right; }
+        Rectangle {
+            width: Columns.key;
+            Cell {
+                width: parent.width;
+                text: root.item.key;
+                color: root.ink;
+                horizontal-alignment: right;
+            }
+            // Harmonic fit to the selected track: solid = same/adjacent, dashed = 2 steps.
+            if root.item.key-distance >= 0 && root.item.key-distance <= 2 && !root.item.selected: VLine {
+                x: 2px; y: 8px; height: parent.height - 16px; weight: 1px;
+                tone: Theme.w546;
+                form: root.item.key-distance <= 1 ? "solid" : "dashed";
+            }
+        }
+        Cell { width: Columns.time; text: root.item.time; color: Theme.bone-3; horizontal-alignment: right; }
+        Rectangle {
+            width: Columns.rating;
+            HorizontalLayout {
+                alignment: end;
+                spacing: 4px;
+                padding-top: 10px; padding-bottom: 10px;
+                for i in 5: Rectangle {
+                    width: 6px;
+                    background: i < root.item.rating ? Theme.bone-2 : transparent;
+                    border-width: 1px;
+                    border-color: i < root.item.rating ? Theme.bone-2 : Theme.rule-strong;
+                }
+            }
+        }
+        // Analysis state: solid analysed, half-height pending, struck missing file.
+        Rectangle {
+            width: Columns.state;
+            VLine {
+                x: parent.width / 2; y: 7px; height: parent.height - 14px; weight: 1px;
+                tone: root.item.missing ? Theme.fault : root.item.analysed ? Theme.bone-3 : Theme.attention;
+                form: root.item.missing ? "struck" : root.item.analysed ? "solid" : "half";
+            }
+        }
+    }
+    touch := TouchArea {
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                root.clicked(ev.modifiers.control || ev.modifiers.meta, ev.modifiers.shift);
+            }
+        }
+        double-clicked => { root.double-clicked(); }
+    }
+}
+
+export component TrackTable inherits Rectangle {
+    in property <[TrackRow]> rows;
+    in property <string> sort-column;
+    in property <bool> descending;
+    in property <bool> show-position;
+    in property <string> empty-text;
+    callback sort(string);
+    callback row-clicked(int, bool, bool);
+    callback row-activated(int);
+
+    VerticalLayout {
+        Rectangle {
+            height: 30px;
+            HorizontalLayout {
+                padding-left: 16px;
+                padding-right: 12px;
+                spacing: 12px;
+                HeaderCell { width: Columns.pos; label: "#"; column: "position"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { horizontal-stretch: 3; label: @tr("TITLE"); column: "title"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
+                HeaderCell { horizontal-stretch: 2; label: @tr("ARTIST"); column: "artist"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
+                HeaderCell { horizontal-stretch: 1; label: @tr("GENRE"); column: "genre"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
+                HeaderCell { width: Columns.bpm; label: "BPM"; column: "bpm"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { width: Columns.key; label: @tr("KEY"); column: "key"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { width: Columns.time; label: @tr("TIME"); column: "duration"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { width: Columns.rating; label: @tr("RATING"); column: "rating"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                Rectangle { width: Columns.state; }
+            }
+            HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+        }
+        if root.rows.length == 0: Rectangle {
+            vertical-stretch: 1;
+            Text {
+                text: root.empty-text;
+                font-family: Theme.family; font-size: 15px; color: Theme.bone-3;
+                wrap: word-wrap;
+                horizontal-alignment: center;
+                width: min(parent.width - 64px, 460px);
+            }
+        }
+        if root.rows.length > 0: ListView {
+            vertical-stretch: 1;
+            for row[i] in root.rows: TrackLine {
+                item: row;
+                show-position: root.show-position;
+                clicked(ctrl, shift) => { root.row-clicked(i, ctrl, shift); }
+                double-clicked => { root.row-activated(i); }
+            }
+        }
+    }
+}

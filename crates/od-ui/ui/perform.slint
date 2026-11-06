@@ -1,0 +1,203 @@
+// Perform: decks read like spectrograph plates. The playhead is the doubled
+// sodium line; each deck owns one emission line and always shows its numeral.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine, ProgressLine } from "lines.slint";
+import { Caps, PlateButton } from "controls.slint";
+import { DeckView, CueMark, TrackRow } from "structs.slint";
+
+component Readout inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <color> tone: Theme.bone;
+    in property <length> size: 22px;
+    spacing: 0;
+    Caps { text: root.label; font-size: 10px; }
+    Text { text: root.value == "" ? "—" : root.value; font-family: Theme.family; font-size: root.size; font-weight: 500; color: root.tone; }
+}
+
+component StateMark inherits Rectangle {
+    in property <string> label;
+    in property <bool> on;
+    in property <color> tone: Theme.bone;
+    width: t.preferred-width + 14px;
+    height: 18px;
+    VLine { x: 0; y: 3px; height: 12px; weight: 2px; tone: root.on ? root.tone : Theme.bone-3; form: root.on ? "solid" : "struck"; }
+    t := Text {
+        x: 8px; height: parent.height;
+        text: root.label;
+        font-family: Theme.family; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
+        color: root.on ? Theme.bone : Theme.bone-3;
+        vertical-alignment: center;
+    }
+}
+
+export component DeckPlate inherits Rectangle {
+    in property <DeckView> deck;
+    in property <bool> compact;
+    callback toggle-play();
+    callback cue();
+    callback sync();
+    callback seek(float);
+    callback hot-cue(int);
+
+    property <color> tone: Theme.deck-color(root.deck.deck);
+    background: Theme.ground;
+
+    // Deck line and numeral.
+    VLine { x: 0; y: 0; height: parent.height; weight: 2px; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
+    Text {
+        x: 14px; y: 6px;
+        text: root.deck.deck;
+        font-family: Theme.family; font-size: root.compact ? 26px : 34px; font-weight: 600;
+        color: root.tone;
+    }
+
+    VerticalLayout {
+        x: 52px; width: parent.width - 60px;
+        padding-top: 8px; padding-bottom: 8px;
+        spacing: 6px;
+        HorizontalLayout {
+            spacing: 18px;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                Text {
+                    text: root.deck.loaded ? root.deck.title : @tr("Empty — load a track");
+                    font-family: Theme.family; font-size: root.compact ? 15px : 18px; font-weight: 600;
+                    color: root.deck.loaded ? Theme.bone : Theme.bone-3;
+                    overflow: elide;
+                }
+                Text {
+                    text: root.deck.artist;
+                    font-family: Theme.family; font-size: 13px; color: Theme.bone-2;
+                    overflow: elide;
+                }
+            }
+            Readout { label: "BPM"; value: root.deck.bpm; size: root.compact ? 18px : 24px; }
+            Readout { label: @tr("TEMPO"); value: root.deck.tempo; size: root.compact ? 14px : 16px; tone: Theme.bone-2; }
+            Readout { label: @tr("KEY"); value: root.deck.key; size: root.compact ? 18px : 24px; }
+            Readout { label: @tr("REMAIN"); value: root.deck.remaining; size: root.compact ? 18px : 24px; }
+        }
+        // Scrolling waveform; the centre line is the playhead.
+        Rectangle {
+            vertical-stretch: 1;
+            min-height: 48px;
+            background: Theme.ground-band;
+            Image { width: parent.width; height: parent.height; source: root.deck.waveform; image-fit: fill; }
+            VLine { x: parent.width / 2 - 3px; height: parent.height; weight: 1px; form: "double"; tone: Theme.attention; }
+        }
+        // Overview with position and cue lines.
+        Rectangle {
+            height: root.compact ? 22px : 30px;
+            Image { width: parent.width; height: parent.height; source: root.deck.overview; image-fit: fill; }
+            Rectangle {
+                x: 0; width: parent.width * root.deck.progress; height: parent.height;
+                background: Theme.ground.with-alpha(0.55);
+            }
+            for c in root.deck.cues: VLine {
+                x: parent.width * c.pos; height: parent.height; weight: c.slot >= 0 ? 2px : 1px;
+                tone: c.slot >= 0 ? Theme.cue-color(c.slot) : Theme.bone;
+                form: c.slot >= 0 ? "solid" : "dashed";
+            }
+            VLine { x: parent.width * root.deck.progress; height: parent.height; weight: 1px; form: "double"; tone: Theme.attention; }
+            TouchArea { clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            StateMark { label: @tr("PLAY"); on: root.deck.playing; tone: Theme.live; }
+            StateMark { label: "SYNC"; on: root.deck.sync; tone: Theme.w486; }
+            StateMark { label: "MASTER"; on: root.deck.master; tone: Theme.attention; }
+            StateMark { label: @tr("KEYLOCK"); on: root.deck.keylock; tone: Theme.w436; }
+            StateMark { label: @tr("LOOP") + (root.deck.looping ? " " + root.deck.loop-beats : ""); on: root.deck.looping; tone: Theme.w615; }
+            StateMark { label: "SLIP"; on: root.deck.slip; tone: Theme.w405; }
+            Rectangle { horizontal-stretch: 1; }
+            Text { text: root.deck.elapsed; font-family: Theme.family; font-size: 13px; color: Theme.bone-3; vertical-alignment: center; }
+        }
+        if !root.compact: HorizontalLayout {
+            spacing: 6px;
+            PlateButton { compact: true; label: "CUE"; tone: Theme.attention; clicked => { root.cue(); } }
+            PlateButton { compact: true; label: root.deck.playing ? @tr("PAUSE") : @tr("PLAY"); tone: Theme.live; active: root.deck.playing; clicked => { root.toggle-play(); } }
+            PlateButton { compact: true; label: "SYNC"; tone: Theme.w486; active: root.deck.sync; clicked => { root.sync(); } }
+            Rectangle { horizontal-stretch: 1; }
+            for i in 8: PlateButton {
+                compact: true;
+                label: ["A", "B", "C", "D", "E", "F", "G", "H"][i];
+                tone: Theme.cue-color(i);
+                clicked => { root.hot-cue(i); }
+            }
+        }
+    }
+    // Level meter on the right edge.
+    Rectangle {
+        x: parent.width - 4px; y: 8px; width: 2px; height: parent.height - 16px;
+        background: Theme.rule;
+        Rectangle {
+            y: parent.height * (1 - clamp(root.deck.level, 0, 1));
+            height: parent.height * clamp(root.deck.level, 0, 1);
+            background: root.deck.level > 0.95 ? Theme.fault : Theme.bone-2;
+        }
+    }
+}
+
+export component PerformView inherits Rectangle {
+    in property <[DeckView]> decks;
+    in property <bool> recording;
+    in property <string> recording-time;
+    in property <string> master-bpm;
+    in property <float> crossfader: 0.5;
+    in property <bool> engine-ready;
+    in property <string> engine-message;
+    in property <bool> focus-mode;
+    in property <int> focus-deck: 1;
+    callback toggle-play(int);
+    callback cue(int);
+    callback sync(int);
+    callback seek(int, float);
+    callback hot-cue(int, int);
+    callback toggle-recording();
+    callback set-deck-count(int);
+
+    VerticalLayout {
+        padding: 16px;
+        spacing: 10px;
+        HorizontalLayout {
+            spacing: 18px;
+            height: 40px;
+            Text {
+                text: "PERFORM";
+                font-family: Theme.family; font-size: Theme.rank-b; font-weight: 600; letter-spacing: 4px;
+                color: Theme.bone; vertical-alignment: center;
+            }
+            Caps { text: root.engine-ready ? @tr("MASTER {} BPM", root.master-bpm) : root.engine-message; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            PlateButton { compact: true; label: @tr("2 DECKS"); active: root.decks.length == 2; clicked => { root.set-deck-count(2); } }
+            PlateButton { compact: true; label: @tr("4 DECKS"); active: root.decks.length == 4; clicked => { root.set-deck-count(4); } }
+            PlateButton {
+                label: root.recording ? @tr("REC {}", root.recording-time) : @tr("RECORD");
+                tone: Theme.fault;
+                active: root.recording;
+                clicked => { root.toggle-recording(); }
+            }
+        }
+        HLine { tone: Theme.rule; }
+        for d[i] in root.decks: DeckPlate {
+            vertical-stretch: 1;
+            deck: d;
+            compact: root.decks.length > 2;
+            visible: !root.focus-mode || d.deck == root.focus-deck;
+            toggle-play => { root.toggle-play(d.deck); }
+            cue => { root.cue(d.deck); }
+            sync => { root.sync(d.deck); }
+            seek(p) => { root.seek(d.deck, p); }
+            hot-cue(s) => { root.hot-cue(d.deck, s); }
+        }
+        // Crossfader position as a single line on a ruler.
+        Rectangle {
+            height: 22px;
+            HLine { y: 10px; width: parent.width; tone: Theme.rule-strong; }
+            Caps { x: 0; y: 0; text: "A"; }
+            Caps { x: parent.width - 10px; y: 0; text: "B"; }
+            VLine { x: (parent.width - 4px) * root.crossfader; y: 2px; height: 18px; weight: 2px; tone: Theme.bone; }
+        }
+    }
+}

@@ -1,0 +1,132 @@
+// Controls: outlined plates led by a short emission line. Active state is a
+// dashed outline; disabled is struck.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+
+export component Caps inherits Text {
+    font-family: Theme.family;
+    font-size: Theme.index;
+    letter-spacing: Theme.tracking-index;
+    color: Theme.bone-3;
+    font-weight: 500;
+}
+
+component Outline inherits Rectangle {
+    in property <bool> dashed: false;
+    in property <color> tone: Theme.rule-strong;
+    if !root.dashed: Rectangle {
+        border-width: Theme.hair;
+        border-color: root.tone;
+    }
+    if root.dashed: Rectangle {
+        HLine { x: 0; y: 0; width: parent.width; tone: root.tone; form: "dashed"; }
+        HLine { x: 0; y: parent.height - self.height; width: parent.width; tone: root.tone; form: "dashed"; }
+        VLine { x: 0; y: 0; height: parent.height; weight: Theme.hair; tone: root.tone; form: "dashed"; }
+        VLine { x: parent.width - self.width; y: 0; height: parent.height; weight: Theme.hair; tone: root.tone; form: "dashed"; }
+    }
+}
+
+export component PlateButton inherits Rectangle {
+    in property <string> label;
+    in property <string> glyph;
+    in property <color> tone: Theme.bone-3;
+    in property <bool> active: false;
+    in property <bool> enabled: true;
+    in property <bool> compact: false;
+    callback clicked();
+
+    min-width: lbl.preferred-width + (glyph != "" ? 28px : 0px) + 34px;
+    height: compact ? 26px : 32px;
+    background: touch.pressed && enabled ? Theme.plate-raised : touch.has-hover && enabled ? Theme.plate : transparent;
+    animate background { duration: Theme.motion ? 90ms : 0ms; }
+
+    Outline { width: parent.width; height: parent.height; dashed: root.active; tone: root.active ? root.tone : Theme.rule-strong; }
+    VLine {
+        x: 10px; y: 6px; height: parent.height - 12px;
+        tone: root.enabled ? root.tone : Theme.bone-3;
+        form: root.enabled ? "solid" : "struck";
+    }
+    lbl := Text {
+        x: 22px;
+        text: root.label;
+        font-family: Theme.family;
+        font-size: root.compact ? 11px : 12px;
+        font-weight: 500;
+        letter-spacing: root.compact ? 1.4px : 1.8px;
+        color: root.enabled ? Theme.bone : Theme.bone-3;
+        vertical-alignment: center;
+        height: parent.height;
+    }
+    if root.glyph != "": Text {
+        x: parent.width - 22px;
+        text: root.glyph;
+        font-family: Theme.family;
+        font-size: 15px;
+        color: Theme.bone-2;
+        vertical-alignment: center;
+        height: parent.height;
+    }
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? pointer : default;
+        clicked => { root.clicked(); }
+    }
+}
+
+// Text field on an ash plate; focus draws a dashed outline.
+export component Field inherits Rectangle {
+    in property <string> placeholder;
+    in-out property <string> text <=> input.text;
+    in property <color> tone: Theme.w486;
+    callback edited(string);
+    callback accepted(string);
+    height: 32px;
+    background: Theme.plate;
+
+    Outline { width: parent.width; height: parent.height; dashed: input.has-focus; tone: input.has-focus ? root.tone : Theme.rule; }
+    VLine { x: 10px; y: 8px; height: parent.height - 16px; tone: input.has-focus ? root.tone : Theme.bone-3; weight: Theme.hair; }
+    if input.text == "": Text {
+        x: 22px; height: parent.height;
+        text: root.placeholder;
+        font-family: Theme.family; font-size: 12px; letter-spacing: 1.4px;
+        color: Theme.bone-3;
+        vertical-alignment: center;
+    }
+    input := TextInput {
+        x: 22px; width: parent.width - 30px; height: parent.height;
+        font-family: Theme.family; font-size: 14px;
+        color: Theme.bone;
+        selection-background-color: Theme.w486.with-alpha(0.35);
+        selection-foreground-color: Theme.bone;
+        vertical-alignment: center;
+        single-line: true;
+        edited => { root.edited(self.text); }
+        accepted => { root.accepted(self.text); }
+    }
+
+    public function focus-field() { input.focus(); }
+}
+
+// Two-state switch drawn as a line that is either solid or struck.
+export component LineToggle inherits Rectangle {
+    in property <string> label;
+    in-out property <bool> checked;
+    in property <color> tone: Theme.live;
+    callback toggled(bool);
+    height: 26px;
+    min-width: t.preferred-width + 24px;
+
+    VLine { x: 2px; y: 5px; height: parent.height - 10px; tone: root.checked ? root.tone : Theme.bone-3; form: root.checked ? "solid" : "struck"; }
+    t := Text {
+        x: 16px; height: parent.height;
+        text: root.label;
+        font-family: Theme.family; font-size: 13px;
+        color: root.checked ? Theme.bone : Theme.bone-2;
+        vertical-alignment: center;
+    }
+    TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.checked = !root.checked; root.toggled(root.checked); }
+    }
+}

@@ -1,0 +1,489 @@
+import { Theme } from "tokens.slint";
+import { VLine, HLine, ProgressLine } from "lines.slint";
+import { Caps, PlateButton, Field, LineToggle } from "controls.slint";
+import { Rail } from "rail.slint";
+import { TrackTable } from "table.slint";
+import { TrackPlate } from "plate.slint";
+import { DeviceBoard, DeviceLine } from "devices.slint";
+import { SetFlow } from "flow.slint";
+import { PerformView } from "perform.slint";
+import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView } from "structs.slint";
+
+export { Theme, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView }
+
+export struct ProposalRow {
+    index: int,
+    title: string,
+    detail: string,
+    // "cues" | "history"
+    kind: string,
+}
+
+export struct NodeChoice {
+    id: int,
+    name: string,
+    depth: int,
+    checked: bool,
+}
+
+export struct RecordingRow {
+    id: int,
+    name: string,
+    detail: string,
+    path: string,
+}
+
+component SectionTitle inherits HorizontalLayout {
+    in property <string> title;
+    in property <string> sub;
+    spacing: 14px;
+    Text {
+        text: root.title;
+        font-family: Theme.family; font-size: Theme.rank-b; font-weight: 600;
+        color: Theme.bone; vertical-alignment: center;
+        overflow: elide;
+    }
+    Caps { text: root.sub; vertical-alignment: center; }
+}
+
+export component AppWindow inherits Window {
+    title: "OpenDecks Session";
+    preferred-width: 1440px;
+    preferred-height: 900px;
+    min-width: 960px;
+    min-height: 600px;
+    background: Theme.ground;
+    default-font-family: Theme.family;
+    default-font-size: Theme.body;
+
+    in-out property <string> mode: "prepare";
+    in-out property <string> section: "library";
+    in property <bool> kiosk;
+
+    // Library.
+    in property <[TreeRow]> tree;
+    in property <int> selected-node: -1;
+    in property <string> node-kind: "all";
+    in property <string> node-title: "All tracks";
+    in property <string> node-sub;
+    in property <[TrackRow]> tracks;
+    in property <string> sort-column: "date_added";
+    in property <bool> sort-descending: true;
+    in-out property <string> search-text;
+    in property <string> smart-rule-text;
+    in property <string> smart-rule-error;
+    in property <bool> has-selection;
+    in property <int> selection-count;
+
+    // Selected track.
+    in property <bool> has-track;
+    in property <string> track-title;
+    in property <string> track-artist;
+    in property <string> track-bpm;
+    in property <string> track-key;
+    in property <string> track-duration;
+    in property <string> grid-source;
+    in property <bool> grid-locked;
+    in property <bool> track-analysed;
+    in property <image> track-overview;
+    in property <[CueMark]> track-cues;
+    in property <[HotCueSlot]> hot-cues-top;
+    in property <[HotCueSlot]> hot-cues-bottom;
+    in property <float> cursor;
+    in property <bool> previewing;
+
+    // Sets.
+    in property <[FlowPoint]> flow;
+    in property <string> flow-total;
+    in property <int> flow-selected: -1;
+    in property <string> transition-note;
+
+    // Devices.
+    in property <[DeviceRow]> devices;
+    in property <[VolumeRow]> volumes;
+    in property <string> register-target;
+    in property <int> device-selected: -1;
+    in property <string> device-name;
+    in property <bool> device-pioneer;
+    in property <bool> device-opendecks;
+    in property <[NodeChoice]> device-content;
+    in property <[ProposalRow]> proposals;
+
+    // Recordings.
+    in property <[RecordingRow]> recordings;
+
+    // Perform.
+    in property <[DeckView]> decks;
+    in property <bool> recording;
+    in property <string> recording-time;
+    in property <string> master-bpm;
+    in property <float> crossfader: 0.5;
+    in property <bool> engine-ready;
+    in property <string> engine-message;
+    in property <bool> focus-mode;
+    in property <int> focus-deck: 1;
+
+    // Status band.
+    in property <float> analysis-progress;
+    in property <string> analysis-text;
+    in property <string> status-text;
+    in property <string> undo-label;
+    in property <string> redo-label;
+
+    callback select-section(string);
+    callback set-mode(string);
+    callback select-node(int);
+    callback toggle-node(int);
+    callback add-to-node(int);
+    callback create-node(string);
+    callback rename-node(string);
+    callback delete-node();
+    callback remove-selected();
+    callback search(string);
+    callback set-smart-rule(string);
+    callback sort(string);
+    callback row-clicked(int, bool, bool);
+    callback row-activated(int);
+    callback import-folder();
+    callback import-rekordbox();
+    callback seek(float);
+    callback hot-cue(int);
+    callback remove-hot-cue(int);
+    callback add-memory-cue();
+    callback grid-shift(int);
+    callback grid-scale(float);
+    callback grid-downbeat();
+    callback grid-lock();
+    callback analyse-selected();
+    callback toggle-preview();
+    callback flow-select(int);
+    callback set-transition-note(string);
+    callback sync-device(int);
+    callback rebuild-device(int);
+    callback eject-device(int);
+    callback open-device(int);
+    callback forget-device(int);
+    callback register-volume(int);
+    callback set-device-formats(bool, bool);
+    callback set-device-node(int, bool);
+    callback rename-device(string);
+    callback accept-proposal(int);
+    callback reject-proposal(int);
+    callback undo();
+    callback redo();
+    callback reveal-recording(int);
+    callback deck-toggle-play(int);
+    callback deck-cue(int);
+    callback deck-sync(int);
+    callback deck-seek(int, float);
+    callback deck-hot-cue(int, int);
+    callback toggle-recording();
+    callback set-deck-count(int);
+    callback key-pressed(string, bool, bool) -> bool;
+
+    forward-focus: keys;
+    keys := FocusScope {
+        key-pressed(event) => {
+            if (root.key-pressed(event.text, event.modifiers.control || event.modifiers.meta, event.modifiers.shift)) {
+                return accept;
+            }
+            reject
+        }
+
+        HorizontalLayout {
+            if !root.kiosk || root.mode == "prepare": Rail {
+                width: 248px;
+                tree: root.tree;
+                selected-node: root.selected-node;
+                section: root.section;
+                can-add: root.has-selection;
+                mode: root.mode;
+                select-section(s) => { root.select-section(s); }
+                select-node(id) => { root.select-node(id); }
+                toggle-node(id) => { root.toggle-node(id); }
+                add-to-node(id) => { root.add-to-node(id); }
+                set-mode(m) => { root.set-mode(m); }
+            }
+            VLine { weight: 1px; tone: Theme.rule; }
+
+            // ── Prepare ───────────────────────────────────────────────
+            if root.mode == "prepare": VerticalLayout {
+                horizontal-stretch: 1;
+                HorizontalLayout {
+                    vertical-stretch: 1;
+
+                    // Centre column.
+                    VerticalLayout {
+                        horizontal-stretch: 1;
+                        padding-left: 24px;
+                        padding-right: 20px;
+                        padding-top: 20px;
+                        spacing: 12px;
+
+                        if root.section == "library": HorizontalLayout {
+                            spacing: 12px;
+                            height: 40px;
+                            title := TextInput {
+                                horizontal-stretch: 1;
+                                text: root.node-title;
+                                read-only: root.node-kind == "all";
+                                font-family: Theme.family; font-size: Theme.rank-b; font-weight: 600;
+                                color: Theme.bone;
+                                vertical-alignment: center;
+                                single-line: true;
+                                accepted => { root.rename-node(self.text); keys.focus(); }
+                            }
+                            Caps { text: root.node-sub; vertical-alignment: center; }
+                        }
+                        if root.section == "library": HorizontalLayout {
+                            spacing: 8px;
+                            search := Field {
+                                width: 280px;
+                                placeholder: @tr("SEARCH  ⌘F");
+                                text <=> root.search-text;
+                                edited(t) => { root.search(t); }
+                            }
+                            Rectangle { horizontal-stretch: 1; }
+                            PlateButton { compact: true; label: @tr("ADD MUSIC"); tone: Theme.live; clicked => { root.import-folder(); } }
+                            PlateButton { compact: true; label: @tr("PLAYLIST"); glyph: "+"; clicked => { root.create-node("playlist"); } }
+                            PlateButton { compact: true; label: @tr("SET"); glyph: "+"; tone: Theme.attention; clicked => { root.create-node("set"); } }
+                            PlateButton { compact: true; label: @tr("SMART"); glyph: "+"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
+                            PlateButton { compact: true; label: @tr("FOLDER"); glyph: "+"; clicked => { root.create-node("folder"); } }
+                            if root.node-kind != "all": PlateButton { compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
+                        }
+                        if root.section == "library" && root.node-kind == "smart": VerticalLayout {
+                            spacing: 4px;
+                            Field {
+                                placeholder: @tr("RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d");
+                                text: root.smart-rule-text;
+                                tone: Theme.w436;
+                                accepted(t) => { root.set-smart-rule(t); }
+                            }
+                            if root.smart-rule-error != "": Text {
+                                text: root.smart-rule-error;
+                                font-family: Theme.family; font-size: 12px; color: Theme.fault;
+                            }
+                        }
+                        if root.section == "library" && root.node-kind == "set": SetFlow {
+                            points: root.flow;
+                            total: root.flow-total;
+                            selected: root.flow-selected;
+                            select(i) => { root.flow-select(i); }
+                        }
+                        if root.section == "library" && root.node-kind == "set" && root.flow-selected >= 0: Field {
+                            placeholder: @tr("TRANSITION NOTE FOR THE SELECTED POSITION — ENTER TO SAVE");
+                            text: root.transition-note;
+                            tone: Theme.attention;
+                            accepted(t) => { root.set-transition-note(t); }
+                        }
+                        if root.section == "library": TrackTable {
+                            vertical-stretch: 1;
+                            rows: root.tracks;
+                            sort-column: root.sort-column;
+                            descending: root.sort-descending;
+                            show-position: root.node-kind == "playlist" || root.node-kind == "set";
+                            empty-text: root.node-kind == "all"
+                                ? @tr("Your library is empty. Use ADD MUSIC to add a folder, or import your rekordbox library once.")
+                                : @tr("No tracks here yet. Select tracks in All tracks and press + next to this list in the sidebar.");
+                            sort(c) => { root.sort(c); }
+                            row-clicked(i, c, s) => { root.row-clicked(i, c, s); keys.focus(); }
+                            row-activated(i) => { root.row-activated(i); }
+                        }
+                        if root.section == "library" && root.node-kind == "all" && root.tracks.length == 0: HorizontalLayout {
+                            alignment: center;
+                            spacing: 10px;
+                            PlateButton { label: @tr("ADD MUSIC FOLDER"); tone: Theme.live; clicked => { root.import-folder(); } }
+                            PlateButton { label: @tr("IMPORT FROM REKORDBOX"); tone: Theme.w486; clicked => { root.import-rekordbox(); } }
+                        }
+
+                        // ── Devices section ──
+                        if root.section == "devices": SectionTitle { title: @tr("USB STICKS"); sub: @tr("{} REGISTERED", root.devices.length); }
+                        if root.section == "devices": Text {
+                            text: @tr("Registered sticks are kept in sync automatically while they are plugged in. Every change to a playlist, cue or beatgrid reaches the stick within seconds.");
+                            wrap: word-wrap; font-family: Theme.family; font-size: 14px; color: Theme.bone-2;
+                        }
+                        if root.section == "devices": HorizontalLayout {
+                            vertical-stretch: 1;
+                            spacing: 32px;
+                            VerticalLayout {
+                                width: 360px;
+                                spacing: 6px;
+                                for d in root.devices: DeviceLine {
+                                    device: d;
+                                    roomy: true;
+                                    background: d.id == root.device-selected ? Theme.ground-band : transparent;
+                                    sync => { root.sync-device(d.id); }
+                                    eject => { root.eject-device(d.id); }
+                                    open => { root.open-device(d.id); }
+                                }
+                                Rectangle { vertical-stretch: 1; }
+                            }
+                            if root.device-selected >= 0: VerticalLayout {
+                                horizontal-stretch: 1;
+                                spacing: 10px;
+                                Field {
+                                    text: root.device-name;
+                                    placeholder: @tr("STICK NAME");
+                                    accepted(t) => { root.rename-device(t); }
+                                }
+                                Caps { text: @tr("FORMATS"); }
+                                HorizontalLayout {
+                                    spacing: 18px;
+                                    LineToggle { label: @tr("Pioneer players (export.pdb)"); checked: root.device-pioneer; toggled(v) => { root.set-device-formats(v, root.device-opendecks); } }
+                                    LineToggle { label: @tr("OpenDecks"); checked: root.device-opendecks; toggled(v) => { root.set-device-formats(root.device-pioneer, v); } }
+                                }
+                                Caps { text: @tr("CONTENT — LISTS ON THIS STICK"); }
+                                Rectangle {
+                                    vertical-stretch: 1;
+                                    Flickable {
+                                        VerticalLayout {
+                                            alignment: start;
+                                            for c in root.device-content: LineToggle {
+                                                x: c.depth * 16px;
+                                                label: c.name;
+                                                checked: c.checked;
+                                                toggled(v) => { root.set-device-node(c.id, v); }
+                                            }
+                                        }
+                                    }
+                                }
+                                if root.proposals.length > 0: Caps { text: @tr("CHANGES MADE ON PLAYERS — REVIEW"); color: Theme.attention; }
+                                for p in root.proposals: HorizontalLayout {
+                                    spacing: 10px;
+                                    height: 44px;
+                                    VLine { weight: 2px; form: "double"; tone: Theme.attention; }
+                                    VerticalLayout {
+                                        horizontal-stretch: 1;
+                                        Text { text: p.title; font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; overflow: elide; }
+                                        Text { text: p.detail; font-family: Theme.family; font-size: 12px; color: Theme.bone-3; overflow: elide; }
+                                    }
+                                    PlateButton { compact: true; label: p.kind == "history" ? @tr("IMPORT") : @tr("TAKE STICK CUES"); tone: Theme.live; clicked => { root.accept-proposal(p.index); } }
+                                    PlateButton { compact: true; label: p.kind == "history" ? @tr("DISMISS") : @tr("KEEP LIBRARY"); clicked => { root.reject-proposal(p.index); } }
+                                }
+                                HorizontalLayout {
+                                    spacing: 8px;
+                                    PlateButton { compact: true; label: @tr("SYNC NOW"); tone: Theme.live; clicked => { root.sync-device(root.device-selected); } }
+                                    PlateButton { compact: true; label: @tr("REBUILD STICK"); tone: Theme.attention; clicked => { root.rebuild-device(root.device-selected); } }
+                                    PlateButton { compact: true; label: @tr("FORGET"); tone: Theme.fault; clicked => { root.forget-device(root.device-selected); } }
+                                }
+                            }
+                        }
+
+                        // ── Recordings section ──
+                        if root.section == "recordings": SectionTitle { title: @tr("RECORDINGS"); sub: @tr("{} MIXES", root.recordings.length); }
+                        if root.section == "recordings": VerticalLayout {
+                            vertical-stretch: 1;
+                            spacing: 4px;
+                            if root.recordings.length == 0: Text {
+                                text: @tr("No recordings yet. Press RECORD in Perform, or the record button on your controller.");
+                                wrap: word-wrap; font-family: Theme.family; font-size: 14px; color: Theme.bone-3;
+                            }
+                            for r in root.recordings: Rectangle {
+                                height: 48px;
+                                VLine { x: 0; y: 8px; height: parent.height - 16px; tone: Theme.w656; }
+                                Text { x: 16px; y: 6px; text: r.name; font-family: Theme.family; font-size: 15px; font-weight: 600; color: Theme.bone; }
+                                Caps { x: 16px; y: 28px; text: r.detail; }
+                                TouchArea { clicked => { root.reveal-recording(r.id); } }
+                            }
+                            Rectangle { vertical-stretch: 1; }
+                        }
+                    }
+
+                    VLine { weight: 1px; tone: Theme.rule; }
+
+                    // Right column: track plate and device board.
+                    VerticalLayout {
+                        width: 372px;
+                        padding: 20px;
+                        spacing: 24px;
+                        TrackPlate {
+                            has-track: root.has-track;
+                            title: root.track-title;
+                            artist: root.track-artist;
+                            bpm: root.track-bpm;
+                            key: root.track-key;
+                            duration: root.track-duration;
+                            grid-source: root.grid-source;
+                            grid-locked: root.grid-locked;
+                            overview: root.track-overview;
+                            cues: root.track-cues;
+                            hot-cues-top: root.hot-cues-top;
+                            hot-cues-bottom: root.hot-cues-bottom;
+                            cursor: root.cursor;
+                            previewing: root.previewing;
+                            analysed: root.track-analysed;
+                            seek(p) => { root.seek(p); }
+                            hot-cue(s) => { root.hot-cue(s); }
+                            remove-hot-cue(s) => { root.remove-hot-cue(s); }
+                            add-memory-cue => { root.add-memory-cue(); }
+                            grid-shift(ms) => { root.grid-shift(ms); }
+                            grid-scale(f) => { root.grid-scale(f); }
+                            grid-downbeat => { root.grid-downbeat(); }
+                            grid-lock => { root.grid-lock(); }
+                            analyse => { root.analyse-selected(); }
+                            toggle-preview => { root.toggle-preview(); }
+                        }
+                        Rectangle { vertical-stretch: 1; }
+                        DeviceBoard {
+                            devices: root.devices;
+                            volumes: root.volumes;
+                            register-target: root.register-target;
+                            sync(id) => { root.sync-device(id); }
+                            eject(id) => { root.eject-device(id); }
+                            open(id) => { root.open-device(id); }
+                            register(i) => { root.register-volume(i); }
+                        }
+                    }
+                }
+
+                // Status band.
+                Rectangle {
+                    height: 30px;
+                    HLine { y: 0; width: parent.width; tone: Theme.rule; }
+                    HorizontalLayout {
+                        padding-left: 24px;
+                        padding-right: 20px;
+                        spacing: 16px;
+                        if root.analysis-progress > 0 && root.analysis-progress < 1: ProgressLine {
+                            width: 120px; y: 14px; height: 2px;
+                            progress: root.analysis-progress; tone: Theme.attention;
+                        }
+                        Caps { text: root.analysis-text; vertical-alignment: center; }
+                        Text {
+                            horizontal-stretch: 1;
+                            text: root.status-text;
+                            font-family: Theme.family; font-size: 12px; color: Theme.bone-2;
+                            vertical-alignment: center; overflow: elide;
+                        }
+                        if root.undo-label != "": Caps {
+                            text: @tr("UNDO  {}  ⌘Z", root.undo-label);
+                            vertical-alignment: center;
+                            TouchArea { mouse-cursor: pointer; clicked => { root.undo(); } }
+                        }
+                    }
+                }
+            }
+
+            // ── Perform ───────────────────────────────────────────────
+            if root.mode == "perform": PerformView {
+                horizontal-stretch: 1;
+                decks: root.decks;
+                recording: root.recording;
+                recording-time: root.recording-time;
+                master-bpm: root.master-bpm;
+                crossfader: root.crossfader;
+                engine-ready: root.engine-ready;
+                engine-message: root.engine-message;
+                focus-mode: root.focus-mode;
+                focus-deck: root.focus-deck;
+                toggle-play(d) => { root.deck-toggle-play(d); }
+                cue(d) => { root.deck-cue(d); }
+                sync(d) => { root.deck-sync(d); }
+                seek(d, p) => { root.deck-seek(d, p); }
+                hot-cue(d, s) => { root.deck-hot-cue(d, s); }
+                toggle-recording => { root.toggle-recording(); }
+                set-deck-count(n) => { root.set-deck-count(n); }
+            }
+        }
+    }
+}

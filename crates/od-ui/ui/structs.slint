@@ -1,0 +1,110 @@
+export struct TreeRow {
+    id: int,
+    name: string,
+    // "folder" | "playlist" | "smart" | "set" | "all" | "recordings"
+    kind: string,
+    depth: int,
+    count: int,
+    // Share of the longest list, 0..1, drawn as the length bar.
+    length-frac: float,
+    duration: string,
+    has-children: bool,
+    expanded: bool,
+    // Assigned to at least one stick.
+    on-device: bool,
+}
+
+export struct TrackRow {
+    id: int,
+    position: int,
+    title: string,
+    artist: string,
+    album: string,
+    genre: string,
+    bpm: string,
+    key: string,
+    // Camelot distance to the selected track's key, -1 if unknown.
+    key-distance: int,
+    time: string,
+    rating: int,
+    analysed: bool,
+    missing: bool,
+    selected: bool,
+    // Transition note in sets.
+    note: string,
+}
+
+export struct CueMark {
+    // 0..7 for hot cues, -1 for memory cues.
+    slot: int,
+    letter: string,
+    // Position as a fraction of the track.
+    pos: float,
+    end: float,
+    is-loop: bool,
+    time: string,
+    label: string,
+}
+
+export struct HotCueSlot {
+    slot: int,
+    letter: string,
+    set: bool,
+    time: string,
+    label: string,
+}
+
+export struct DeviceRow {
+    id: int,
+    name: string,
+    // "disconnected" | "in-sync" | "pending" | "syncing" | "error"
+    state: string,
+    detail: string,
+    progress: float,
+    space: string,
+    formats: string,
+    connected: bool,
+}
+
+export struct VolumeRow {
+    index: int,
+    name: string,
+    space: string,
+}
+
+export struct FlowPoint {
+    title: string,
+    bpm: string,
+    key: string,
+    energy: float,
+    start: string,
+    // Fit of the transition into the next track: "good" | "ok" | "clash" | "unknown" | "none"
+    tempo-fit: string,
+    key-fit: string,
+    change: string,
+}
+
+export struct DeckView {
+    deck: int,
+    loaded: bool,
+    title: string,
+    artist: string,
+    bpm: string,
+    key: string,
+    tempo: string,
+    elapsed: string,
+    remaining: string,
+    progress: float,
+    playing: bool,
+    master: bool,
+    sync: bool,
+    keylock: bool,
+    looping: bool,
+    loop-beats: string,
+    slip: bool,
+    level: float,
+    fader: float,
+    waveform: image,
+    overview: image,
+    cues: [CueMark],
+}

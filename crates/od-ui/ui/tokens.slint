@@ -1,0 +1,89 @@
+// Design tokens of the emission-line world.
+//
+// Colour appears only as emission lines at fixed wavelengths on a charcoal
+// continuum. State is carried by line form (see lines.slint), never by hue
+// alone.
+
+import "../fonts/BarlowSemiCondensed-Regular.ttf";
+import "../fonts/BarlowSemiCondensed-Medium.ttf";
+import "../fonts/BarlowSemiCondensed-SemiBold.ttf";
+
+export global Theme {
+    // Accessibility switches, set from settings.
+    in-out property <bool> colorblind-safe: false;
+    in-out property <bool> high-contrast: false;
+    in-out property <bool> motion: true;
+
+    // Charcoal continuum.
+    out property <color> ground: high-contrast ? #0B0B0C : #141517;
+    out property <color> ground-band: high-contrast ? #121314 : #18191C;
+    out property <color> plate: high-contrast ? #1C1D20 : #1F2023;
+    out property <color> plate-raised: #26282C;
+    out property <color> rule: high-contrast ? #4A4D53 : #303237;
+    out property <color> rule-strong: #4A4D53;
+
+    // Bone legends (contrast on ground: 13.6:1, 8.7:1, 5.0:1).
+    out property <color> bone: high-contrast ? #FFFFFF : #E6E0D2;
+    out property <color> bone-2: high-contrast ? #E6E0D2 : #B7B1A4;
+    out property <color> bone-3: high-contrast ? #B7B1A4 : #8B867B;
+
+    // Emission lines (nm).
+    out property <color> w405: colorblind-safe ? #CC79A7 : #9B7BFF;
+    out property <color> w436: #7C83FF;
+    out property <color> w486: colorblind-safe ? #56B4E9 : #4FB8F0;
+    out property <color> w546: colorblind-safe ? #009E73 : #82D16B;
+    out property <color> w589: colorblind-safe ? #F0E442 : #F5CE4A;
+    out property <color> w615: colorblind-safe ? #E69F00 : #F39047;
+    out property <color> w656: colorblind-safe ? #D55E00 : #EF5A5A;
+
+    // Semantic lines.
+    out property <color> live: w546;
+    out property <color> attention: w589;
+    out property <color> fault: w656;
+
+    // Line weights.
+    out property <length> hair: high-contrast ? 2px : 1px;
+    out property <length> line: 2px;
+
+    // Type ranks: one family, ranked by size, tracking and ink.
+    out property <string> family: "Barlow Semi Condensed";
+    out property <length> rank-a: 40px;
+    out property <length> rank-b: 24px;
+    out property <length> rank-c: 17px;
+    out property <length> body: 14px;
+    out property <length> index: 11px;
+    out property <length> tracking-index: 1.6px;
+    out property <length> tracking-c: 2.2px;
+
+    // Spacing (4px grid).
+    out property <length> s1: 4px;
+    out property <length> s2: 8px;
+    out property <length> s3: 12px;
+    out property <length> s4: 16px;
+    out property <length> s5: 24px;
+    out property <length> s6: 32px;
+
+    // The off-centre rail.
+    out property <length> rail-x: 28px;
+    out property <length> row-height: 28px;
+
+    // Deck n (1-based) to its emission line.
+    public pure function deck-color(deck: int) -> color {
+        if (deck == 1) { return w486; }
+        if (deck == 2) { return w615; }
+        if (deck == 3) { return w546; }
+        return w405;
+    }
+
+    // Hot cue slot (0-based) to a line colour; cues also carry their letter.
+    public pure function cue-color(slot: int) -> color {
+        if (slot == 0) { return w546; }
+        if (slot == 1) { return w486; }
+        if (slot == 2) { return w615; }
+        if (slot == 3) { return w405; }
+        if (slot == 4) { return w589; }
+        if (slot == 5) { return w436; }
+        if (slot == 6) { return w656; }
+        return bone-2;
+    }
+}

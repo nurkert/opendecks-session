@@ -1,0 +1,67 @@
+// Set flow: each position is an emission line whose height is the track's
+// energy; transitions between positions show their fit as line form.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps } from "controls.slint";
+import { FlowPoint } from "structs.slint";
+
+export component SetFlow inherits Rectangle {
+    in property <[FlowPoint]> points;
+    in property <string> total;
+    in property <int> selected: -1;
+    callback select(int);
+    height: 150px;
+
+    property <length> column-width: root.points.length == 0 ? 0px : min(120px, (root.width - 24px) / root.points.length);
+
+    Caps { x: 0; y: 0; text: @tr("SET FLOW") + "  ·  " + root.total; }
+    Caps { x: root.width - 260px; y: 0; width: 260px; horizontal-alignment: right; text: @tr("LINE HEIGHT = ENERGY   DASHED = CAUTION   STRUCK = CLASH"); font-size: 9px; }
+    HLine { y: 120px; width: parent.width; tone: Theme.rule; }
+
+    for p[i] in root.points: Rectangle {
+        x: 12px + i * root.column-width;
+        y: 18px;
+        width: root.column-width;
+        height: 132px;
+
+        // Energy line.
+        VLine {
+            x: 6px;
+            y: 102px - max(6px, 92px * p.energy);
+            height: max(6px, 92px * p.energy);
+            weight: i == root.selected ? 3px : 2px;
+            tone: i == root.selected ? Theme.attention : Theme.w486;
+        }
+        if root.column-width >= 44px: Text {
+            x: 14px; y: 70px;
+            text: p.bpm;
+            font-family: Theme.family; font-size: 13px; font-weight: 500; color: Theme.bone;
+        }
+        if root.column-width >= 44px: Text {
+            x: 14px; y: 86px;
+            text: p.key;
+            font-family: Theme.family; font-size: 12px; color: Theme.bone-2;
+        }
+        if root.column-width >= 70px: Text {
+            x: 6px; y: 106px; width: root.column-width - 10px;
+            text: p.start;
+            font-family: Theme.family; font-size: 10px; letter-spacing: 1px; color: Theme.bone-3;
+            overflow: elide;
+        }
+        // Transition marker to the next position.
+        if p.tempo-fit != "none": Rectangle {
+            x: root.column-width - 6px; y: 30px; width: 1px; height: 60px;
+            property <string> worst:
+                p.tempo-fit == "clash" || p.key-fit == "clash" ? "clash" :
+                p.tempo-fit == "ok" || p.key-fit == "ok" ? "ok" :
+                p.tempo-fit == "unknown" || p.key-fit == "unknown" ? "unknown" : "good";
+            VLine {
+                height: parent.height; weight: 1px;
+                tone: self.form == "struck" ? Theme.fault : self.form == "dashed" ? Theme.attention : Theme.bone-3;
+                form: parent.worst == "clash" ? "struck" : parent.worst == "ok" ? "dashed" : parent.worst == "unknown" ? "half" : "solid";
+            }
+        }
+        TouchArea { clicked => { root.select(i); } }
+    }
+}

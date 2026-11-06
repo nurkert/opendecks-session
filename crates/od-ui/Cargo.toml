@@ -1,0 +1,34 @@
+[package]
+name = "od-ui"
+description = "Slint user interface of OpenDecks Session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+build = "build.rs"
+
+[features]
+default = []
+# Full-screen kiosk on the Raspberry Pi (no desktop environment).
+kiosk = ["slint/backend-linuxkms-noseat", "slint/renderer-femtovg"]
+
+[dependencies]
+od-core.workspace = true
+od-library.workspace = true
+od-decode.workspace = true
+od-analysis.workspace = true
+od-devices.workspace = true
+od-format-native.workspace = true
+slint = "1.18"
+anyhow.workspace = true
+tracing.workspace = true
+crossbeam-channel.workspace = true
+rayon.workspace = true
+od-engine.workspace = true
+od-audio-io.workspace = true
+od-controller.workspace = true
+od-recorder.workspace = true
+serde_json.workspace = true
+rfd = "0.15"
+
+[build-dependencies]
+slint-build = "1.18"

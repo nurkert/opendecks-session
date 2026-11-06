@@ -1,0 +1,200 @@
+// The selected track as a working plate: readings, overview waveform with
+// cue lines, hot cue slots and beatgrid controls.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, PlateButton } from "controls.slint";
+import { CueMark, HotCueSlot } from "structs.slint";
+
+component Reading inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <color> tone: Theme.bone;
+    spacing: 2px;
+    Caps { text: root.label; }
+    Text {
+        text: root.value == "" ? "—" : root.value;
+        font-family: Theme.family; font-size: Theme.rank-b; font-weight: 500;
+        color: root.tone;
+    }
+}
+
+component CueSlot inherits Rectangle {
+    in property <HotCueSlot> cue;
+    callback activate();
+    callback remove();
+    height: 30px;
+    background: touch.has-hover ? Theme.plate : transparent;
+    border-width: 1px;
+    border-color: root.cue.set ? Theme.rule-strong : Theme.rule;
+
+    VLine {
+        x: 8px; y: 6px; height: parent.height - 12px;
+        tone: root.cue.set ? Theme.cue-color(root.cue.slot) : Theme.bone-3;
+        form: root.cue.set ? "solid" : "dashed";
+        weight: root.cue.set ? 2px : 1px;
+    }
+    Text {
+        x: 18px; height: parent.height;
+        text: root.cue.letter;
+        font-family: Theme.family; font-size: 14px; font-weight: 600;
+        color: root.cue.set ? Theme.bone : Theme.bone-3;
+        vertical-alignment: center;
+    }
+    Text {
+        x: 34px; width: parent.width - 52px; height: parent.height;
+        text: root.cue.set ? root.cue.time : @tr("set");
+        font-family: Theme.family; font-size: 12px;
+        color: root.cue.set ? Theme.bone-2 : Theme.bone-3;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.activate(); } }
+    if root.cue.set && touch.has-hover: Text {
+        x: parent.width - 16px; height: parent.height;
+        text: "×"; color: Theme.bone-2; font-size: 15px; vertical-alignment: center;
+        TouchArea { mouse-cursor: pointer; clicked => { root.remove(); } }
+    }
+}
+
+export component TrackPlate inherits Rectangle {
+    in property <bool> has-track;
+    in property <string> title;
+    in property <string> artist;
+    in property <string> bpm;
+    in property <string> key;
+    in property <string> duration;
+    in property <string> grid-source;
+    in property <bool> grid-locked;
+    in property <image> overview;
+    in property <[CueMark]> cues;
+    in property <[HotCueSlot]> hot-cues-top;
+    in property <[HotCueSlot]> hot-cues-bottom;
+    in property <float> cursor: 0;
+    in property <bool> previewing;
+    in property <bool> analysed;
+    callback seek(float);
+    callback hot-cue(int);
+    callback remove-hot-cue(int);
+    callback add-memory-cue();
+    callback grid-shift(int);
+    callback grid-scale(float);
+    callback grid-downbeat();
+    callback grid-lock();
+    callback analyse();
+    callback toggle-preview();
+
+    if !root.has-track: Rectangle {
+        Caps { text: @tr("NO TRACK SELECTED"); }
+    }
+    if root.has-track: VerticalLayout {
+        spacing: Theme.s3;
+        Text {
+            text: root.title;
+            font-family: Theme.family; font-size: Theme.rank-c; font-weight: 600;
+            color: Theme.bone; wrap: word-wrap;
+        }
+        Text {
+            text: root.artist;
+            font-family: Theme.family; font-size: 14px; color: Theme.bone-2;
+            overflow: elide;
+        }
+        HorizontalLayout {
+            spacing: Theme.s5;
+            Reading { label: "BPM"; value: root.bpm; }
+            Reading { label: @tr("KEY"); value: root.key; }
+            Reading { label: @tr("TIME"); value: root.duration; }
+        }
+
+        // Overview waveform with cue lines and the cursor.
+        Rectangle {
+            height: 92px;
+            background: Theme.ground-band;
+            Image {
+                width: parent.width; height: parent.height;
+                source: root.overview;
+                image-fit: fill;
+            }
+            for c in root.cues: Rectangle {
+                x: parent.width * c.pos;
+                width: 1px;
+                VLine {
+                    x: 0; y: 0; height: parent.height;
+                    weight: c.slot >= 0 ? 2px : 1px;
+                    tone: c.slot >= 0 ? Theme.cue-color(c.slot) : Theme.bone;
+                    form: c.slot >= 0 ? "solid" : "dashed";
+                }
+                if c.is-loop: Rectangle {
+                    x: 0; y: parent.height - 3px; height: 3px;
+                    width: (c.end - c.pos) * root.width;
+                    background: Theme.cue-color(c.slot).with-alpha(0.6);
+                }
+                Text {
+                    x: 4px; y: 2px;
+                    text: c.letter;
+                    font-family: Theme.family; font-size: 10px; font-weight: 600;
+                    color: Theme.bone;
+                }
+            }
+            // Cursor / preview playhead: doubled sodium.
+            VLine {
+                x: parent.width * root.cursor - 2px; y: 0; height: parent.height;
+                weight: 1px; form: "double"; tone: Theme.attention;
+            }
+            TouchArea {
+                mouse-cursor: crosshair;
+                clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); }
+                moved => { if (self.pressed) { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
+            }
+        }
+        HorizontalLayout {
+            spacing: Theme.s2;
+            PlateButton {
+                compact: true;
+                label: root.previewing ? @tr("STOP") : @tr("PREVIEW");
+                tone: Theme.attention;
+                active: root.previewing;
+                clicked => { root.toggle-preview(); }
+            }
+            PlateButton { compact: true; label: @tr("MEMORY CUE"); tone: Theme.bone; clicked => { root.add-memory-cue(); } }
+            if !root.analysed: PlateButton { compact: true; label: @tr("ANALYSE"); tone: Theme.w589; clicked => { root.analyse(); } }
+        }
+
+        Caps { text: @tr("HOT CUES — CLICK AN EMPTY SLOT TO SET IT AT THE CURSOR"); wrap: word-wrap; }
+        HorizontalLayout {
+            spacing: 6px;
+            for c in root.hot-cues-top: CueSlot {
+                cue: c;
+                activate => { root.hot-cue(c.slot); }
+                remove => { root.remove-hot-cue(c.slot); }
+            }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            for c in root.hot-cues-bottom: CueSlot {
+                cue: c;
+                activate => { root.hot-cue(c.slot); }
+                remove => { root.remove-hot-cue(c.slot); }
+            }
+        }
+
+        HorizontalLayout {
+            spacing: Theme.s2;
+            Caps { text: @tr("BEATGRID") + "  ·  " + root.grid-source; vertical-alignment: center; }
+            Rectangle { horizontal-stretch: 1; }
+            if root.grid-locked: Caps { text: @tr("LOCKED"); color: Theme.attention; vertical-alignment: center; }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            PlateButton { compact: true; label: "−10 MS"; enabled: !root.grid-locked; clicked => { root.grid-shift(-10); } }
+            PlateButton { compact: true; label: "+10 MS"; enabled: !root.grid-locked; clicked => { root.grid-shift(10); } }
+            PlateButton { compact: true; label: "½"; enabled: !root.grid-locked; clicked => { root.grid-scale(0.5); } }
+            PlateButton { compact: true; label: "×2"; enabled: !root.grid-locked; clicked => { root.grid-scale(2.0); } }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            PlateButton { compact: true; label: @tr("DOWNBEAT AT CURSOR"); enabled: !root.grid-locked; clicked => { root.grid-downbeat(); } }
+            PlateButton { compact: true; label: root.grid-locked ? @tr("UNLOCK") : @tr("LOCK"); tone: Theme.attention; active: root.grid-locked; clicked => { root.grid-lock(); } }
+        }
+    }
+}

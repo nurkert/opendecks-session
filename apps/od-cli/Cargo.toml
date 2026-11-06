@@ -1,0 +1,24 @@
+[package]
+name = "od-cli"
+description = "Headless OpenDecks Session tool: import, analyse, sync, verify"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "od-cli"
+path = "src/main.rs"
+
+[dependencies]
+od-core.workspace = true
+od-library.workspace = true
+od-decode.workspace = true
+od-analysis.workspace = true
+od-devices.workspace = true
+od-format-native.workspace = true
+od-format-pioneer.workspace = true
+anyhow.workspace = true
+clap.workspace = true
+rayon.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

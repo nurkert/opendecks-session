@@ -1,0 +1,117 @@
+// The device board: every stick is one line whose form says its state.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine, ProgressLine } from "lines.slint";
+import { Caps, PlateButton } from "controls.slint";
+import { DeviceRow, VolumeRow } from "structs.slint";
+
+export component DeviceLine inherits Rectangle {
+    in property <DeviceRow> device;
+    in property <bool> roomy: false;
+    callback sync();
+    callback eject();
+    callback open();
+    height: root.roomy ? 78px : 64px;
+
+    property <string> form:
+        device.state == "in-sync" ? "solid" :
+        device.state == "pending" ? "dashed" :
+        device.state == "error" ? "struck" :
+        device.state == "syncing" ? "double" : "half";
+    property <color> tone:
+        device.state == "in-sync" ? Theme.live :
+        device.state == "pending" ? Theme.attention :
+        device.state == "error" ? Theme.fault :
+        device.state == "syncing" ? Theme.attention : Theme.bone-3;
+
+    VLine { x: 0; y: 8px; height: parent.height - 16px; form: root.form; tone: root.tone; }
+    Text {
+        x: 18px; y: 8px; width: parent.width - 140px;
+        text: root.device.name;
+        font-family: Theme.family; font-size: 15px; font-weight: 600;
+        color: root.device.connected ? Theme.bone : Theme.bone-2;
+        overflow: elide;
+    }
+    Text {
+        x: 18px; y: 28px; width: parent.width - 140px;
+        text: root.device.detail;
+        font-family: Theme.family; font-size: 12px; letter-spacing: 0.6px;
+        color: root.device.state == "error" ? Theme.fault : Theme.bone-3;
+        overflow: elide;
+    }
+    if root.device.state == "syncing": ProgressLine {
+        x: 18px; y: 50px; width: parent.width - 140px;
+        progress: root.device.progress;
+        tone: Theme.attention;
+    }
+    if root.device.state != "syncing": Caps {
+        x: 18px; y: 46px;
+        text: root.device.space + (root.device.formats == "" ? "" : "  ·  " + root.device.formats);
+        font-size: 10px;
+    }
+    HorizontalLayout {
+        x: parent.width - 124px; y: 10px; width: 124px; height: 26px;
+        spacing: 6px;
+        alignment: end;
+        if root.device.connected && root.device.state != "syncing": PlateButton {
+            compact: true; label: @tr("SYNC"); tone: Theme.live;
+            clicked => { root.sync(); }
+        }
+        if root.device.connected: PlateButton {
+            compact: true; label: @tr("EJECT"); tone: Theme.bone-3;
+            clicked => { root.eject(); }
+        }
+    }
+    TouchArea {
+        width: parent.width - 130px;
+        clicked => { root.open(); }
+    }
+}
+
+export component DeviceBoard inherits Rectangle {
+    in property <[DeviceRow]> devices;
+    in property <[VolumeRow]> volumes;
+    in property <string> register-target;
+    callback sync(int);
+    callback eject(int);
+    callback open(int);
+    callback register(int);
+
+    VerticalLayout {
+        spacing: 4px;
+        HorizontalLayout {
+            Caps { text: @tr("DEVICES"); color: Theme.bone-2; }
+            Rectangle { horizontal-stretch: 1; }
+        }
+        HLine { tone: Theme.rule; }
+        if root.devices.length == 0 && root.volumes.length == 0: Text {
+            text: @tr("Plug in a USB stick to register it. Registered sticks stay in sync automatically.");
+            wrap: word-wrap;
+            font-family: Theme.family; font-size: 13px; color: Theme.bone-3;
+        }
+        for d in root.devices: DeviceLine {
+            device: d;
+            sync => { root.sync(d.id); }
+            eject => { root.eject(d.id); }
+            open => { root.open(d.id); }
+        }
+        for v in root.volumes: Rectangle {
+            height: 64px;
+            VLine { x: 0; y: 8px; height: parent.height - 16px; form: "half"; tone: Theme.bone-2; }
+            Text {
+                x: 18px; y: 8px; width: parent.width - 18px;
+                text: @tr("New stick: {}", v.name);
+                font-family: Theme.family; font-size: 15px; font-weight: 600; color: Theme.bone;
+                overflow: elide;
+            }
+            Caps { x: 18px; y: 30px; text: v.space; font-size: 10px; }
+            PlateButton {
+                x: 18px; y: 40px; compact: true;
+                enabled: root.register-target != "";
+                label: root.register-target == "" ? @tr("SELECT A PLAYLIST FIRST") : @tr("REGISTER WITH {}", root.register-target);
+                tone: Theme.live;
+                clicked => { root.register(v.index); }
+            }
+        }
+    }
+}
