@@ -118,6 +118,10 @@ Controller mapping format: [docs/controller-mappings.md](docs/controller-mapping
 
 ## Status and open items
 
+See [docs/verification.md](docs/verification.md) for what is verified (including a one-hour
+four-deck soak without dropouts and sync to FAT32/exFAT sticks) and what needs hardware.
+
+
 - Real CDJ/XDJ testing of the Pioneer export is still pending (validated
   byte-for-byte against rekordbox output where available and with independent
   parsers: rekordcrate, pyrekordbox).
