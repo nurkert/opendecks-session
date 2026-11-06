@@ -1,0 +1,78 @@
+// Zoomed, smoothly scrolling three-band waveform lane of one deck (Perform
+// and the CDJ practice screen). Rust renders three tiles around the playhead;
+// Slint extrapolates the position between frames with the animation clock.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { DeckView, LaneMotion } from "structs.slint";
+
+export component WaveLane inherits Rectangle {
+    in property <DeckView> deck;
+    in property <LaneMotion> motion;
+    callback zoom(float);
+    callback zoom-reset();
+    // The lane that carries the `wave.playhead` label (one per window).
+    in property <bool> playhead-label;
+    property <color> tone: Theme.deck-color(root.deck.deck);
+    property <length> gutter: 44px;
+    property <length> area: root.width - root.gutter;
+    property <duration> base-tick;
+    changed motion => { root.base-tick = animation-tick(); }
+    // Playhead now (seconds); only depends on the frame clock while moving.
+    property <float> now: root.motion.rate == 0 ? root.motion.pos : root.motion.pos + root.motion.rate * ((animation-tick() - root.base-tick) / 1ms);
+    property <float> left-t: root.now - root.motion.span / 2;
+    background: Theme.ground-band;
+    clip: true;
+    if root.motion.loaded: Image { x: root.gutter + (root.motion.t0 - root.left-t) / root.motion.span * root.area; width: root.area; height: parent.height; source: root.motion.tile0; image-fit: fill; }
+    if root.motion.loaded: Image { x: root.gutter + (root.motion.t1 - root.left-t) / root.motion.span * root.area; width: root.area; height: parent.height; source: root.motion.tile1; image-fit: fill; }
+    if root.motion.loaded: Image { x: root.gutter + (root.motion.t2 - root.left-t) / root.motion.span * root.area; width: root.area; height: parent.height; source: root.motion.tile2; image-fit: fill; }
+    // Played audio left of the playhead is veiled.
+    if root.motion.loaded: Rectangle { x: root.gutter; width: root.area / 2; height: parent.height; background: Theme.ground.with-alpha(0.45); }
+    Rectangle {
+        x: 0; y: 0; width: root.gutter; height: parent.height;
+        background: Theme.ground;
+        VLine { x: 0; height: parent.height; weight: 3px; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
+        Text {
+            x: 8px; width: root.gutter - 12px; y: 4px;
+            text: root.deck.deck;
+            font-family: Theme.family; font-size: 18px; font-weight: 600; color: root.tone;
+            horizontal-alignment: center;
+        }
+        if root.deck.master: Text {
+            x: 8px; width: root.gutter - 12px; y: parent.height - 16px;
+            text: "M";
+            font-family: Theme.family; font-size: 10px; font-weight: 600; color: Theme.attention;
+            horizontal-alignment: center;
+        }
+        VLine { x: parent.width - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
+    }
+    // Playhead at the centre of the waveform area.
+    Rectangle {
+        x: root.gutter + root.area / 2 - 1px; width: 2px; height: parent.height;
+        accessible-role: image;
+        accessible-label: root.playhead-label ? "wave.playhead" : "";
+        background: root.deck.loaded ? Theme.bone : Theme.rule-strong;
+    }
+    if root.deck.loaded && root.deck.phrase != "": Text {
+        x: root.gutter + root.area / 2 + 8px; y: 4px;
+        text: root.deck.phrase;
+        font-family: Theme.family; font-size: 10px; font-weight: 600; letter-spacing: 1px; color: Theme.bone;
+    }
+    if root.deck.loaded: Text {
+        // Fixed width (template "-000.0"), right-aligned: digits never shift.
+        x: parent.width - 64px; width: 56px; y: 4px;
+        horizontal-alignment: right;
+        text: root.deck.beat-pos;
+        font-family: Theme.family; font-size: 11px; font-weight: 600; color: Theme.bone-2;
+    }
+    // Scroll to zoom; double-click resets.
+    TouchArea {
+        x: root.gutter; width: root.area;
+        scroll-event(e) => {
+            root.zoom(e.delta-y / 1px);
+            accept
+        }
+        double-clicked => { root.zoom-reset(); }
+    }
+    HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+}

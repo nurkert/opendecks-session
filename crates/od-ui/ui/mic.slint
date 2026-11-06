@@ -1,0 +1,76 @@
+// Microphone / aux input in the global bar (SPEC §10.2): on, level,
+// talkover, a level line and the input device. State in the `Mic` global.
+
+import { Theme } from "tokens.slint";
+import { Caps, Knob, TipArea } from "controls.slint";
+
+export global Mic {
+    in property <bool> on;
+    in property <float> level: 0.8;
+    in property <bool> talkover;
+    in property <bool> ducking;
+    in property <float> peak;
+    // Input device name ("" = system default) and why it is not running.
+    in property <string> device;
+    in property <string> error;
+    callback toggle();
+    callback set-level(float);
+    callback toggle-talkover();
+    callback next-device();
+}
+
+component Chip inherits Rectangle {
+    in property <string> label;
+    in property <string> tooltip;
+    in property <bool> on;
+    in property <color> tone: Theme.live;
+    callback clicked();
+    width: max(32px, t.preferred-width + 14px);
+    height: 24px;
+    background: root.on ? root.tone.with-alpha(0.2) : ta.has-hover ? Theme.plate-raised : Theme.plate;
+    border-width: 1px;
+    border-color: root.on ? root.tone : Theme.rule;
+    t := Text {
+        text: root.label;
+        font-family: Theme.family; font-size: 10px; font-weight: 600; letter-spacing: 1.1px;
+        color: root.on ? Theme.bone : Theme.bone-2;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+    ta := TipArea { tooltip: root.tooltip; mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+export component MicControls inherits HorizontalLayout {
+    spacing: 8px;
+    padding-top: 11px; padding-bottom: 11px;
+    Chip {
+        accessible-label: "global.mic.on"; accessible-role: checkbox; accessible-checkable: true; accessible-checked: Mic.on;
+        label: "MIC"; on: Mic.on;
+        tooltip: Mic.error != "" ? Mic.error : Mic.device != "" ? @tr("Microphone / aux input: {}", Mic.device) : @tr("Microphone / aux input (system default)");
+        clicked => { Mic.toggle(); }
+    }
+    Knob {
+        accessible-role: slider; accessible-label: "global.mic.level"; accessible-value: Mic.level;
+        label: ""; size: 20px; minimum: 0; maximum: 1.5; default-value: 0.8; value: Mic.level;
+        changed(v) => { Mic.set-level(v); }
+    }
+    // Input level.
+    Rectangle {
+        width: 4px; height: 24px;
+        background: Theme.plate;
+        Rectangle {
+            y: parent.height * (1 - min(1, Mic.peak)); height: parent.height * min(1, Mic.peak);
+            background: Mic.peak > 0.9 ? Theme.fault : Theme.live;
+        }
+    }
+    Chip {
+        accessible-label: "global.mic.talkover"; accessible-role: checkbox; accessible-checkable: true; accessible-checked: Mic.talkover;
+        label: Mic.ducking ? @tr("TALK ▼") : @tr("TALK"); on: Mic.talkover; tone: Theme.attention;
+        tooltip: @tr("Talkover: the music ducks while you speak");
+        clicked => { Mic.toggle-talkover(); }
+    }
+    Chip {
+        accessible-label: "global.mic.device"; accessible-role: button;
+        label: "IN"; tooltip: @tr("Next input device");
+        clicked => { Mic.next-device(); }
+    }
+}

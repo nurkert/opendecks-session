@@ -3,47 +3,98 @@
 
 import { ListView } from "std-widgets.slint";
 import { Theme } from "tokens.slint";
-import { DragState } from "drag.slint";
+import { DragState, DragTargets, DropZone } from "drag.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, Glyph, TipArea } from "controls.slint";
-import { TrackRow, MenuTarget } from "structs.slint";
+import { TrackRow, MenuTarget, ColumnView, ColumnChoice, FilterView } from "structs.slint";
+import { FilterBar } from "filter.slint";
 
 export global Columns {
     out property <length> pos: 34px;
-    out property <length> preview: 116px;
-    out property <length> bpm: 58px;
-    out property <length> key: 46px;
-    out property <length> time: 52px;
-    out property <length> rating: 74px;
-    out property <length> state: 18px;
+    out property <length> state: 24px;
+}
+
+// A header cell being dragged to a new place (column reorder).
+global ColumnDrag {
+    in-out property <string> id;
+    in-out property <length> x;
+    // Index of the cell under the pointer, -1 = none.
+    in-out property <int> target: -1;
 }
 
 component HeaderCell inherits Rectangle {
-    in property <string> label;
-    in property <string> column;
-    in property <string> sort-column;
-    in property <bool> descending;
-    in property <TextHorizontalAlignment> align: left;
-    callback sort(string);
+    in property <ColumnView> column;
+    in property <int> index;
+    // Sort by this column: (sort column, ⇧ held).
+    callback sort(string, bool);
+    // Dropped column `id` on this cell's place.
+    callback moved-to(string, int);
+    // Right-click: open the column menu at (x, y) in window coordinates.
+    callback menu(length, length);
+    property <bool> over: ColumnDrag.id != ""
+        && ColumnDrag.x >= self.absolute-position.x && ColumnDrag.x < self.absolute-position.x + self.width;
+    changed over => {
+        if (self.over) {
+            ColumnDrag.target = root.index;
+        } else if (ColumnDrag.target == root.index) {
+            ColumnDrag.target = -1;
+        }
+    }
+    property <bool> right: root.column.right;
     lbl := Caps {
+        // The cell itself carries the label; the text is not a second one
+        // (column menu items are found by their text).
+        accessible-role: none;
         width: parent.width;
         height: parent.height;
-        horizontal-alignment: root.align;
+        horizontal-alignment: root.right ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
         vertical-alignment: center;
-        text: root.label;
-        color: root.sort-column == root.column ? Theme.bone : Theme.bone-3;
+        text: root.column.title;
+        overflow: elide;
+        color: root.column.rank == 1 ? Theme.bone : root.column.rank > 1 ? Theme.bone-2 : Theme.bone-3;
     }
-    if root.sort-column == root.column: Glyph {
-        x: root.align == TextHorizontalAlignment.right ? parent.width - lbl.preferred-width - 14px : lbl.preferred-width + 6px;
+    if root.column.rank > 0: Glyph {
+        x: root.right ? parent.width - lbl.preferred-width - 14px : lbl.preferred-width + 6px;
         y: (parent.height - 8px) / 2;
         width: 8px; height: 8px;
-        kind: root.descending ? "down" : "up";
-        tone: Theme.bone;
+        kind: root.column.descending ? "down" : "up";
+        tone: root.column.rank == 1 ? Theme.bone : Theme.bone-3;
     }
+    // Secondary sort: its rank next to the arrow.
+    if root.column.rank > 1: Text {
+        x: root.right ? parent.width - lbl.preferred-width - 24px : lbl.preferred-width + 16px;
+        height: parent.height;
+        text: root.column.rank;
+        font-family: Theme.family; font-size: 9px; color: Theme.bone-3;
+        vertical-alignment: center;
+    }
+    // Where a dragged column lands.
+    if root.over && ColumnDrag.id != root.column.id: Rectangle { x: -7px; width: 2px; background: Theme.attention; }
     TipArea {
-        tooltip: root.sort-column == root.column ? @tr("Sorted by this column — click to reverse") : @tr("Sort by this column");
+        tooltip: root.column.sort == "" ? @tr("Drag to move this column")
+            : root.column.rank == 1 ? @tr("Sorted by this column — click to reverse, ⇧-click adds a secondary sort, drag to move")
+            : @tr("Sort by this column — ⇧-click adds it as a secondary sort, drag to move");
         mouse-cursor: pointer;
-        clicked => { root.sort(root.column); }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                root.menu(self.absolute-position.x + self.mouse-x, self.absolute-position.y + self.mouse-y);
+            }
+            if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left) {
+                if (ColumnDrag.id != "") {
+                    if (ColumnDrag.target >= 0) { root.moved-to(ColumnDrag.id, ColumnDrag.target); }
+                    ColumnDrag.id = "";
+                    ColumnDrag.target = -1;
+                } else if (self.has-hover && root.column.sort != "") {
+                    root.sort(root.column.sort, ev.modifiers.shift);
+                }
+            }
+        }
+        moved => {
+            if (self.pressed && (ColumnDrag.id != "" || abs(self.mouse-x - self.pressed-x) > 8px)) {
+                ColumnDrag.x = self.absolute-position.x + self.mouse-x;
+                ColumnDrag.id = root.column.id;
+            }
+        }
     }
 }
 
@@ -57,9 +108,12 @@ component Cell inherits Text {
 
 component TrackLine inherits Rectangle {
     in property <TrackRow> item;
+    in property <[ColumnView]> columns;
     in property <bool> show-position;
     // Model index (accessible label `browser.row<index>`).
     in property <int> index;
+    // Rows can be dropped between (playlist / set in its own order).
+    in property <bool> reorderable;
     callback clicked(bool, bool);
     callback double-clicked();
     // Dropped on a target (DragState.target) after dragging this row.
@@ -73,106 +127,26 @@ component TrackLine inherits Rectangle {
     height: Theme.row-height;
     background: touch.has-hover ? Theme.ground-band : transparent;
 
-    // Selection: one horizontal sodium tick on the rail side.
-    if root.item.selected: Rectangle {
-        x: 0; y: parent.height / 2 - 1px; width: 12px; height: 2px;
-        background: Theme.attention;
-    }
-    // Loaded on a deck: doubled sodium plus that deck's line and numeral.
-    if root.item.deck > 0: Rectangle {
-        x: 0; width: 30px; height: parent.height;
-        VLine { x: 14px; y: 6px; height: parent.height - 12px; weight: 1px; form: "double"; tone: Theme.attention; }
-        VLine { x: 22px; y: 6px; height: parent.height - 12px; weight: 2px; tone: Theme.deck-color(root.item.deck); }
-        Text {
-            x: 0; height: parent.height; width: 12px;
-            text: root.item.deck;
-            font-family: Theme.family; font-size: 11px; font-weight: 600;
-            color: Theme.deck-color(root.item.deck);
-            vertical-alignment: center; horizontal-alignment: center;
-        }
-    }
-    // Colour tag: a short bar on the inner edge of the position column.
-    if root.item.tag-color.alpha > 0: Rectangle {
-        x: 34px; y: 7px; width: 3px; height: parent.height - 14px;
-        background: root.item.tag-color;
+    pure function text-of(id: string) -> string {
+        return id == "title" ? root.item.title
+            : id == "artist" ? root.item.artist
+            : id == "album" ? root.item.album
+            : id == "genre" ? root.item.genre
+            : id == "label" ? root.item.label
+            : id == "comment" ? root.item.comment
+            : id == "my-tag" ? root.item.my-tag
+            : id == "bpm" ? root.item.bpm
+            : id == "time" ? root.item.time
+            : id == "year" ? root.item.year
+            : id == "date-added" ? root.item.date-added
+            : id == "plays" ? root.item.plays
+            : id == "bitrate" ? root.item.bitrate
+            : "";
     }
     property <color> ink: root.item.missing ? Theme.bone-3 : root.item.selected ? Theme.bone : Theme.bone-2;
 
-    HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 12px;
-        spacing: 12px;
-        Cell {
-            width: Columns.pos;
-            text: root.show-position ? root.item.position : "";
-            color: Theme.bone-3;
-            horizontal-alignment: right;
-            font-size: 12px;
-        }
-        Rectangle {
-            width: Columns.preview;
-            Image { x: 0; y: (parent.height - 20px) / 2; width: parent.width - 6px; height: 20px; source: root.item.preview; image-fit: fill; }
-        }
-        Rectangle {
-            horizontal-stretch: 3; min-width: 0px; preferred-width: 0px;
-            Cell { x: 0; width: parent.width; text: root.item.title; color: root.ink; font-weight: root.item.selected ? 500 : 400; }
-        }
-        Rectangle {
-            horizontal-stretch: 2; min-width: 0px; preferred-width: 0px;
-            Cell { x: 0; width: parent.width; text: root.item.artist; color: root.item.selected ? Theme.bone-2 : Theme.bone-3; }
-        }
-        Rectangle {
-            horizontal-stretch: 1; min-width: 0px; preferred-width: 0px;
-            Cell { x: 0; width: parent.width; text: root.item.genre; color: Theme.bone-3; font-size: 13px; }
-        }
-        Cell { width: Columns.bpm; text: root.item.bpm; color: root.ink; horizontal-alignment: right; }
-        Rectangle {
-            width: Columns.key;
-            Cell {
-                width: parent.width;
-                text: root.item.key;
-                color: root.ink;
-                horizontal-alignment: right;
-            }
-            // Harmonic fit to the selected track: solid = same/adjacent, dashed = 2 steps.
-            if root.item.key-distance >= 0 && root.item.key-distance <= 2 && !root.item.selected: VLine {
-                x: 2px; y: 8px; height: parent.height - 16px; weight: 1px;
-                tone: Theme.w546;
-                form: root.item.key-distance <= 1 ? "solid" : "dashed";
-            }
-        }
-        Cell { width: Columns.time; text: root.item.time; color: Theme.bone-3; horizontal-alignment: right; }
-        Rectangle {
-            width: Columns.rating;
-            // Five cells, always clickable to rate; empty ones are faint outlines.
-            HorizontalLayout {
-                alignment: end;
-                spacing: 4px;
-                padding-top: 10px; padding-bottom: 10px;
-                for i in 5: Rectangle {
-                    width: 6px;
-                    background: i < root.item.rating ? Theme.bone-2 : transparent;
-                    border-width: 1px;
-                    border-color: i < root.item.rating ? Theme.bone-2 : Theme.rule;
-                    TouchArea {
-                        accessible-label: "browser.row\{root.index}.rating\{i + 1}"; accessible-role: button;
-                        x: -2px; width: parent.width + 4px; y: -10px; height: parent.height + 20px;
-                        mouse-cursor: pointer;
-                        clicked => { root.rate(i + 1); }
-                    }
-                }
-            }
-        }
-        // Analysis state: nothing when analysed, half-height pending, struck missing file.
-        Rectangle {
-            width: Columns.state;
-            if root.item.missing || !root.item.analysed: VLine {
-                x: parent.width / 2; y: 7px; height: parent.height - 14px; weight: 1px;
-                tone: root.item.missing ? Theme.fault : root.item.analysed ? Theme.bone-3 : Theme.attention;
-                form: root.item.missing ? "struck" : root.item.analysed ? "solid" : "half";
-            }
-        }
-    }
+    // The row's own input first; the cells drawn above keep their clicks
+    // (rating) and let the rest through.
     row-menu := ContextMenuArea {
         Menu {
             Menu {
@@ -186,6 +160,8 @@ component TrackLine inherits Rectangle {
                 title: @tr("Add to playlist");
                 for p in root.playlists: MenuItem { title: p.name; activated => { root.menu("playlist:" + p.id); } }
             }
+            MenuItem { title: @tr("Add to tag list"); activated => { root.menu("taglist"); } }
+            MenuItem { title: @tr("Show related tracks"); activated => { root.menu("related"); } }
             Menu {
                 title: @tr("Colour");
                 MenuItem { title: @tr("Pink"); activated => { root.menu("color:1"); } }
@@ -211,42 +187,134 @@ component TrackLine inherits Rectangle {
             MenuItem { title: @tr("Show in file manager"); activated => { root.menu("reveal"); } }
             MenuItem { title: @tr("Remove from this list"); activated => { root.menu("remove"); } }
         }
-    touch := TouchArea {
-        accessible-label: "browser.row\{root.index}";
-        accessible-role: list-item;
-        accessible-value: root.item.title;
-        accessible-item-index: root.index;
-        accessible-item-selectable: true;
-        accessible-item-selected: root.item.selected;
-        // Leaves the rating cells (and the state column) to their own clicks.
-        x: 0;
-        width: parent.width - Columns.rating - Columns.state - 36px;
-        pointer-event(ev) => {
-            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
-                root.clicked(ev.modifiers.control || ev.modifiers.meta, ev.modifiers.shift);
+        touch := TouchArea {
+            accessible-label: "browser.row\{root.index}";
+            accessible-role: list-item;
+            accessible-value: root.item.title;
+            accessible-item-index: root.index;
+            accessible-item-selectable: true;
+            accessible-item-selected: root.item.selected;
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                    root.clicked(ev.modifiers.control || ev.modifiers.meta, ev.modifiers.shift);
+                }
+                // The touch area grabs every press, so the enclosing
+                // ContextMenuArea never sees a right-click over it: open it here.
+                if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                    row-menu.show({ x: self.mouse-x, y: self.mouse-y });
+                }
+                if (ev.kind == PointerEventKind.up && DragState.active) {
+                    if (DragState.target != 0) { root.dropped(DragState.target); }
+                    DragState.active = false;
+                    DragState.target = 0;
+                }
             }
-            // The touch area grabs every press, so the enclosing
-            // ContextMenuArea never sees a right-click over it: open it here.
-            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
-                row-menu.show({ x: self.mouse-x, y: self.mouse-y });
+            moved => {
+                if (self.pressed && (DragState.active || abs(self.mouse-x - self.pressed-x) > 6px || abs(self.mouse-y - self.pressed-y) > 6px)) {
+                    DragState.label = root.item.title;
+                    DragState.x = self.absolute-position.x + self.mouse-x;
+                    DragState.y = self.absolute-position.y + self.mouse-y;
+                    DragState.kind = "tracks";
+                    DragState.active = true;
+                }
             }
-            if (ev.kind == PointerEventKind.up && DragState.active) {
-                if (DragState.target != 0) { root.dropped(DragState.target); }
-                DragState.active = false;
-                DragState.target = 0;
+            double-clicked => { root.double-clicked(); }
+        }
+    }
+
+    // Selection: one horizontal sodium tick on the rail side.
+    if root.item.selected: Rectangle {
+        x: 0; y: parent.height / 2 - 1px; width: 12px; height: 2px;
+        background: Theme.attention;
+    }
+    // Loaded on a deck: doubled sodium plus that deck's line and numeral.
+    if root.item.deck > 0: Rectangle {
+        x: 0; width: 30px; height: parent.height;
+        VLine { x: 14px; y: 6px; height: parent.height - 12px; weight: 1px; form: "double"; tone: Theme.attention; }
+        VLine { x: 22px; y: 6px; height: parent.height - 12px; weight: 2px; tone: Theme.deck-color(root.item.deck); }
+        Text {
+            x: 0; height: parent.height; width: 12px;
+            text: root.item.deck;
+            font-family: Theme.family; font-size: 11px; font-weight: 600;
+            color: Theme.deck-color(root.item.deck);
+            vertical-alignment: center; horizontal-alignment: center;
+        }
+    }
+    // Colour tag: a short bar on the inner edge of the position column.
+    if root.item.tag-color.alpha > 0: Rectangle {
+        x: 34px; y: 7px; width: 3px; height: parent.height - 14px;
+        background: root.item.tag-color;
+    }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: 12px;
+        Cell {
+            width: Columns.pos;
+            text: root.show-position ? root.item.position : "";
+            color: Theme.bone-3;
+            horizontal-alignment: right;
+            font-size: 12px;
+        }
+        for c in root.columns: Rectangle {
+            min-width: c.width > 0 ? c.width : 0px;
+            max-width: c.width > 0 ? c.width : 100000px;
+            preferred-width: c.width;
+            horizontal-stretch: c.width > 0 ? 0 : c.stretch;
+            if c.id == "preview": Image { x: 0; y: (parent.height - 20px) / 2; width: parent.width - 6px; height: 20px; source: root.item.preview; image-fit: fill; }
+            if c.id == "key": Rectangle {
+                Cell { width: parent.width; text: root.item.key; color: root.ink; horizontal-alignment: right; }
+                // Harmonic fit to the selected track: solid = same/adjacent, dashed = 2 steps.
+                if root.item.key-distance >= 0 && root.item.key-distance <= 2 && !root.item.selected: VLine {
+                    x: 2px; y: 8px; height: parent.height - 16px; weight: 1px;
+                    tone: Theme.w546;
+                    form: root.item.key-distance <= 1 ? "solid" : "dashed";
+                }
+            }
+            if c.id == "colour" && root.item.tag-color.alpha > 0: Rectangle {
+                x: 4px; y: (parent.height - 10px) / 2; width: 18px; height: 10px;
+                background: root.item.tag-color;
+            }
+            // Five cells, always clickable to rate; empty ones are faint outlines.
+            if c.id == "rating": HorizontalLayout {
+                alignment: end;
+                spacing: 4px;
+                padding-top: 10px; padding-bottom: 10px;
+                for i in 5: Rectangle {
+                    width: 6px;
+                    background: i < root.item.rating ? Theme.bone-2 : transparent;
+                    border-width: 1px;
+                    border-color: i < root.item.rating ? Theme.bone-2 : Theme.rule;
+                    TouchArea {
+                        accessible-label: "browser.row\{root.index}.rating\{i + 1}"; accessible-role: button;
+                        x: -2px; width: parent.width + 4px; y: -10px; height: parent.height + 20px;
+                        mouse-cursor: pointer;
+                        clicked => { root.rate(i + 1); }
+                    }
+                }
+            }
+            if c.id != "preview" && c.id != "key" && c.id != "colour" && c.id != "rating": Cell {
+                x: 0; width: parent.width;
+                text: root.text-of(c.id);
+                horizontal-alignment: c.right ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
+                color: c.id == "title" || c.id == "bpm" ? root.ink : c.id == "artist" && root.item.selected ? Theme.bone-2 : Theme.bone-3;
+                font-weight: c.id == "title" && root.item.selected ? 500 : 400;
+                font-size: c.id == "title" || c.id == "artist" || c.id == "bpm" ? Theme.body : 13px;
             }
         }
-        moved => {
-            if (self.pressed && (DragState.active || abs(self.mouse-x - self.pressed-x) > 6px || abs(self.mouse-y - self.pressed-y) > 6px)) {
-                DragState.label = root.item.title;
-                DragState.x = self.absolute-position.x + self.mouse-x;
-                DragState.y = self.absolute-position.y + self.mouse-y;
-                DragState.active = true;
+        // Analysis state: nothing when analysed, half-height pending, struck missing file.
+        Rectangle {
+            width: Columns.state;
+            if root.item.missing || !root.item.analysed: VLine {
+                x: parent.width / 2; y: 7px; height: parent.height - 14px; weight: 1px;
+                tone: root.item.missing ? Theme.fault : root.item.analysed ? Theme.bone-3 : Theme.attention;
+                form: root.item.missing ? "struck" : root.item.analysed ? "solid" : "half";
             }
         }
-        double-clicked => { root.double-clicked(); }
     }
-    }
+    // Drop between rows (reorder the open playlist or set).
+    DropZone { width: parent.width; height: parent.height; id: DragTargets.row + root.index; enabled: root.reorderable; line: true; }
 }
 
 export component TrackTable inherits Rectangle {
@@ -257,7 +325,23 @@ export component TrackTable inherits Rectangle {
     in property <string> empty-text;
     // Row to keep in view after keyboard or controller navigation.
     in property <int> focus-row: -1;
+    // Shown columns in order, and every column for the column menu.
+    in property <[ColumnView]> columns;
+    in property <[ColumnChoice]> column-choices;
+    // Rows can be dragged to a new position (playlist / set in its order).
+    in property <bool> reorderable;
+    // Quick filter bar.
+    in property <bool> filter-open;
+    in property <FilterView> filter;
+    in property <[string]> my-tag-options;
     callback sort(string);
+    // ⇧-click: add / reverse a secondary sort column.
+    callback sort-then(string);
+    callback toggle-column(string);
+    callback move-column(string, int);
+    callback reset-columns();
+    callback toggle-filter();
+    callback filter-edit(string, string);
     callback row-clicked(int, bool, bool);
     callback row-activated(int);
     callback row-dropped(int, int);
@@ -266,25 +350,81 @@ export component TrackTable inherits Rectangle {
     in property <[MenuTarget]> playlists;
 
     VerticalLayout {
-        Rectangle {
+        header := Rectangle {
             accessible-label: "browser.header"; accessible-role: groupbox;
             height: 30px;
+            column-menu := ContextMenuArea {
+                Menu {
+                    for c in root.column-choices: MenuItem {
+                        title: c.title;
+                        checkable: true;
+                        checked: c.visible;
+                        activated => { root.toggle-column(c.id); }
+                    }
+                    MenuSeparator { }
+                    MenuItem { title: @tr("Default columns"); activated => { root.reset-columns(); } }
+                }
+            }
             HorizontalLayout {
                 padding-left: 16px;
                 padding-right: 12px;
                 spacing: 12px;
-                HeaderCell { accessible-label: "browser.header.position"; accessible-role: button; width: Columns.pos; label: "#"; column: "position"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
-                HeaderCell { accessible-label: "browser.header.preview"; accessible-role: button; width: Columns.preview; label: @tr("PREVIEW"); column: "preview"; sort-column: root.sort-column; descending: root.descending; }
-                HeaderCell { accessible-label: "browser.header.title"; accessible-role: button; min-width: 0px; preferred-width: 0px; horizontal-stretch: 3; label: @tr("TITLE"); column: "title"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
-                HeaderCell { accessible-label: "browser.header.artist"; accessible-role: button; min-width: 0px; preferred-width: 0px; horizontal-stretch: 2; label: @tr("ARTIST"); column: "artist"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
-                HeaderCell { accessible-label: "browser.header.genre"; accessible-role: button; min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; label: @tr("GENRE"); column: "genre"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
-                HeaderCell { accessible-label: "browser.header.bpm"; accessible-role: button; width: Columns.bpm; label: "BPM"; column: "bpm"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
-                HeaderCell { accessible-label: "browser.header.key"; accessible-role: button; width: Columns.key; label: @tr("KEY"); column: "key"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
-                HeaderCell { accessible-label: "browser.header.time"; accessible-role: button; width: Columns.time; label: @tr("TIME"); column: "duration"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
-                HeaderCell { accessible-label: "browser.header.rating"; accessible-role: button; width: Columns.rating; label: @tr("RATING"); column: "rating"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell {
+                    accessible-label: "browser.header.position"; accessible-role: button;
+                    width: Columns.pos;
+                    column: { id: "position", title: "#", width: Columns.pos, right: true, sort: "position", rank: root.sort-column == "position" ? 1 : 0, descending: root.descending };
+                    index: -1;
+                    sort(c, shift) => { if (!shift) { root.sort(c); } }
+                    menu(x, y) => { column-menu.show({ x: x - header.absolute-position.x, y: y - header.absolute-position.y }); }
+                }
+                for c[i] in root.columns: HeaderCell {
+                    accessible-label: "browser.header.\{c.id}"; accessible-role: button;
+                    min-width: c.width > 0 ? c.width : 0px;
+                    max-width: c.width > 0 ? c.width : 100000px;
+                    preferred-width: c.width;
+                    horizontal-stretch: c.width > 0 ? 0 : c.stretch;
+                    column: c;
+                    index: i;
+                    sort(s, shift) => { if (shift) { root.sort-then(s); } else { root.sort(s); } }
+                    moved-to(id, to) => { root.move-column(id, to); }
+                    menu(x, y) => { column-menu.show({ x: x - header.absolute-position.x, y: y - header.absolute-position.y }); }
+                }
                 Rectangle { width: Columns.state; }
             }
+            // Filter bar toggle (left edge) and the column menu (right edge).
+            Rectangle {
+                accessible-label: "browser.header.filter"; accessible-role: button;
+                accessible-checkable: true; accessible-checked: root.filter-open;
+                x: 0; y: 3px; width: 24px; height: 24px;
+                background: ft.has-hover ? Theme.plate : transparent;
+                Path {
+                    x: 6px; y: 7px; width: 12px; height: 10px;
+                    viewbox-width: 12; viewbox-height: 10;
+                    commands: "M 0 1 L 12 1 M 2 5 L 10 5 M 4.5 9 L 7.5 9";
+                    stroke: root.filter.active ? Theme.attention : root.filter-open ? Theme.bone : Theme.bone-3;
+                    stroke-width: 1.2px;
+                }
+                ft := TipArea { tooltip: @tr("Filter the list (BPM, key, rating, My Tag)"); command: "browser.filter"; mouse-cursor: pointer; clicked => { root.toggle-filter(); } }
+            }
+            Rectangle {
+                accessible-label: "browser.header.columns"; accessible-role: button;
+                x: parent.width - 30px; y: 3px; width: 24px; height: 24px;
+                background: ct.has-hover ? Theme.plate : transparent;
+                Path {
+                    x: 6px; y: 7px; width: 12px; height: 10px;
+                    viewbox-width: 12; viewbox-height: 10;
+                    commands: "M 0.5 0 L 0.5 10 M 4.5 0 L 4.5 10 M 8.5 0 L 8.5 10 M 11.5 0 L 11.5 10";
+                    stroke: Theme.bone-3;
+                    stroke-width: 1px;
+                }
+                ct := TipArea { tooltip: @tr("Choose the columns (or right-click the header)"); mouse-cursor: pointer; clicked => { column-menu.show({ x: parent.x, y: parent.y + parent.height }); } }
+            }
             HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+        }
+        if root.filter-open: FilterBar {
+            filter: root.filter;
+            my-tags: root.my-tag-options;
+            edit(f, v) => { root.filter-edit(f, v); }
         }
         // Empty list: the same `browser.rows` area, showing the hint.
         if root.rows.length == 0: Rectangle {
@@ -318,6 +458,8 @@ export component TrackTable inherits Rectangle {
             for row[i] in root.rows: TrackLine {
                 index: i;
                 item: row;
+                columns: root.columns;
+                reorderable: root.reorderable;
                 show-position: root.show-position;
                 clicked(ctrl, shift) => { root.row-clicked(i, ctrl, shift); }
                 double-clicked => { root.row-activated(i); }

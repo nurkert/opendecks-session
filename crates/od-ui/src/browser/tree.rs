@@ -77,6 +77,9 @@ fn walk(st: &AppState, all: &[od_library::Node], parent: Option<NodeId>, depth: 
 
 pub(crate) fn refresh_tree(app: &App) {
     refresh_menu_targets(app);
+    let (names, histories) = super::sources::history_rows(&app.state.borrow().lib);
+    app.state.borrow_mut().browser.histories = names;
+    app.ui.set_histories(model(histories));
     let st = app.state.borrow();
     let b = &st.browser;
     let all = st.lib.all_nodes().unwrap_or_default();
@@ -110,6 +113,12 @@ pub(crate) fn refresh_tree(app: &App) {
     app.ui.set_tree(model(rows));
     let selected = if st.explorer.open.is_some() {
         EXPLORER
+    } else if let Some(sp) = &b.special {
+        match sp {
+            super::Special::TagList => super::sources::TAG_LIST,
+            super::Special::Related => super::sources::RELATED,
+            super::Special::History(name) => b.histories.iter().position(|h| h == name).map(super::sources::history_id).unwrap_or(ALL_TRACKS),
+        }
     } else {
         match (&b.stick, b.node) {
             (Some((i, _)), Some(n)) => stick_node_id(*i, n),

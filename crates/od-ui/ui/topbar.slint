@@ -4,6 +4,8 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, PlateButton, Glyph, TipArea } from "controls.slint";
+import { Cdj } from "cdj.slint";
+import { Lighting } from "lighting.slint";
 
 component ModeTab inherits Rectangle {
     in property <string> label;
@@ -74,12 +76,12 @@ export component TopBar inherits Rectangle {
     background: Theme.ground;
 
     // Test / accessibility hook: the work-mode tab group (no visuals, no
-    // input; it only spans both tabs).
+    // input; it only spans the tabs).
     Rectangle {
         accessible-label: "topbar.mode"; accessible-role: tab-list;
         accessible-value: root.mode;
         x: prep.x; y: prep.y;
-        width: perf.x + perf.width - prep.x; height: prep.height;
+        width: light.x + light.width - prep.x; height: prep.height;
     }
 
     HorizontalLayout {
@@ -107,8 +109,28 @@ export component TopBar inherits Rectangle {
             accessible-label: "topbar.mode.perform"; accessible-role: tab;
             accessible-item-selectable: true; accessible-item-selected: self.current;
             label: @tr("PERFORM"); tooltip: @tr("Perform: decks and mixer"); command: "mode.perform"; current: root.mode == "perform"; clicked => { root.set-mode("perform"); } }
+        light := ModeTab {
+            accessible-label: "topbar.mode.lighting"; accessible-role: tab;
+            accessible-item-selectable: true; accessible-item-selected: self.current;
+            label: @tr("LIGHTING"); tooltip: @tr("Lighting: DMX rig and light show"); command: "mode.lighting"; current: root.mode == "lighting"; clicked => { root.set-mode("lighting"); } }
         Rectangle { width: 24px; }
         Caps { text: root.status; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        if root.show-panels: PanelToggle {
+            accessible-label: "topbar.toggle.cdj"; accessible-role: button;
+            accessible-checkable: true; accessible-checked: self.on;
+            label: "CDJ"; on: Cdj.enabled;
+            tooltip: Cdj.enabled ? @tr("Back to the full deck controls") : @tr("CDJ practice: player screens and the club workflow");
+            command: "perform.cdj";
+            clicked => { Cdj.set-enabled(!Cdj.enabled); }
+        }
+        if root.show-panels: PanelToggle {
+            accessible-label: "topbar.toggle.light"; accessible-role: button;
+            accessible-checkable: true; accessible-checked: self.on;
+            label: "LIGHT"; on: Lighting.panel;
+            tooltip: Lighting.panel ? @tr("Hide the lighting strip") : @tr("Show the lighting strip");
+            command: "perform.light.panel";
+            clicked => { Lighting.panel = !Lighting.panel; }
+        }
         if root.show-panels: PanelToggle {
             accessible-label: "topbar.toggle.fx"; accessible-role: button;
             accessible-checkable: true; accessible-checked: self.on;

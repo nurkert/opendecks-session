@@ -22,6 +22,7 @@ pub struct Settings {
     pub advanced: AdvancedSettings,
     pub update: UpdateSettings,
     pub perform: PerformSettings,
+    pub browser: BrowserSettings,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -118,6 +119,25 @@ impl Default for PerformSettings {
     }
 }
 
+/// The track table: shown columns in order and the secondary sort.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct BrowserSettings {
+    /// Column ids in display order (`browser::columns::COLUMNS`); empty =
+    /// the default set.
+    pub columns: Vec<String>,
+    /// Secondary sort columns (⇧-click in the header), in order.
+    pub sort_then: Vec<SortSpec>,
+}
+
+/// One sort column and its direction.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct SortSpec {
+    pub column: String,
+    pub descending: bool,
+}
+
 /// Colour FX names stored in [`PerformSettings::color_fx`], in panel order.
 pub const COLOR_FX: [&str; 8] = ["filter", "echo", "noise", "space", "crush", "pitch", "dub_echo", "sweep"];
 
@@ -152,6 +172,7 @@ impl Default for Settings {
             advanced: AdvancedSettings::default(),
             update: UpdateSettings::default(),
             perform: PerformSettings::default(),
+            browser: BrowserSettings::default(),
         }
     }
 }
@@ -251,6 +272,11 @@ impl Settings {
         if !COLOR_FX.contains(&self.perform.color_fx.as_str()) {
             self.perform.color_fx = "filter".into();
         }
+        if !self.browser.columns.is_empty() {
+            self.browser.columns = crate::browser::sanitize_columns(&self.browser.columns);
+        }
+        self.browser.sort_then.retain(|s| crate::browser::sort_key_known(&s.column));
+        self.browser.sort_then.truncate(3);
         self
     }
 
@@ -399,6 +425,8 @@ mod tests {
         s.perform.fx_panel = true;
         s.perform.sampler_panel = true;
         s.perform.color_fx = "dub_echo".into();
+        s.browser.columns = vec!["title".into(), "album".into(), "bpm".into()];
+        s.browser.sort_then = vec![SortSpec { column: "bpm".into(), descending: true }];
         assert_eq!(Settings::from_json(&s.to_json()), s);
     }
 

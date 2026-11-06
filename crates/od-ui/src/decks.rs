@@ -690,6 +690,7 @@ pub(crate) struct WaveKey {
 }
 
 impl WaveKey {
+    #[cfg(test)]
     pub fn new(track: TrackId, position: f64, span: f64, width: u32, height: u32) -> Self {
         let px_per_sec = width as f64 / span.max(1e-6);
         Self { track, px: (position * px_per_sec).round() as i64, span: (span * 1e4).round() as i64, width, height }

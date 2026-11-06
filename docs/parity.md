@@ -117,7 +117,7 @@ listed test lives in a crate that `cargo test --workspace` runs; an
    id = "fx-echo-out"             # kebab-case, stable forever (other files refer to it)
    area = "effects"               # one of the [[area]] ids; order of areas = order in the matrix
    name = "Release FX: echo out"
-   scope = "in"                   # "out" needs exclusion = streaming | cloud | video | lighting | dvs
+   scope = "in"                   # "out" needs exclusion = streaming | cloud | video | dvs
    status = "done"                # done | partial | engine-only | missing
    prio = "P2"                    # optional, for gaps: P1 | P2 | P3
    milestone = "M6"               # optional; deferred if listed in meta.deferred_milestones
@@ -189,6 +189,7 @@ UI text: they are never translated and never shown.
 | `browser` | browser | `browser.search`, `browser.rail.explorer`, `browser.tree`, `browser.rows`, `browser.header.bpm`, `browser.panel.info` |
 | `info`, `subbrowser` | right-hand panels | `info.bitrate`, `subbrowser.tree` |
 | `status` | status band | `status.summary`, `status.activity` |
+| `lighting` | LIGHTING view | `lighting.rig.add`, `lighting.output.artnet`, `lighting.stage`, `lighting.mode.auto`, `lighting.blackout`, `lighting.cue.go` |
 | `prefs` | Preferences window | `prefs.nav.audio`, `prefs.audio.buffer`, `prefs.reset` |
 | `menu`, `ctx` | menu bar, context menus | `menu.view.info`, `ctx.row.load`, `ctx.header.auto-size` |
 

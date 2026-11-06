@@ -15,6 +15,10 @@ pub(crate) struct RecorderState {
     last_dominant: Option<usize>,
     /// Start automatically when sound starts (Preferences > Recording).
     armed: bool,
+    /// Deck that was audible last (play history), and this run's history
+    /// session ("Session 2026-11-07 21:30"), named at the first play.
+    last_played: Option<usize>,
+    history_session: Option<String>,
 }
 
 impl RecorderState {
@@ -26,6 +30,42 @@ impl RecorderState {
 /// Hands the engine's record tap to the recorder (once audio starts).
 pub(crate) fn attach(app: &App, tap: od_engine::RecordTap, sample_rate: u32) {
     app.recorder.borrow_mut().recorder = Some(Recorder::new(tap, sample_rate));
+}
+
+/// History session name of a performance from a library timestamp:
+/// "Session 2026-11-07 21:30".
+pub(crate) fn session_name(now: &str) -> String {
+    let t = now.trim_end_matches('Z').replace('T', " ");
+    format!("Session {}", t.get(..16).unwrap_or(&t))
+}
+
+/// Play history: every track that becomes the audible one is logged in this
+/// run's session (SPEC §5.5: every performance session is a history list).
+fn log_play(app: &App, state: &EngineState) {
+    let dom = state.audible.dominant;
+    if dom == app.recorder.borrow().last_played {
+        return;
+    }
+    app.recorder.borrow_mut().last_played = dom;
+    let Some(d) = dom else { return };
+    let id = {
+        let decks = app.decks.borrow();
+        if decks.source_is_stick() {
+            return;
+        }
+        decks.loaded(d).map(|m| m.id)
+    };
+    let Some(id) = id else { return };
+    if app.state.borrow().read_only() {
+        return;
+    }
+    let session = {
+        let mut r = app.recorder.borrow_mut();
+        r.history_session.get_or_insert_with(|| session_name(&app.state.borrow().lib.now().unwrap_or_default())).clone()
+    };
+    if app.state.borrow_mut().lib.record_play(id, &session, "opendecks").is_ok() {
+        crate::browser::refresh_tree(app);
+    }
 }
 
 /// "Mix 2026-11-06 18-30-00" from a library timestamp.
@@ -45,12 +85,6 @@ pub(crate) fn arm(app: &App, on: bool) {
 
 /// Master level above which the automatic start fires (about −40 dBFS).
 const SOUND_THRESHOLD: f32 = 0.01;
-
-/// FLAC and MP3 are encoded natively (od-recorder), so they are always
-/// available.
-pub(crate) fn encoder_available() -> bool {
-    true
-}
 
 /// The extra files a recording format produces after the WAV.
 pub(crate) fn conversions(format: &str) -> Vec<&'static str> {
@@ -136,6 +170,7 @@ fn toggle(app: &App) {
 
 /// Frame tick: tracklist marks, play history and the REC clock.
 pub(crate) fn frame(app: &App, state: &EngineState) {
+    log_play(app, state);
     let armed = app.recorder.borrow().armed;
     if armed && !app.recorder.borrow().is_recording() && state.master_meter.peak > SOUND_THRESHOLD {
         toggle(app);
@@ -149,13 +184,10 @@ pub(crate) fn frame(app: &App, state: &EngineState) {
             app.recorder.borrow_mut().last_dominant = dom;
             if let Some(d) = dom {
                 let meta = app.decks.borrow().loaded(d).map(|m| (m.id, m.title.clone(), m.artist.clone()));
-                if let Some((id, title, artist)) = meta {
-                    if let Some(r) = app.recorder.borrow_mut().recorder.as_mut() {
-                        r.mark_track(Some(id), &title, &artist);
-                    }
-                    if !app.state.borrow().read_only() {
-                        let _ = app.state.borrow_mut().lib.record_play(id, "recording", "opendecks");
-                    }
+                if let Some((id, title, artist)) = meta
+                    && let Some(r) = app.recorder.borrow_mut().recorder.as_mut()
+                {
+                    r.mark_track(Some(id), &title, &artist);
                 }
             }
         }
@@ -235,6 +267,7 @@ mod tests {
     #[test]
     fn names_and_details() {
         assert_eq!(mix_name("2026-11-06T18:30:00Z"), "Mix 2026-11-06 18-30-00");
+        assert_eq!(session_name("2026-11-07T21:30:12Z"), "Session 2026-11-07 21:30");
         assert_eq!(recording_detail("2026-11-06T18:30:00Z", 3723.0), "2026-11-06 18:30:00  ·  1:02:03");
     }
 }

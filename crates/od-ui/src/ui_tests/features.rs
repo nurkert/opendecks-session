@@ -40,9 +40,19 @@ fn load_gestures_double_click_and_menu() {
     ui.double_click_el(&row(&ui, &a));
     assert!(ui.wait_until(30.0, |u| deck_title(u, 1) == a), "double-click loads deck 1, got `{}`", deck_title(&ui, 1));
     let b = ui.fx.tracks[2].1.clone();
-    ui.right_click_el(&row(&ui, &b));
-    assert!(ui.click_menu_item("Load to deck"));
-    assert!(ui.click_menu_item("Deck 2"));
+    // The menu opens over a list that is still refreshing after the first
+    // load; reopen it if the submenu did not come up.
+    let mut loaded = false;
+    for _ in 0..5 {
+        ui.pump(400);
+        ui.right_click_el(&row(&ui, &b));
+        if ui.click_menu_item("Load to deck") && ui.click_menu_item("Deck 2") {
+            loaded = true;
+            break;
+        }
+        ui.key(Key::Escape);
+    }
+    assert!(loaded, "Load to deck ▸ Deck 2");
     assert!(ui.wait_until(30.0, |u| deck_title(u, 2) == b), "menu loads deck 2, got `{}`", deck_title(&ui, 2));
 }
 

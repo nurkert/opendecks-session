@@ -5,7 +5,7 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, PlateButton, Toggle, Transport, Splitter } from "controls.slint";
+import { Caps, PlateButton, Toggle, Transport, Splitter, Field } from "controls.slint";
 import { Pad, PhraseBar } from "perform.slint";
 import { DropZone } from "drag.slint";
 import { CueMark, HotCueSlot, PhraseMark } from "structs.slint";
@@ -51,6 +51,16 @@ component Reading inherits HorizontalLayout {
     }
 }
 
+// Cue editing in the cue list (indices into the player's `cues`).
+export global CueEdit {
+    in property <[color]> palette;
+    callback label(int, string);
+    callback color(int, int);
+    callback move-to-cursor(int);
+    callback to-hot(int);
+    callback delete(int);
+}
+
 export component PreparePlayer inherits Rectangle {
     in property <bool> has-track;
     in property <string> title;
@@ -86,7 +96,9 @@ export component PreparePlayer inherits Rectangle {
     callback info-dragged(length);
     callback info-reset();
     property <string> tool-tab: "cue";
-    property <string> list-tab: "memory";
+    property <string> list-tab: "all";
+    // Cue list row being edited (index into `cues`), -1 = none.
+    property <int> selected-cue: -1;
     background: Theme.ground;
     min-height: 230px;
 
@@ -145,7 +157,7 @@ export component PreparePlayer inherits Rectangle {
                     width: 1px;
                     VLine {
                         height: parent.height; weight: c.slot >= 0 ? 2px : 1px;
-                        tone: c.slot >= 0 ? Theme.cue-color(c.slot) : Theme.bone;
+                        tone: c.slot >= 0 ? Theme.cue-tone(c.slot, c.tone) : Theme.bone;
                         form: c.slot >= 0 ? "solid" : "dashed";
                     }
                     Text { x: 4px; y: 1px; text: c.letter; font-family: Theme.family; font-size: 10px; font-weight: 600; color: Theme.bone; }
@@ -243,18 +255,33 @@ export component PreparePlayer inherits Rectangle {
                         accessible-role: list-item;
                         accessible-label: "player1.cue-list.row\{i}";
                         accessible-value: c.label;
-                        property <bool> shown: root.list-tab == "memory" ? c.slot < 0 : root.list-tab == "hot" ? c.slot >= 0 : false;
+                        property <bool> shown: root.list-tab == "all" ? true : root.list-tab == "memory" ? c.slot < 0 : root.list-tab == "hot" ? c.slot >= 0 : false;
                         visible: self.shown;
                         height: self.shown ? 26px : 0px;
-                        background: row.has-hover ? Theme.plate : Theme.ground-band;
-                        Rectangle { x: 0; width: 3px; background: c.slot >= 0 ? Theme.cue-color(c.slot) : Theme.bone-3; }
+                        background: i == root.selected-cue ? Theme.plate-raised : row.has-hover ? Theme.plate : Theme.ground-band;
+                        Rectangle { x: 0; width: 3px; background: Theme.cue-tone(c.slot, c.tone); }
                         Text { x: 10px; text: c.slot >= 0 ? c.letter : (c.is-loop ? "LOOP" : "MEM"); font-family: Theme.family; font-size: 11px; font-weight: 600; color: Theme.bone; vertical-alignment: center; }
                         Text { x: 52px; width: 100px; text: c.label; font-family: Theme.family; font-size: 11px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
                         Text { x: parent.width - 64px; width: 58px; text: c.time; font-family: Theme.family; font-size: 11px; color: Theme.bone-2; horizontal-alignment: right; vertical-alignment: center; }
-                        row := TouchArea { mouse-cursor: pointer; clicked => { root.seek(c.pos); } }
+                        row := TouchArea {
+                            mouse-cursor: pointer;
+                            // Selecting seeks (which rebuilds the rows), so the second
+                            // click of a double-click lands on the selected row: that
+                            // opens the name field.
+                            clicked => {
+                                if (root.selected-cue == i) {
+                                    name.text = c.label;
+                                    name.focus-field();
+                                } else {
+                                    root.selected-cue = i;
+                                    root.seek(c.pos);
+                                }
+                            }
+                        }
                     }
                     if root.list-tab != "info" && root.has-track: Text {
-                        text: root.list-tab == "memory" ? @tr("Memory cues appear here. Set one with MEMORY +.") : @tr("Hot cues appear here. Click an empty pad to set one at the cursor.");
+                        visible: root.cues.length == 0 || root.list-tab != "all";
+                        text: root.list-tab == "memory" ? @tr("Memory cues appear here. Set one with MEMORY +.") : root.list-tab == "hot" ? @tr("Hot cues appear here. Click an empty pad to set one at the cursor.") : @tr("Cues appear here. Double-click one to name it.");
                         wrap: word-wrap; font-family: Theme.family; font-size: 12px; color: Theme.bone-3;
                     }
                     if root.list-tab == "info": VerticalLayout {
@@ -267,10 +294,51 @@ export component PreparePlayer inherits Rectangle {
                     }
                 }
             }
+            // Editor of the selected cue: name, colour, move, delete.
+            VerticalLayout {
+                visible: root.selected-cue >= 0 && root.selected-cue < root.cues.length && root.has-track && !root.read-only;
+                height: self.visible ? self.preferred-height : 0px;
+                padding: 8px; spacing: 5px;
+                name := Field {
+                    accessible-label: "player1.cue-list.name"; accessible-role: text-input;
+                    placeholder: @tr("Cue name");
+                    accepted(t) => { CueEdit.label(root.selected-cue, t); }
+                }
+                HorizontalLayout {
+                    spacing: 3px; height: 20px;
+                    for c[ci] in CueEdit.palette: Rectangle {
+                        accessible-label: "player1.cue-list.color" + ci; accessible-role: button;
+                        background: c; border-width: 1px; border-color: Theme.rule;
+                        TouchArea { mouse-cursor: pointer; clicked => { CueEdit.color(root.selected-cue, ci); } }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    PlateButton {
+                        accessible-label: "player1.cue-list.move"; accessible-role: button;
+                        compact: true; label: @tr("TO CURSOR"); horizontal-stretch: 1;
+                        tooltip: @tr("Move the cue to the cursor (snapped to the beat)");
+                        clicked => { CueEdit.move-to-cursor(root.selected-cue); }
+                    }
+                    if root.selected-cue >= 0 && root.selected-cue < root.cues.length && root.cues[root.selected-cue].slot < 0: PlateButton {
+                        accessible-label: "player1.cue-list.to-hot"; accessible-role: button;
+                        compact: true; label: @tr("→ HOT"); horizontal-stretch: 1;
+                        tooltip: @tr("Make this memory cue a hot cue on the first free pad");
+                        clicked => { CueEdit.to-hot(root.selected-cue); }
+                    }
+                    PlateButton {
+                        accessible-label: "player1.cue-list.delete"; accessible-role: button;
+                        compact: true; glyph: "close"; width: 30px; tone: Theme.fault;
+                        tooltip: @tr("Delete this cue");
+                        clicked => { CueEdit.delete(root.selected-cue); root.selected-cue = -1; }
+                    }
+                }
+            }
             HLine { tone: Theme.rule; }
             HorizontalLayout {
                 padding: 8px;
                 spacing: 4px;
+                Tab { accessible-label: "player1.cue-list.tab.all"; horizontal-stretch: 1; label: @tr("ALL"); current: root.list-tab == "all"; clicked => { root.list-tab = "all"; } }
                 Tab { accessible-label: "player1.cue-list.tab.memory"; horizontal-stretch: 1; label: "MEMORY"; current: root.list-tab == "memory"; clicked => { root.list-tab = "memory"; } }
                 Tab { accessible-label: "player1.cue-list.tab.hot-cue"; horizontal-stretch: 1; label: "HOT CUE"; current: root.list-tab == "hot"; clicked => { root.list-tab = "hot"; } }
                 Tab { accessible-label: "player1.cue-list.tab.info"; horizontal-stretch: 1; label: "INFO"; current: root.list-tab == "info"; clicked => { root.list-tab = "info"; } }

@@ -1,7 +1,7 @@
 //! Controllers (MIDI): mapped actions → engine commands, and LED feedback.
 
 use crate::app::App;
-use crate::{browser, decks, engine, fx, pads, recorder, sampler};
+use crate::{browser, decks, engine, fx, recorder, sampler};
 use od_controller::io::{ControllerEvent, ControllerManager};
 use od_controller::{
     BeatFxAction, BrowseAction, ColorFxAction, ControlAction, ControlFeedback, CrossfaderSide, DeckAction, DeckElement, FeedbackTarget, LedState, MixerAction,
@@ -426,6 +426,7 @@ pub(crate) fn pad_led(set: bool, lit: bool) -> LedState {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pads;
 
     #[test]
     fn pads() {

@@ -3,7 +3,7 @@
 Every user action of OpenDecks Session is a command in one registry
 (`crates/od-ui/src/keymap.rs`) with an id, a default binding per platform
 and optional user bindings (SPEC §12.2). The registry currently holds
-**214 actions**; every one has a default binding, and no two defaults
+**219 actions**; every one has a default binding, and no two defaults
 collide where they apply (checked by tests, together with this table).
 
 ## Changing bindings
@@ -75,6 +75,7 @@ Perform). Text fields keep the keys they type.
 | Redo | `library.redo` | both | `⇧⌘Z` | `Ctrl+Shift+Z` `Ctrl+Y` |
 | Switch to Prepare | `mode.prepare` | both | `⌥⌘1` | `Alt+1` |
 | Switch to Perform | `mode.perform` | both | `⌥⌘2` | `Alt+2` |
+| Switch to Lighting | `mode.lighting` | both | `⌥⌘3` | `Alt+3` |
 | Show the library | `section.library` | both | `⌥⌘L` | `Alt+L` |
 | Show USB sticks | `section.devices` | both | `⌥⌘D` | `Alt+D` |
 | Show recordings | `section.recordings` | both | `⌥⌘R` | `Alt+R` |
@@ -103,6 +104,8 @@ Perform). Text fields keep the keys they type.
 | Add a music folder | `browser.add.music` | both | `⇧⌘O` | `Ctrl+Shift+O` |
 | Import from rekordbox | `browser.import.rekordbox` | both | `⇧⌘I` | `Ctrl+Shift+I` |
 | Find moved files | `browser.find.moved` | both | `⇧⌘L` | `Ctrl+Shift+L` |
+| Add the selected tracks to the tag list | `browser.taglist.add` | both | `⌥⌘T` | `Alt+T` |
+| Show / hide the filter bar | `browser.filter` | both | `⌘J` | `Ctrl+J` |
 | **Prepare player** | | | | |
 | Preview play / pause | `player.preview` | Prepare | `Space` | `Space` |
 | Back to the cue point | `player.cue` | Prepare | `C` | `C` |
@@ -259,6 +262,8 @@ Perform). Text fields keep the keys they type.
 | Beat jump forward | `deck4.jump.fwd` | Perform | `⇧F11` | `Shift+F11` |
 | **Effects** | | | | |
 | Show / hide the Beat FX panel | `perform.fx.panel` | Perform | `⌥⌘F` | `Alt+F` |
+| CDJ practice mode on / off | `perform.cdj` | Perform | `⌥⌘J` | `Alt+J` |
+| Show / hide the lighting strip | `perform.light.panel` | Perform | `⌥⌘K` | `Alt+K` |
 | FX 1 on / off | `fx1.on` | Perform | `⇧Z` | `Shift+Z` |
 | FX 1: next effect | `fx1.next` | Perform | `⇧X` | `Shift+X` |
 | FX 1: shorter beat | `fx1.beat.down` | Perform | `⇧C` | `Shift+C` |

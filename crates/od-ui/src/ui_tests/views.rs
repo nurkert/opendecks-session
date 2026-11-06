@@ -72,6 +72,12 @@ fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String> {
     match id {
         "perform.2deck-horizontal" | "panel.recording" => perform(2),
         "perform.4deck-horizontal" => perform(4),
+        "lighting" => {
+            if kiosk {
+                return Err("Lighting is not part of the kiosk".into());
+            }
+            w.invoke_set_mode("lighting".into());
+        }
         "panel.fx" => {
             perform(2);
             if !w.get_fx_panel() {
@@ -98,6 +104,10 @@ fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String> {
         "browser.playlists" => {
             prepare_library();
             w.invoke_select_node(ui.fx.playlist.0 as i32);
+        }
+        "browser.related" => {
+            prepare_library();
+            w.invoke_select_node(-4);
         }
         "browser.explorer" => {
             prepare_library();

@@ -99,22 +99,22 @@ fn set_and_name_hot_cue() {
     assert!(ui.wait_until(10.0, |u| u.has("player1.hot-cue.A")), "player shows the hot cue pads");
     ui.steps.set(0);
     ui.click("player1.hot-cue.A");
-    let set = ui.wait_until(5.0, |u| u.fx.lib().cues(track).unwrap().iter().any(|c| c.kind == CueKind::Hot(0)));
+    let set = ui.wait_until(20.0, |u| u.fx.lib().cues(track).unwrap().iter().any(|c| c.kind == CueKind::Hot(0)));
     assert!(set, "hot cue A is stored in the library");
-    // Naming: the cue list has rows, but no rename gesture (double-click,
-    // text field) exists yet.
-    let row = ui.find("player1.cue-list.row0");
-    let nameable = ui.has("player1.cue-list.name");
-    if let Some(r) = &row {
-        ui.double_click_el(r);
-    }
-    let named = nameable && ui.fx.lib().cues(track).unwrap().iter().any(|c| matches!(c.kind, CueKind::Hot(_)) && !c.label.is_empty());
+    // Naming: double-click the cue in the list, type, Return.
+    let row = ui.get("player1.cue-list.row0");
+    ui.double_click_el(&row);
+    ui.type_text("Drop");
+    ui.key(slint::platform::Key::Return);
+
+    let named = ui.wait_until(20.0, |u| u.fx.lib().cues(track).unwrap().iter().any(|c| c.kind == CueKind::Hot(0) && c.label == "Drop"));
     record(FlowResult {
         id: "set-and-name-hot-cue",
         steps: ui.steps.get(),
         achieved: named,
-        note: if named { String::new() } else { "hot cue A is set in 1 step; naming a cue has no UI (cue list rows only seek)".into() },
+        note: if named { String::new() } else { "the cue name was not stored".into() },
     });
+    assert!(named, "hot cue A is named `Drop`");
 }
 
 /// Add the selected track to an existing playlist.

@@ -1,0 +1,145 @@
+// Right-hand browser panels: My Tag (tag the selected tracks with your own
+// categories and values) and Related (tracks that fit after the selected
+// one by tempo and key).
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, Field, PlateButton, TipArea } from "controls.slint";
+import { MyTagChip, SuggestionRow } from "structs.slint";
+
+export component MyTagPanel inherits Rectangle {
+    in property <[MyTagChip]> chips;
+    in property <int> selection-count;
+    in property <bool> read-only;
+    // A value clicked: on for every selected track, or off when all have it.
+    callback toggle(string, string);
+    // "Category: Value" typed into the field.
+    callback add(string);
+    accessible-label: "mytag.panel"; accessible-role: groupbox;
+    background: Theme.ground;
+    width: 260px;
+    VLine { x: 0; height: parent.height; weight: 1px; tone: Theme.rule; }
+    Flickable {
+        x: 1px; width: parent.width - 1px;
+        VerticalLayout {
+            padding: 14px;
+            spacing: 6px;
+            alignment: start;
+            Caps { text: @tr("MY TAG"); color: Theme.bone-2; }
+            Text {
+                text: root.selection-count == 0 ? @tr("Select tracks to tag them.") : @tr("{} selected — click a value to tag or untag them.", root.selection-count);
+                font-family: Theme.family; font-size: 12px; color: Theme.bone-3; wrap: word-wrap;
+            }
+            if !root.read-only: Field {
+                accessible-label: "mytag.add"; accessible-role: text-input; accessible-value: self.text;
+                height: 28px;
+                placeholder: @tr("CATEGORY: VALUE — RETURN");
+                tone: Theme.w436;
+                accepted(t) => { root.add(t); self.text = ""; }
+            }
+            if root.chips.length == 0: Text {
+                text: @tr("No My Tag values yet. Type one above, e.g. Mood: Peak.");
+                font-family: Theme.family; font-size: 12px; color: Theme.bone-3; wrap: word-wrap;
+            }
+            for c[i] in root.chips: VerticalLayout {
+                spacing: 2px;
+                if c.first: Caps { text: c.category; font-size: 10px; }
+                Rectangle {
+                    accessible-label: "mytag.value\{i}"; accessible-role: checkbox;
+                    accessible-value: c.category + ": " + c.value;
+                    accessible-checkable: true; accessible-checked: c.on;
+                    height: 26px;
+                    background: t.has-hover ? Theme.plate : transparent;
+                    VLine { x: 2px; y: 5px; height: parent.height - 10px; tone: c.on ? Theme.w436 : Theme.rule-strong; form: c.on ? "solid" : "half"; }
+                    Text {
+                        x: 14px; width: parent.width - 54px; height: parent.height;
+                        text: c.value; overflow: elide;
+                        font-family: Theme.family; font-size: 13px;
+                        color: c.on ? Theme.bone : Theme.bone-2;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        x: parent.width - 40px; width: 36px; height: parent.height;
+                        text: c.count; horizontal-alignment: right;
+                        font-family: Theme.family; font-size: 11px; color: Theme.bone-3;
+                        vertical-alignment: center;
+                    }
+                    t := TipArea {
+                        tooltip: @tr("Tag or untag the selected tracks");
+                        enabled: !root.read-only && root.selection-count > 0;
+                        mouse-cursor: self.enabled ? pointer : default;
+                        clicked => { root.toggle(c.category, c.value); }
+                    }
+                }
+            }
+        }
+    }
+}
+
+export component SuggestionPanel inherits Rectangle {
+    in property <[SuggestionRow]> rows;
+    // The track the suggestions follow ("" = none selected).
+    in property <string> reference;
+    // Double-click: load into a free deck.
+    callback activated(int);
+    // Open the suggestions as the Related tracks list.
+    callback open-list();
+    accessible-label: "related.panel"; accessible-role: groupbox;
+    background: Theme.ground;
+    width: 280px;
+    VLine { x: 0; height: parent.height; weight: 1px; tone: Theme.rule; }
+    VerticalLayout {
+        x: 1px; width: parent.width - 1px;
+        padding: 14px;
+        spacing: 6px;
+        Caps { text: @tr("FITS AFTER"); color: Theme.bone-2; }
+        Text {
+            text: root.reference == "" ? @tr("Select a track to see what fits after it.") : root.reference;
+            font-family: Theme.family; font-size: 13px; font-weight: 600; color: Theme.bone; wrap: word-wrap;
+        }
+        if root.reference != "" && root.rows.length == 0: Text {
+            text: @tr("No analysed track within ±6 % tempo and a compatible key.");
+            font-family: Theme.family; font-size: 12px; color: Theme.bone-3; wrap: word-wrap;
+        }
+        Flickable {
+            vertical-stretch: 1;
+            VerticalLayout {
+                alignment: start;
+                for r[i] in root.rows: Rectangle {
+                    accessible-label: "related.row\{i}"; accessible-role: list-item; accessible-value: r.title;
+                    height: 40px;
+                    background: t.has-hover ? Theme.plate : transparent;
+                    VLine { x: 2px; y: 8px; height: parent.height - 16px; weight: 1px; tone: Theme.w546; }
+                    Text {
+                        x: 14px; y: 4px; width: parent.width - 90px;
+                        text: r.title; overflow: elide;
+                        font-family: Theme.family; font-size: 13px; color: Theme.bone;
+                    }
+                    Text {
+                        x: 14px; y: 21px; width: parent.width - 90px;
+                        text: r.artist; overflow: elide;
+                        font-family: Theme.family; font-size: 11px; color: Theme.bone-3;
+                    }
+                    Text {
+                        x: parent.width - 72px; width: 68px; height: parent.height;
+                        text: r.bpm + "  " + r.key; horizontal-alignment: right;
+                        font-family: Theme.family; font-size: 12px; color: Theme.bone-2;
+                        vertical-alignment: center;
+                    }
+                    t := TipArea {
+                        tooltip: @tr("Double-click to load into a free deck");
+                        double-clicked => { root.activated(r.id); }
+                    }
+                }
+            }
+        }
+        if root.reference != "": PlateButton {
+            accessible-label: "related.open-list"; accessible-role: button;
+            compact: true;
+            label: @tr("SHOW AS LIST");
+            tone: Theme.w546;
+            tooltip: @tr("Open these tracks as the Related tracks list");
+            clicked => { root.open-list(); }
+        }
+    }
+}

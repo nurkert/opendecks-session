@@ -47,9 +47,24 @@ specification.
   and offered for review instead of being overwritten.
 - **Perform** — 2 or 4 decks, sync and quantize, keylock (Rubber Band), hot
   and memory cues, loops, slip, beat jump, beat FX and colour FX, sampler,
-  controller mappings for the DDJ-FLX10 and DDJ-FLX4 with LED feedback.
-- **Recording** — one button; WAV with an automatic tracklist as `.cue` and
-  as text for Mixcloud/SoundCloud, optional split into one file per track.
+  controller mappings for the DDJ-FLX10 and DDJ-FLX4 with LED feedback,
+  microphone / aux input with talkover.
+- **Club-player practice (CDJ mode)** — one switch turns each deck into a
+  player-style screen with the players' cue rules, no on-screen sync, and a
+  checklist that ticks itself off while you load, cue and beatmatch by ear,
+  so a controller owner is ready for the booth.
+- **Lighting** — a DMX light show that follows the music: an automatic mode
+  that reads phrases, beat and energy and blends the looks of both tracks
+  during a mix, an easy mode with looks and colours, and a pro mode with
+  per-group programs and a cue stack. Moving heads, LED bars, PARs and
+  strobes (built-in or Open Fixture Library files), Art-Net, sACN and
+  USB-DMX interfaces, with a live stage preview.
+- **Recording** — one button; WAV, FLAC or MP3 with an automatic tracklist
+  as `.cue` and as text for Mixcloud/SoundCloud, optional split into one
+  file per track.
+- **Exchange** — rekordbox-compatible XML export and import for other DJ
+  applications, a whole-library archive (`.odlib`) for moving to a new
+  computer, and a duplicate finder.
 - **One-time rekordbox migration** — tracks, cues, beatgrids, keys and
   playlists from your rekordbox library or a rekordbox USB stick. rekordbox
   data is only read from a temporary copy, never changed, and never accessed
@@ -110,6 +125,9 @@ od-cli playlist "Warmup" --search deep
 od-cli register /Volumes/STICK --playlist Warmup
 od-cli sync /Volumes/STICK
 od-cli verify /Volumes/STICK
+od-cli lighting add "Spot L" moving-head --group Movers
+od-cli lighting output 0 --artnet 2.0.0.10:6454
+od-cli lighting test --seconds 60     # simulated track: intro, build, drop …
 ```
 
 ## Architecture
@@ -151,6 +169,8 @@ four-deck soak without dropouts and sync to FAT32/exFAT sticks) and what needs h
 - Vendor USB settings and jog displays of the DDJ-FLX10 (milestone M4) need a
   USB capture with the controller connected.
 - OneLibrary (`exportLibrary.db`) and LAN sync are planned for M5.
+- The DDJ-FLX10's own DMX port needs the same USB capture; until then the
+  lighting runs through Art-Net, sACN or a USB-DMX interface.
 
 ## Trademarks and independence
 

@@ -185,12 +185,21 @@ export component Sidebar inherits Rectangle {
     callback register-volume(int);
     callback import-folder();
     callback import-rekordbox();
+    // Histories (play history sessions), the tag list and the drop of a
+    // dragged tree node (source id, DragState.target).
+    in property <[TreeRow]> histories;
+    in property <int> tag-list-count;
+    in property <int> related-count;
+    callback add-to-tag-list();
+    callback node-dropped(int, int);
     background: Theme.ground;
 
     VerticalLayout {
         Flickable {
             accessible-label: "browser.tree"; accessible-role: AccessibleRole.tree;
             vertical-stretch: 1;
+            // Mouse drags move tree nodes; the wheel scrolls.
+            mouse-drag-pan-enabled: false;
             VerticalLayout {
                 width: root.width;
                 alignment: start;
@@ -215,6 +224,7 @@ export component Sidebar inherits Rectangle {
                     clicked => { root.select-node(r.id); }
                     toggled => { root.toggle-node(r.id); }
                     add => { root.add-to-node(r.id); }
+                    dropped(t) => { root.node-dropped(r.id, t); }
                 }
                 Heading { accessible-label: "browser.rail.explorer"; accessible-role: text; action-label: "browser.tree.add-explorer"; label: @tr("EXPLORER"); action: "plus"; tooltip: @tr("Add a folder to browse"); act => { root.explorer-add-root(); } }
                 if root.explorer.length == 0: Text {
@@ -229,6 +239,15 @@ export component Sidebar inherits Rectangle {
                     clicked => { root.explorer-select(f.id); }
                     toggled => { root.explorer-toggle(f.id); }
                     remove => { root.explorer-remove-root(f.id); }
+                }
+                // Related tracks: one row of its own (no heading), below the
+                // Explorer so the short Perform tree pane keeps the Explorer
+                // roots in view.
+                TreeItem {
+                    label: "browser.rail.related";
+                    item: { id: -4, name: @tr("Related tracks"), kind: "related", count: root.related-count };
+                    selected: root.selected-node == -4 && root.section == "library";
+                    clicked => { root.select-node(-4); }
                 }
                 Heading { accessible-label: "browser.rail.devices"; accessible-role: text; label: @tr("DEVICES"); }
                 if root.devices.length == 0 && root.volumes.length == 0: Text {
@@ -272,6 +291,18 @@ export component Sidebar inherits Rectangle {
                         clicked => { root.register-volume(v.index); }
                     }
                 }
+                Heading { accessible-label: "browser.rail.histories"; accessible-role: text; label: @tr("HISTORIES"); }
+                if root.histories.length == 0: Text {
+                    x: 12px; width: root.width - 24px;
+                    text: @tr("Every session you play is listed here.");
+                    font-family: Theme.family; font-size: 12px; color: Theme.bone-3; wrap: word-wrap;
+                }
+                for h[i] in root.histories: TreeItem {
+                    label: "browser.tree.history\{i}";
+                    item: h;
+                    selected: root.selected-node == h.id && root.section == "library";
+                    clicked => { root.select-node(h.id); }
+                }
                 Heading { accessible-label: "browser.rail.recordings"; accessible-role: text; label: @tr("RECORDINGS"); }
                 Rectangle {
                     accessible-label: "browser.tree.recordings"; accessible-role: list-item;
@@ -292,6 +323,13 @@ export component Sidebar inherits Rectangle {
                         text: root.recordings-count; font-family: Theme.family; font-size: 12px; color: Theme.bone-3; vertical-alignment: center;
                     }
                     rt := TipArea { tooltip: @tr("Show recordings"); command: "section.recordings"; mouse-cursor: pointer; clicked => { root.select-section("recordings"); } }
+                }
+                Heading { accessible-label: "browser.rail.tag-list"; accessible-role: text; action-label: "browser.tree.tag-list.add"; label: @tr("TAG LIST"); action: "plus"; tooltip: @tr("Add the selected tracks to the tag list"); command: "browser.taglist.add"; act => { root.add-to-tag-list(); } }
+                TreeItem {
+                    label: "browser.tree.tag-list";
+                    item: { id: -3, name: @tr("Tag list"), kind: "taglist", count: root.tag-list-count };
+                    selected: root.selected-node == -3 && root.section == "library";
+                    clicked => { root.select-node(-3); }
                 }
             }
         }

@@ -81,6 +81,7 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "library.redo" => app.redo(),
         "mode.prepare" => ui.invoke_set_mode(S::from("prepare")),
         "mode.perform" => ui.invoke_set_mode(S::from("perform")),
+        "mode.lighting" => ui.invoke_set_mode(S::from("lighting")),
         "section.library" => ui.invoke_select_section(S::from("library")),
         "section.devices" => ui.invoke_select_section(S::from("devices")),
         "section.recordings" => ui.invoke_select_section(S::from("recordings")),
@@ -102,6 +103,11 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         }
         "perform.quantize" => ui.invoke_deck_quantize(1),
         "perform.fx.panel" => crate::fx::toggle_panel(app),
+        "perform.cdj" => crate::cdj::toggle(app),
+        "perform.light.panel" => {
+            let g = slint::ComponentHandle::global::<crate::Lighting>(ui);
+            g.set_panel(!g.get_panel());
+        }
         "perform.sampler.panel" => crate::sampler::toggle_panel(app),
         "colorfx.next" => crate::fx::step_color_fx(app, 1),
         "colorfx.prev" => crate::fx::step_color_fx(app, -1),
@@ -138,6 +144,13 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "browser.add.music" => ui.invoke_import_folder(),
         "browser.import.rekordbox" => ui.invoke_import_rekordbox(),
         "browser.find.moved" => ui.invoke_find_moved_files(),
+        "browser.taglist.add" => ui.invoke_add_to_tag_list(),
+        "browser.filter" => {
+            if ui.get_section() != "library" {
+                ui.invoke_select_section(S::from("library"));
+            }
+            ui.invoke_toggle_filter();
+        }
         "player.preview" => player::toggle_preview(app),
         "player.cue" => ui.invoke_jump_start(),
         "player.memory.add" => ui.invoke_add_memory_cue(),

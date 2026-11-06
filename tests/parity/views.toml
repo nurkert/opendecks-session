@@ -6606,3 +6606,78 @@ elements = [
 ]
 note = "Layout entries with ⌘7–⌘0 in Prepare"
 
+
+[[view]]
+id = "lighting"
+title = "Lighting: rig, stage preview and show"
+mode = "lighting"
+source = "SPEC §10.5"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "lighting"]
+features = ["lighting-views", "lighting-easy", "lighting-pro", "lighting-fixtures", "lighting-outputs"]
+note = "RIG | STAGE | SHOW columns; the browser stays below"
+
+[[view.region]]
+id = "topbar.modes"
+band = "topbar"
+place = "left of the top bar"
+order = "row"
+elements = [
+  "topbar.mode.prepare",
+  "topbar.mode.perform",
+  "topbar.mode.lighting",
+]
+
+[[view.region]]
+id = "lighting.rig"
+band = "lighting"
+place = "left column: patch list, add fixture"
+order = "row"
+elements = [
+  "lighting.rig.name",
+  "lighting.rig.group",
+  "lighting.rig.add",
+]
+
+[[view.region]]
+id = "lighting.output"
+band = "lighting"
+place = "left column, below the patch"
+order = "row"
+elements = [
+  "lighting.output.artnet",
+  "lighting.output.sacn",
+  "lighting.output.enttec",
+]
+
+[[view.region]]
+id = "lighting.stage"
+band = "lighting"
+place = "centre column"
+order = "column"
+elements = [
+  "lighting.status",
+  "lighting.stage",
+]
+
+[[view.region]]
+id = "lighting.show.mode"
+band = "lighting"
+place = "right column, top"
+order = "row"
+elements = [
+  "lighting.mode.auto",
+  "lighting.mode.easy",
+  "lighting.mode.pro",
+]
+
+[[view.region]]
+id = "lighting.show.buttons"
+band = "lighting"
+place = "right column, beside the master fader"
+order = "column"
+elements = [
+  "lighting.blackout",
+  "lighting.flash",
+  "lighting.strobe",
+]

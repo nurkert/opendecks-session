@@ -6,6 +6,7 @@ import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, Glyph, TipArea } from "controls.slint";
 import { TreeRow } from "structs.slint";
+import { DragState, DragTargets, DropZone } from "drag.slint";
 
 component SectionTick inherits Rectangle {
     in property <string> label;
@@ -43,7 +44,9 @@ export component TreeItem inherits Rectangle {
     // Carries the accessible label `browser.tree.node<id>` (off for the
     // hidden copies the sidebar keeps per section).
     in property <bool> labelled: true;
-    property <string> a11y: root.labelled ? "browser.tree.node\{root.item.id}" : "";
+    // Accessible label in place of `browser.tree.node<id>` (fixed rows).
+    in property <string> label;
+    property <string> a11y: !root.labelled ? "" : root.label != "" ? root.label : "browser.tree.node\{root.item.id}";
     accessible-label: root.a11y;
     accessible-role: list-item;
     accessible-value: root.item.name;
@@ -54,8 +57,14 @@ export component TreeItem inherits Rectangle {
     callback clicked();
     callback toggled();
     callback add();
+    // Something was dropped after dragging this node: DragState.target.
+    callback dropped(int);
     height: 26px;
     background: touch.has-hover ? Theme.plate : transparent;
+    // Library nodes can be dragged to a new place in the tree.
+    property <bool> draggable: root.labelled && root.item.id >= 0;
+    // Lists that take dropped tracks.
+    property <bool> takes-tracks: root.item.kind == "playlist" || root.item.kind == "set" || root.item.kind == "taglist";
 
     // Selection is a rail tick, not a fill.
     if root.selected: Rectangle {
@@ -110,7 +119,28 @@ export component TreeItem inherits Rectangle {
         font-family: Theme.family; font-size: 12px; color: Theme.bone-3;
         vertical-alignment: center;
     }
-    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    touch := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+        moved => {
+            if (self.pressed && root.draggable && (DragState.active || abs(self.mouse-x - self.pressed-x) > 6px || abs(self.mouse-y - self.pressed-y) > 6px)) {
+                DragState.label = root.item.name;
+                DragState.x = self.absolute-position.x + self.mouse-x;
+                DragState.y = self.absolute-position.y + self.mouse-y;
+                DragState.kind = "node";
+                DragState.source = root.item.id;
+                DragState.active = true;
+            }
+        }
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up && DragState.active && DragState.kind == "node") {
+                if (DragState.target != 0) { root.dropped(DragState.target); }
+                DragState.active = false;
+                DragState.target = 0;
+                DragState.kind = "tracks";
+            }
+        }
+    }
     if root.can-add && touch.has-hover && (root.item.kind == "playlist" || root.item.kind == "set"): Rectangle {
         accessible-label: root.labelled ? root.a11y + ".add" : ""; accessible-role: button;
         x: parent.width - 30px; y: 3px; width: 26px; height: parent.height - 6px;
@@ -118,6 +148,14 @@ export component TreeItem inherits Rectangle {
         border-width: 1px; border-color: Theme.live;
         Glyph { kind: "plus"; tone: Theme.bone; }
         TipArea { tooltip: @tr("Add the selected tracks to this list"); mouse-cursor: pointer; clicked => { root.add(); } }
+    }
+    // Tracks dropped on a list; nodes dropped on a folder (into it) or a
+    // list (before it).
+    DropZone {
+        width: parent.width; height: parent.height;
+        id: DragTargets.tree + root.item.id;
+        accepts: "any";
+        enabled: root.labelled && (DragState.kind == "tracks" ? root.takes-tracks : root.item.id >= 0 && DragState.source != root.item.id);
     }
 }
 

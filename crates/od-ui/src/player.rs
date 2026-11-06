@@ -6,7 +6,7 @@ use crate::models::model;
 use crate::{CueMark, HotCueSlot, PhraseMark, decks, engine, format, render};
 use od_core::{Beatgrid, Cue, CueKind, TrackId};
 use od_engine::{ChannelCommand, Command, DeckCommand};
-use slint::ComponentHandle;
+use slint::{ComponentHandle, SharedString};
 use std::rc::Rc;
 
 #[derive(Default)]
@@ -34,8 +34,79 @@ pub(crate) fn cue_marks(cues: &[Cue], duration: f64, with_time: bool) -> Vec<Cue
             is_loop: c.is_loop(),
             time: if with_time { format::cue_time(c.start).into() } else { Default::default() },
             label: c.label.clone().into(),
+            tone: cue_tone(c.color),
         })
         .collect()
+}
+
+/// A stored cue colour for the views (transparent = none).
+pub(crate) fn cue_tone(c: Option<od_core::CueColor>) -> slint::Color {
+    c.map(|c| slint::Color::from_rgb_u8(c.r, c.g, c.b)).unwrap_or(slint::Color::from_argb_u8(0, 0, 0, 0))
+}
+
+/// Cue colours offered in the cue editor (the eight colours compatible
+/// players can show).
+pub(crate) const CUE_PALETTE: [od_core::CueColor; 8] = [
+    od_core::CueColor::rgb(0xE6, 0x28, 0x28),
+    od_core::CueColor::rgb(0xFF, 0x80, 0x00),
+    od_core::CueColor::rgb(0xF5, 0xCE, 0x1E),
+    od_core::CueColor::rgb(0x28, 0xE2, 0x14),
+    od_core::CueColor::rgb(0x10, 0xB1, 0x76),
+    od_core::CueColor::rgb(0x30, 0x5A, 0xFF),
+    od_core::CueColor::rgb(0xB4, 0x32, 0xFF),
+    od_core::CueColor::rgb(0xDE, 0x44, 0xCF),
+];
+
+/// One cue-list edit (pure): `index` into the cue list as shown.
+pub(crate) enum CueEditOp {
+    Label(String),
+    Color(usize),
+    MoveTo(f64),
+    ToHot,
+    Delete,
+}
+
+pub(crate) fn apply_cue_edit(cues: &mut Vec<Cue>, index: usize, op: CueEditOp) -> bool {
+    if index >= cues.len() {
+        return false;
+    }
+    match op {
+        CueEditOp::Label(l) => cues[index].label = l.trim().to_string(),
+        CueEditOp::Color(i) => cues[index].color = CUE_PALETTE.get(i).copied(),
+        CueEditOp::MoveTo(t) => {
+            let c = &mut cues[index];
+            if let Some(end) = c.loop_end {
+                c.loop_end = Some(t + (end - c.start));
+            }
+            c.start = t.max(0.0);
+        }
+        CueEditOp::ToHot => {
+            let used: Vec<u8> = cues.iter().filter_map(|c| match c.kind {
+                CueKind::Hot(s) => Some(s),
+                CueKind::Memory => None,
+            }).collect();
+            let Some(free) = (0..od_core::cue::HOT_CUE_SLOTS).find(|s| !used.contains(s)) else { return false };
+            if cues[index].kind != CueKind::Memory {
+                return false;
+            }
+            cues[index].kind = CueKind::Hot(free);
+        }
+        CueEditOp::Delete => {
+            cues.remove(index);
+        }
+    }
+    true
+}
+
+fn cue_edit(app: &App, index: i32, label: &str, op: CueEditOp) {
+    if index < 0 {
+        return;
+    }
+    let mut ok = false;
+    edit_cues(app, label, |cues, _| ok = apply_cue_edit(cues, index as usize, op));
+    if !ok {
+        app.status("No free hot cue pad");
+    }
 }
 
 /// The eight hot cue slots A–H.
@@ -49,6 +120,7 @@ pub(crate) fn hot_cue_slots(cues: &[Cue]) -> Vec<HotCueSlot> {
                 set: c.is_some(),
                 time: c.map(|c| format::cue_time(c.start)).unwrap_or_default().into(),
                 label: c.map(|c| c.label.clone()).unwrap_or_default().into(),
+                tone: cue_tone(c.and_then(|c| c.color)),
             }
         })
         .collect()
@@ -290,6 +362,20 @@ fn edit_cues(app: &App, label: &str, f: impl FnOnce(&mut Vec<Cue>, f64)) {
 
 pub(crate) fn wire(app: &Rc<App>) {
     let ui = &app.ui;
+    let ce = ui.global::<crate::CueEdit>();
+    ce.set_palette(model(CUE_PALETTE.iter().map(|c| cue_tone(Some(*c))).collect()));
+    ce.on_label(handler!(app, |a, i: i32, t: SharedString| cue_edit(&a, i, "Cue named", CueEditOp::Label(t.to_string()))));
+    ce.on_color(handler!(app, |a, i: i32, c: i32| cue_edit(&a, i, "Cue colour changed", CueEditOp::Color(c.max(0) as usize))));
+    ce.on_move_to_cursor(handler!(app, |a, i: i32| {
+        let cursor = {
+            let st = a.state.borrow();
+            let grid = st.player.current.and_then(|id| st.src().beatgrid(id).ok().flatten());
+            grid.map(|g| snap_to_beat(&g, st.player.cursor)).unwrap_or(st.player.cursor)
+        };
+        cue_edit(&a, i, "Cue moved", CueEditOp::MoveTo(cursor))
+    }));
+    ce.on_to_hot(handler!(app, |a, i: i32| cue_edit(&a, i, "Memory cue made a hot cue", CueEditOp::ToHot)));
+    ce.on_delete(handler!(app, |a, i: i32| cue_edit(&a, i, "Cue removed", CueEditOp::Delete)));
     ui.on_seek(handler!(app, |a, p: f32| move_cursor(&a, |st| {
         let id = st.player.current;
         let d = id.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
@@ -353,6 +439,25 @@ pub(crate) fn wire(app: &Rc<App>) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn cue_list_edits() {
+        let mut cues = vec![Cue::hot(0, 10.0), Cue::memory(20.0), Cue { loop_end: Some(34.0), ..Cue::memory(30.0) }];
+        assert!(apply_cue_edit(&mut cues, 0, CueEditOp::Label("  Drop ".into())));
+        assert_eq!(cues[0].label, "Drop");
+        assert!(apply_cue_edit(&mut cues, 1, CueEditOp::Color(0)));
+        assert_eq!(cues[1].color, Some(CUE_PALETTE[0]));
+        assert!(apply_cue_edit(&mut cues, 2, CueEditOp::MoveTo(40.0)));
+        assert_eq!((cues[2].start, cues[2].loop_end), (40.0, Some(44.0)), "a loop keeps its length");
+        assert!(apply_cue_edit(&mut cues, 1, CueEditOp::ToHot));
+        assert_eq!(cues[1].kind, CueKind::Hot(1), "first free pad");
+        assert!(!apply_cue_edit(&mut cues, 0, CueEditOp::ToHot), "already a hot cue");
+        assert!(apply_cue_edit(&mut cues, 2, CueEditOp::Delete));
+        assert_eq!(cues.len(), 2);
+        assert!(!apply_cue_edit(&mut cues, 9, CueEditOp::Delete));
+        assert_eq!(cue_tone(None).alpha(), 0);
+    }
+
     use super::*;
 
     #[test]

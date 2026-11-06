@@ -1,0 +1,112 @@
+// Quick filter bar under the track table header: BPM range, key and tempo
+// relative to the master deck, minimum rating and one My Tag value.
+
+import { Theme } from "tokens.slint";
+import { VLine } from "lines.slint";
+import { Caps, Field, LineToggle, PlateButton, TipArea } from "controls.slint";
+import { FilterView } from "structs.slint";
+
+export component FilterBar inherits Rectangle {
+    in property <FilterView> filter;
+    // "Category: Value" entries of the My Tag menu.
+    in property <[string]> my-tags;
+    // (field, value): "bpm-min", "bpm-max", "pct", "key" ("1" / ""),
+    // "rating" (0..5), "my-tag" ("" = any), "clear".
+    callback edit(string, string);
+    height: 40px;
+    accessible-label: "browser.filter"; accessible-role: groupbox;
+
+    tag-menu := ContextMenuArea {
+        Menu {
+            MenuItem { title: @tr("Any My Tag"); activated => { root.edit("my-tag", ""); } }
+            for t in root.my-tags: MenuItem { title: t; activated => { root.edit("my-tag", t); } }
+        }
+    }
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 12px;
+        padding-top: 6px;
+        padding-bottom: 6px;
+        spacing: 10px;
+        Caps { text: "BPM"; vertical-alignment: center; }
+        min := Field {
+            accessible-label: "browser.filter.bpm-min"; accessible-role: text-input; accessible-value: self.text;
+            width: 70px; height: 28px;
+            placeholder: @tr("FROM");
+            text: root.filter.bpm-min;
+            edited(t) => { root.edit("bpm-min", t); }
+        }
+        max := Field {
+            accessible-label: "browser.filter.bpm-max"; accessible-role: text-input; accessible-value: self.text;
+            width: 70px; height: 28px;
+            placeholder: @tr("TO");
+            text: root.filter.bpm-max;
+            edited(t) => { root.edit("bpm-max", t); }
+        }
+        VLine { width: 1px; tone: Theme.rule; }
+        LineToggle {
+            accessible-label: "browser.filter.key-master"; accessible-role: checkbox;
+            accessible-checkable: true; accessible-checked: self.checked;
+            label: @tr("Key fits master");
+            tooltip: @tr("Only keys compatible with the master deck (same, ±1, relative)");
+            checked: root.filter.key-match;
+            tone: Theme.w546;
+            toggled(v) => { root.edit("key", v ? "1" : ""); }
+        }
+        pct := Field {
+            accessible-label: "browser.filter.bpm-pct"; accessible-role: text-input; accessible-value: self.text;
+            width: 86px; height: 28px;
+            placeholder: @tr("BPM ±%");
+            text: root.filter.bpm-pct;
+            edited(t) => { root.edit("pct", t); }
+        }
+        Caps {
+            accessible-label: "browser.filter.reference"; accessible-role: text; accessible-value: self.text;
+            text: root.filter.reference == "" ? @tr("NO MASTER DECK") : root.filter.reference;
+            vertical-alignment: center;
+            color: root.filter.reference == "" ? Theme.bone-3 : Theme.bone-2;
+        }
+        VLine { width: 1px; tone: Theme.rule; }
+        Caps { text: @tr("RATING"); vertical-alignment: center; }
+        HorizontalLayout {
+            spacing: 4px;
+            padding-top: 6px; padding-bottom: 6px;
+            for i in 5: Rectangle {
+                accessible-label: "browser.filter.rating\{i + 1}"; accessible-role: button;
+                width: 8px;
+                background: i < root.filter.rating ? Theme.bone-2 : transparent;
+                border-width: 1px;
+                border-color: i < root.filter.rating ? Theme.bone-2 : Theme.rule-strong;
+                TouchArea {
+                    x: -3px; width: parent.width + 6px; y: -6px; height: parent.height + 12px;
+                    mouse-cursor: pointer;
+                    clicked => { root.edit("rating", i + 1 == root.filter.rating ? "0" : "\{i + 1}"); }
+                }
+            }
+        }
+        VLine { width: 1px; tone: Theme.rule; }
+        tag := PlateButton {
+            accessible-label: "browser.filter.my-tag"; accessible-role: button;
+            compact: true;
+            label: root.filter.my-tag == "" ? @tr("MY TAG: ANY") : root.filter.my-tag;
+            tone: Theme.w436;
+            active: root.filter.my-tag != "";
+            tooltip: @tr("Only tracks with this My Tag value");
+            clicked => { tag-menu.show({ x: self.x, y: self.y + self.height }); }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        PlateButton {
+            accessible-label: "browser.filter.clear"; accessible-role: button;
+            compact: true;
+            label: @tr("CLEAR");
+            enabled: root.filter.active;
+            tooltip: @tr("Remove every filter condition");
+            clicked => {
+                min.text = "";
+                max.text = "";
+                pct.text = "";
+                root.edit("clear", "");
+            }
+        }
+    }
+}

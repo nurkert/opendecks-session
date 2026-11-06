@@ -1,9 +1,15 @@
 //! Browser: the tree (collection, lists, sticks), the track list, search,
 //! sort, selection, list editing, smart rules and set notes.
 
+mod columns;
+mod filter;
+mod sources;
 mod tracks;
 mod tree;
 
+pub(crate) use columns::sanitize as sanitize_columns;
+#[cfg(test)]
+pub(crate) use sources::load_tag_list;
 pub(crate) use tracks::{SortFields, default_descending, key_distance, refresh_tracks, same_row, sort_key_known, sort_rows};
 pub(crate) use tree::{refresh_tree, stick_root_id};
 
@@ -12,7 +18,7 @@ use crate::models::Rows;
 use crate::workers::spawn_import;
 use crate::{TrackRow, decks, player, smart_text};
 use od_core::TrackId;
-use od_library::{NodeId, NodeKind, TrackRecord};
+use od_library::{MyTag, NodeId, NodeKind, TrackRecord};
 use slint::{Model, SharedString};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
@@ -36,6 +42,29 @@ pub(crate) struct BrowserState {
     pub stick: Option<(usize, od_format_native::Stick)>,
     /// Mini overview waveforms for the PREVIEW column, by (stick?, track).
     pub previews: HashMap<(bool, TrackId), slint::Image>,
+    /// A source outside the tree of lists (tag list, related, a history).
+    pub special: Option<Special>,
+    /// Quick filter and its reference track (master deck).
+    pub filter: filter::Filter,
+    pub filter_open: bool,
+    pub reference: Option<filter::Reference>,
+    /// The tag list (holding area), stored in the library meta.
+    pub tag_list: Vec<TrackId>,
+    /// My Tag values of the source's tracks (column, filter, panel).
+    pub my_tags: HashMap<TrackId, Vec<MyTag>>,
+    /// Related list: "master" or a deck number, and the track it follows.
+    pub related_source: String,
+    pub related_track: Option<TrackId>,
+    /// History sessions in sidebar order.
+    pub histories: Vec<String>,
+}
+
+/// Sources that are not library nodes.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) enum Special {
+    TagList,
+    Related,
+    History(String),
 }
 
 impl Default for BrowserState {
@@ -53,6 +82,15 @@ impl Default for BrowserState {
             sticks: Vec::new(),
             stick: None,
             previews: HashMap::new(),
+            special: None,
+            filter: filter::Filter::default(),
+            filter_open: false,
+            reference: None,
+            tag_list: Vec::new(),
+            my_tags: HashMap::new(),
+            related_source: "master".into(),
+            related_track: None,
+            histories: Vec::new(),
         }
     }
 }
@@ -74,6 +112,7 @@ pub(crate) struct BrowserViews {
 /// Restores the last list and track at start-up.
 pub(crate) fn restore(app: &App, node: Option<NodeId>, track: Option<TrackId>) {
     let mut st = app.state.borrow_mut();
+    st.browser.tag_list = sources::load_tag_list(&st.lib);
     if let Some(n) = node.filter(|n| st.lib.node(*n).is_ok()) {
         st.browser.node = Some(n);
         let in_list = st.lib.node(n).is_ok_and(|n| n.kind.has_entries());
@@ -180,6 +219,10 @@ pub(crate) fn remove_selected(app: &App) {
         let st = app.state.borrow();
         (st.browser.node, st.browser.selection.iter().copied().collect::<Vec<_>>())
     };
+    if app.state.borrow().browser.special == Some(Special::TagList) {
+        sources::remove_from_tag_list(app, &positions);
+        return;
+    }
     let Some(n) = node else { return };
     if positions.is_empty() || !app.state.borrow().lib.node(n).is_ok_and(|n| n.kind.has_entries()) {
         return;
@@ -202,9 +245,14 @@ pub(crate) fn remove_selected(app: &App) {
 
 /// Opens a tree entry: a library list, "All tracks", a stick or a list on it.
 fn select_node(app: &App, id: i32) {
+    if sources::decode(id, &app.state.borrow().browser.histories).is_some() {
+        sources::open(app, id);
+        return;
+    }
     {
         let mut st = app.state.borrow_mut();
         st.explorer.close();
+        st.browser.special = None;
         match tree::decode_stick_id(id) {
             Some((i, node)) => {
                 let reuse = st.browser.stick.as_ref().is_some_and(|(j, _)| *j == i);
@@ -242,6 +290,7 @@ fn select_node(app: &App, id: i32) {
 }
 
 fn create_node(app: &App, kind: &str) {
+    app.state.borrow_mut().browser.special = None;
     if app.state.borrow().read_only() || app.state.borrow().explorer.open.is_some() {
         let mut st = app.state.borrow_mut();
         st.explorer.close();
@@ -367,9 +416,14 @@ pub(crate) fn wire(app: &Rc<App>) {
                 b.descending = false;
             }
         }
+        if !a.state.borrow().settings.browser.sort_then.is_empty() {
+            a.state.borrow_mut().change_settings(|s| s.browser.sort_then.clear());
+        }
         a.state.borrow_mut().load_rows();
         refresh_tracks(&a);
     }));
+    wire_columns(app);
+    sources::wire(app);
     ui.on_row_clicked(handler!(app, |a, i: i32, toggle: bool, range: bool| select_row(&a, i as usize, toggle, range)));
     ui.on_row_activated(handler!(app, |a, i: i32| {
         select_row(&a, i as usize, false, false);
@@ -390,6 +444,11 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_row_menu(handler!(app, |a, i: i32, action: SharedString| row_menu(&a, i as usize, action.as_str())));
     // Drag and drop: target 1..=4 = that deck, -1 = the Prepare player.
     ui.on_row_dropped(handler!(app, |a, i: i32, target: i32| {
+        match drop_target(target) {
+            DropTarget::Row(to) => return reorder_rows(&a, i as usize, to),
+            DropTarget::Tree(id) => return drop_on_tree(&a, i as usize, id),
+            DropTarget::Deck => {}
+        }
         select_row(&a, i as usize, false, false);
         if target < 0 {
             if a.state.borrow().explorer.open.is_some() {
@@ -447,6 +506,164 @@ pub(crate) fn wire(app: &Rc<App>) {
             Err(e) => a.status(format!("{e}")),
         }
     }));
+}
+
+/// Where a dragged row was dropped.
+#[derive(Debug, PartialEq)]
+pub(crate) enum DropTarget {
+    /// A deck (1..=4) or the Prepare player (-1): handled by the caller.
+    Deck,
+    /// Before row `n` of the open list.
+    Row(usize),
+    /// A tree row (library node id or a special source id).
+    Tree(i32),
+}
+
+/// `DragState.target` → target (ranges of `DragTargets` in drag.slint).
+pub(crate) fn drop_target(t: i32) -> DropTarget {
+    const ROW: i32 = 100_000;
+    const TREE: i32 = 200_001_000;
+    if t >= TREE - 1000 {
+        DropTarget::Tree(t - TREE)
+    } else if t >= ROW {
+        DropTarget::Row((t - ROW) as usize)
+    } else {
+        DropTarget::Deck
+    }
+}
+
+/// Whether the open list can be reordered by dragging rows: a playlist or
+/// set of the library, in its own order, not searched or filtered.
+pub(crate) fn reorderable(st: &crate::state::AppState) -> bool {
+    st.explorer.open.is_none()
+        && !st.read_only()
+        && st.browser.special.is_none()
+        && st.browser.sort == "position"
+        && !st.browser.descending
+        && st.browser.search.trim().is_empty()
+        && !st.browser.filter.active()
+        && st.node_kind().is_some_and(|k| matches!(k, NodeKind::Playlist | NodeKind::Set))
+}
+
+/// Dragged row `from` (with the selection it belongs to) dropped before row `to`.
+fn reorder_rows(app: &App, from: usize, to: usize) {
+    if !reorderable(&app.state.borrow()) {
+        app.status("Sort the list by # to reorder it");
+        return;
+    }
+    let (node, mut positions) = {
+        let st = app.state.borrow();
+        let sel: Vec<usize> = st.browser.selection.iter().copied().collect();
+        (st.browser.node, if sel.contains(&from) { sel } else { vec![from] })
+    };
+    let Some(n) = node else { return };
+    positions.sort_unstable();
+    if positions.len() == 1 && (to == positions[0] || to == positions[0] + 1) {
+        return;
+    }
+    let count = positions.len();
+    let r = app.state.borrow_mut().lib.move_entries(n, &positions, to);
+    if app.report(r).is_some() {
+        // Keep the moved rows selected at their new place.
+        let start = to - positions.iter().filter(|&&p| p < to).count();
+        {
+            let mut st = app.state.borrow_mut();
+            st.browser.selection = (start..start + count).collect();
+            st.browser.anchor = Some(start);
+        }
+        app.after_edit("Reordered — ⌘Z to undo");
+    }
+}
+
+/// Rows dropped on a tree row: added to that playlist / set or the tag list.
+fn drop_on_tree(app: &App, row: usize, id: i32) {
+    if !app.state.borrow().browser.selection.contains(&row) {
+        select_row(app, row, false, false);
+    }
+    if id == sources::TAG_LIST {
+        sources::add_selected_to_tag_list(app);
+        return;
+    }
+    if id < 0 || app.guard_read_only() {
+        return;
+    }
+    let node = NodeId(id as i64);
+    let ids = app.state.borrow().selected_ids();
+    let name = app.state.borrow().lib.node(node).map(|n| n.name).unwrap_or_default();
+    let r = app.state.borrow_mut().lib.add_to_node(node, &ids, None);
+    if app.report(r).is_some() {
+        app.after_edit(&format!("Added {} track(s) to {name}", ids.len()));
+    }
+}
+
+/// Where a tree node dropped on `target` goes: into a folder (at its end),
+/// else just before the target among the target's siblings.
+pub(crate) fn node_destination(target: &od_library::Node, siblings: &[od_library::Node], moving: NodeId) -> (Option<NodeId>, usize) {
+    if target.kind == NodeKind::Folder {
+        return (Some(target.id), usize::MAX);
+    }
+    let index = siblings.iter().filter(|n| n.id != moving).position(|n| n.id == target.id).unwrap_or(usize::MAX);
+    (target.parent, index)
+}
+
+fn node_dropped(app: &App, source: i32, target: i32) {
+    let DropTarget::Tree(id) = drop_target(target) else { return };
+    if source < 0 || id < 0 || source == id || app.state.borrow().read_only() {
+        return;
+    }
+    let (moving, target) = (NodeId(source as i64), NodeId(id as i64));
+    let dest = {
+        let st = app.state.borrow();
+        let Ok(t) = st.lib.node(target) else { return };
+        let siblings = st.lib.children(t.parent).unwrap_or_default();
+        node_destination(&t, &siblings, moving)
+    };
+    let r = app.state.borrow_mut().lib.move_node(moving, dest.0, dest.1);
+    if app.report(r).is_some() {
+        if let Some(p) = dest.0 {
+            app.state.borrow_mut().browser.expanded.insert(p);
+        }
+        app.after_edit("Moved — ⌘Z to undo");
+    }
+}
+
+/// Column choice, order, secondary sort, the quick filter and tree drags.
+fn wire_columns(app: &Rc<App>) {
+    let ui = &app.ui;
+    let columns_changed = |a: &App, f: &dyn Fn(&[String]) -> Vec<String>| {
+        let next = f(&a.state.borrow().settings.browser.columns);
+        a.state.borrow_mut().change_settings(|s| s.browser.columns = next.clone());
+        refresh_tracks(a);
+    };
+    ui.on_toggle_column(handler!(app, |a, id: SharedString| columns_changed(&a, &|c| columns::toggle(c, &id))));
+    ui.on_move_column(handler!(app, |a, id: SharedString, to: i32| columns_changed(&a, &|c| columns::move_to(c, &id, to.max(0) as usize))));
+    ui.on_reset_columns(handler!(app, |a| columns_changed(&a, &|_| Vec::new())));
+    ui.on_sort_then(handler!(app, |a, col: SharedString| {
+        let primary = a.state.borrow().browser.sort.clone();
+        let next = columns::shift_sort(&a.state.borrow().settings.browser.sort_then, &primary, &col, default_descending(&col));
+        a.state.borrow_mut().change_settings(|s| s.browser.sort_then = next.clone());
+        a.state.borrow_mut().load_rows();
+        refresh_tracks(&a);
+    }));
+    ui.on_toggle_filter(handler!(app, |a| {
+        let open = !a.state.borrow().browser.filter_open;
+        a.state.borrow_mut().browser.filter_open = open;
+        a.ui.set_filter_open(open);
+        refresh_filter(&a);
+    }));
+    ui.on_filter_edit(handler!(app, |a, field: SharedString, value: SharedString| {
+        a.state.borrow_mut().browser.filter.edit(&field, &value);
+        refresh_filter(&a);
+    }));
+    ui.on_node_dropped(handler!(app, |a, source: i32, target: i32| node_dropped(&a, source, target)));
+}
+
+/// Re-resolves the filter reference and reloads the list.
+pub(crate) fn refresh_filter(app: &App) {
+    let reference = if app.state.borrow().browser.filter.uses_reference() { sources::resolve_reference(app) } else { None };
+    app.state.borrow_mut().browser.reference = reference;
+    app.state.borrow_mut().load_rows();
+    refresh_tracks(app);
 }
 
 /// Applies `f` to the tags of the selected tracks (one undo step per track).
@@ -526,6 +743,16 @@ fn row_menu(app: &App, i: usize, action: &str) {
             }
         }
         "remove" => remove_selected(app),
+        "taglist" => sources::add_selected_to_tag_list(app),
+        "related" => {
+            let track = app.state.borrow().player.current;
+            sources::open(app, sources::RELATED);
+            let mut st = app.state.borrow_mut();
+            st.browser.related_track = track;
+            st.browser.related_source = "track".into();
+            drop(st);
+            app.refresh_library();
+        }
         _ => {}
     }
 }

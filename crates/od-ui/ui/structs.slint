@@ -50,6 +50,73 @@ export struct TrackRow {
     deck: int,
     // Track colour tag (transparent when none).
     tag-color: color,
+    // Optional columns (browser::columns).
+    label: string,
+    comment: string,
+    year: string,
+    date-added: string,
+    plays: string,
+    bitrate: string,
+    my-tag: string,
+}
+
+// A shown column of the track table, in display order.
+export struct ColumnView {
+    id: string,
+    title: string,
+    // Fixed width; 0 = shares the free width by `stretch`.
+    width: length,
+    stretch: float,
+    right: bool,
+    // Sort column name, "" = not sortable.
+    sort: string,
+    // 1 = primary sort, 2.. = secondary (⇧-click), 0 = not sorted.
+    rank: int,
+    descending: bool,
+}
+
+// An entry of the column menu (header right-click).
+export struct ColumnChoice {
+    id: string,
+    title: string,
+    visible: bool,
+}
+
+// The quick filter bar of the track list.
+export struct FilterView {
+    // Any condition set.
+    active: bool,
+    bpm-min: string,
+    bpm-max: string,
+    // Minimum stars, 0 = any.
+    rating: int,
+    // "Category: Value" or "" for any.
+    my-tag: string,
+    // Key compatible with the master deck.
+    key-match: bool,
+    // BPM within ± this percentage of the master deck ("" = off).
+    bpm-pct: string,
+    // The reference ("MASTER 124.0 · 8A"), "" when no deck plays.
+    reference: string,
+}
+
+// A My Tag value in the My Tag panel; `on` = every selected track has it.
+export struct MyTagChip {
+    category: string,
+    value: string,
+    count: int,
+    on: bool,
+    // First value of its category (draws the category caption).
+    first: bool,
+}
+
+// A track suggested after the selected one (Related panel).
+export struct SuggestionRow {
+    id: int,
+    title: string,
+    artist: string,
+    bpm: string,
+    key: string,
 }
 
 // A playlist / set the row context menu can add tracks to.
@@ -76,6 +143,8 @@ export struct CueMark {
     is-loop: bool,
     time: string,
     label: string,
+    // Stored cue colour; transparent = the slot's line colour.
+    tone: color,
 }
 
 export struct HotCueSlot {
@@ -84,6 +153,8 @@ export struct HotCueSlot {
     set: bool,
     time: string,
     label: string,
+    // Stored cue colour; transparent = the slot's line colour.
+    tone: color,
 }
 
 export struct DeviceRow {

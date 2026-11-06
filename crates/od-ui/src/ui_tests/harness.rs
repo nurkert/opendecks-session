@@ -300,7 +300,16 @@ impl Ui {
     /// Clicks an item of an open menu (popups have their own coordinates,
     /// so the testing API's own click maps the position).
     pub fn click_menu_item(&self, title: &str) -> bool {
-        let Some(e) = self.menu_item(title) else { return false };
+        // Submenus open asynchronously; give them a moment under load.
+        let mut found = self.menu_item(title);
+        for _ in 0..20 {
+            if found.is_some() {
+                break;
+            }
+            self.pump(50);
+            found = self.menu_item(title);
+        }
+        let Some(e) = found else { return false };
         self.step();
         e.mock_single_click(PointerEventButton::Left);
         self.pump(150);

@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 125 DONE (61 %), 24 PARTIAL, 24 ENGINE-ONLY, 33 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 138 DONE (67 %), 25 PARTIAL, 19 ENGINE-ONLY, 24 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -38,26 +38,26 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
 | Collection table with sortable columns | DONE | `ui/table.slint` header cells; `app.rs::sort_key` (title, artist, genre, BPM, key, time, rating, date added) | 2 |  |
-| Column choice (album, label, comment, colour, date added, play count, bitrate, My Tag, …) | MISSING | Fixed column set in `table.slint`; `TrackRow` has `album` but no header for it | — | P2 |
+| Column choice (album, label, comment, colour, date added, play count, bitrate, My Tag, …) | DONE | `browser/columns.rs`, `ui/table.slint`; Header right-click or the columns button opens the column menu (preview, title, artist, album, genre, label, comment, My Tag, colour, BPM, key, time, year, date added, play count, bitrate, rating); the choice is stored in the settings (`browser.columns`); "Default columns" resets | 3 | P2 |
 | Artwork in browser / deck | PARTIAL | Stored (`schema.sql` `artwork`, `tracks.rs::artwork`) and exported to sticks (`pdb/rows.rs`); not shown in the UI | — | P3 |
 | Tree: folders, playlists, smart lists, sets | DONE | `nodes.rs::create_node/rename_node/delete_node`; `app.rs` `on_create_node`, `on_rename_node`, `on_delete_node` | 2 |  |
-| Reorder tree nodes (drag) | ENGINE-ONLY | `nodes.rs::move_node`; no UI | 1 | P2 |
+| Reorder tree nodes (drag) | DONE | `nodes.rs::move_node`, `browser/mod.rs::node_dropped`; Drag a list or folder in the tree onto a folder (moves into it) or onto another list (moves before it); undoable | 2 | P2 |
 | Add tracks to playlist | DONE | `app.rs` `on_add_to_node` | 1 |  |
-| Reorder playlist / set entries | ENGINE-ONLY | `nodes.rs::move_entries`; not called from `od-ui` | — | **P1** |
-| Drag and drop (table → tree, Finder → library) | MISSING | No drag/drop handlers in `ui/*.slint` (with reorder) | — | **P1** |
+| Reorder playlist / set entries | DONE | `nodes.rs::move_entries`, `browser/mod.rs::reorder_rows`; Drag rows (with the selection) between rows of a playlist or set sorted by #; one undo step | 1 | **P1** |
+| Drag and drop (table → tree, Finder → library) | PARTIAL | `ui/drag.slint`, `ui/rail.slint`; Rows drag onto decks, the Prepare player, playlists / sets / the tag list in the tree and between rows of a playlist; tree nodes drag onto folders. Not yet: files dragged in from Finder / the file manager | 2 | **P1** |
 | Search | DONE | `tracks.rs::search`; `app.rs` `on_search` | 2 |  |
-| Filter (BPM range, key, rating, My Tag, relative to master deck) | PARTIAL | Smart-list rules can express it (`smart.rs` `Field`/`Op`, incl. `HarmonicWith`); no quick filter bar in the browser | 1 | P2 |
+| Filter (BPM range, key, rating, My Tag, relative to master deck) | DONE | `browser/filter.rs`, `ui/filter.slint`; Filter bar under the header (filter button, ⌘J): BPM range, key compatible with the master deck, BPM within ±% of the master deck (double / half time count; without a loaded deck the selected track is the reference), minimum rating, one My Tag value; CLEAR. Smart lists keep the full rule language | 4 | P2 |
 | Rating (stars) | DONE | `tracks.rs::set_tags`; Five cells per row, click to rate (click again clears); also in the row context menu. Verified by clicking in the running app | 1 | **P1** |
 | Track colour | DONE | `od-core/src/track.rs`; Colour tag bar per row; set via the row context menu (eight colours, none) | 1 | **P1** |
 | Comments | DONE | Edited in the track info panel (INFO), saved with Return as one undo step. Verified in the running app | 1 | **P1** |
 | Edit tags (title, artist, album, genre, label, year …) | DONE | `tracks.rs::set_tags`; Track info panel edits title, artist, album, genre, label, remixer, composer, year, comment | 2 | **P1** |
-| My Tag | ENGINE-ONLY | Model and undoable edits in `od-library` (`mytags.rs`), searchable and editable through the MCP server; no browser column or editor yet; importer skips My Tag smart conditions (`od-import-rekordbox/src/tests.rs`) | 1 | P2 |
-| Tag list / palette (holding area) | MISSING | — | — | P3 |
-| Related tracks | ENGINE-ONLY | `sets.rs::suggest_next`; FLX10 `browse.related` is mapped but dropped in `handle_action` | 1 | P2 |
-| Track suggestion / harmonic matching | PARTIAL | Key-distance column vs. selected track (`app.rs` `key_distance`), set flow fit (`sets.rs::transition`); no suggestion list | 2 | P2 |
+| My Tag | DONE | `browser/sources.rs`, `ui/mytag.slint`; MY TAG panel: type "Category: Value" to tag the selected tracks, click a value to tag / untag them (undoable); MY TAG column; My Tag filter in the filter bar. The rekordbox importer still skips My Tag smart conditions | 3 | P2 |
+| Tag list / palette (holding area) | DONE | `browser/sources.rs`, `ui/sidebar.slint`; TAG LIST in the tree: collect tracks with + (⌥⌘T), the row menu or by dragging rows onto it; Delete removes, SAVE AS PLAYLIST makes a playlist, CLEAR empties; kept in the library | 2 | P3 |
+| Related tracks | DONE | `sets.rs::suggest_next`, `browser/sources.rs`; RELATED in the tree: tracks within ±6 % tempo and a compatible key after the master deck or deck 1–4 (selector in the title row), or after the selected track (row menu "Show related tracks"); FLX10 `browse.related` is still not mapped | 2 | P2 |
+| Track suggestion / harmonic matching | DONE | `ui/mytag.slint::SuggestionPanel`, `browser/sources.rs`; RELATED panel: what fits after the selected track (tempo ±6 %, compatible key), double-click loads into a free deck, SHOW AS LIST opens it as the Related list; key-distance marks in the KEY column | 3 | P2 |
 | Intelligent (smart) playlists | DONE | `od-library/src/smart.rs`, text rule editor `od-ui/src/smart_text.rs`, `on_set_smart_rule` | 4 |  |
 | Histories: player histories from sticks | DONE | `od-devices/src/pioneer.rs` history proposals → `app.rs::resolve_proposal` creates a "History" folder | — |  |
-| Histories: own play history | PARTIAL | `tracks.rs::record_play` is only called while recording (`perform.rs::frame`); no history view | — | P2 |
+| Histories: own play history | DONE | `recorder.rs::log_play`, `browser/sources.rs`; Every track that becomes the audible deck is logged in the run's session ("Session 2026-11-07 21:30"), recording or not; HISTORIES in the tree lists the sessions, each opens its plays in order | 2 | P2 |
 | Track preview (Prepare) | DONE | `perform.rs::toggle_preview` on a preview deck; Space key | — |  |
 | Loaded-on-deck indicator | DONE | `TrackRow.deck` | — |  |
 | Duplicate track check | ENGINE-ONLY | `od-library::duplicates` (same file content, same artist/title/length); `od-cli duplicates`; no browser view yet | 1 | P3 |
@@ -76,7 +76,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Explorer: "Include subfolders" lists the files of a folder and all its sub-folders | DONE (beyond rekordbox) | `crates/od-ui/src/explorer.rs::list_files`, `crates/od-ui/src/explorer.rs::set_recursive`, `crates/od-ui/ui/app.slint`; Toggle in the folder list header (persisted as `explorer.recursive`); rekordbox lists only the folder itself. Depth-first, each folder by name, symlink loops followed once, capped at 32 levels / 20 000 files; (SPEC §5.5) | 3 |  |
 | Explorer: loading a file adds it to the collection and analyses it in the background | DONE | `crates/od-ui/src/explorer.rs::start_import`, `crates/od-ui/src/explorer.rs::poll`; Loading a file from the Explorer adds it to the collection in the background (`workers::import_file`) and loads it; the flow test asserts the deck and the collection; (SPEC §5.5) | 1 |  |
 | Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings) | PARTIAL | `crates/od-ui/ui/rail.slint`; Rail with sections exists; Explorer, Histories, Related and Tag list sources missing; (UX §1.6, §4 P4.9) | — | P2 |
-| Re-orderable columns and multi-sort | MISSING | Fixed column order, one sort key (`browser/tracks.rs`); (SPEC §5.5) | — | P3 |
+| Re-orderable columns and multi-sort | DONE | `browser/columns.rs`, `browser/tracks.rs::sort_rows`; Drag a header cell onto another column to move it there; ⇧-click adds (or reverses) up to three secondary sort columns, shown with their rank; order and secondary sort persist in the settings; (SPEC §5.5) | 3 | P3 |
 | Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | DONE | `crates/od-ui/src/decks.rs::free_deck`; Double-click / activate loads into a free deck, drag a row onto a deck, context menu Load to deck ▸ Deck n, controller load; all driven through the window by UI tests; (UX §2.1) | 3 |  |
 | Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | PARTIAL | List and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight), UI-tested (drag a row onto deck 2 loads it). Missing: drop from Finder; (SPEC §5.5) | 2 | **P1** |
 | Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | DONE | Right-click a row: Load to deck ▸ 1-4, Add to playlist ▸, Colour ▸, Rating ▸, Analyse, Show in file manager, Remove from this list. UI tests drive the real menu (rating, colour, remove, load). Further items of the layout reference (tag list, export, play count, hot-cue tools, info) are tracked by the view test `ctx.track-row`; (UX §1.9) | 3 |  |
@@ -112,13 +112,13 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | 8 hot cues A–H (Perform, pads/UI) | DONE | `DeckCommand::HotCue`, `od-ui/src/decks.rs::persist_cue_events`; Set/delete on pads or the controller are saved to the library (one undo step each) and reach sticks through the normal sync | 2 | **P1** |
 | Hot cue banks / hot cue bank lists | DONE | `pads.rs::bank_label`; Banks A–H, I–P, Q–X, Y–AF with ‹ › in Hot Cue mode (keyboard too); pads show the bank's letters and labels | 2 | P3 |
 | Memory cues: add (Prepare) | DONE | `on_add_memory_cue` | — |  |
-| Memory cues: delete, move (Prepare) | MISSING | No callback | — | **P1** |
+| Memory cues: delete, move (Prepare) | DONE | Cue list (ALL / MEMORY / HOT CUE): select a cue to edit it: name, colour, move to the cursor (beat-snapped, loops keep their length), make a memory cue a hot cue, delete | 2 | **P1** |
 | Memory cues: call prev/next (Perform) | DONE | `MemoryCueJump` via controller | — |  |
 | Memory cue set/delete from controller | DONE | `decks.rs::memory_cue`; `deck.memory_cue_set` / `_delete` edit the library cue list (one undo step) and update the deck without a gap | 1 | **P1** |
 | Saved loops (memory/hot-cue loops) | PARTIAL | Model, import, export and playback exist (`Cue.loop_end`); cannot be created in Prepare; loop hot cues made in Perform are not persisted | 1 | **P1** |
 | Active loop (auto-engaged saved loop) | MISSING | — | — | P3 |
-| Cue colours | PARTIAL | `Cue.color` imported/exported; not drawn (`CueMark` has no colour), not editable | — | **P1** |
-| Cue comments / labels | PARTIAL | Shown on pads (`HotCueSlot.label`); not editable | — | **P1** |
+| Cue colours | PARTIAL | Eight cue colours in the cue editor; shown on the overview, the cue list and the Prepare pads; Perform pads still use the slot colour | 1 | **P1** |
+| Cue comments / labels | DONE | Double-click a cue in the list, type the name, Return; names show on pads and in the list | 2 | **P1** |
 | Auto cue on load (first memory cue / first beat) | DONE | `DeckCommand::Load` behaviour (`command.rs` doc, `deck.rs`) | — |  |
 | Cues set on players → library | DONE (beyond the usual) | `od-devices/src/pioneer.rs` proposals, `on_accept_proposal` | 2 |  |
 
@@ -166,7 +166,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Pad mode: Memory Cue | MISSING | (UX §1.3) | — | P3 |
 | Pad mode: Sequence Call | MISSING | (UX §1.3) | — | P3 |
 | Pad mode: Active Censor | MISSING | (UX §1.3) | — | P3 |
-| CDJ practice mode: CDJ-3000-like screens and behaviour driven by the controller | MISSING | Owner request 2026-11-06 (SPEC §10.3c).; (SPEC §10.3c) | — | P2 |
+| CDJ practice mode: CDJ-3000-like screens and behaviour driven by the controller | PARTIAL | CDJ toggle (Alt+J): player screens per deck (waveform, overview needle search, jog display with remaining time / bar counter / phrase, hot cues with hold, memory cue call, loop in / out / reloop, beat jump, search, tempo range, master tempo), player cue rules, sync off, self-ticking checklist; a player-style browse screen is missing (the app browser is used); (SPEC §10.3c) | 3 | P2 |
 
 ## 5. Mixer
 
@@ -186,7 +186,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Master cue | DONE | `controller.rs::handle_action`; Controller `master_cue` toggles it, with LED | 1 | P2 |
 | Booth level / booth output | DONE | `controller.rs::handle_action`; Controller `booth_level` sets the booth output | 1 | P2 |
 | Smart CFX / Smart Fader (FLX4) | MISSING | — | — | P3 |
-| Mic / aux input | MISSING | — | — | P3 |
+| Mic / aux input | DONE | MIC in the global bar: on, level, input meter, talkover with ducking indicator, input device; engine input channel mixed before Beat FX / booth / recording | 5 | P3 |
 | Auto gain toggle | ENGINE-ONLY | `ChannelCommand::SetAutoGain`; always on | — | P3 |
 | STEM button per mixer channel | MISSING | (UX §1.3, §2.4) | — | P2 |
 
@@ -302,9 +302,9 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | DMX outputs: FLX10 DMX port, Enttec USB-DMX, Art-Net, sACN, several universes | ENGINE-ONLY | (SPEC §10.5) | 4 | P2 |
 | Fixture library (OFL), patch, groups, moving heads / bars / PARs / strobes / lasers / fog | ENGINE-ONLY | (SPEC §10.5) | 5 | P2 |
 | Automatic light show from beat, phrase, energy and the mix (crossfade-aware) | ENGINE-ONLY | (SPEC §10.5) | 4 | P2 |
-| Easy manual mode: scene pads, dimmer, strobe, blackout, tap/sync, controller pad mode | ENGINE-ONLY | (SPEC §10.5) | 1 | P2 |
-| Pro mode: programmer, effects engine, cue stacks, per-track lighting cues, MIDI mapping | MISSING | (SPEC §10.5) | — | P2 |
-| LIGHTING tab, split view in Perform, detachable window, 2D visualiser | MISSING | (SPEC §10.5) | — | P2 |
+| Easy manual mode: scene pads, dimmer, strobe, blackout, tap/sync, controller pad mode | PARTIAL | (SPEC §10.5) | 2 | P2 |
+| Pro mode: programmer, effects engine, cue stacks, per-track lighting cues, MIDI mapping | PARTIAL | (SPEC §10.5) | 1 | P2 |
+| LIGHTING tab, split view in Perform, detachable window, 2D visualiser | PARTIAL | (SPEC §10.5) | 3 | P2 |
 
 ## 14. Video, DVS, streaming, cloud
 
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 125 |
-| PARTIAL | 24 |
-| ENGINE-ONLY | 24 |
-| MISSING | 33 |
+| DONE | 138 |
+| PARTIAL | 25 |
+| ENGINE-ONLY | 19 |
+| MISSING | 24 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |

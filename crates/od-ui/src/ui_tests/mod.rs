@@ -16,7 +16,9 @@
 //! - [`flows`]: SPEC §16.4 flows from `tests/parity/flows.toml`, counting steps
 //! - [`features`]: behaviour tests for features of `tests/parity/features.toml`
 
+mod browser;
 mod features;
 mod flows;
 pub(crate) mod harness;
+mod stage;
 mod views;

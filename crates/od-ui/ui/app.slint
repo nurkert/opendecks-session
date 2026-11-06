@@ -10,9 +10,20 @@ import { Sidebar } from "sidebar.slint";
 import { TopBar } from "topbar.slint";
 import { PreparePlayer } from "player.slint";
 import { TrackTable } from "table.slint";
+import { MyTagPanel, SuggestionPanel } from "mytag.slint";
+import { ColumnView, ColumnChoice, FilterView, MyTagChip, SuggestionRow } from "structs.slint";
+export { ColumnView, ColumnChoice, FilterView, MyTagChip, SuggestionRow }
 import { DeviceLine } from "devices.slint";
 import { SetFlow } from "flow.slint";
 import { PerformView } from "perform.slint";
+import { LightingView, Lighting, LightFixtureView, LightGroupView } from "lighting.slint";
+import { Cdj, CdjStep } from "cdj.slint";
+export { Cdj, CdjStep }
+import { Mic } from "mic.slint";
+export { Mic }
+import { CueEdit } from "player.slint";
+export { CueEdit }
+export { Lighting, LightFixtureView, LightGroupView }
 import { PreferencesWindow, KeyRow } from "preferences.slint";
 import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget } from "structs.slint";
 
@@ -245,6 +256,39 @@ export component AppWindow inherits Window {
     in-out property <bool> info-open;
     in property <TrackInfo> track-info;
     callback info-edit(string, string);
+    // Browser: columns (choice, order, secondary sort), quick filter, row
+    // reorder, My Tag, tag list, related tracks, histories, tree drag.
+    in property <[ColumnView]> columns;
+    in property <[ColumnChoice]> column-choices;
+    in property <bool> reorderable;
+    in property <bool> filter-open;
+    in property <FilterView> filter;
+    in property <[string]> my-tag-options;
+    in property <[TreeRow]> histories;
+    in property <int> tag-list-count;
+    in property <int> related-count;
+    // Related tracks list: "master" or the deck number it follows.
+    in property <string> related-source: "master";
+    in-out property <bool> my-tag-open;
+    in property <[MyTagChip]> my-tag-chips;
+    in-out property <bool> related-open;
+    in property <[SuggestionRow]> suggestions;
+    in property <string> suggestion-reference;
+    callback sort-then(string);
+    callback toggle-column(string);
+    callback move-column(string, int);
+    callback reset-columns();
+    callback toggle-filter();
+    callback filter-edit(string, string);
+    callback node-dropped(int, int);
+    callback add-to-tag-list();
+    callback tag-list-action(string);
+    callback related-source-set(string);
+    callback my-tag-toggle(string, string);
+    callback my-tag-add(string);
+    callback suggestion-activated(int);
+    callback suggestion-open();
+    callback panels-changed();
     callback import-folder();
     callback import-rekordbox();
     callback explorer-select(int);
@@ -343,6 +387,7 @@ export component AppWindow inherits Window {
             title: @tr("View");
             MenuItem { title: @tr("Prepare"); activated => { root.set-mode("prepare"); } }
             MenuItem { title: @tr("Perform"); activated => { root.set-mode("perform"); } }
+            MenuItem { title: @tr("Lighting"); activated => { root.set-mode("lighting"); } }
         }
     }
 
@@ -429,6 +474,7 @@ export component AppWindow inherits Window {
                 toggle-preview => { root.toggle-preview(); }
                 jump-start => { root.jump-start(); }
             }
+            if root.mode == "lighting": LightingView { vertical-stretch: 1; }
             if root.mode == "perform" && !(root.kiosk && root.browser-open): PerformView {
                 vertical-stretch: 1;
                 decks: root.decks;
@@ -555,6 +601,11 @@ export component AppWindow inherits Window {
                     register-volume(i) => { root.register-volume(i); }
                     import-folder => { root.import-folder(); }
                     import-rekordbox => { root.import-rekordbox(); }
+                    histories: root.histories;
+                    tag-list-count: root.tag-list-count;
+                    related-count: root.related-count;
+                    add-to-tag-list => { root.add-to-tag-list(); }
+                    node-dropped(s, t) => { root.node-dropped(s, t); }
                 }
                 if !root.kiosk: Splitter {
                     accessible-label: "browser.splitter"; accessible-role: slider;
@@ -585,7 +636,7 @@ export component AppWindow inherits Window {
                             accessible-value: self.text; accessible-read-only: self.read-only;
                             width: min(self.preferred-width + 8px, 360px);
                             text: root.node-title;
-                            read-only: root.node-kind == "all" || root.node-kind == "explorer" || root.read-only;
+                            read-only: root.node-kind == "all" || root.node-kind == "explorer" || root.node-kind == "related" || root.node-kind == "history" || root.node-kind == "taglist" || root.read-only;
                             font-family: Theme.family; font-size: 18px; font-weight: 600;
                             color: Theme.bone;
                             vertical-alignment: center;
@@ -604,7 +655,21 @@ export component AppWindow inherits Window {
                             checked <=> root.explorer-recursive;
                             toggled(v) => { root.explorer-set-recursive(v); }
                         }
-                        if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && !root.read-only && !root.kiosk: PlateButton { accessible-label: "browser.delete-list"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; tooltip: @tr("Delete the open list"); command: "browser.delete.list"; clicked => { root.delete-node(); } }
+                        if root.node-kind == "related": HorizontalLayout {
+                            spacing: 4px;
+                            for d[i] in ["master", "1", "2", "3", "4"]: PlateButton {
+                                accessible-label: i == 0 ? "browser.related.master" : "browser.related.deck\{i}"; accessible-role: button;
+                                accessible-checkable: true; accessible-checked: root.related-source == d;
+                                horizontal-stretch: 0; compact: true;
+                                label: i == 0 ? @tr("MASTER") : d;
+                                active: root.related-source == d; tone: Theme.w546;
+                                tooltip: i == 0 ? @tr("Tracks that fit after the master deck") : @tr("Tracks that fit after deck {}", d);
+                                clicked => { root.related-source-set(d); }
+                            }
+                        }
+                        if root.node-kind == "taglist" && !root.kiosk: PlateButton { accessible-label: "browser.tag-list.save"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("SAVE AS PLAYLIST"); tone: Theme.live; tooltip: @tr("Make a playlist of the tag list"); clicked => { root.tag-list-action("save"); } }
+                        if root.node-kind == "taglist" && !root.kiosk: PlateButton { accessible-label: "browser.tag-list.clear"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("CLEAR"); tone: Theme.fault; tooltip: @tr("Empty the tag list"); clicked => { root.tag-list-action("clear"); } }
+                        if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && root.node-kind != "related" && root.node-kind != "history" && root.node-kind != "taglist" && !root.read-only && !root.kiosk: PlateButton { accessible-label: "browser.delete-list"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; tooltip: @tr("Delete the open list"); command: "browser.delete.list"; clicked => { root.delete-node(); } }
                         Field {
                             accessible-label: "browser.search"; accessible-role: text-input;
                             accessible-value: self.text; accessible-placeholder-text: self.placeholder;
@@ -615,6 +680,22 @@ export component AppWindow inherits Window {
                             placeholder: @tr("SEARCH  ⌘F");
                             text <=> root.search-text;
                             edited(t) => { root.search(t); }
+                        }
+                        if !root.kiosk: PlateButton {
+                            accessible-label: "browser.panel.my-tag"; accessible-role: button;
+                            accessible-checkable: true; accessible-checked: root.my-tag-open;
+                            horizontal-stretch: 0; compact: true; label: @tr("MY TAG");
+                            active: root.my-tag-open; tone: Theme.w436;
+                            tooltip: @tr("Tag the selected tracks with your own categories");
+                            clicked => { root.my-tag-open = !root.my-tag-open; root.panels-changed(); }
+                        }
+                        if !root.kiosk: PlateButton {
+                            accessible-label: "browser.panel.related"; accessible-role: button;
+                            accessible-checkable: true; accessible-checked: root.related-open;
+                            horizontal-stretch: 0; compact: true; label: @tr("RELATED");
+                            active: root.related-open; tone: Theme.w546;
+                            tooltip: @tr("Show tracks that fit after the selected one");
+                            clicked => { root.related-open = !root.related-open; root.panels-changed(); }
                         }
                         if !root.kiosk: PlateButton {
                             accessible-label: "browser.panel.info"; accessible-role: button;
@@ -665,6 +746,12 @@ export component AppWindow inherits Window {
                             ? @tr("Your library is empty. Use ADD MUSIC to add a folder, or import your rekordbox library once.")
                             : root.node-kind == "explorer"
                             ? @tr("No audio files in this folder.")
+                            : root.node-kind == "related"
+                            ? @tr("Nothing fits yet: load an analysed track on a deck (or select one) and open this list again.")
+                            : root.node-kind == "taglist"
+                            ? @tr("The tag list is empty. Collect tracks here with + next to TAG LIST or the row menu.")
+                            : root.filter.active
+                            ? @tr("No track matches the filter.")
                             : @tr("No tracks here yet. Select tracks in All tracks and press + next to this list in the sidebar.");
                         sort(c) => { root.sort(c); }
                         row-clicked(i, c, s) => { root.row-clicked(i, c, s); keys.focus(); }
@@ -673,6 +760,18 @@ export component AppWindow inherits Window {
                         row-rated(i, n) => { root.row-rated(i, n); }
                         row-menu(i, a) => { root.row-menu(i, a); }
                         playlists: root.menu-playlists;
+                        columns: root.columns;
+                        column-choices: root.column-choices;
+                        reorderable: root.reorderable;
+                        filter-open: root.filter-open;
+                        filter: root.filter;
+                        my-tag-options: root.my-tag-options;
+                        sort-then(c) => { root.sort-then(c); }
+                        toggle-column(c) => { root.toggle-column(c); }
+                        move-column(c, i) => { root.move-column(c, i); }
+                        reset-columns => { root.reset-columns(); }
+                        toggle-filter => { root.toggle-filter(); }
+                        filter-edit(f, v) => { root.filter-edit(f, v); }
                     }
                     if root.section == "library" && root.node-kind == "all" && root.tracks.length == 0: HorizontalLayout {
                         alignment: center;
@@ -778,6 +877,19 @@ export component AppWindow inherits Window {
                         }
                         Rectangle { vertical-stretch: 1; }
                     }
+                }
+                if root.my-tag-open && !root.kiosk && root.section == "library": MyTagPanel {
+                    chips: root.my-tag-chips;
+                    selection-count: root.selection-count;
+                    read-only: root.read-only;
+                    toggle(c, v) => { root.my-tag-toggle(c, v); }
+                    add(t) => { root.my-tag-add(t); }
+                }
+                if root.related-open && !root.kiosk && root.section == "library": SuggestionPanel {
+                    rows: root.suggestions;
+                    reference: root.suggestion-reference;
+                    activated(id) => { root.suggestion-activated(id); }
+                    open-list => { root.suggestion-open(); }
                 }
                 if root.info-open && !root.kiosk && root.section == "library": InfoPanel {
                     accessible-label: "info.panel"; accessible-role: groupbox;

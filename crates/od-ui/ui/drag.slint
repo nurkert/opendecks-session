@@ -1,7 +1,8 @@
-// Dragging tracks from the browser onto a deck (or the Prepare player).
-// The dragged row writes the pointer position (window coordinates) here;
-// drop targets compare it with their own absolute rectangle, light up and
-// claim `target`. Releasing the row reports the claimed target.
+// Dragging tracks from the browser onto a deck (or the Prepare player), a
+// list in the tree or a position in the open playlist, and tree nodes onto
+// other nodes. The dragged element writes the pointer position (window
+// coordinates) here; drop targets compare it with their own absolute
+// rectangle, light up and claim `target`. Releasing reports the target.
 
 import { Theme } from "tokens.slint";
 
@@ -10,8 +11,19 @@ export global DragState {
     in-out property <length> x;
     in-out property <length> y;
     in-out property <string> label;
-    // 1-based deck number, -1 = Prepare player, 0 = nothing under the pointer.
+    // 1-based deck number, -1 = Prepare player, 0 = nothing under the
+    // pointer; 100000 + row = before that row of the open list;
+    // 200001000 + tree id = a list in the tree (DragTargets).
     in-out property <int> target;
+    // What is dragged: "tracks" (list rows) or "node" (a tree node, `source`).
+    in-out property <string> kind: "tracks";
+    in-out property <int> source;
+}
+
+// Target id ranges (kept in step with `browser::drop_target`).
+export global DragTargets {
+    out property <int> row: 100000;
+    out property <int> tree: 200001000;
 }
 
 // The label that follows the pointer while dragging.
@@ -38,7 +50,13 @@ export component DragGhost inherits Rectangle {
 export component DropZone inherits Rectangle {
     in property <int> id;
     in property <color> tone: Theme.attention;
-    property <bool> over: DragState.active
+    // "tracks", "node" or "any": the drags this target takes.
+    in property <string> accepts: "tracks";
+    in property <bool> enabled: true;
+    // An insertion line at the top edge instead of an outline (list rows).
+    in property <bool> line: false;
+    property <bool> over: DragState.active && root.enabled
+        && (root.accepts == "any" || DragState.kind == root.accepts)
         && DragState.x >= self.absolute-position.x && DragState.x < self.absolute-position.x + self.width
         && DragState.y >= self.absolute-position.y && DragState.y < self.absolute-position.y + self.height;
     changed over => {
@@ -48,7 +66,8 @@ export component DropZone inherits Rectangle {
             DragState.target = 0;
         }
     }
-    border-width: root.over ? 2px : 0px;
+    border-width: root.over && !root.line ? 2px : 0px;
     border-color: root.tone;
-    background: root.over ? root.tone.with-alpha(0.08) : transparent;
+    background: root.over && !root.line ? root.tone.with-alpha(0.08) : transparent;
+    if root.over && root.line: Rectangle { x: 0; y: 0; width: parent.width; height: 2px; background: root.tone; }
 }

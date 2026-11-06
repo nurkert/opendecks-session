@@ -96,6 +96,13 @@ export global Theme {
         return w405;
     }
 
+    // A cue's own colour if it has one, else its slot colour.
+    public pure function cue-tone(slot: int, tone: color) -> color {
+        if (tone.alpha > 0) { return tone; }
+        if (slot < 0) { return bone-3; }
+        return cue-color(slot);
+    }
+
     // Hot cue slot (0-based) to a line colour; cues also carry their letter.
     public pure function cue-color(slot: int) -> color {
         if (slot == 0) { return w546; }

@@ -210,6 +210,7 @@ fn frame(app: &App) {
         None => (None, Vec::new()),
     };
     decks::persist_cue_events(app, &events);
+    crate::lighting::frame(app, state.as_ref());
     let Some(state) = state else {
         // Before audio starts: empty deck plates, so the layout is complete.
         if app.ui.get_mode() == "perform" {
@@ -223,6 +224,8 @@ fn frame(app: &App) {
         return;
     }
     decks::project(app, &state);
+    crate::cdj::frame(app, &state);
+    crate::mic::frame(app, &state);
     mixer::project(app, &state);
     fx::project(app, &state);
     sampler::project(app, &state);

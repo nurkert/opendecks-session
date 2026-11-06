@@ -237,7 +237,7 @@ impl ExplorerState {
     pub fn sort(&mut self, column: &str, descending: bool, selection: &mut BTreeSet<usize>) {
         let selected: HashSet<PathBuf> = selection.iter().filter_map(|&i| self.files.get(i)).map(|f| f.path.clone()).collect();
         if browser::sort_key_known(column) {
-            browser::sort_rows(&mut self.files, column, descending);
+            browser::sort_rows(&mut self.files, column, descending, &[]);
         } else {
             self.files.sort_by_key(|f| name_key(&f.path));
         }

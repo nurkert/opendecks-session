@@ -3,6 +3,7 @@
 
 use crate::app::App;
 use crate::models::model;
+use crate::settings::SortSpec;
 use crate::state::AppState;
 use crate::{FlowPoint, TrackRow, format, render, smart_text};
 use od_core::TrackId;
@@ -12,29 +13,35 @@ use slint::{ComponentHandle, SharedString};
 use std::cmp::Ordering;
 use std::collections::HashSet;
 
-/// Column name (as used by the table header) → library sort key.
+/// Column name (as used by the table header) → library sort key (the
+/// columns the library can sort in SQL).
 pub(crate) fn sort_key(s: &str) -> Option<SortKey> {
     Some(match s {
         "date_added" => SortKey::DateAdded,
         "title" => SortKey::Title,
         "artist" => SortKey::Artist,
+        "album" => SortKey::Album,
         "genre" => SortKey::Genre,
         "bpm" => SortKey::Bpm,
         "key" => SortKey::Key,
         "rating" => SortKey::Rating,
         "duration" => SortKey::Duration,
+        "play_count" => SortKey::PlayCount,
         _ => return None,
     })
 }
 
+/// Sort columns compared in memory only.
+const MEMORY_ONLY: [&str; 5] = ["label", "comment", "colour", "year", "bitrate"];
+
 /// Whether `column` is a sortable column.
 pub(crate) fn sort_key_known(column: &str) -> bool {
-    sort_key(column).is_some()
+    sort_key(column).is_some() || MEMORY_ONLY.contains(&column)
 }
 
 /// Initial direction when a column is first chosen for sorting.
 pub(crate) fn default_descending(column: &str) -> bool {
-    matches!(column, "date_added" | "rating" | "bpm")
+    matches!(column, "date_added" | "rating" | "bpm" | "play_count" | "bitrate" | "year")
 }
 
 /// What the list sort needs from a row (library tracks and Explorer files).
@@ -47,6 +54,28 @@ pub(crate) trait SortFields {
     fn rating(&self) -> u8;
     fn duration(&self) -> f64;
     fn date_added(&self) -> &str;
+    fn album(&self) -> &str {
+        ""
+    }
+    fn label(&self) -> &str {
+        ""
+    }
+    fn comment(&self) -> &str {
+        ""
+    }
+    /// Index of the colour tag (1..=8), 0 = none.
+    fn colour(&self) -> u8 {
+        0
+    }
+    fn year(&self) -> u16 {
+        0
+    }
+    fn play_count(&self) -> u32 {
+        0
+    }
+    fn bitrate(&self) -> u32 {
+        0
+    }
 }
 
 impl SortFields for TrackRecord {
@@ -74,32 +103,80 @@ impl SortFields for TrackRecord {
     fn date_added(&self) -> &str {
         &self.date_added
     }
+    fn album(&self) -> &str {
+        &self.tags.album
+    }
+    fn label(&self) -> &str {
+        &self.tags.label
+    }
+    fn comment(&self) -> &str {
+        &self.tags.comment
+    }
+    fn colour(&self) -> u8 {
+        colour_index(self.tags.color)
+    }
+    fn year(&self) -> u16 {
+        self.tags.year.unwrap_or(0)
+    }
+    fn play_count(&self) -> u32 {
+        self.play_count
+    }
+    fn bitrate(&self) -> u32 {
+        self.bit_rate.unwrap_or(0)
+    }
 }
 
-/// Compares two rows by `key` (ascending).
-pub(crate) fn compare<T: SortFields>(a: &T, b: &T, key: SortKey) -> Ordering {
+/// 1..=8 for the eight track colours, 0 for none.
+pub(crate) fn colour_index(c: Option<od_core::CueColor>) -> u8 {
+    c.and_then(|c| od_format_pioneer::TRACK_COLORS.iter().position(|(_, t)| *t == c)).map(|i| i as u8 + 1).unwrap_or(0)
+}
+
+/// Compares two rows by sort column `column` (ascending).
+pub(crate) fn compare<T: SortFields>(a: &T, b: &T, column: &str) -> Ordering {
     let text = |x: &str, y: &str| x.to_lowercase().cmp(&y.to_lowercase());
-    match key {
-        SortKey::Title => text(a.title(), b.title()),
-        SortKey::Artist => text(a.artist(), b.artist()),
-        SortKey::Genre => text(a.genre(), b.genre()),
-        SortKey::Bpm => a.bpm().unwrap_or(0.0).total_cmp(&b.bpm().unwrap_or(0.0)),
-        SortKey::Key => a.key().map(|k| (k.camelot_number(), k.mode as u8)).cmp(&b.key().map(|k| (k.camelot_number(), k.mode as u8))),
-        SortKey::Rating => a.rating().cmp(&b.rating()),
-        SortKey::Duration => a.duration().total_cmp(&b.duration()),
-        _ => a.date_added().cmp(b.date_added()),
+    match column {
+        "title" => text(a.title(), b.title()),
+        "artist" => text(a.artist(), b.artist()),
+        "album" => text(a.album(), b.album()),
+        "genre" => text(a.genre(), b.genre()),
+        "label" => text(a.label(), b.label()),
+        "comment" => text(a.comment(), b.comment()),
+        "bpm" => a.bpm().unwrap_or(0.0).total_cmp(&b.bpm().unwrap_or(0.0)),
+        "key" => a.key().map(|k| (k.camelot_number(), k.mode as u8)).cmp(&b.key().map(|k| (k.camelot_number(), k.mode as u8))),
+        "rating" => a.rating().cmp(&b.rating()),
+        "duration" => a.duration().total_cmp(&b.duration()),
+        "colour" => a.colour().cmp(&b.colour()),
+        "year" => a.year().cmp(&b.year()),
+        "play_count" => a.play_count().cmp(&b.play_count()),
+        "bitrate" => a.bitrate().cmp(&b.bitrate()),
+        "date_added" => a.date_added().cmp(b.date_added()),
+        _ => Ordering::Equal,
     }
 }
 
-/// Sorts `rows` in place by column name; unknown columns ("position") keep
-/// the order.
-pub(crate) fn sort_rows<T: SortFields>(rows: &mut [T], column: &str, descending: bool) {
-    if let Some(k) = sort_key(column) {
-        rows.sort_by(|a, b| {
-            let o = compare(a, b, k);
-            if descending { o.reverse() } else { o }
-        });
+/// Sorts `rows` in place by column name, then by the secondary columns
+/// `then`; unknown columns ("position") keep the order.
+pub(crate) fn sort_rows<T: SortFields>(rows: &mut [T], column: &str, descending: bool, then: &[SortSpec]) {
+    if !sort_key_known(column) {
+        return;
     }
+    let keys: Vec<(&str, bool)> = std::iter::once((column, descending))
+        .chain(then.iter().map(|s| (s.column.as_str(), s.descending)))
+        .filter(|(c, _)| sort_key_known(c))
+        .collect();
+    if keys.is_empty() {
+        return;
+    }
+    rows.sort_by(|a, b| {
+        for (c, desc) in &keys {
+            let o = compare(a, b, c);
+            let o = if *desc { o.reverse() } else { o };
+            if o != Ordering::Equal {
+                return o;
+            }
+        }
+        Ordering::Equal
+    });
 }
 
 /// Whether a track matches a list-local search.
@@ -133,22 +210,26 @@ impl AppState {
             self.explorer.sort(&col, desc, &mut self.browser.selection);
             return;
         }
+        self.browser.my_tags = self.src().all_my_tags().unwrap_or_default();
         let b = &self.browser;
         let searching = !b.search.trim().is_empty();
-        let mut rows = match b.node {
-            None if searching => self.src().search(&b.search, 5000).unwrap_or_default(),
-            None => self.src().tracks(sort_key(&b.sort).unwrap_or_default(), b.descending).unwrap_or_default(),
-            Some(n) => {
-                let mut r = self.src().node_tracks(n).unwrap_or_default();
-                if searching {
-                    let q = b.search.to_lowercase();
-                    r.retain(|t| matches_search(t, &q));
-                }
-                r
-            }
+        let mut rows = match (&b.special, b.node) {
+            (Some(sp), _) => super::sources::rows(&self.lib, sp, &b.tag_list, b.related_track),
+            (None, None) if searching => self.src().search(&b.search, 5000).unwrap_or_default(),
+            (None, None) => self.src().tracks(sort_key(&b.sort).unwrap_or_default(), b.descending).unwrap_or_default(),
+            (None, Some(n)) => self.src().node_tracks(n).unwrap_or_default(),
         };
-        if b.node.is_some() || searching {
-            sort_rows(&mut rows, &b.sort, b.descending);
+        if searching && (b.node.is_some() || b.special.is_some()) {
+            let q = b.search.to_lowercase();
+            rows.retain(|t| matches_search(t, &q));
+        }
+        if b.filter.active() {
+            rows.retain(|t| b.filter.matches(t, b.my_tags.get(&t.id).map(Vec::as_slice).unwrap_or(&[]), b.reference.as_ref()));
+        }
+        let then = &self.settings.browser.sort_then;
+        let sql_sorted = b.node.is_none() && b.special.is_none() && !searching && sort_key(&b.sort).is_some();
+        if !sql_sorted || !then.is_empty() {
+            sort_rows(&mut rows, &b.sort, b.descending, then);
         }
         let selected: HashSet<TrackId> = self.selected_ids().into_iter().collect();
         let b = &mut self.browser;
@@ -177,6 +258,14 @@ pub(crate) fn same_row(a: &TrackRow, b: &TrackRow) -> bool {
         && a.selected == b.selected
         && a.note == b.note
         && a.deck == b.deck
+        && a.tag_color == b.tag_color
+        && a.label == b.label
+        && a.comment == b.comment
+        && a.year == b.year
+        && a.date_added == b.date_added
+        && a.plays == b.plays
+        && a.bitrate == b.bitrate
+        && a.my_tag == b.my_tag
         && a.preview.size() == b.preview.size()
 }
 
@@ -209,10 +298,16 @@ fn fill_previews(app: &App) {
 
 /// Projects the current list into the table, header and set flow.
 pub(crate) fn refresh_tracks(app: &App) {
+    super::columns::refresh(app);
     if app.state.borrow().explorer.open.is_some() {
         crate::explorer::refresh_files(app);
-        return;
+    } else {
+        refresh_list(app);
     }
+    super::sources::refresh(app);
+}
+
+fn refresh_list(app: &App) {
     fill_previews(app);
     let st = app.state.borrow();
     let b = &st.browser;
@@ -253,6 +348,13 @@ pub(crate) fn refresh_tracks(app: &App) {
             note: SharedString::new(),
             deck: loaded.iter().find(|(id, _)| *id == t.id).map(|(_, d)| *d as i32 + 1).unwrap_or(0),
             tag_color: t.tags.color.map(|c| slint::Color::from_rgb_u8(c.r, c.g, c.b)).unwrap_or(slint::Color::from_argb_u8(0, 0, 0, 0)),
+            label: t.tags.label.clone().into(),
+            comment: t.tags.comment.clone().into(),
+            year: t.tags.year.map(|y| y.to_string()).unwrap_or_default().into(),
+            date_added: t.date_added.get(..10).unwrap_or(&t.date_added).into(),
+            plays: if t.play_count > 0 { t.play_count.to_string() } else { String::new() }.into(),
+            bitrate: t.bit_rate.filter(|b| *b > 0).map(|b| format!("{}k", (b + 500) / 1000)).unwrap_or_default().into(),
+            my_tag: b.my_tags.get(&t.id).map(|v| v.iter().map(|m| m.value.as_str()).collect::<Vec<_>>().join(", ")).unwrap_or_default().into(),
         })
         .collect();
     let total: f64 = b.rows.iter().map(|t| t.duration).sum();
@@ -263,7 +365,13 @@ pub(crate) fn refresh_tracks(app: &App) {
     ui.set_sort_descending(b.descending);
     ui.set_has_selection(!b.selection.is_empty());
     ui.set_selection_count(b.selection.len() as i32);
+    let special = b.special.as_ref().map(|sp| match sp {
+        super::Special::TagList => (od_i18n::tr("Tag list").to_string(), "taglist"),
+        super::Special::Related => (related_title(&st), "related"),
+        super::Special::History(name) => (name.clone(), "history"),
+    });
     let (title, kind_str) = match (b.node.and_then(|n| st.src().node(n).ok()), &b.stick) {
+        _ if special.is_some() => special.clone().unwrap_or_default(),
         (Some(n), _) => (n.name.clone(), n.kind.as_str()),
         (None, Some((i, _))) => (b.sticks.get(*i).map(|s| s.0.clone()).unwrap_or_default(), "stick"),
         (None, None) => (od_i18n::tr("All tracks").to_string(), "all"),
@@ -272,7 +380,10 @@ pub(crate) fn refresh_tracks(app: &App) {
     ui.set_node_kind(kind_str.into());
     ui.set_node_sub(od_i18n::trf("{} TRACKS  ·  {}", &[&b.rows.len(), &format::time(total)]).into());
     ui.set_read_only(st.read_only());
-    ui.set_register_target(if kind_str == "all" || st.read_only() { SharedString::new() } else { title.to_uppercase().into() });
+    ui.set_reorderable(super::reorderable(&st));
+    ui.set_filter(b.filter.view(b.reference.as_ref()));
+    ui.set_filter_open(b.filter_open);
+    ui.set_register_target(if kind_str == "all" || special.is_some() || st.read_only() { SharedString::new() } else { title.to_uppercase().into() });
     if kind == Some(NodeKind::Smart) {
         let rule = b.node.and_then(|n| st.src().node(n).ok()).and_then(|n| n.smart_rule);
         ui.set_smart_rule_text(rule.map(|r| smart_text::format(&r)).unwrap_or_default().into());
@@ -285,6 +396,14 @@ pub(crate) fn refresh_tracks(app: &App) {
         ui.set_flow_selected(b.flow_selected.map(|i| i as i32).unwrap_or(-1));
         let note = b.flow_selected.and_then(|i| entries.get(i)).map(|e| e.note.clone()).unwrap_or_default();
         ui.set_transition_note(note.into());
+    }
+}
+
+/// Title of the Related list: the track it follows.
+fn related_title(st: &AppState) -> String {
+    match st.browser.related_track.and_then(|t| st.lib.track(t).ok()) {
+        Some(t) => od_i18n::trf("Fits after {}", &[&t.tags.title]),
+        None => od_i18n::tr("Related tracks").to_string(),
     }
 }
 
@@ -370,14 +489,14 @@ mod tests {
     #[test]
     fn sorting() {
         let mut v = vec![R("beta", 124.0, "2"), R("Alpha", 128.0, "1"), R("gamma", 120.0, "3")];
-        sort_rows(&mut v, "title", false);
+        sort_rows(&mut v, "title", false, &[]);
         assert_eq!(v.iter().map(|r| r.0).collect::<Vec<_>>(), ["Alpha", "beta", "gamma"]);
-        sort_rows(&mut v, "bpm", true);
+        sort_rows(&mut v, "bpm", true, &[]);
         assert_eq!(v.iter().map(|r| r.1).collect::<Vec<_>>(), [128.0, 124.0, 120.0]);
-        sort_rows(&mut v, "date_added", false);
+        sort_rows(&mut v, "date_added", false, &[]);
         assert_eq!(v.iter().map(|r| r.2).collect::<Vec<_>>(), ["1", "2", "3"]);
         // "position" keeps the order.
-        sort_rows(&mut v, "position", true);
+        sort_rows(&mut v, "position", true, &[]);
         assert_eq!(v.iter().map(|r| r.2).collect::<Vec<_>>(), ["1", "2", "3"]);
         assert!(default_descending("bpm") && !default_descending("title"));
     }

@@ -16,6 +16,7 @@ pub const SIDEBAR_MAX: f32 = 480.0;
 const META_NODE: &str = "ui.node";
 const META_TRACK: &str = "ui.track";
 const META_SECTION: &str = "ui.section";
+const META_CDJ: &str = "ui.cdj";
 const META_MODE: &str = "ui.mode";
 const META_SIDEBAR: &str = "ui.sidebar_width";
 const META_UPPER: &str = "ui.upper_height";
@@ -108,6 +109,10 @@ pub(crate) fn restore_view(app: &App) {
     if let Some(m) = mode.filter(|_| !app.state.borrow().config.kiosk) {
         app.ui.set_mode(m.into());
     }
+    let cdj = app.state.borrow().lib.meta(META_CDJ).ok().flatten();
+    if cdj.as_deref() == Some("1") {
+        crate::cdj::set_enabled(app, true);
+    }
 }
 
 /// Remembers the view for the next start (best effort).
@@ -121,6 +126,8 @@ pub(crate) fn remember_view(app: &App) {
     let _ = st.lib.set_meta(META_MODE, app.ui.get_mode().as_str());
     let _ = st.lib.set_meta(META_SIDEBAR, &app.ui.get_sidebar_width().to_string());
     let _ = st.lib.set_meta(META_UPPER, &app.ui.get_upper_height().to_string());
+    let cdj = app.ui.global::<crate::Cdj>().get_enabled();
+    let _ = st.lib.set_meta(META_CDJ, if cdj { "1" } else { "0" });
 }
 
 /// Status band: undo label and analysis progress.

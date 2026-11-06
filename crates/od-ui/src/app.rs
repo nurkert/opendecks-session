@@ -58,6 +58,12 @@ pub struct App {
     pub(crate) held: RefCell<Vec<(String, usize)>>,
     /// Update check and install (SPEC §14.1).
     pub(crate) update: RefCell<update::UpdateRuntime>,
+    /// DMX rig and show (SPEC §10.5).
+    pub(crate) lighting: RefCell<crate::lighting::LightingRuntime>,
+    /// CDJ practice mode checklist (SPEC §10.3c).
+    pub(crate) cdj: RefCell<crate::cdj::CdjRuntime>,
+    /// Microphone / aux input.
+    pub(crate) mic: RefCell<crate::mic::MicRuntime>,
     worker_events: Receiver<WorkerEvent>,
     tick_timer: slint::Timer,
 }
@@ -82,12 +88,16 @@ impl App {
         let (wtx, wrx) = unbounded();
         let analysis = AnalysisWorker::start(state.config.library_path.clone(), preferences::analysis_control(&state.settings, state.config.lite), wtx.clone());
         let device_manager = DeviceManager::start(ManagerConfig::new(state.config.library_path.clone()))?;
+        let lighting = crate::lighting::LightingRuntime::load(crate::lighting::rig_path(&state.config.library_path));
         let app = Rc::new(App {
             ui,
             state: RefCell::new(state),
             prefs: RefCell::new(preferences::Prefs::default()),
             held: RefCell::new(Vec::new()),
             update: RefCell::new(update::UpdateRuntime::default()),
+            lighting: RefCell::new(lighting),
+            cdj: RefCell::new(crate::cdj::CdjRuntime::default()),
+            mic: RefCell::new(crate::mic::MicRuntime::default()),
             engine: RefCell::new(engine::EngineHost::default()),
             decks: RefCell::new(decks::Decks::default()),
             mixer: mixer::MixerView::default(),
@@ -120,6 +130,9 @@ impl App {
         preferences::wire(&app);
         crate::appearance::wire(&app);
         update::wire(&app);
+        crate::lighting::wire(&app);
+        crate::cdj::wire(&app);
+        crate::mic::wire(&app);
         engine::start(&app);
         decks::autoload(&app);
 

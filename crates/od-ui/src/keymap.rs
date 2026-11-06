@@ -395,6 +395,7 @@ fn build() -> Vec<Action> {
     b.add_split("library.redo", "Redo", None, g, Global, &["Mod+Shift+Z"], &["Mod+Shift+Z", "Mod+Y"]);
     b.add_split("mode.prepare", "Switch to Prepare", None, g, Global, &["Mod+Alt+1"], &["Alt+1"]);
     b.add_split("mode.perform", "Switch to Perform", None, g, Global, &["Mod+Alt+2"], &["Alt+2"]);
+    b.add_split("mode.lighting", "Switch to Lighting", None, g, Global, &["Mod+Alt+3"], &["Alt+3"]);
     b.add_split("section.library", "Show the library", None, g, Global, &["Mod+Alt+L"], &["Alt+L"]);
     b.add_split("section.devices", "Show USB sticks", None, g, Global, &["Mod+Alt+D"], &["Alt+D"]);
     b.add_split("section.recordings", "Show recordings", None, g, Global, &["Mod+Alt+R"], &["Alt+R"]);
@@ -425,6 +426,8 @@ fn build() -> Vec<Action> {
     b.add("browser.add.music", "Add a music folder", None, g, Global, &["Mod+Shift+O"]);
     b.add("browser.import.rekordbox", "Import from rekordbox", None, g, Global, &["Mod+Shift+I"]);
     b.add("browser.find.moved", "Find moved files", None, g, Global, &["Mod+Shift+L"]);
+    b.add_split("browser.taglist.add", "Add the selected tracks to the tag list", None, g, Global, &["Mod+Alt+T"], &["Alt+T"]);
+    b.add("browser.filter", "Show / hide the filter bar", None, g, Global, &["Mod+J"]);
 
     // ── Prepare player ──
     let g = Group::Player;
@@ -591,6 +594,8 @@ fn build() -> Vec<Action> {
     // ── Effects: Shift on the bottom row, FX 1 left, FX 2 right ──
     let g = Group::Fx;
     b.add_split("perform.fx.panel", "Show / hide the Beat FX panel", None, g, Perform, &["Mod+Alt+F"], &["Alt+F"]);
+    b.add_split("perform.cdj", "CDJ practice mode on / off", None, g, Perform, &["Mod+Alt+J"], &["Alt+J"]);
+    b.add_split("perform.light.panel", "Show / hide the lighting strip", None, g, Perform, &["Mod+Alt+K"], &["Alt+K"]);
     struct Unit {
         on: &'static str,
         next: &'static str,

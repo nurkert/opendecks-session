@@ -1,0 +1,286 @@
+// CDJ practice mode (SPEC §10.3c): per deck a club-player style screen —
+// zoomed waveform, overview with cue marks, a large jog display with
+// remaining time and bar counter, tempo with range and master tempo, hot
+// cue / memory cue call, loop in / out / reloop, beat jump and search, and
+// the big CUE and PLAY buttons with the player's cue rules. Software help
+// (on-screen sync, stems, pad modes) is hidden, so the DJ practises the
+// workflow of a club booth with the controller. A short checklist ticks
+// itself off as the DJ works through it.
+//
+// The visual language is OpenDecks' own (emission lines on charcoal); only
+// the structure of a player screen is followed.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, PlateButton, Fader, Transport, Jog, HoldButton } from "controls.slint";
+import { DeckView, LaneMotion, PadView } from "structs.slint";
+import { WaveLane } from "wave.slint";
+
+export struct CdjStep {
+    text: string,
+    done: bool,
+}
+
+export global Cdj {
+    in-out property <bool> enabled;
+    in property <[CdjStep]> steps;
+    in-out property <bool> show-steps: true;
+    // Player actions by keymap id without the deck prefix ("memory.next",
+    // "loop.in", "loop.out", "loop.exit", "loop.4", "jump.fwd", "jump.back",
+    // "keylock", "play").
+    callback action(int, string);
+    callback cue(int, bool);
+    callback hot-cue(int, int, bool);
+    callback search(int, float);
+    callback tempo(int, float);
+    callback tempo-range(int);
+    callback set-enabled(bool);
+}
+
+component Key inherits Rectangle {
+    in property <string> label;
+    in property <string> tooltip;
+    in property <bool> on;
+    in property <color> tone: Theme.attention;
+    callback clicked();
+    min-width: max(44px, t.preferred-width + 14px);
+    height: 28px;
+    background: ta.pressed ? Theme.plate-raised : root.on ? root.tone.with-alpha(0.2) : Theme.plate;
+    border-width: 1px;
+    border-color: root.on ? root.tone : ta.has-hover ? Theme.bone-3 : Theme.rule;
+    t := Text {
+        text: root.label;
+        font-family: Theme.family; font-size: 10px; font-weight: 600; letter-spacing: 1.1px;
+        color: root.on ? Theme.bone : Theme.bone-2;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+component HotCueKey inherits Rectangle {
+    in property <PadView> pad;
+    callback pressed(bool);
+    property <color> tone: Theme.cue-color(root.pad.cue-slot >= 0 ? root.pad.cue-slot : root.pad.index);
+    height: 34px;
+    background: root.pad.set ? root.tone.with-alpha(ta.pressed ? 0.5 : 0.24) : (ta.pressed ? Theme.plate-raised : Theme.plate);
+    border-width: 1px;
+    border-color: root.pad.set ? root.tone : Theme.rule;
+    Text {
+        x: 8px; text: root.pad.caption;
+        font-family: Theme.family; font-size: 14px; font-weight: 600;
+        color: root.pad.set ? Theme.bone : Theme.bone-3; vertical-alignment: center;
+    }
+    Text {
+        x: 24px; width: parent.width - 28px; text: root.pad.sub;
+        font-family: Theme.family; font-size: 10px; color: Theme.bone-2;
+        vertical-alignment: center; overflow: elide;
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(ev) => {
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.down) { root.pressed(true); }
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.up) { root.pressed(false); }
+        }
+    }
+}
+
+// Large CUE / PLAY buttons with press and release (CUE previews while held).
+component BigButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> lit;
+    in property <color> tone;
+    callback pressed(bool);
+    width: 64px; height: 64px;
+    border-radius: 32px;
+    background: ta.pressed ? root.tone.with-alpha(0.4) : root.lit ? root.tone.with-alpha(0.22) : Theme.plate;
+    border-width: 2px;
+    border-color: root.lit ? root.tone : Theme.rule-strong;
+    Text {
+        text: root.label;
+        font-family: Theme.family; font-size: 13px; font-weight: 600; letter-spacing: 1.4px;
+        color: root.lit ? Theme.bone : Theme.bone-2;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        pointer-event(ev) => {
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.down) { root.pressed(true); }
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.up) { root.pressed(false); }
+        }
+    }
+}
+
+export component CdjPlayer inherits Rectangle {
+    in property <DeckView> deck;
+    in property <LaneMotion> motion;
+    in property <bool> mirror;
+    callback zoom(float);
+    callback zoom-reset();
+    callback seek(float);
+    callback load();
+    property <int> n: root.deck.deck;
+    property <color> tone: Theme.deck-color(root.n);
+    accessible-role: groupbox;
+    accessible-label: "deck\{root.n}.cdj";
+    background: Theme.ground;
+    clip: true;
+
+    VerticalLayout {
+        padding: 8px; spacing: 6px;
+        // Header: deck, title / artist, key, master.
+        HorizontalLayout {
+            height: 30px; spacing: 10px;
+            Text { text: root.n; font-family: Theme.family; font-size: 22px; font-weight: 600; color: root.tone; vertical-alignment: center; }
+            VerticalLayout {
+                horizontal-stretch: 1;
+                Text { text: root.deck.loaded ? root.deck.title : @tr("No track — browse and load"); font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; overflow: elide; }
+                Text { text: root.deck.artist; font-family: Theme.family; font-size: 11px; color: Theme.bone-2; overflow: elide; }
+            }
+            Caps { text: root.deck.key; vertical-alignment: center; color: Theme.bone; }
+            if root.deck.master: Caps { text: "MASTER"; vertical-alignment: center; color: Theme.attention; }
+        }
+        WaveLane {
+            height: 84px;
+            deck: root.deck; motion: root.motion;
+            zoom(d) => { root.zoom(d); }
+            zoom-reset => { root.zoom-reset(); }
+        }
+        // Overview with cue marks; tap to needle-search.
+        Rectangle {
+            accessible-role: slider; accessible-label: "deck\{root.n}.cdj.overview"; accessible-value: root.deck.progress;
+            height: 30px;
+            background: Theme.ground-band;
+            Image { width: parent.width; height: parent.height; source: root.deck.overview; image-fit: fill; }
+            Rectangle { x: 0; width: parent.width * root.deck.progress; height: parent.height; background: Theme.ground.with-alpha(0.55); }
+            for c in root.deck.cues: VLine {
+                x: parent.width * c.pos; height: parent.height; weight: c.slot >= 0 ? 2px : 1px;
+                tone: c.slot >= 0 ? Theme.cue-tone(c.slot, c.tone) : Theme.attention;
+                form: c.slot >= 0 ? "solid" : "dashed";
+            }
+            if root.deck.loaded: Rectangle { x: parent.width * root.deck.progress - 1px; width: 2px; height: parent.height; background: Theme.bone; }
+            TouchArea { mouse-cursor: crosshair; clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
+            if !root.deck.loaded: HorizontalLayout {
+                alignment: center;
+                PlateButton { accessible-label: "deck\{root.n}.cdj.load"; accessible-role: button; compact: true; label: @tr("LOAD SELECTED"); tone: root.tone; clicked => { root.load(); } }
+            }
+        }
+        HorizontalLayout {
+            spacing: 10px;
+            // Cue call, hot cues, loop and jump.
+            VerticalLayout {
+                spacing: 5px; horizontal-stretch: 1;
+                Caps { text: @tr("HOT CUE"); }
+                HorizontalLayout { spacing: 3px; for p in root.deck.pads-left: HotCueKey { pad: p; horizontal-stretch: 1; pressed(down) => { Cdj.hot-cue(root.n, p.index, down); } } }
+                HorizontalLayout { spacing: 3px; for p in root.deck.pads-right: HotCueKey { pad: p; horizontal-stretch: 1; pressed(down) => { Cdj.hot-cue(root.n, p.index, down); } } }
+                HorizontalLayout {
+                    spacing: 3px;
+                    Caps { text: @tr("CALL"); vertical-alignment: center; width: 40px; }
+                    Key { accessible-label: "deck\{root.n}.cdj.call-prev"; accessible-role: button; label: "◀"; tooltip: @tr("Previous memory cue"); clicked => { Cdj.action(root.n, "memory.prev"); } }
+                    Key { accessible-label: "deck\{root.n}.cdj.call-next"; accessible-role: button; label: "▶"; tooltip: @tr("Next memory cue"); clicked => { Cdj.action(root.n, "memory.next"); } }
+                }
+                HorizontalLayout {
+                    spacing: 3px;
+                    Caps { text: @tr("LOOP"); vertical-alignment: center; width: 40px; }
+                    Key { accessible-label: "deck\{root.n}.cdj.loop-in"; accessible-role: button; label: @tr("IN"); on: root.deck.looping; clicked => { Cdj.action(root.n, "loop.in"); } }
+                    Key { accessible-label: "deck\{root.n}.cdj.loop-out"; accessible-role: button; label: @tr("OUT"); on: root.deck.looping; clicked => { Cdj.action(root.n, "loop.out"); } }
+                    Key { accessible-label: "deck\{root.n}.cdj.reloop"; accessible-role: button; label: @tr("RELOOP / EXIT"); clicked => { Cdj.action(root.n, "loop.exit"); } }
+                    Key { accessible-label: "deck\{root.n}.cdj.loop-4"; accessible-role: button; label: @tr("4 BEAT"); clicked => { Cdj.action(root.n, "loop.4"); } }
+                }
+                HorizontalLayout {
+                    spacing: 3px;
+                    Caps { text: @tr("JUMP"); vertical-alignment: center; width: 40px; }
+                    Key { accessible-label: "deck\{root.n}.cdj.jump-back"; accessible-role: button; label: "◀ " + root.deck.jump-size; clicked => { Cdj.action(root.n, "jump.back"); } }
+                    Key { accessible-label: "deck\{root.n}.cdj.jump-fwd"; accessible-role: button; label: root.deck.jump-size + " ▶"; clicked => { Cdj.action(root.n, "jump.fwd"); } }
+                    HoldButton {
+                        accessible-label: "deck\{root.n}.cdj.search-back"; accessible-role: button;
+                        label: "◀◀"; size: 28px; tooltip: @tr("Search back while held");
+                        pressed => { Cdj.search(root.n, -4); } released => { Cdj.search(root.n, 0); }
+                    }
+                    HoldButton {
+                        accessible-label: "deck\{root.n}.cdj.search-fwd"; accessible-role: button;
+                        label: "▶▶"; size: 28px; tooltip: @tr("Search forward while held");
+                        pressed => { Cdj.search(root.n, 4); } released => { Cdj.search(root.n, 0); }
+                    }
+                }
+                Rectangle { vertical-stretch: 1; }
+                HorizontalLayout {
+                    spacing: 14px; alignment: start;
+                    BigButton {
+                        accessible-label: "deck\{root.n}.cdj.cue"; accessible-role: button;
+                        label: "CUE"; tone: Theme.attention; lit: root.deck.loaded && !root.deck.playing;
+                        pressed(down) => { Cdj.cue(root.n, down); }
+                    }
+                    BigButton {
+                        accessible-label: "deck\{root.n}.cdj.play"; accessible-role: button;
+                        label: root.deck.playing ? "PAUSE" : "PLAY"; tone: Theme.live; lit: root.deck.playing;
+                        pressed(down) => { if (down) { Cdj.action(root.n, "play"); } }
+                    }
+                }
+            }
+            // Jog display: remaining time, bar counter, phrase.
+            Jog {
+                accessible-label: "deck\{root.n}.cdj.jog"; accessible-role: image;
+                size: 170px;
+                angle: root.deck.jog-angle; progress: root.deck.progress; playing: root.deck.playing; loaded: root.deck.loaded;
+                tone: root.tone;
+                top-text: root.deck.beat-pos;
+                main-text: root.deck.remaining;
+                sub-text: root.deck.phrase;
+            }
+            // Tempo: BPM, tempo %, range, master tempo, fader.
+            VerticalLayout {
+                spacing: 4px; width: 92px;
+                Text {
+                    accessible-label: "deck\{root.n}.cdj.bpm"; accessible-role: text; accessible-value: self.text;
+                    text: root.deck.bpm; font-family: Theme.family; font-size: 26px; font-weight: 600; color: Theme.bone; horizontal-alignment: right;
+                }
+                Text { text: root.deck.tempo; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; horizontal-alignment: right; }
+                Key { accessible-label: "deck\{root.n}.cdj.tempo-range"; accessible-role: button; label: root.deck.tempo-range; tooltip: @tr("Tempo range"); clicked => { Cdj.tempo-range(root.n); } }
+                Key { accessible-label: "deck\{root.n}.cdj.master-tempo"; accessible-role: button; label: @tr("MASTER TEMPO"); on: root.deck.keylock; tone: Theme.live; clicked => { Cdj.action(root.n, "keylock"); } }
+                HorizontalLayout {
+                    alignment: end; vertical-stretch: 1;
+                    Fader {
+                        accessible-label: "deck\{root.n}.cdj.tempo"; accessible-role: slider; accessible-value: root.deck.tempo;
+                        tone: root.tone; min-height: 120px;
+                        value: (1 - root.deck.tempo-value) / 2;
+                        tooltip: @tr("Tempo (up = slower, like a player)");
+                        changed(v) => { Cdj.tempo(root.n, 1 - v * 2); }
+                    }
+                }
+            }
+        }
+    }
+    VLine { x: root.mirror ? 0 : parent.width - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
+}
+
+// The guided checklist over the decks.
+export component CdjSteps inherits Rectangle {
+    accessible-role: list; accessible-label: "app.cdj.steps";
+    height: Cdj.show-steps ? 30px : 0px;
+    visible: Cdj.show-steps;
+    background: Theme.ground-band;
+    HorizontalLayout {
+        padding-left: 12px; padding-right: 8px; spacing: 14px;
+        Caps { text: @tr("CDJ PRACTICE"); color: Theme.attention; vertical-alignment: center; }
+        for s[i] in Cdj.steps: HorizontalLayout {
+            spacing: 5px;
+            Rectangle {
+                width: 12px; height: 12px; y: (parent.height - 12px) / 2;
+                border-width: 1px; border-color: s.done ? Theme.live : Theme.rule-strong;
+                background: s.done ? Theme.live.with-alpha(0.7) : transparent;
+            }
+            Text {
+                text: (i + 1) + " " + s.text;
+                font-family: Theme.family; font-size: 11px;
+                color: s.done ? Theme.bone-3 : Theme.bone; vertical-alignment: center;
+            }
+        }
+        Rectangle { horizontal-stretch: 1; }
+        PlateButton {
+            accessible-label: "app.cdj.steps-hide"; accessible-role: button;
+            compact: true; glyph: "close"; width: 30px; tooltip: @tr("Hide the checklist");
+            clicked => { Cdj.show-steps = false; }
+        }
+    }
+    HLine { y: parent.height - 1px; tone: Theme.rule; }
+}

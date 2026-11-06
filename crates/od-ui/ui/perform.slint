@@ -13,6 +13,10 @@ import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark, LaneMotion, FxU
 import { FxPanel, ColorFxSelector, ChoiceList } from "fx.slint";
 import { SamplerPanel } from "sampler.slint";
 import { SamplerPadView, SamplerView } from "structs.slint";
+import { WaveLane } from "wave.slint";
+import { MicControls } from "mic.slint";
+import { LightingStrip, Lighting } from "lighting.slint";
+import { CdjPlayer, CdjSteps, Cdj } from "cdj.slint";
 
 // Phrase bar: one labelled block per phrase.
 export component PhraseBar inherits Rectangle {
@@ -37,82 +41,11 @@ export component PhraseBar inherits Rectangle {
 // The playhead is extrapolated per rendered frame from the published motion
 // (position + speed) with animation-tick(), and three pre-rendered tiles are
 // translated under it: smooth at the display rate, no per-frame rendering.
-component WaveLane inherits Rectangle {
-    in property <DeckView> deck;
-    in property <LaneMotion> motion;
-    callback zoom(float);
-    callback zoom-reset();
-    // The lane that carries the `wave.playhead` label (one per window).
-    in property <bool> playhead-label;
-    property <color> tone: Theme.deck-color(root.deck.deck);
-    property <length> gutter: 44px;
-    property <length> area: root.width - root.gutter;
-    property <duration> base-tick;
-    changed motion => { root.base-tick = animation-tick(); }
-    // Playhead now (seconds); only depends on the frame clock while moving.
-    property <float> now: root.motion.rate == 0 ? root.motion.pos : root.motion.pos + root.motion.rate * ((animation-tick() - root.base-tick) / 1ms);
-    property <float> left-t: root.now - root.motion.span / 2;
-    background: Theme.ground-band;
-    clip: true;
-    if root.motion.loaded: Image { x: root.gutter + (root.motion.t0 - root.left-t) / root.motion.span * root.area; width: root.area; height: parent.height; source: root.motion.tile0; image-fit: fill; }
-    if root.motion.loaded: Image { x: root.gutter + (root.motion.t1 - root.left-t) / root.motion.span * root.area; width: root.area; height: parent.height; source: root.motion.tile1; image-fit: fill; }
-    if root.motion.loaded: Image { x: root.gutter + (root.motion.t2 - root.left-t) / root.motion.span * root.area; width: root.area; height: parent.height; source: root.motion.tile2; image-fit: fill; }
-    // Played audio left of the playhead is veiled.
-    if root.motion.loaded: Rectangle { x: root.gutter; width: root.area / 2; height: parent.height; background: Theme.ground.with-alpha(0.45); }
-    Rectangle {
-        x: 0; y: 0; width: root.gutter; height: parent.height;
-        background: Theme.ground;
-        VLine { x: 0; height: parent.height; weight: 3px; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
-        Text {
-            x: 8px; width: root.gutter - 12px; y: 4px;
-            text: root.deck.deck;
-            font-family: Theme.family; font-size: 18px; font-weight: 600; color: root.tone;
-            horizontal-alignment: center;
-        }
-        if root.deck.master: Text {
-            x: 8px; width: root.gutter - 12px; y: parent.height - 16px;
-            text: "M";
-            font-family: Theme.family; font-size: 10px; font-weight: 600; color: Theme.attention;
-            horizontal-alignment: center;
-        }
-        VLine { x: parent.width - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
-    }
-    // Playhead at the centre of the waveform area.
-    Rectangle {
-        x: root.gutter + root.area / 2 - 1px; width: 2px; height: parent.height;
-        accessible-role: image;
-        accessible-label: root.playhead-label ? "wave.playhead" : "";
-        background: root.deck.loaded ? Theme.bone : Theme.rule-strong;
-    }
-    if root.deck.loaded && root.deck.phrase != "": Text {
-        x: root.gutter + root.area / 2 + 8px; y: 4px;
-        text: root.deck.phrase;
-        font-family: Theme.family; font-size: 10px; font-weight: 600; letter-spacing: 1px; color: Theme.bone;
-    }
-    if root.deck.loaded: Text {
-        // Fixed width (template "-000.0"), right-aligned: digits never shift.
-        x: parent.width - 64px; width: 56px; y: 4px;
-        horizontal-alignment: right;
-        text: root.deck.beat-pos;
-        font-family: Theme.family; font-size: 11px; font-weight: 600; color: Theme.bone-2;
-    }
-    // Scroll to zoom; double-click resets.
-    TouchArea {
-        x: root.gutter; width: root.area;
-        scroll-event(e) => {
-            root.zoom(e.delta-y / 1px);
-            accept
-        }
-        double-clicked => { root.zoom-reset(); }
-    }
-    HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
-}
-
 // A hot cue pad: filled in the cue colour when set, letter and time/label.
 export component Pad inherits Rectangle {
     in property <HotCueSlot> cue;
     callback pressed();
-    property <color> tone: Theme.cue-color(root.cue.slot);
+    property <color> tone: Theme.cue-tone(root.cue.slot, root.cue.tone);
     height: 30px;
     background: root.cue.set
         ? (touch.pressed ? root.tone.with-alpha(0.5) : root.tone.with-alpha(touch.has-hover ? 0.34 : 0.24))
@@ -192,7 +125,7 @@ component Overview inherits VerticalLayout {
         Rectangle { x: 0; width: parent.width * root.deck.progress; height: parent.height; background: Theme.ground.with-alpha(0.55); }
         for c in root.deck.cues: VLine {
             x: parent.width * c.pos; height: parent.height; weight: c.slot >= 0 ? 2px : 1px;
-            tone: c.slot >= 0 ? Theme.cue-color(c.slot) : Theme.bone;
+            tone: c.slot >= 0 ? Theme.cue-tone(c.slot, c.tone) : Theme.bone;
             form: c.slot >= 0 ? "solid" : "dashed";
         }
         if root.deck.loaded: Rectangle { x: parent.width * root.deck.progress - 1px; width: 2px; height: parent.height; background: Theme.bone; }
@@ -789,6 +722,8 @@ component GlobalBar inherits Rectangle {
             alignment: end;
             spacing: 14px;
             padding-right: 18px;
+            MicControls { }
+            Rectangle { width: 10px; }
             Caps { text: @tr("PHONES"); vertical-alignment: center; }
             Knob { accessible-role: slider; accessible-label: "global.phones.mix"; accessible-value: root.headphone-mix; label: "MIX"; size: 20px; minimum: 0; maximum: 1; default-value: 0.5; value: root.headphone-mix; changed(v) => { root.set-headphone-mix(v); } }
             Knob { accessible-role: slider; accessible-label: "global.phones.level"; accessible-value: root.headphone-level; label: @tr("LEVEL"); size: 20px; minimum: 0; maximum: 1; default-value: 0.8; value: root.headphone-level; changed(v) => { root.set-headphone-level(v); } }
@@ -938,7 +873,11 @@ export component PerformView inherits Rectangle {
             tap(u) => { root.fx-tap(u); }
             release(u, k, p) => { root.fx-release(u, k, p); }
         }
-        // Zoomed waveforms; they take any spare height.
+        if Cdj.enabled: CdjSteps { }
+        // Zoomed waveforms; they take any spare height. In CDJ practice
+        // mode each player screen carries its own.
+        if !Cdj.enabled: VerticalLayout {
+        vertical-stretch: 1;
         for d[i] in root.decks: WaveLane {
             accessible-role: groupbox;
             accessible-label: "wave.lane\{d.deck}";
@@ -951,6 +890,8 @@ export component PerformView inherits Rectangle {
             preferred-height: root.tight ? 46px : root.decks.length > 2 ? 50px : 72px;
             vertical-stretch: 1;
         }
+        }
+        if Lighting.panel: LightingStrip { }
         // Decks (odd left, even right) edge to edge with the mixer.
         HorizontalLayout {
             spacing: 0;
@@ -960,7 +901,16 @@ export component PerformView inherits Rectangle {
                 horizontal-stretch: 1;
                 preferred-width: 0px;
                 spacing: 0;
-                for d in root.decks-left: DeckPanel {
+                for d in root.decks-left: VerticalLayout {
+                    if Cdj.enabled: CdjPlayer {
+                        deck: d;
+                        motion: root.lane-motion[d.deck - 1];
+                        zoom(delta) => { root.zoom(d.deck, delta); }
+                        zoom-reset => { root.zoom-reset(d.deck); }
+                        seek(p) => { root.seek(d.deck, p); }
+                        load => { root.load(d.deck); }
+                    }
+                    if !Cdj.enabled: DeckPanel {
                     deck: d;
                     compact: root.tight || root.narrow || root.decks.length > 2;
                     touch-size: root.touch-size;
@@ -988,6 +938,7 @@ export component PerformView inherits Rectangle {
                     beat-jump-step(f) => { root.beat-jump-step(d.deck, f); }
                     load => { root.load(d.deck); }
                 }
+                }
             }
             VLine { weight: 1px; tone: Theme.rule; }
             mixer := MixerPanel {
@@ -1011,7 +962,17 @@ export component PerformView inherits Rectangle {
                 horizontal-stretch: 1;
                 preferred-width: 0px;
                 spacing: 0;
-                for d in root.decks-right: DeckPanel {
+                for d in root.decks-right: VerticalLayout {
+                    if Cdj.enabled: CdjPlayer {
+                        mirror: true;
+                        deck: d;
+                        motion: root.lane-motion[d.deck - 1];
+                        zoom(delta) => { root.zoom(d.deck, delta); }
+                        zoom-reset => { root.zoom-reset(d.deck); }
+                        seek(p) => { root.seek(d.deck, p); }
+                        load => { root.load(d.deck); }
+                    }
+                    if !Cdj.enabled: DeckPanel {
                     deck: d;
                     mirror: true;
                     compact: root.tight || root.narrow || root.decks.length > 2;
@@ -1039,6 +1000,7 @@ export component PerformView inherits Rectangle {
                     loop-scale(f) => { root.loop-scale(d.deck, f); }
                     beat-jump-step(f) => { root.beat-jump-step(d.deck, f); }
                     load => { root.load(d.deck); }
+                }
                 }
             }
         }

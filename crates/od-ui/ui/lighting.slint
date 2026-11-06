@@ -1,0 +1,456 @@
+// LIGHTING (SPEC §10.5): the DMX rig, a live stage preview and the show
+// controls. State lives in the `Lighting` global so the view can be placed
+// in the main window or a detached one without re-plumbing properties.
+//
+// Layout: RIG (patch, outputs) | STAGE (live preview, what the show does
+// now) | SHOW (enable, mode, master, momentary buttons, mode panel).
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, PlateButton, Field, LineToggle, Fader, HoldButton } from "controls.slint";
+import { ChoiceList } from "fx.slint";
+
+export struct LightFixtureView {
+    name: string,
+    group: string,
+    // "wash" | "mover" | "bar" | "effect"
+    role: string,
+    address: string,
+    // Stage position, 0..1.
+    x: float,
+    y: float,
+    color: color,
+    intensity: float,
+    // Beam end for movers, 0..1 stage coordinates.
+    beam-x: float,
+    beam-y: float,
+    strobe: bool,
+    cells: [color],
+}
+
+export struct LightGroupView {
+    name: string,
+    // Index into `programs`, -1 = follow the music.
+    program: int,
+    // Index into `swatches`, -1 = colour from the track.
+    color: int,
+}
+
+export global Lighting {
+    // The compact lighting strip inside Perform.
+    in-out property <bool> panel;
+    in-out property <bool> enabled;
+    // "auto" | "easy" | "pro"
+    in-out property <string> mode: "auto";
+    in-out property <float> master: 1;
+    in-out property <bool> blackout;
+    in property <bool> flash;
+    in property <bool> strobe;
+    in property <[LightFixtureView]> fixtures;
+    in property <[LightGroupView]> groups;
+    in property <[string]> programs;
+    in property <[color]> swatches;
+    in property <[string]> fixture-types;
+    in property <int> easy-program;
+    in property <int> easy-color: -1;
+    in property <[string]> cues;
+    in property <int> active-cue: -1;
+    // What the show does now, e.g. "DECK 1 · CHORUS → SWEEP".
+    in property <string> status;
+    in property <string> output-text;
+    in property <string> rig-path;
+
+    callback set-enabled(bool);
+    callback set-mode(string);
+    callback set-master(float);
+    callback set-blackout(bool);
+    callback flash-held(bool);
+    callback strobe-held(bool);
+    callback choose-easy-program(int);
+    callback choose-easy-color(int);
+    callback group-program(int, int);
+    callback group-color(int, int);
+    callback add-fixture(int, string, string);
+    callback remove-fixture(int);
+    callback set-output(string, string);
+    callback cue-go();
+    callback cue-back();
+    callback cue-store(string);
+    callback cue-delete(int);
+}
+
+component SectionTitle inherits HorizontalLayout {
+    in property <string> text;
+    height: 22px;
+    Caps { text: root.text; vertical-alignment: center; color: Theme.bone-2; }
+}
+
+// Colour chips; -1 is "from the track".
+component Swatches inherits HorizontalLayout {
+    in property <int> current;
+    callback chosen(int);
+    spacing: 4px;
+    height: 24px;
+    Rectangle {
+        accessible-label: "lighting.swatch.track"; accessible-role: button;
+        width: 40px;
+        border-width: 1px;
+        border-color: root.current == -1 ? Theme.attention : Theme.rule;
+        background: root.current == -1 ? Theme.attention.with-alpha(0.16) : Theme.plate;
+        Text { text: @tr("TRACK"); font-family: Theme.family; font-size: 9px; font-weight: 600; letter-spacing: 1px; color: Theme.bone-2; horizontal-alignment: center; vertical-alignment: center; }
+        TouchArea { mouse-cursor: pointer; clicked => { root.chosen(-1); } }
+    }
+    for c[i] in Lighting.swatches: Rectangle {
+        accessible-label: "lighting.swatch" + i; accessible-role: button;
+        width: 24px;
+        background: c;
+        border-width: root.current == i ? 2px : 1px;
+        border-color: root.current == i ? Theme.bone : Theme.rule;
+        TouchArea { mouse-cursor: pointer; clicked => { root.chosen(i); } }
+    }
+}
+
+// Live preview of the rig: wash fixtures as glowing lenses, movers with
+// their beam, bars as cells. Strobing fixtures flicker.
+component Stage inherits Rectangle {
+    in property <bool> compact;
+    background: #0B0B0B;
+    border-width: 1px;
+    border-color: Theme.rule;
+    clip: true;
+    property <bool> blink: Math.mod(animation-tick() / 1ms, 90) < 45;
+
+    // Trusses.
+    for y in [0.18, 0.5, 0.82]: Rectangle {
+        x: 16px; width: parent.width - 32px; height: 1px;
+        y: parent.height * y;
+        background: #2A2A27;
+    }
+    for f[i] in Lighting.fixtures: Rectangle {
+        property <float> lit: f.strobe && !root.blink ? 0 : f.intensity;
+        property <length> cx: root.width * f.x;
+        property <length> cy: root.height * f.y;
+        accessible-label: "lighting.stage.fixture" + i; accessible-role: text;
+        accessible-value: f.name;
+        x: 0; y: 0; width: root.width; height: root.height;
+
+        if f.role == "mover": Path {
+            x: 0; y: 0; width: root.width; height: root.height;
+            viewbox-width: self.width / 1px; viewbox-height: self.height / 1px;
+            stroke: f.color.with-alpha(0.55 * lit);
+            stroke-width: 6px;
+            MoveTo { x: cx / 1px; y: cy / 1px; }
+            LineTo { x: root.width * f.beam-x / 1px; y: root.height * f.beam-y / 1px; }
+        }
+        if f.role != "bar": Rectangle {
+            x: cx - 22px; y: cy - 22px; width: 44px; height: 44px;
+            border-radius: 22px;
+            background: f.color.with-alpha(0.25 * lit);
+        }
+        if f.role != "bar": Rectangle {
+            x: cx - 11px; y: cy - 11px; width: 22px; height: 22px;
+            border-radius: f.role == "mover" ? 4px : 11px;
+            background: lit > 0.02 ? f.color.with-alpha(0.35 + 0.65 * lit) : #1C1C1B;
+            border-width: 1px; border-color: #4B4A46;
+        }
+        if f.role == "bar": HorizontalLayout {
+            x: cx - 80px; y: cy - 7px; width: 160px; height: 14px;
+            spacing: 2px;
+            for c in f.cells: Rectangle {
+                background: c.with-alpha(0.25 + 0.75 * lit);
+                border-width: 1px; border-color: #33322F;
+            }
+        }
+        if !root.compact: Text {
+            x: cx - 60px; y: cy + (f.role == "bar" ? 10px : 24px); width: 120px;
+            text: f.name;
+            font-family: Theme.family; font-size: 10px; color: #8B867B;
+            horizontal-alignment: center; overflow: elide;
+        }
+    }
+    if Lighting.fixtures.length == 0: Text {
+        text: @tr("No fixtures patched yet. Add your lights on the left.");
+        font-family: Theme.family; font-size: 13px; color: #8B867B;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+}
+
+component RigPanel inherits VerticalLayout {
+    property <int> type-index: 0;
+    property <string> output-kind: "artnet";
+    spacing: 6px;
+    padding: 10px;
+
+    SectionTitle { text: @tr("RIG"); }
+    for f[i] in Lighting.fixtures: Rectangle {
+        accessible-label: "lighting.rig.row" + i; accessible-role: list-item;
+        accessible-value: f.name;
+        height: 26px;
+        background: ta.has-hover ? Theme.plate-raised : transparent;
+        ta := TouchArea {}
+        HorizontalLayout {
+            spacing: 8px; padding-left: 6px; padding-right: 4px;
+            Rectangle { width: 10px; Rectangle { height: 10px; width: 10px; border-radius: 5px; background: f.color.with-alpha(0.3 + 0.7 * f.intensity); } }
+            Text { text: f.name; font-family: Theme.family; font-size: 13px; color: Theme.bone; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+            Caps { text: f.group; vertical-alignment: center; width: 70px; overflow: elide; }
+            Caps { text: f.address; vertical-alignment: center; width: 54px; }
+            PlateButton {
+                accessible-label: "lighting.rig.remove" + i; accessible-role: button;
+                compact: true; glyph: "close"; width: 30px; tooltip: @tr("Remove this fixture");
+                clicked => { Lighting.remove-fixture(i); }
+            }
+        }
+    }
+    HLine { }
+    Caps { text: @tr("ADD FIXTURE"); }
+    ChoiceList {
+        accessible-label: "lighting.rig.type"; accessible-role: list;
+        items: Lighting.fixture-types; current: root.type-index; columns: 2; cell-w: 132px; cell-h: 24px;
+        chosen(i) => { root.type-index = i; }
+    }
+    HorizontalLayout {
+        spacing: 6px;
+        name := Field { accessible-label: "lighting.rig.name"; accessible-role: text-input; placeholder: @tr("Name"); horizontal-stretch: 1; }
+        group := Field { accessible-label: "lighting.rig.group"; accessible-role: text-input; placeholder: @tr("Group"); width: 90px; }
+        PlateButton {
+            accessible-label: "lighting.rig.add"; accessible-role: button;
+            compact: true; glyph: "plus"; label: @tr("ADD"); tone: Theme.live;
+            tooltip: @tr("Patch the fixture at the next free DMX address");
+            clicked => { Lighting.add-fixture(root.type-index, name.text, group.text); name.text = ""; }
+        }
+    }
+    HLine { }
+    Caps { text: @tr("OUTPUT"); }
+    HorizontalLayout {
+        spacing: 4px;
+        for k[i] in [{ id: "artnet", label: "ART-NET" }, { id: "sacn", label: "SACN" }, { id: "enttec", label: "USB-DMX" }]: PlateButton {
+            accessible-label: "lighting.output." + k.id; accessible-role: tab;
+            compact: true; label: k.label; active: root.output-kind == k.id;
+            tooltip: @tr("Choose how universe 1 leaves the computer");
+            clicked => { root.output-kind = k.id; }
+        }
+    }
+    HorizontalLayout {
+        spacing: 6px;
+        target := Field {
+            accessible-label: "lighting.output.target"; accessible-role: text-input;
+            horizontal-stretch: 1;
+            placeholder: root.output-kind == "artnet" ? "2.0.0.10:6454" : root.output-kind == "sacn" ? "1" : "/dev/tty.usbserial";
+        }
+        PlateButton {
+            accessible-label: "lighting.output.apply"; accessible-role: button;
+            compact: true; label: @tr("SET"); tooltip: @tr("Send universe 1 to this output");
+            clicked => { Lighting.set-output(root.output-kind, target.text); }
+        }
+    }
+    Caps { text: Lighting.output-text; overflow: elide; color: Theme.bone-3; }
+    Rectangle { vertical-stretch: 1; }
+}
+
+component ShowPanel inherits VerticalLayout {
+    property <string> cue-name;
+    spacing: 8px;
+    padding: 10px;
+
+    HorizontalLayout {
+        spacing: 8px;
+        SectionTitle { text: @tr("SHOW"); horizontal-stretch: 1; }
+        LineToggle {
+            accessible-label: "lighting.enable"; accessible-role: checkbox;
+            label: @tr("DMX OUT"); checked: Lighting.enabled; tone: Theme.live;
+            tooltip: @tr("Send the show to the outputs");
+            toggled(on) => { Lighting.set-enabled(on); }
+        }
+    }
+    HorizontalLayout {
+        spacing: 4px;
+        for m in [{ id: "auto", label: "AUTO" }, { id: "easy", label: "EASY" }, { id: "pro", label: "PRO" }]: PlateButton {
+            accessible-label: "lighting.mode." + m.id; accessible-role: tab;
+            label: m.label; active: Lighting.mode == m.id; horizontal-stretch: 1;
+            tooltip: m.id == "auto" ? @tr("The show follows phrases, beat and the mix")
+                : m.id == "easy" ? @tr("One look for the whole rig, locked to the beat")
+                : @tr("Programs and colours per group, cue stack");
+            clicked => { Lighting.set-mode(m.id); }
+        }
+    }
+    HorizontalLayout {
+        spacing: 10px;
+        height: 150px;
+        VerticalLayout {
+            spacing: 2px;
+            Fader {
+                accessible-label: "lighting.master"; accessible-role: slider; accessible-value: Math.round(Lighting.master * 100) + " %";
+                value: Lighting.master; tone: Theme.attention; vertical-stretch: 1;
+                tooltip: @tr("Master dimmer");
+                changed(v) => { Lighting.set-master(v); }
+            }
+            Caps { text: @tr("MASTER"); horizontal-alignment: center; }
+        }
+        VerticalLayout {
+            spacing: 6px; horizontal-stretch: 1;
+            PlateButton {
+                accessible-label: "lighting.blackout"; accessible-role: button;
+                label: @tr("BLACKOUT"); active: Lighting.blackout; tone: Theme.fault;
+                tooltip: @tr("All lights off");
+                clicked => { Lighting.set-blackout(!Lighting.blackout); }
+            }
+            HoldButton {
+                accessible-label: "lighting.flash"; accessible-role: button;
+                label: @tr("FLASH"); on: Lighting.flash; size: 34px; tone: Theme.bone;
+                tooltip: @tr("Full white while held");
+                pressed => { Lighting.flash-held(true); }
+                released => { Lighting.flash-held(false); }
+            }
+            HoldButton {
+                accessible-label: "lighting.strobe"; accessible-role: button;
+                label: @tr("STROBE"); on: Lighting.strobe; size: 34px;
+                tooltip: @tr("Strobe while held");
+                pressed => { Lighting.strobe-held(true); }
+                released => { Lighting.strobe-held(false); }
+            }
+        }
+    }
+    HLine { }
+    if Lighting.mode == "auto": VerticalLayout {
+        spacing: 6px;
+        Caps { text: @tr("AUTOMATIC"); }
+        Text {
+            text: @tr("Intros breathe, build-ups chase faster and end in a strobe, choruses sweep the movers on the beat, breakdowns calm down, outros fade. During a mix both tracks' looks blend by how loud each is.");
+            wrap: word-wrap; font-family: Theme.family; font-size: 12px; color: Theme.bone-2;
+        }
+    }
+    if Lighting.mode == "easy": VerticalLayout {
+        spacing: 6px;
+        Caps { text: @tr("LOOK"); }
+        ChoiceList {
+            accessible-label: "lighting.easy.program"; accessible-role: list;
+            items: Lighting.programs; current: Lighting.easy-program; columns: 2; cell-w: 140px;
+            chosen(i) => { Lighting.choose-easy-program(i); }
+        }
+        Caps { text: @tr("COLOUR"); }
+        Swatches { current: Lighting.easy-color; chosen(i) => { Lighting.choose-easy-color(i); } }
+    }
+    if Lighting.mode == "pro": VerticalLayout {
+        spacing: 6px;
+        Caps { text: @tr("GROUPS"); }
+        for g[gi] in Lighting.groups: VerticalLayout {
+            spacing: 3px;
+            Text { text: g.name; font-family: Theme.family; font-size: 13px; color: Theme.bone; }
+            HorizontalLayout {
+                spacing: 3px;
+                PlateButton {
+                    accessible-label: "lighting.pro.group" + gi + ".follow"; accessible-role: button;
+                    compact: true; label: @tr("MUSIC"); active: g.program < 0;
+                    tooltip: @tr("Follow the music");
+                    clicked => { Lighting.group-program(gi, -1); }
+                }
+                for p[pi] in Lighting.programs: PlateButton {
+                    accessible-label: "lighting.pro.group" + gi + ".program" + pi; accessible-role: button;
+                    compact: true; label: p; active: g.program == pi;
+                    clicked => { Lighting.group-program(gi, pi); }
+                }
+            }
+            Swatches { current: g.color; chosen(i) => { Lighting.group-color(gi, i); } }
+        }
+        HLine { }
+        Caps { text: @tr("CUE STACK"); }
+        for c[ci] in Lighting.cues: Rectangle {
+            accessible-label: "lighting.cue" + ci; accessible-role: list-item; accessible-value: c;
+            height: 24px;
+            background: ci == Lighting.active-cue ? Theme.attention.with-alpha(0.16) : transparent;
+            Rectangle { x: 0; width: 2px; background: ci == Lighting.active-cue ? Theme.attention : transparent; }
+            HorizontalLayout {
+                padding-left: 8px; spacing: 6px;
+                Text { text: (ci + 1) + "  " + c; font-family: Theme.family; font-size: 13px; color: Theme.bone; vertical-alignment: center; horizontal-stretch: 1; }
+                PlateButton { accessible-label: "lighting.cue" + ci + ".delete"; accessible-role: button; compact: true; glyph: "close"; tooltip: @tr("Delete this cue"); clicked => { Lighting.cue-delete(ci); } }
+            }
+        }
+        HorizontalLayout {
+            spacing: 4px;
+            PlateButton { accessible-label: "lighting.cue.back"; accessible-role: button; label: @tr("BACK"); horizontal-stretch: 1; tooltip: @tr("Previous cue"); clicked => { Lighting.cue-back(); } }
+            PlateButton { accessible-label: "lighting.cue.go"; accessible-role: button; label: @tr("GO"); tone: Theme.live; horizontal-stretch: 1; tooltip: @tr("Next cue"); clicked => { Lighting.cue-go(); } }
+        }
+        HorizontalLayout {
+            spacing: 6px;
+            cue := Field { accessible-label: "lighting.cue.name"; accessible-role: text-input; placeholder: @tr("Cue name"); horizontal-stretch: 1; }
+            PlateButton {
+                accessible-label: "lighting.cue.store"; accessible-role: button;
+                compact: true; label: @tr("STORE"); tooltip: @tr("Store the group settings as a new cue");
+                clicked => { Lighting.cue-store(cue.text); cue.text = ""; }
+            }
+        }
+    }
+    Rectangle { vertical-stretch: 1; }
+}
+
+export component LightingView inherits Rectangle {
+    accessible-label: "lighting.view"; accessible-role: groupbox;
+    background: Theme.ground;
+    HorizontalLayout {
+        RigPanel { width: 330px; }
+        VLine { }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            padding: 10px; spacing: 8px;
+            HorizontalLayout {
+                height: 22px;
+                SectionTitle { text: @tr("STAGE"); }
+                Rectangle { horizontal-stretch: 1; }
+                Caps {
+                    accessible-label: "lighting.status"; accessible-role: text; accessible-value: self.text;
+                    text: Lighting.status; color: Theme.attention; vertical-alignment: center;
+                }
+            }
+            Stage { vertical-stretch: 1; accessible-label: "lighting.stage"; accessible-role: image; }
+        }
+        VLine { }
+        ShowPanel { width: 340px; }
+    }
+}
+
+// Lighting inside Perform: stage preview beside the live controls.
+export component LightingStrip inherits Rectangle {
+    accessible-label: "lighting.strip"; accessible-role: groupbox;
+    height: 118px;
+    background: Theme.ground;
+    HorizontalLayout {
+        padding: 6px; spacing: 10px;
+        Stage { compact: true; horizontal-stretch: 1; accessible-label: "lighting.strip.stage"; accessible-role: image; }
+        VerticalLayout {
+            width: 300px; spacing: 6px;
+            HorizontalLayout {
+                spacing: 4px;
+                for m in [{ id: "auto", label: "AUTO" }, { id: "easy", label: "EASY" }, { id: "pro", label: "PRO" }]: PlateButton {
+                    accessible-label: "lighting.strip.mode." + m.id; accessible-role: tab;
+                    compact: true; label: m.label; active: Lighting.mode == m.id; horizontal-stretch: 1;
+                    clicked => { Lighting.set-mode(m.id); }
+                }
+                LineToggle {
+                    accessible-label: "lighting.strip.enable"; accessible-role: checkbox;
+                    label: @tr("DMX OUT"); checked: Lighting.enabled; tone: Theme.live;
+                    toggled(on) => { Lighting.set-enabled(on); }
+                }
+            }
+            Caps { text: Lighting.status; color: Theme.attention; overflow: elide; }
+            HorizontalLayout {
+                spacing: 4px;
+                PlateButton {
+                    accessible-label: "lighting.strip.blackout"; accessible-role: button;
+                    compact: true; label: @tr("BLACKOUT"); active: Lighting.blackout; tone: Theme.fault; horizontal-stretch: 1;
+                    clicked => { Lighting.set-blackout(!Lighting.blackout); }
+                }
+                HoldButton {
+                    accessible-label: "lighting.strip.flash"; accessible-role: button;
+                    label: @tr("FLASH"); on: Lighting.flash; size: 28px; tone: Theme.bone; horizontal-stretch: 1;
+                    pressed => { Lighting.flash-held(true); } released => { Lighting.flash-held(false); }
+                }
+                HoldButton {
+                    accessible-label: "lighting.strip.strobe"; accessible-role: button;
+                    label: @tr("STROBE"); on: Lighting.strobe; size: 28px; horizontal-stretch: 1;
+                    pressed => { Lighting.strobe-held(true); } released => { Lighting.strobe-held(false); }
+                }
+            }
+        }
+    }
+    HLine { y: parent.height - 1px; tone: Theme.rule; }
+}

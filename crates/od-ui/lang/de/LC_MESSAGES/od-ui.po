@@ -2305,6 +2305,214 @@ msgctxt "UpdateBar"
 msgid "CLOSE"
 msgstr "SCHLIESSEN"
 
+msgctxt "AppWindow"
+msgid "CLEAR"
+msgstr "LEEREN"
+
+msgctxt "AppWindow"
+msgid "Empty the tag list"
+msgstr "Tag-Liste leeren"
+
+msgctxt "AppWindow"
+msgid "MASTER"
+msgstr "MASTER"
+
+msgctxt "AppWindow"
+msgid "MY TAG"
+msgstr "MY TAG"
+
+msgctxt "AppWindow"
+msgid "Make a playlist of the tag list"
+msgstr "Aus der Tag-Liste eine Playlist machen"
+
+msgctxt "AppWindow"
+msgid "No track matches the filter."
+msgstr "Kein Track passt zum Filter."
+
+msgctxt "AppWindow"
+msgid "Nothing fits yet: load an analysed track on a deck (or select one) and open this list again."
+msgstr "Noch passt nichts: Lade einen analysierten Track auf ein Deck (oder wähle einen aus) und öffne diese Liste erneut."
+
+msgctxt "AppWindow"
+msgid "RELATED"
+msgstr "PASSEND"
+
+msgctxt "AppWindow"
+msgid "SAVE AS PLAYLIST"
+msgstr "ALS PLAYLIST SPEICHERN"
+
+msgctxt "AppWindow"
+msgid "Show tracks that fit after the selected one"
+msgstr "Tracks zeigen, die nach dem ausgewählten passen"
+
+msgctxt "AppWindow"
+msgid "Tag the selected tracks with your own categories"
+msgstr "Die ausgewählten Tracks mit eigenen Kategorien taggen"
+
+msgctxt "AppWindow"
+msgid "The tag list is empty. Collect tracks here with + next to TAG LIST or the row menu."
+msgstr "Die Tag-Liste ist leer. Sammle Tracks hier mit + neben TAG-LISTE oder über das Zeilenmenü."
+
+msgctxt "AppWindow"
+msgid "Tracks that fit after deck {}"
+msgstr "Tracks, die nach Deck {} passen"
+
+msgctxt "AppWindow"
+msgid "Tracks that fit after the master deck"
+msgstr "Tracks, die nach dem Master-Deck passen"
+
+msgctxt "FilterBar"
+msgid "Any My Tag"
+msgstr "Beliebiger My Tag"
+
+msgctxt "FilterBar"
+msgid "BPM ±%"
+msgstr "BPM ±%"
+
+msgctxt "FilterBar"
+msgid "CLEAR"
+msgstr "ZURÜCKSETZEN"
+
+msgctxt "FilterBar"
+msgid "FROM"
+msgstr "VON"
+
+msgctxt "FilterBar"
+msgid "Key fits master"
+msgstr "Tonart passt zum Master"
+
+msgctxt "FilterBar"
+msgid "MY TAG: ANY"
+msgstr "MY TAG: ALLE"
+
+msgctxt "FilterBar"
+msgid "NO MASTER DECK"
+msgstr "KEIN MASTER-DECK"
+
+msgctxt "FilterBar"
+msgid "Only keys compatible with the master deck (same, ±1, relative)"
+msgstr "Nur Tonarten, die zum Master-Deck passen (gleich, ±1, parallel)"
+
+msgctxt "FilterBar"
+msgid "Only tracks with this My Tag value"
+msgstr "Nur Tracks mit diesem My-Tag-Wert"
+
+msgctxt "FilterBar"
+msgid "RATING"
+msgstr "BEWERTUNG"
+
+msgctxt "FilterBar"
+msgid "Remove every filter condition"
+msgstr "Alle Filterbedingungen entfernen"
+
+msgctxt "FilterBar"
+msgid "TO"
+msgstr "BIS"
+
+msgctxt "HeaderCell"
+msgid "Drag to move this column"
+msgstr "Ziehen, um diese Spalte zu verschieben"
+
+msgctxt "HeaderCell"
+msgid "Sort by this column — ⇧-click adds it as a secondary sort, drag to move"
+msgstr "Nach dieser Spalte sortieren — ⇧-Klick fügt sie als zweite Sortierung hinzu, Ziehen verschiebt sie"
+
+msgctxt "HeaderCell"
+msgid "Sorted by this column — click to reverse, ⇧-click adds a secondary sort, drag to move"
+msgstr "Nach dieser Spalte sortiert — Klick kehrt um, ⇧-Klick fügt eine zweite Sortierung hinzu, Ziehen verschiebt sie"
+
+msgctxt "MyTagPanel"
+msgid "CATEGORY: VALUE — RETURN"
+msgstr "KATEGORIE: WERT — RETURN"
+
+msgctxt "MyTagPanel"
+msgid "MY TAG"
+msgstr "MY TAG"
+
+msgctxt "MyTagPanel"
+msgid "No My Tag values yet. Type one above, e.g. Mood: Peak."
+msgstr "Noch keine My-Tag-Werte. Gib oben einen ein, z. B. Stimmung: Peak."
+
+msgctxt "MyTagPanel"
+msgid "Select tracks to tag them."
+msgstr "Wähle Tracks, um sie zu taggen."
+
+msgctxt "MyTagPanel"
+msgid "Tag or untag the selected tracks"
+msgstr "Ausgewählte Tracks taggen oder Tag entfernen"
+
+msgctxt "MyTagPanel"
+msgid "{} selected — click a value to tag or untag them."
+msgstr "{} ausgewählt — klicke einen Wert, um sie zu taggen oder den Tag zu entfernen."
+
+msgctxt "Sidebar"
+msgid "Add the selected tracks to the tag list"
+msgstr "Ausgewählte Tracks zur Tag-Liste hinzufügen"
+
+msgctxt "Sidebar"
+msgid "Every session you play is listed here."
+msgstr "Jede Session, die du spielst, erscheint hier."
+
+msgctxt "Sidebar"
+msgid "HISTORIES"
+msgstr "VERLAUF"
+
+msgctxt "Sidebar"
+msgid "Related tracks"
+msgstr "Passende Tracks"
+
+msgctxt "Sidebar"
+msgid "TAG LIST"
+msgstr "TAG-LISTE"
+
+msgctxt "Sidebar"
+msgid "Tag list"
+msgstr "Tag-Liste"
+
+msgctxt "SuggestionPanel"
+msgid "Double-click to load into a free deck"
+msgstr "Doppelklick lädt auf ein freies Deck"
+
+msgctxt "SuggestionPanel"
+msgid "FITS AFTER"
+msgstr "PASST NACH"
+
+msgctxt "SuggestionPanel"
+msgid "No analysed track within ±6 % tempo and a compatible key."
+msgstr "Kein analysierter Track innerhalb von ±6 % Tempo mit passender Tonart."
+
+msgctxt "SuggestionPanel"
+msgid "Open these tracks as the Related tracks list"
+msgstr "Diese Tracks als Liste „Passende Tracks“ öffnen"
+
+msgctxt "SuggestionPanel"
+msgid "SHOW AS LIST"
+msgstr "ALS LISTE ZEIGEN"
+
+msgctxt "SuggestionPanel"
+msgid "Select a track to see what fits after it."
+msgstr "Wähle einen Track, um zu sehen, was danach passt."
+
+msgctxt "TrackLine"
+msgid "Add to tag list"
+msgstr "Zur Tag-Liste hinzufügen"
+
+msgctxt "TrackLine"
+msgid "Show related tracks"
+msgstr "Passende Tracks zeigen"
+
+msgctxt "TrackTable"
+msgid "Choose the columns (or right-click the header)"
+msgstr "Spalten wählen (oder Rechtsklick auf die Kopfzeile)"
+
+msgctxt "TrackTable"
+msgid "Default columns"
+msgstr "Standardspalten"
+
+msgctxt "TrackTable"
+msgid "Filter the list (BPM, key, rating, My Tag)"
+msgstr "Liste filtern (BPM, Tonart, Bewertung, My Tag)"
+
 #~ msgctxt "DeckPanel"
 #~ msgid "Not loaded — double-click a track or press LOAD"
 #~ msgstr "Nicht geladen – Track doppelklicken oder LOAD drücken"
@@ -2440,3 +2648,448 @@ msgstr "SCHLIESSEN"
 #~ msgctxt "PerformView"
 #~ msgid "RECORD"
 #~ msgstr "AUFNEHMEN"
+
+#: ui/lighting.slint
+msgctxt "Swatches"
+msgid "TRACK"
+msgstr "TRACK"
+
+#: ui/lighting.slint
+msgctxt "Stage"
+msgid "No fixtures patched yet. Add your lights on the left."
+msgstr "Noch keine Scheinwerfer gepatcht. Füge deine Lampen links hinzu."
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "RIG"
+msgstr "RIG"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "Remove this fixture"
+msgstr "Diesen Scheinwerfer entfernen"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "ADD FIXTURE"
+msgstr "SCHEINWERFER HINZUFÜGEN"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "Name"
+msgstr "Name"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "Group"
+msgstr "Gruppe"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "ADD"
+msgstr "HINZUFÜGEN"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "Patch the fixture at the next free DMX address"
+msgstr "Scheinwerfer auf die nächste freie DMX-Adresse patchen"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "OUTPUT"
+msgstr "AUSGANG"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "Choose how universe 1 leaves the computer"
+msgstr "Wählen, wie Universe 1 den Computer verlässt"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "SET"
+msgstr "SETZEN"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "Send universe 1 to this output"
+msgstr "Universe 1 an diesen Ausgang senden"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "SHOW"
+msgstr "SHOW"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "DMX OUT"
+msgstr "DMX AUS"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Send the show to the outputs"
+msgstr "Die Show an die Ausgänge senden"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "The show follows phrases, beat and the mix"
+msgstr "Die Show folgt Phrasen, Beat und Mix"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "One look for the whole rig, locked to the beat"
+msgstr "Ein Look für das ganze Rig, im Takt"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Programs and colours per group, cue stack"
+msgstr "Programme und Farben pro Gruppe, Cue-Stack"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Master dimmer"
+msgstr "Master-Dimmer"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "MASTER"
+msgstr "MASTER"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "BLACKOUT"
+msgstr "BLACKOUT"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "All lights off"
+msgstr "Alle Lichter aus"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "FLASH"
+msgstr "FLASH"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Full white while held"
+msgstr "Volles Weiß, solange gedrückt"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "STROBE"
+msgstr "STROBE"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Strobe while held"
+msgstr "Strobe, solange gedrückt"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "AUTOMATIC"
+msgstr "AUTOMATIK"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Intros breathe, build-ups chase faster and end in a strobe, choruses sweep the movers on the beat, breakdowns calm down, outros fade. During a mix both tracks' looks blend by how loud each is."
+msgstr "Intros atmen, Build-ups jagen schneller und enden im Strobe, Choruses schwenken die Moving Heads im Takt, Breakdowns beruhigen sich, Outros blenden aus. Im Mix verschmelzen die Looks beider Tracks je nach Lautstärke."
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "LOOK"
+msgstr "LOOK"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "COLOUR"
+msgstr "FARBE"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "GROUPS"
+msgstr "GRUPPEN"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "MUSIC"
+msgstr "MUSIK"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Follow the music"
+msgstr "Der Musik folgen"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "CUE STACK"
+msgstr "CUE-STACK"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Delete this cue"
+msgstr "Diesen Cue löschen"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "BACK"
+msgstr "ZURÜCK"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Previous cue"
+msgstr "Vorheriger Cue"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "GO"
+msgstr "GO"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Next cue"
+msgstr "Nächster Cue"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Cue name"
+msgstr "Cue-Name"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "STORE"
+msgstr "SPEICHERN"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Store the group settings as a new cue"
+msgstr "Gruppeneinstellungen als neuen Cue speichern"
+
+#: ui/lighting.slint
+msgctxt "LightingView"
+msgid "STAGE"
+msgstr "BÜHNE"
+
+#: ui/lighting.slint
+msgctxt "TopBar"
+msgid "LIGHTING"
+msgstr "LIGHTING"
+
+#: ui/lighting.slint
+msgctxt "TopBar"
+msgid "Lighting: DMX rig and light show"
+msgstr "Lighting: DMX-Rig und Lichtshow"
+
+#: ui/lighting.slint
+msgctxt "AppWindow"
+msgid "Lighting"
+msgstr "Lighting"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "No track — browse and load"
+msgstr "Kein Track — durchsuchen und laden"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "LOAD SELECTED"
+msgstr "AUSWAHL LADEN"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "HOT CUE"
+msgstr "HOT CUE"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "CALL"
+msgstr "CALL"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "Previous memory cue"
+msgstr "Vorheriger Memory Cue"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "Next memory cue"
+msgstr "Nächster Memory Cue"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "LOOP"
+msgstr "LOOP"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "IN"
+msgstr "IN"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "OUT"
+msgstr "OUT"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "RELOOP / EXIT"
+msgstr "RELOOP / EXIT"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "4 BEAT"
+msgstr "4 BEAT"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "JUMP"
+msgstr "JUMP"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "Search back while held"
+msgstr "Rückwärts suchen, solange gedrückt"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "Search forward while held"
+msgstr "Vorwärts suchen, solange gedrückt"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "Tempo range"
+msgstr "Tempobereich"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "MASTER TEMPO"
+msgstr "MASTER TEMPO"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "Tempo (up = slower, like a player)"
+msgstr "Tempo (oben = langsamer, wie am Player)"
+
+#: ui/cdj.slint
+msgctxt "CdjSteps"
+msgid "CDJ PRACTICE"
+msgstr "CDJ-ÜBUNG"
+
+#: ui/cdj.slint
+msgctxt "CdjSteps"
+msgid "Hide the checklist"
+msgstr "Checkliste ausblenden"
+
+#: ui/cdj.slint
+msgctxt "TopBar"
+msgid "Back to the full deck controls"
+msgstr "Zurück zu den vollen Deck-Bedienelementen"
+
+#: ui/cdj.slint
+msgctxt "TopBar"
+msgid "CDJ practice: player screens and the club workflow"
+msgstr "CDJ-Übung: Player-Screens und der Club-Workflow"
+
+#: ui/mic.slint
+msgctxt "MicControls"
+msgid "Microphone / aux input: {}"
+msgstr "Mikrofon / Aux-Eingang: {}"
+
+#: ui/mic.slint
+msgctxt "MicControls"
+msgid "Microphone / aux input (system default)"
+msgstr "Mikrofon / Aux-Eingang (Systemstandard)"
+
+#: ui/mic.slint
+msgctxt "MicControls"
+msgid "TALK ▼"
+msgstr "TALK ▼"
+
+#: ui/mic.slint
+msgctxt "MicControls"
+msgid "TALK"
+msgstr "TALK"
+
+#: ui/mic.slint
+msgctxt "MicControls"
+msgid "Talkover: the music ducks while you speak"
+msgstr "Talkover: Die Musik wird leiser, während du sprichst"
+
+#: ui/mic.slint
+msgctxt "MicControls"
+msgid "Next input device"
+msgstr "Nächstes Eingangsgerät"
+
+#: ui/lighting.slint
+msgctxt "TopBar"
+msgid "Hide the lighting strip"
+msgstr "Lichtleiste ausblenden"
+
+#: ui/lighting.slint
+msgctxt "TopBar"
+msgid "Show the lighting strip"
+msgstr "Lichtleiste einblenden"
+
+#: ui/lighting.slint
+msgctxt "LightingStrip"
+msgid "DMX OUT"
+msgstr "DMX AUS"
+
+#: ui/lighting.slint
+msgctxt "LightingStrip"
+msgid "BLACKOUT"
+msgstr "BLACKOUT"
+
+#: ui/lighting.slint
+msgctxt "LightingStrip"
+msgid "FLASH"
+msgstr "FLASH"
+
+#: ui/lighting.slint
+msgctxt "LightingStrip"
+msgid "STROBE"
+msgstr "STROBE"
+
+#: ui/player.slint
+msgctxt "AppWindow"
+msgid "RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
+msgstr "REGELN, Z. B.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
+
+#: ui/player.slint
+msgctxt "PreparePlayer"
+msgid "Cues appear here. Double-click one to name it."
+msgstr "Cues erscheinen hier. Doppelklick zum Benennen."
+
+#: ui/player.slint
+msgctxt "PreparePlayer"
+msgid "Cue name"
+msgstr "Cue-Name"
+
+#: ui/player.slint
+msgctxt "PreparePlayer"
+msgid "TO CURSOR"
+msgstr "ZUM CURSOR"
+
+#: ui/player.slint
+msgctxt "PreparePlayer"
+msgid "Move the cue to the cursor (snapped to the beat)"
+msgstr "Cue zum Cursor verschieben (auf den Beat eingerastet)"
+
+#: ui/player.slint
+msgctxt "PreparePlayer"
+msgid "→ HOT"
+msgstr "→ HOT"
+
+#: ui/player.slint
+msgctxt "PreparePlayer"
+msgid "Make this memory cue a hot cue on the first free pad"
+msgstr "Diesen Memory Cue zum Hot Cue auf dem ersten freien Pad machen"
+
+#: ui/player.slint
+msgctxt "PreparePlayer"
+msgid "Delete this cue"
+msgstr "Diesen Cue löschen"
+
+#: ui/player.slint
+msgctxt "PreparePlayer"
+msgid "ALL"
+msgstr "ALLE"
