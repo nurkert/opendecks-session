@@ -140,7 +140,7 @@ pub const ACTION_NAMES: &[&str] = &[
     "deck.loop_out", "deck.auto_loop", "deck.loop_roll", "deck.loop_halve", "deck.loop_double",
     "deck.reloop_exit", "deck.beat_jump", "deck.search", "deck.slip", "deck.vinyl",
     "deck.shift", "deck.pad_mode", "deck.pad", "deck.load", "deck.censor", "deck.reverse",
-    "deck.needle_search", "deck.select",
+    "deck.needle_search", "deck.select", "deck.stem_level", "deck.stem_mute",
     "mixer.trim", "mixer.eq_high", "mixer.eq_mid", "mixer.eq_low", "mixer.color_fx",
     "mixer.fader", "mixer.cue", "mixer.crossfader_assign",
     "crossfader", "master_level", "booth_level", "headphone_mix", "headphone_level",
@@ -169,6 +169,11 @@ fn deck_with(f: impl Fn(InputValue) -> Option<DeckAction> + Send + Sync + 'stati
 
 fn mixer_abs(f: fn(f32) -> MixerAction) -> Producer {
     Box::new(move |d, v| Some(ControlAction::Mixer { channel: d.unwrap_or(0), action: f(v.unit()) }))
+}
+
+fn stem_arg(a: &Args) -> Result<StemPart, MappingError> {
+    let s = a.str("stem")?;
+    StemPart::parse(&s).ok_or_else(|| a.err(format!("unknown stem `{s}` (vocals, drums, bass, inst)")))
 }
 
 fn bipolar(u: f32) -> f32 {
@@ -284,6 +289,16 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
             } else {
                 (Button, deck_press(DeckAction::DeckSelect))
             }
+        }
+
+        // Part isolator knob: centre and above = full level, fully left = muted.
+        "deck.stem_level" => {
+            let stem = stem_arg(&a)?;
+            (Absolute, deck_with(move |v| Some(DeckAction::StemLevel { stem, level: (v.unit() * 2.0).min(1.0) })))
+        }
+        "deck.stem_mute" => {
+            let stem = stem_arg(&a)?;
+            (Button, deck_press(DeckAction::StemMuteToggle { stem }))
         }
 
         "mixer.trim" => (Absolute, mixer_abs(MixerAction::Trim)),
@@ -422,6 +437,7 @@ mod tests {
         t.insert("side".into(), Value::String("a".into()));
         t.insert("effect".into(), Value::String("echo".into()));
         t.insert("channel".into(), Value::Integer(1));
+        t.insert("stem".into(), Value::String("vocals".into()));
         for n in ACTION_NAMES {
             let mut args = t.clone();
             if *n == "deck.pad_mode" {

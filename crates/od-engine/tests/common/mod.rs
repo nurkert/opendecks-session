@@ -151,3 +151,58 @@ pub fn estimate_freq(interleaved: &[f32]) -> f64 {
 pub fn rms(x: &[f32]) -> f32 {
     (x.iter().map(|v| v * v).sum::<f32>() / x.len().max(1) as f32).sqrt()
 }
+
+fn tone(n: usize, freq: f64, amp: f32) -> Vec<f32> {
+    (0..n)
+        .flat_map(|i| {
+            let v = (std::f64::consts::TAU * freq * i as f64 / SR as f64).sin() as f32 * amp;
+            [v, v]
+        })
+        .collect()
+}
+
+/// A track whose mix is `vocals + drums + other` (three sines), with stems
+/// for vocals (`f_vocals`) and drums (`f_drums`) attached and silent bass;
+/// `f_other` only lives in the implicit "inst" remainder.
+pub fn stem_track(id: i64, seconds: f64, f_vocals: f64, f_drums: f64, f_other: f64) -> Arc<TrackData> {
+    let n = (seconds * SR as f64) as usize;
+    let v = tone(n, f_vocals, 0.25);
+    let d = tone(n, f_drums, 0.25);
+    let o = tone(n, f_other, 0.25);
+    let mix: Vec<f32> = (0..n * 2).map(|i| v[i] + d[i] + o[i]).collect();
+    let stems = StemInput {
+        sample_rate: SR,
+        vocals: v,
+        drums: d,
+        bass: vec![0.0; n * 2],
+    };
+    TrackData::new_with_stems(
+        TrackId(id),
+        DecodedAudio {
+            sample_rate: SR,
+            channels: 2,
+            samples: mix,
+        },
+        SR,
+        Beatgrid::constant(120.0, 0.0, 1, seconds),
+        &[],
+        0.0,
+        Some(&stems),
+    )
+}
+
+/// Amplitude of the `freq` component of the left channel (Goertzel,
+/// Hann-windowed).
+pub fn tone_level(interleaved: &[f32], freq: f64) -> f64 {
+    let l: Vec<f64> = interleaved.as_chunks::<2>().0.iter().map(|f| f[0] as f64).collect();
+    let n = l.len();
+    let w = std::f64::consts::TAU * freq / SR as f64;
+    let (mut re, mut im, mut wsum) = (0.0, 0.0, 0.0);
+    for (i, x) in l.iter().enumerate() {
+        let win = 0.5 - 0.5 * (std::f64::consts::TAU * i as f64 / n as f64).cos();
+        re += x * win * (w * i as f64).cos();
+        im += x * win * (w * i as f64).sin();
+        wsum += win;
+    }
+    2.0 * (re * re + im * im).sqrt() / wsum
+}

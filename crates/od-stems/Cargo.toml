@@ -1,0 +1,32 @@
+[package]
+name = "od-stems"
+description = "Stem separation (HT-Demucs via ONNX Runtime), stem cache and background worker for OpenDecks Session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["separation"]
+# Neural separation (ONNX Runtime + model download). Without it (e.g. the
+# Raspberry Pi Lite build) the crate still reads cached stems.
+separation = ["dep:ort", "dep:ureq", "dep:sha2"]
+
+[dependencies]
+od-core.workspace = true
+od-decode.workspace = true
+od-engine.workspace = true
+od-library.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+crossbeam-channel.workspace = true
+parking_lot.workspace = true
+zstd = { version = "0.13", features = ["zstdmt"] }
+# rustls for the build-time binary download: the native-tls/platform-verifier
+# path hung in our sandboxed build environment.
+ort = { version = "2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-rustls", "copy-dylibs", "api-24"], optional = true }
+ureq = { version = "3", optional = true }
+sha2 = { version = "0.10", optional = true }
+
+[dev-dependencies]
+tempfile.workspace = true
+hound = "3"

@@ -1,232 +1,614 @@
-// Perform: decks read like spectrograph plates. The playhead is the doubled
-// sodium line; each deck owns one emission line and always shows its numeral.
+// Perform: the layout DJs know from performance mode, built on one grid.
+// Zoomed three-band waveforms span the full width at the top; below them the
+// odd decks, the mixer and the even decks sit edge to edge, separated only by
+// shared 1px rules (no boxed panels, no gutters). Each deck: header, overview
+// with phrase bar, jog display beside its state controls and tempo fader, and
+// CUE / PLAY beside the 4×2 hot cue pads, where a rekordbox user expects them.
 
 import { Theme } from "tokens.slint";
-import { VLine, HLine, ProgressLine } from "lines.slint";
-import { Caps, PlateButton } from "controls.slint";
-import { DeckView, CueMark, TrackRow } from "structs.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, PlateButton, Glyph, Knob, Fader, Toggle, Transport, Jog } from "controls.slint";
+import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark } from "structs.slint";
+
+// Phrase bar: one labelled block per phrase.
+export component PhraseBar inherits Rectangle {
+    in property <[PhraseMark]> phrases;
+    height: 14px;
+    background: Theme.ground;
+    for p in root.phrases: Rectangle {
+        x: parent.width * p.pos;
+        width: max(1px, parent.width * (p.end - p.pos) - 1px);
+        background: p.tone.with-alpha(0.32);
+        Rectangle { y: 0; height: 2px; background: p.tone; }
+        Text {
+            x: 3px; width: parent.width - 4px;
+            text: parent.width > 30px ? p.label : "";
+            font-family: Theme.family; font-size: 9px; font-weight: 600; letter-spacing: 0.8px;
+            color: Theme.bone; vertical-alignment: center; overflow: clip;
+        }
+    }
+}
+
+// One zoomed, scrolling waveform lane with the deck's numeral in a gutter.
+component WaveLane inherits Rectangle {
+    in property <DeckView> deck;
+    property <color> tone: Theme.deck-color(root.deck.deck);
+    property <length> gutter: 44px;
+    background: Theme.ground-band;
+    Rectangle {
+        x: 0; y: 0; width: root.gutter; height: parent.height;
+        background: Theme.ground;
+        VLine { x: 0; height: parent.height; weight: 3px; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
+        Text {
+            x: 8px; width: root.gutter - 12px; y: 4px;
+            text: root.deck.deck;
+            font-family: Theme.family; font-size: 18px; font-weight: 600; color: root.tone;
+            horizontal-alignment: center;
+        }
+        if root.deck.master: Text {
+            x: 8px; width: root.gutter - 12px; y: parent.height - 16px;
+            text: "M";
+            font-family: Theme.family; font-size: 10px; font-weight: 600; color: Theme.attention;
+            horizontal-alignment: center;
+        }
+        VLine { x: parent.width - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
+    }
+    Image { x: root.gutter; width: parent.width - root.gutter; height: parent.height; source: root.deck.waveform; image-fit: fill; }
+    // Playhead at the centre of the waveform area.
+    Rectangle {
+        x: root.gutter + (parent.width - root.gutter) / 2 - 1px; width: 2px; height: parent.height;
+        background: root.deck.loaded ? Theme.bone : Theme.rule-strong;
+    }
+    if root.deck.loaded && root.deck.phrase != "": Text {
+        x: root.gutter + (parent.width - root.gutter) / 2 + 8px; y: 4px;
+        text: root.deck.phrase;
+        font-family: Theme.family; font-size: 10px; font-weight: 600; letter-spacing: 1px; color: Theme.bone;
+    }
+    if root.deck.loaded: Text {
+        x: parent.width - self.preferred-width - 8px; y: 4px;
+        text: root.deck.beat-pos;
+        font-family: Theme.family; font-size: 11px; font-weight: 600; color: Theme.bone-2;
+    }
+    HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+}
+
+// A hot cue pad: filled in the cue colour when set, letter and time/label.
+export component Pad inherits Rectangle {
+    in property <HotCueSlot> cue;
+    callback pressed();
+    property <color> tone: Theme.cue-color(root.cue.slot);
+    height: 30px;
+    background: root.cue.set
+        ? (touch.pressed ? root.tone.with-alpha(0.5) : root.tone.with-alpha(touch.has-hover ? 0.34 : 0.24))
+        : (touch.pressed ? Theme.plate-raised : touch.has-hover ? Theme.plate-raised.mix(Theme.plate, 0.5) : Theme.plate);
+    border-width: 1px;
+    border-color: root.cue.set ? root.tone.with-alpha(0.85) : Theme.rule;
+    Rectangle { y: 0; height: 2px; background: root.cue.set ? root.tone : transparent; }
+    Text {
+        x: 8px; height: parent.height;
+        text: root.cue.letter;
+        font-family: Theme.family; font-size: 13px; font-weight: 600;
+        color: root.cue.set ? Theme.bone : Theme.bone-3; vertical-alignment: center;
+    }
+    Text {
+        x: 24px; width: parent.width - 28px; height: parent.height;
+        text: root.cue.label != "" ? root.cue.label : root.cue.time;
+        font-family: Theme.family; font-size: 11px;
+        color: Theme.bone-2; vertical-alignment: center; overflow: elide;
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.pressed(); } }
+}
 
 component Readout inherits VerticalLayout {
     in property <string> label;
     in property <string> value;
+    in property <string> sub;
     in property <color> tone: Theme.bone;
     in property <length> size: 22px;
+    in property <TextHorizontalAlignment> align: right;
     spacing: 0;
-    Caps { text: root.label; font-size: 10px; }
-    Text { text: root.value == "" ? "—" : root.value; font-family: Theme.family; font-size: root.size; font-weight: 500; color: root.tone; }
-}
-
-component StateMark inherits Rectangle {
-    in property <string> label;
-    in property <bool> on;
-    in property <color> tone: Theme.bone;
-    width: t.preferred-width + 14px;
-    height: 18px;
-    VLine { x: 0; y: 3px; height: 12px; weight: 2px; tone: root.on ? root.tone : Theme.rule-strong; form: root.on ? "solid" : "half"; }
-    t := Text {
-        x: 8px; height: parent.height;
-        text: root.label;
-        font-family: Theme.family; font-size: 11px; font-weight: 600; letter-spacing: 1.5px;
-        color: root.on ? Theme.bone : Theme.bone-3;
-        vertical-alignment: center;
+    alignment: center;
+    Caps { text: root.label; font-size: 10px; horizontal-alignment: root.align; }
+    Text {
+        text: root.value == "" ? "—" : root.value;
+        font-family: Theme.family; font-size: root.size; font-weight: 600;
+        color: root.tone; horizontal-alignment: root.align;
+    }
+    if root.sub != "": Text {
+        text: root.sub;
+        font-family: Theme.family; font-size: 11px; font-weight: 500;
+        color: Theme.bone-2; horizontal-alignment: root.align;
     }
 }
 
-export component DeckPlate inherits Rectangle {
+// Track overview with progress veil, cue lines, needle search, phrase bar.
+component Overview inherits VerticalLayout {
+    in property <DeckView> deck;
+    in property <length> wave-height: 36px;
+    callback seek(float);
+    callback load();
+    spacing: 0;
+    Rectangle {
+        height: root.wave-height;
+        background: Theme.ground-band;
+        Image { width: parent.width; height: parent.height; source: root.deck.overview; image-fit: fill; }
+        Rectangle { x: 0; width: parent.width * root.deck.progress; height: parent.height; background: Theme.ground.with-alpha(0.55); }
+        for c in root.deck.cues: VLine {
+            x: parent.width * c.pos; height: parent.height; weight: c.slot >= 0 ? 2px : 1px;
+            tone: c.slot >= 0 ? Theme.cue-color(c.slot) : Theme.bone;
+            form: c.slot >= 0 ? "solid" : "dashed";
+        }
+        if root.deck.loaded: Rectangle { x: parent.width * root.deck.progress - 1px; width: 2px; height: parent.height; background: Theme.bone; }
+        TouchArea {
+            mouse-cursor: crosshair;
+            clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); }
+            moved => { if (self.pressed) { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
+        }
+        if !root.deck.loaded: Rectangle {
+            background: Theme.ground-band;
+            HorizontalLayout {
+                alignment: center;
+                PlateButton { compact: true; label: @tr("LOAD SELECTED"); tone: Theme.deck-color(root.deck.deck); clicked => { root.load(); } }
+            }
+        }
+    }
+    PhraseBar { phrases: root.deck.phrases; }
+}
+
+export component DeckPanel inherits Rectangle {
     in property <DeckView> deck;
     in property <bool> compact;
+    in property <bool> touch-size;
     callback toggle-play();
     callback cue();
     callback sync();
+    callback master();
+    callback keylock();
+    callback quantize();
+    callback slip();
     callback seek(float);
     callback hot-cue(int);
+    callback tempo(float);
+    callback stem(string);
+    callback loop(float);
+    callback loop-exit();
+    callback loop-scale(float);
+    callback beat-jump(float);
+    callback load();
 
-    in property <bool> large-readouts;
-    // Kiosk: touch-sized transport and hot cue plates.
-    in property <bool> touch;
     property <color> tone: Theme.deck-color(root.deck.deck);
-
-    // Deck line and numeral.
-    VLine { x: 0; y: 0; height: parent.height; weight: 2px; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
-    Text {
-        x: 14px; y: 6px;
-        text: root.deck.deck;
-        font-family: Theme.family; font-size: root.compact ? 26px : 34px; font-weight: 600;
-        color: root.tone;
-    }
-
+    property <length> pad-h: root.touch-size ? (root.compact ? 34px : 42px) : 30px;
+    property <length> ctl-h: root.touch-size ? 34px : 26px;
+    background: Theme.ground;
     min-height: body.min-height;
+    preferred-height: body.preferred-height;
+
     body := VerticalLayout {
-        x: 52px; width: parent.width - 60px;
-        padding-top: 8px; padding-bottom: 8px;
-        spacing: 6px;
+        padding-left: 14px; padding-right: 12px;
+        padding-top: 10px; padding-bottom: 12px;
+        spacing: 8px;
+
+        // Header: numeral, title / artist, KEY and BPM (+ tempo).
         HorizontalLayout {
-            spacing: 18px;
+            spacing: 14px;
+            Text {
+                text: root.deck.deck;
+                font-family: Theme.family; font-size: root.compact ? 24px : 32px; font-weight: 600;
+                color: root.tone; vertical-alignment: center;
+            }
             VerticalLayout {
                 horizontal-stretch: 1;
+                alignment: center;
+                spacing: 1px;
                 Text {
-                    text: root.deck.loaded ? root.deck.title : @tr("Empty — load a track");
-                    font-family: Theme.family; font-size: root.compact ? 15px : 18px; font-weight: 600;
+                    text: root.deck.loaded ? root.deck.title : @tr("Not loaded — double-click a track or press LOAD");
+                    font-family: Theme.family; font-size: root.compact ? 14px : 16px; font-weight: 600;
                     color: root.deck.loaded ? Theme.bone : Theme.bone-3;
                     overflow: elide;
                 }
                 Text {
                     text: root.deck.artist;
-                    font-family: Theme.family; font-size: 13px; color: Theme.bone-2;
+                    font-family: Theme.family; font-size: 12px; color: Theme.bone-2;
                     overflow: elide;
                 }
             }
-            Readout { label: "BPM"; value: root.deck.bpm; size: root.large-readouts ? 34px : root.compact ? 18px : 28px; }
-            Readout { label: @tr("TEMPO"); value: root.deck.tempo; size: root.compact ? 14px : 16px; tone: Theme.bone-2; }
-            Readout { label: @tr("KEY"); value: root.deck.key; size: root.large-readouts ? 26px : root.compact ? 18px : 24px; }
-            Readout { label: @tr("REMAIN"); value: root.deck.remaining; size: root.large-readouts ? 34px : root.compact ? 18px : 28px; }
+            if root.compact: Readout { label: @tr("REMAIN"); value: root.deck.remaining; size: 18px; }
+            Readout { label: @tr("KEY"); value: root.deck.key; size: root.compact ? 18px : 22px; }
+            Readout { label: "BPM"; value: root.deck.bpm; sub: root.compact ? "" : root.deck.tempo; size: root.compact ? 20px : 26px; tone: root.deck.master ? Theme.attention : Theme.bone; }
         }
-        // Scrolling waveform; the centre line is the playhead.
-        Rectangle {
-            vertical-stretch: 1;
-            min-height: 48px;
-            background: Theme.ground-band;
-            Image { width: parent.width; height: parent.height; source: root.deck.waveform; image-fit: fill; }
-            VLine {
-                x: parent.width / 2 - 3px; height: parent.height; weight: 1px;
-                form: root.deck.loaded ? "double" : "half";
-                tone: root.deck.loaded ? Theme.attention : Theme.rule-strong;
-            }
+
+        Overview {
+            deck: root.deck;
+            wave-height: root.compact ? 28px : 38px;
+            seek(p) => { root.seek(p); }
+            load => { root.load(); }
         }
-        // Overview with position and cue lines.
-        Rectangle {
-            height: root.compact ? 22px : 30px;
-            Image { width: parent.width; height: parent.height; source: root.deck.overview; image-fit: fill; }
-            Rectangle {
-                x: 0; width: parent.width * root.deck.progress; height: parent.height;
-                background: Theme.ground.with-alpha(0.55);
-            }
-            for c in root.deck.cues: VLine {
-                x: parent.width * c.pos; height: parent.height; weight: c.slot >= 0 ? 2px : 1px;
-                tone: c.slot >= 0 ? Theme.cue-color(c.slot) : Theme.bone;
-                form: c.slot >= 0 ? "solid" : "dashed";
-            }
-            if root.deck.loaded: VLine { x: parent.width * root.deck.progress; height: parent.height; weight: 1px; form: "double"; tone: Theme.attention; }
-            TouchArea { clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
-        }
-        HorizontalLayout {
-            spacing: 10px;
-            StateMark { label: @tr("PLAY"); on: root.deck.playing; tone: Theme.live; }
-            StateMark { label: "SYNC"; on: root.deck.sync; tone: Theme.w486; }
-            StateMark { label: "MASTER"; on: root.deck.master; tone: Theme.attention; }
-            StateMark { label: @tr("KEYLOCK"); on: root.deck.keylock; tone: Theme.w436; }
-            StateMark { label: @tr("LOOP") + (root.deck.looping ? " " + root.deck.loop-beats : ""); on: root.deck.looping; tone: Theme.w615; }
-            StateMark { label: "SLIP"; on: root.deck.slip; tone: Theme.w405; }
-            Rectangle { horizontal-stretch: 1; }
-            Text { text: root.deck.elapsed; font-family: Theme.family; font-size: 13px; color: Theme.bone-3; vertical-alignment: center; }
-        }
+
+        // ── Full deck: jog | state, loop, jump, stems | tempo ──
         if !root.compact: HorizontalLayout {
-            spacing: 6px;
-            PlateButton { compact: true; tall: root.touch; label: "CUE"; tone: Theme.attention; clicked => { root.cue(); } }
-            PlateButton { compact: true; tall: root.touch; label: root.deck.playing ? @tr("PAUSE") : @tr("PLAY"); tone: Theme.live; active: root.deck.playing; clicked => { root.toggle-play(); } }
-            PlateButton { compact: true; tall: root.touch; label: "SYNC"; tone: Theme.w486; active: root.deck.sync; clicked => { root.sync(); } }
-            Rectangle { horizontal-stretch: 1; }
-            for i in 8: PlateButton {
-                compact: true;
-                tall: root.touch;
-                label: ["A", "B", "C", "D", "E", "F", "G", "H"][i];
-                tone: Theme.cue-color(i);
-                clicked => { root.hot-cue(i); }
+            spacing: 14px;
+            Jog {
+                size: root.touch-size ? 170px : 150px;
+                angle: root.deck.jog-angle;
+                progress: root.deck.progress;
+                playing: root.deck.playing;
+                loaded: root.deck.loaded;
+                tone: root.tone;
+                top-text: @tr("REMAIN");
+                main-text: root.deck.loaded ? root.deck.remaining : "—";
+                sub-text: root.deck.elapsed;
+                touched => { root.toggle-play(); }
             }
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 6px;
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 4px;
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "SYNC"; on: root.deck.sync; tone: Theme.w486; clicked => { root.sync(); } }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "MASTER"; on: root.deck.master; tone: Theme.attention; clicked => { root.master(); } }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: @tr("KEY LOCK"); on: root.deck.keylock; tone: Theme.w436; clicked => { root.keylock(); } }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "Q"; on: root.deck.quantize; tone: Theme.attention; clicked => { root.quantize(); } }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "SLIP"; on: root.deck.slip; tone: Theme.w405; clicked => { root.slip(); } }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    Caps { text: "LOOP"; font-size: 10px; vertical-alignment: center; width: 54px; }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "½"; clicked => { root.loop-scale(0.5); } }
+                    Toggle {
+                        size: root.ctl-h; horizontal-stretch: 2;
+                        label: root.deck.loop-size; on: root.deck.looping; tone: Theme.w615;
+                        clicked => { if (root.deck.looping) { root.loop-exit(); } else { root.loop(0); } }
+                    }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "2×"; clicked => { root.loop-scale(2); } }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    Caps { text: @tr("JUMP"); font-size: 10px; vertical-alignment: center; width: 54px; }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "−16"; clicked => { root.beat-jump(-16); } }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "−4"; clicked => { root.beat-jump(-4); } }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "+4"; clicked => { root.beat-jump(4); } }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "+16"; clicked => { root.beat-jump(16); } }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    Caps {
+                        text: root.deck.stems-busy ? @tr("SPLIT…") : "STEMS";
+                        font-size: 10px; vertical-alignment: center; width: 54px;
+                        color: root.deck.stems-busy ? Theme.attention : Theme.bone-3;
+                    }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "VOCAL"; on: root.deck.mute-vocal; tone: Theme.w656; enabled: root.deck.stems-available; clicked => { root.stem("vocal"); } }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "INST"; on: root.deck.mute-inst; tone: Theme.w546; enabled: root.deck.stems-available; clicked => { root.stem("inst"); } }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "DRUMS"; on: root.deck.mute-drums; tone: Theme.w486; enabled: root.deck.stems-available; clicked => { root.stem("drums"); } }
+                    Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "BASS"; on: root.deck.mute-bass; tone: Theme.w405; enabled: root.deck.stems-available; clicked => { root.stem("bass"); } }
+                }
+            }
+            VerticalLayout {
+                width: 44px;
+                spacing: 2px;
+                Text { text: root.deck.tempo; font-family: Theme.family; font-size: 11px; font-weight: 600; horizontal-alignment: center; color: Theme.bone; }
+                Fader {
+                    vertical-stretch: 1;
+                    min-height: 80px;
+                    width: 44px;
+                    // Fader handle down = faster, as on the hardware.
+                    value: (1 - root.deck.tempo-value) / 2;
+                    tone: Theme.bone-3;
+                    changed(v) => { root.tempo(1 - v * 2); }
+                }
+                Caps { text: root.deck.tempo-range; font-size: 10px; horizontal-alignment: center; }
+            }
+        }
+
+        // ── Full deck: CUE / PLAY | hot cue pads 4×2 ──
+        if !root.compact: HorizontalLayout {
+            spacing: 14px;
+            HorizontalLayout {
+                width: root.touch-size ? 170px : 150px;
+                spacing: 12px;
+                alignment: center;
+                Transport { kind: "cue"; tone: Theme.attention; size: root.touch-size ? 64px : 56px; clicked => { root.cue(); } }
+                Transport { kind: "play"; on: root.deck.playing; tone: Theme.live; size: root.touch-size ? 64px : 56px; clicked => { root.toggle-play(); } }
+            }
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 4px;
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 4px;
+                    for c in root.deck.pads-left: Pad { horizontal-stretch: 1; height: root.pad-h; cue: c; pressed => { root.hot-cue(c.slot); } }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    for c in root.deck.pads-right: Pad { horizontal-stretch: 1; height: root.pad-h; cue: c; pressed => { root.hot-cue(c.slot); } }
+                }
+            }
+        }
+
+        // ── Compact deck (four decks / small screens) ──
+        if root.compact: HorizontalLayout {
+            spacing: 4px;
+            Toggle { size: root.ctl-h; label: "SYNC"; on: root.deck.sync; tone: Theme.w486; clicked => { root.sync(); } }
+            Toggle { size: root.ctl-h; label: "MASTER"; on: root.deck.master; tone: Theme.attention; clicked => { root.master(); } }
+            Toggle { size: root.ctl-h; label: @tr("KEY LOCK"); on: root.deck.keylock; tone: Theme.w436; clicked => { root.keylock(); } }
+            Toggle { size: root.ctl-h; label: "Q"; on: root.deck.quantize; tone: Theme.attention; clicked => { root.quantize(); } }
+            Toggle { size: root.ctl-h; label: root.deck.loop-size; on: root.deck.looping; tone: Theme.w615; clicked => { if (root.deck.looping) { root.loop-exit(); } else { root.loop(0); } } }
+            Rectangle { horizontal-stretch: 1; }
+            Toggle { size: root.ctl-h; label: "VOC"; on: root.deck.mute-vocal; tone: Theme.w656; enabled: root.deck.stems-available; clicked => { root.stem("vocal"); } }
+            Toggle { size: root.ctl-h; label: "INST"; on: root.deck.mute-inst; tone: Theme.w546; enabled: root.deck.stems-available; clicked => { root.stem("inst"); } }
+            Toggle { size: root.ctl-h; label: "DRM"; on: root.deck.mute-drums; tone: Theme.w486; enabled: root.deck.stems-available; clicked => { root.stem("drums"); } }
+            Toggle { size: root.ctl-h; label: "BASS"; on: root.deck.mute-bass; tone: Theme.w405; enabled: root.deck.stems-available; clicked => { root.stem("bass"); } }
+        }
+        if root.compact: HorizontalLayout {
+            spacing: 6px;
+            Transport { kind: "cue"; tone: Theme.attention; size: root.touch-size ? 44px : 34px; clicked => { root.cue(); } }
+            Transport { kind: "play"; on: root.deck.playing; tone: Theme.live; size: root.touch-size ? 44px : 34px; clicked => { root.toggle-play(); } }
+            for c in root.deck.pads: Pad { horizontal-stretch: 1; height: root.pad-h; cue: c; pressed => { root.hot-cue(c.slot); } }
         }
     }
-    // Level meter on the right edge.
-    Rectangle {
-        x: parent.width - 4px; y: 8px; width: 2px; height: parent.height - 16px;
-        background: Theme.rule;
-        Rectangle {
-            y: parent.height * (1 - clamp(root.deck.level, 0, 1));
-            height: parent.height * clamp(root.deck.level, 0, 1);
-            background: root.deck.level > 0.95 ? Theme.fault : Theme.bone-2;
+    // Deck line along the outer edge.
+    VLine { x: 0; y: 0; height: parent.height; weight: 3px; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
+    HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+}
+
+// One mixer channel: knob column beside numeral, CUE, meter and fader.
+component ChannelStrip inherits Rectangle {
+    in property <ChannelView> ch;
+    in property <bool> roomy: true;
+    callback trim(float);
+    callback eq(int, float);
+    callback cfx(float);
+    callback fader(float);
+    callback cue();
+    property <color> tone: Theme.deck-color(root.ch.channel);
+    property <length> k: root.roomy ? 24px : 20px;
+    HorizontalLayout {
+        spacing: 6px;
+        VerticalLayout {
+            spacing: 2px;
+            alignment: start;
+            Knob { label: "TRIM"; value: root.ch.trim; size: root.k; changed(v) => { root.trim(v); } }
+            Knob { label: "HI"; value: root.ch.high; size: root.k; tone: Theme.w486; changed(v) => { root.eq(2, v); } }
+            Knob { label: "MID"; value: root.ch.mid; size: root.k; tone: Theme.w546; changed(v) => { root.eq(1, v); } }
+            Knob { label: "LOW"; value: root.ch.low; size: root.k; tone: Theme.w656; changed(v) => { root.eq(0, v); } }
+            Knob { label: "CFX"; value: root.ch.cfx; size: root.k; tone: Theme.w405; changed(v) => { root.cfx(v); } }
+        }
+        VerticalLayout {
+            width: 40px;
+            spacing: 6px;
+            Text { text: root.ch.channel; font-family: Theme.family; font-size: 16px; font-weight: 600; color: root.tone; horizontal-alignment: center; }
+            Toggle { label: "CUE"; on: root.ch.cue; tone: Theme.attention; clicked => { root.cue(); } }
+            HorizontalLayout {
+                vertical-stretch: 1;
+                min-height: 80px;
+                spacing: 3px;
+                // Level meter: amber near the top, red at clip.
+                Rectangle {
+                    width: 5px;
+                    background: Theme.ground;
+                    Rectangle {
+                        y: parent.height * (1 - clamp(root.ch.level, 0, 1));
+                        height: parent.height * clamp(root.ch.level, 0, 1);
+                        background: root.ch.peak > 0.99 ? Theme.fault : root.ch.level > 0.8 ? Theme.attention : Theme.live;
+                    }
+                }
+                Fader { value: root.ch.fader; tone: root.tone; changed(v) => { root.fader(v); } }
+            }
         }
     }
 }
 
+// Horizontal crossfader.
+component Crossfader inherits Rectangle {
+    in-out property <float> value: 0.5;
+    callback changed(float);
+    height: 28px;
+    Caps { x: 0; height: parent.height; text: "A"; vertical-alignment: center; }
+    Caps { x: parent.width - 8px; height: parent.height; text: "B"; vertical-alignment: center; }
+    Rectangle { x: 14px; y: parent.height / 2 - 1px; width: parent.width - 28px; height: 2px; background: Theme.rule-strong; }
+    Rectangle { x: parent.width / 2; y: 6px; width: 1px; height: parent.height - 12px; background: Theme.bone-3; }
+    Rectangle {
+        x: 14px + (parent.width - 28px - 16px) * root.value; y: 2px; width: 16px; height: parent.height - 4px;
+        background: Theme.plate-raised; border-width: 1px; border-color: touch.has-hover ? Theme.bone-2 : Theme.bone-3;
+        Rectangle { x: 7px; width: 2px; y: 3px; height: parent.height - 6px; background: Theme.bone; }
+    }
+    touch := TouchArea {
+        mouse-cursor: ew-resize;
+        moved => { if (self.pressed) { root.value = clamp((self.mouse-x - 22px) / (root.width - 44px), 0, 1); root.changed(root.value); } }
+        double-clicked => { root.value = 0.5; root.changed(0.5); }
+    }
+}
+
+// The mixer column: channels, master / headphones, crossfader.
+export component MixerPanel inherits Rectangle {
+    in property <[ChannelView]> channels;
+    in property <float> crossfader: 0.5;
+    in property <float> master-level: 1;
+    in property <float> headphone-mix: 0.5;
+    in property <float> headphone-level: 0.8;
+    callback trim(int, float);
+    callback eq(int, int, float);
+    callback cfx(int, float);
+    callback fader(int, float);
+    callback cue(int);
+    callback set-crossfader(float);
+    callback set-master-level(float);
+    callback set-headphone-mix(float);
+    callback set-headphone-level(float);
+    background: Theme.ground-band;
+    min-width: lay.min-width;
+    preferred-width: lay.preferred-width;
+    lay := VerticalLayout {
+        padding: 12px;
+        spacing: 10px;
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: 12px;
+            alignment: center;
+            for c in root.channels: ChannelStrip {
+                ch: c;
+                roomy: root.channels.length <= 2;
+                trim(v) => { root.trim(c.channel, v); }
+                eq(b, v) => { root.eq(c.channel, b, v); }
+                cfx(v) => { root.cfx(c.channel, v); }
+                fader(v) => { root.fader(c.channel, v); }
+                cue => { root.cue(c.channel); }
+            }
+            VLine { weight: 1px; tone: Theme.rule; }
+            VerticalLayout {
+                spacing: 2px;
+                alignment: start;
+                Knob { label: "MASTER"; size: 24px; minimum: 0; maximum: 1; default-value: 1; value: root.master-level; tone: Theme.attention; changed(v) => { root.set-master-level(v); } }
+                Rectangle { height: 8px; }
+                Caps { text: @tr("PHONES"); font-size: 10px; horizontal-alignment: center; }
+                Knob { label: "MIX"; size: 22px; minimum: 0; maximum: 1; default-value: 0.5; value: root.headphone-mix; changed(v) => { root.set-headphone-mix(v); } }
+                Knob { label: @tr("LEVEL"); size: 22px; minimum: 0; maximum: 1; default-value: 0.8; value: root.headphone-level; changed(v) => { root.set-headphone-level(v); } }
+            }
+        }
+        Crossfader { value: root.crossfader; changed(v) => { root.set-crossfader(v); } }
+    }
+    HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+}
+
 export component PerformView inherits Rectangle {
     in property <[DeckView]> decks;
-    in property <bool> recording;
-    in property <string> recording-time;
-    in property <string> master-bpm;
+    in property <[DeckView]> decks-left;
+    in property <[DeckView]> decks-right;
+    in property <[ChannelView]> channels;
     in property <float> crossfader: 0.5;
-    in property <bool> engine-ready;
-    in property <string> engine-message;
-    in property <bool> focus-mode;
-    in property <int> focus-deck: 1;
-    in property <bool> show-browse-button;
-    in property <bool> browser-open;
-    callback toggle-browser();
+    in property <float> master-level: 1;
+    in property <float> headphone-mix: 0.5;
+    in property <float> headphone-level: 0.8;
+    in property <bool> tight;
+    in property <bool> touch-size;
+    in property <bool> show-mixer: true;
     callback toggle-play(int);
     callback cue(int);
     callback sync(int);
+    callback master(int);
+    callback keylock(int);
+    callback quantize(int);
+    callback slip(int);
     callback seek(int, float);
     callback hot-cue(int, int);
-    callback toggle-recording();
-    callback set-deck-count(int);
+    callback tempo(int, float);
+    callback stem(int, string);
+    callback loop(int, float);
+    callback loop-exit(int);
+    callback loop-scale(int, float);
+    callback beat-jump(int, float);
+    callback load(int);
+    callback trim(int, float);
+    callback eq(int, int, float);
+    callback cfx(int, float);
+    callback fader(int, float);
+    callback channel-cue(int);
+    callback set-crossfader(float);
+    callback set-master-level(float);
+    callback set-headphone-mix(float);
+    callback set-headphone-level(float);
+    background: Theme.ground;
 
-    // Small screens (7" Pi display): compact deck plates. Set from Rust
-    // from the window size (a layout-derived value would be recursive).
-    in property <bool> tight;
     VerticalLayout {
-        padding: root.tight ? 10px : 16px;
-        spacing: root.tight ? 6px : 10px;
-        HorizontalLayout {
-            spacing: root.tight ? 10px : 18px;
-            height: root.show-browse-button ? 48px : root.tight ? 32px : 40px;
-            Text {
-                text: "PERFORM";
-                font-family: Theme.family; font-size: root.tight ? 17px : Theme.rank-b; font-weight: 600; letter-spacing: root.tight ? 3px : 4px;
-                color: Theme.bone; vertical-alignment: center;
-            }
-            Caps {
-                text: !root.engine-ready ? root.engine-message : root.master-bpm == "" ? @tr("NO MASTER") : @tr("MASTER {} BPM", root.master-bpm);
-                vertical-alignment: center;
-            }
-            Rectangle { horizontal-stretch: 1; }
-            if root.show-browse-button: PlateButton {
-                horizontal-stretch: 0; compact: true;
-                tall: root.tight || root.show-browse-button;
-                label: root.browser-open ? @tr("DECKS") : @tr("BROWSE");
-                tone: Theme.w486; active: root.browser-open;
-                clicked => { root.toggle-browser(); }
-            }
-            PlateButton { horizontal-stretch: 0; compact: true; tall: root.show-browse-button; label: @tr("2 DECKS"); active: root.decks.length == 2; clicked => { root.set-deck-count(2); } }
-            PlateButton { horizontal-stretch: 0; compact: true; tall: root.show-browse-button; label: @tr("4 DECKS"); active: root.decks.length == 4; clicked => { root.set-deck-count(4); } }
-            PlateButton {
-                horizontal-stretch: 0;
-                compact: true;
-                tall: root.show-browse-button;
-                label: root.recording ? @tr("REC {}", root.recording-time) : @tr("RECORD");
-                tone: Theme.fault;
-                active: root.recording;
-                clicked => { root.toggle-recording(); }
-            }
-        }
-        HLine { tone: Theme.rule; }
-        for d[i] in root.decks: DeckPlate {
-            vertical-stretch: 1;
+        spacing: 0;
+        // Zoomed waveforms; they take any spare height.
+        for d in root.decks: WaveLane {
             deck: d;
-            compact: root.decks.length > 2 || root.tight;
-            large-readouts: root.tight && root.decks.length <= 2;
-            touch: root.show-browse-button;
-            visible: !root.focus-mode || d.deck == root.focus-deck;
-            toggle-play => { root.toggle-play(d.deck); }
-            cue => { root.cue(d.deck); }
-            sync => { root.sync(d.deck); }
-            seek(p) => { root.seek(d.deck, p); }
-            hot-cue(s) => { root.hot-cue(d.deck, s); }
+            min-height: root.tight ? 40px : root.decks.length > 2 ? 48px : 64px;
+            preferred-height: root.tight ? 46px : root.decks.length > 2 ? 60px : 96px;
+            vertical-stretch: 1;
         }
-        // Crossfader position as a single line on a ruler.
-        Rectangle {
-            height: 22px;
-            HLine { y: 10px; width: parent.width; tone: Theme.rule-strong; }
-            Caps { x: 0; y: 0; text: "A"; }
-            Caps { x: parent.width - 10px; y: 0; text: "B"; }
-            VLine { x: (parent.width - 4px) * root.crossfader; y: 2px; height: 18px; weight: 2px; tone: Theme.bone; }
+        // Decks (odd left, even right) edge to edge with the mixer.
+        HorizontalLayout {
+            spacing: 0;
+            vertical-stretch: 0;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 0;
+                alignment: start;
+                for d in root.decks-left: DeckPanel {
+                    deck: d;
+                    compact: root.tight || root.decks.length > 2;
+                    touch-size: root.touch-size;
+                    toggle-play => { root.toggle-play(d.deck); }
+                    cue => { root.cue(d.deck); }
+                    sync => { root.sync(d.deck); }
+                    master => { root.master(d.deck); }
+                    keylock => { root.keylock(d.deck); }
+                    quantize => { root.quantize(d.deck); }
+                    slip => { root.slip(d.deck); }
+                    seek(p) => { root.seek(d.deck, p); }
+                    hot-cue(s) => { root.hot-cue(d.deck, s); }
+                    tempo(v) => { root.tempo(d.deck, v); }
+                    stem(s) => { root.stem(d.deck, s); }
+                    loop(b) => { root.loop(d.deck, b); }
+                    loop-exit => { root.loop-exit(d.deck); }
+                    loop-scale(f) => { root.loop-scale(d.deck, f); }
+                    beat-jump(b) => { root.beat-jump(d.deck, b); }
+                    load => { root.load(d.deck); }
+                }
+            }
+            VLine { weight: 1px; tone: Theme.rule; }
+            if root.show-mixer: MixerPanel {
+                horizontal-stretch: 0;
+                channels: root.channels;
+                crossfader: root.crossfader;
+                master-level: root.master-level;
+                headphone-mix: root.headphone-mix;
+                headphone-level: root.headphone-level;
+                trim(c, v) => { root.trim(c, v); }
+                eq(c, b, v) => { root.eq(c, b, v); }
+                cfx(c, v) => { root.cfx(c, v); }
+                fader(c, v) => { root.fader(c, v); }
+                cue(c) => { root.channel-cue(c); }
+                set-crossfader(v) => { root.set-crossfader(v); }
+                set-master-level(v) => { root.set-master-level(v); }
+                set-headphone-mix(v) => { root.set-headphone-mix(v); }
+                set-headphone-level(v) => { root.set-headphone-level(v); }
+            }
+            if root.show-mixer: VLine { weight: 1px; tone: Theme.rule; }
+            VerticalLayout {
+                horizontal-stretch: 1;
+                spacing: 0;
+                alignment: start;
+                for d in root.decks-right: DeckPanel {
+                    deck: d;
+                    compact: root.tight || root.decks.length > 2;
+                    touch-size: root.touch-size;
+                    toggle-play => { root.toggle-play(d.deck); }
+                    cue => { root.cue(d.deck); }
+                    sync => { root.sync(d.deck); }
+                    master => { root.master(d.deck); }
+                    keylock => { root.keylock(d.deck); }
+                    quantize => { root.quantize(d.deck); }
+                    slip => { root.slip(d.deck); }
+                    seek(p) => { root.seek(d.deck, p); }
+                    hot-cue(s) => { root.hot-cue(d.deck, s); }
+                    tempo(v) => { root.tempo(d.deck, v); }
+                    stem(s) => { root.stem(d.deck, s); }
+                    loop(b) => { root.loop(d.deck, b); }
+                    loop-exit => { root.loop-exit(d.deck); }
+                    loop-scale(f) => { root.loop-scale(d.deck, f); }
+                    beat-jump(b) => { root.beat-jump(d.deck, b); }
+                    load => { root.load(d.deck); }
+                }
+            }
+        }
+        // Without the mixer column (small screens): crossfader strip.
+        if !root.show-mixer: Rectangle {
+            height: 40px;
+            background: Theme.ground-band;
+            HorizontalLayout {
+                padding-left: 14px; padding-right: 14px;
+                padding-top: 6px; padding-bottom: 6px;
+                alignment: center;
+                Crossfader { width: 320px; value: root.crossfader; changed(v) => { root.set-crossfader(v); } }
+            }
+            HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
         }
     }
 }

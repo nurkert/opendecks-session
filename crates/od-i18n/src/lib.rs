@@ -98,6 +98,9 @@ const DE: &[(&str, &str)] = &[
     ("Controller connected: {}", "Controller verbunden: {}"),
     ("Controller disconnected: {}", "Controller getrennt: {}"),
     ("Loaded {} on deck {}", "{} auf Deck {} geladen"),
+    ("Stems ready on deck {}", "Stems auf Deck {} bereit"),
+    ("Downloading the stem model … {} %", "Stem-Modell wird geladen … {} %"),
+    ("Stem separation failed: {}", "Stem-Trennung fehlgeschlagen: {}"),
     ("Recording saved: {} ({} tracks)", "Aufnahme gespeichert: {} ({} Tracks)"),
     ("Audio starts when you load a track", "Audio startet, sobald du einen Track lädst"),
 ];

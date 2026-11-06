@@ -9,6 +9,7 @@ import { TrackRow } from "structs.slint";
 
 export global Columns {
     out property <length> pos: 34px;
+    out property <length> preview: 116px;
     out property <length> bpm: 58px;
     out property <length> key: 46px;
     out property <length> time: 52px;
@@ -87,6 +88,10 @@ component TrackLine inherits Rectangle {
             color: Theme.bone-3;
             horizontal-alignment: right;
             font-size: 12px;
+        }
+        Rectangle {
+            width: Columns.preview;
+            Image { x: 0; y: (parent.height - 20px) / 2; width: parent.width - 6px; height: 20px; source: root.item.preview; image-fit: fill; }
         }
         Rectangle {
             horizontal-stretch: 3; min-width: 0px; preferred-width: 0px;
@@ -171,6 +176,7 @@ export component TrackTable inherits Rectangle {
                 padding-right: 12px;
                 spacing: 12px;
                 HeaderCell { width: Columns.pos; label: "#"; column: "position"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { width: Columns.preview; label: @tr("PREVIEW"); column: "preview"; sort-column: root.sort-column; descending: root.descending; }
                 HeaderCell { min-width: 0px; preferred-width: 0px; horizontal-stretch: 3; label: @tr("TITLE"); column: "title"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
                 HeaderCell { min-width: 0px; preferred-width: 0px; horizontal-stretch: 2; label: @tr("ARTIST"); column: "artist"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
                 HeaderCell { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; label: @tr("GENRE"); column: "genre"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
@@ -199,10 +205,10 @@ export component TrackTable inherits Rectangle {
             function reveal() {
                 if (root.focus-row < 0) { return; }
                 let top = root.focus-row * Theme.row-height;
-                if (top < -self.viewport-y) {
-                    self.viewport-y = -top;
-                } else if (top + Theme.row-height > -self.viewport-y + self.visible-height) {
-                    self.viewport-y = -(top + Theme.row-height - self.visible-height);
+                if (top < -self.content-y) {
+                    self.content-y = -top;
+                } else if (top + Theme.row-height > -self.content-y + self.height) {
+                    self.content-y = -(top + Theme.row-height - self.height);
                 }
             }
             for row[i] in root.rows: TrackLine {

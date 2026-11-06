@@ -1,15 +1,16 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine, ProgressLine } from "lines.slint";
-import { Caps, PlateButton, Field, LineToggle } from "controls.slint";
-import { Rail } from "rail.slint";
+import { Caps, PlateButton, Field, LineToggle, Splitter } from "controls.slint";
+import { Sidebar } from "sidebar.slint";
+import { TopBar } from "topbar.slint";
+import { PreparePlayer } from "player.slint";
 import { TrackTable } from "table.slint";
-import { TrackPlate } from "plate.slint";
-import { DeviceBoard, DeviceLine } from "devices.slint";
+import { DeviceLine } from "devices.slint";
 import { SetFlow } from "flow.slint";
 import { PerformView } from "perform.slint";
-import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView } from "structs.slint";
+import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark } from "structs.slint";
 
-export { Theme, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView }
+export { Theme, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark }
 
 export struct ProposalRow {
     index: int,
@@ -92,6 +93,13 @@ export component AppWindow inherits Window {
     in property <[CueMark]> track-cues;
     in property <[HotCueSlot]> hot-cues-top;
     in property <[HotCueSlot]> hot-cues-bottom;
+    in property <[PhraseMark]> track-phrases;
+    // Pane sizes, set by the splitters and restored from the library.
+    in-out property <length> sidebar-width: 260px;
+    in-out property <length> upper-height: 0px;
+    in property <[HotCueSlot]> hot-cues;
+    in property <image> track-detail;
+    in property <string> track-position;
     in property <float> cursor;
     in property <bool> previewing;
 
@@ -117,6 +125,12 @@ export component AppWindow inherits Window {
 
     // Perform.
     in property <[DeckView]> decks;
+    in property <[DeckView]> decks-left;
+    in property <[DeckView]> decks-right;
+    in property <[ChannelView]> channels;
+    in property <float> master-level: 1;
+    in property <float> headphone-mix: 0.5;
+    in property <float> headphone-level: 0.8;
     in property <bool> recording;
     in property <string> recording-time;
     in property <string> master-bpm;
@@ -190,6 +204,28 @@ export component AppWindow inherits Window {
     callback toggle-recording();
     callback set-deck-count(int);
     callback key-pressed(string, bool, bool) -> bool;
+    callback nudge(float);
+    callback jump-start();
+    callback deck-master(int);
+    callback deck-keylock(int);
+    callback deck-quantize(int);
+    callback deck-slip(int);
+    callback deck-tempo(int, float);
+    callback deck-stem(int, string);
+    callback deck-loop(int, float);
+    callback deck-loop-exit(int);
+    callback deck-loop-scale(int, float);
+    callback deck-beat-jump(int, float);
+    callback deck-load(int);
+    callback mixer-trim(int, float);
+    callback mixer-eq(int, int, float);
+    callback mixer-cfx(int, float);
+    callback mixer-fader(int, float);
+    callback mixer-cue(int);
+    callback set-crossfader(float);
+    callback set-master-level(float);
+    callback set-headphone-mix(float);
+    callback set-headphone-level(float);
 
     forward-focus: keys;
     // The charcoal continuum behind everything.
@@ -202,354 +238,343 @@ export component AppWindow inherits Window {
             reject
         }
 
-        HorizontalLayout {
-            if !root.kiosk || root.mode == "prepare": Rail {
-                width: 232px;
-                tree: root.tree;
-                selected-node: root.selected-node;
-                section: root.section;
-                can-add: root.has-selection;
+        VerticalLayout {
+            TopBar {
                 mode: root.mode;
-                select-section(s) => { root.select-section(s); }
-                select-node(id) => { root.select-node(id); }
-                toggle-node(id) => { root.toggle-node(id); }
-                add-to-node(id) => { root.add-to-node(id); }
-                set-mode(m) => { root.set-mode(m); }
-            }
-            VLine { weight: 1px; tone: Theme.rule; }
-
-            // ── Prepare ───────────────────────────────────────────────
-            if root.mode == "prepare": VerticalLayout {
-                horizontal-stretch: 1;
-                HorizontalLayout {
-                    vertical-stretch: 1;
-
-                    // Centre column.
-                    VerticalLayout {
-                        horizontal-stretch: 1;
-                        padding-left: 24px;
-                        padding-right: 20px;
-                        padding-top: 20px;
-                        spacing: 12px;
-
-                        if root.section == "library": HorizontalLayout {
-                            spacing: 12px;
-                            height: 40px;
-                            title := TextInput {
-                                horizontal-stretch: 1;
-                                text: root.node-title;
-                                read-only: root.node-kind == "all" || root.read-only;
-                                font-family: Theme.family; font-size: Theme.rank-b; font-weight: 600;
-                                color: Theme.bone;
-                                vertical-alignment: center;
-                                single-line: true;
-                                accepted => { root.rename-node(self.text); keys.focus(); }
-                            }
-                            Caps { text: root.node-sub; vertical-alignment: center; }
-                        }
-                        if root.section == "library": HorizontalLayout {
-                            spacing: 8px;
-                            search := Field {
-                                min-width: 140px;
-                                horizontal-stretch: 1;
-                                placeholder: @tr("SEARCH  ⌘F");
-                                text <=> root.search-text;
-                                edited(t) => { root.search(t); }
-                            }
-                            if !root.read-only: PlateButton { compact: true; label: @tr("ADD MUSIC"); tone: Theme.live; clicked => { root.import-folder(); } }
-                            if !root.read-only: PlateButton { compact: true; label: @tr("PLAYLIST"); glyph: "plus"; clicked => { root.create-node("playlist"); } }
-                            if !root.read-only: PlateButton { compact: true; label: @tr("SET"); glyph: "plus"; tone: Theme.attention; clicked => { root.create-node("set"); } }
-                            if !root.read-only: PlateButton { compact: true; label: @tr("SMART"); glyph: "plus"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
-                            if !root.read-only: PlateButton { compact: true; label: @tr("FOLDER"); glyph: "plus"; clicked => { root.create-node("folder"); } }
-                            if root.node-kind == "all" && root.missing-count > 0: PlateButton { compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; clicked => { root.find-moved-files(); } }
-                            if root.node-kind != "all" && !root.read-only: PlateButton { compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
-                        }
-                        if root.section == "library" && root.node-kind == "smart": VerticalLayout {
-                            spacing: 4px;
-                            Field {
-                                placeholder: @tr("RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d");
-                                text: root.smart-rule-text;
-                                tone: Theme.w436;
-                                accepted(t) => { root.set-smart-rule(t); }
-                            }
-                            if root.smart-rule-error != "": Text {
-                                text: root.smart-rule-error;
-                                font-family: Theme.family; font-size: 12px; color: Theme.fault;
-                            }
-                        }
-                        if root.section == "library" && root.node-kind == "set": SetFlow {
-                            points: root.flow;
-                            total: root.flow-total;
-                            selected: root.flow-selected;
-                            select(i) => { root.flow-select(i); }
-                        }
-                        if root.section == "library" && root.node-kind == "set" && root.flow-selected >= 0: Field {
-                            placeholder: @tr("TRANSITION NOTE FOR THE SELECTED POSITION — ENTER TO SAVE");
-                            text: root.transition-note;
-                            tone: Theme.attention;
-                            accepted(t) => { root.set-transition-note(t); }
-                        }
-                        if root.section == "library": TrackTable {
-                            vertical-stretch: 1;
-                            rows: root.tracks;
-                            sort-column: root.sort-column;
-                            descending: root.sort-descending;
-                            focus-row: root.focus-row;
-                            show-position: root.node-kind == "playlist" || root.node-kind == "set";
-                            empty-text: root.node-kind == "all"
-                                ? @tr("Your library is empty. Use ADD MUSIC to add a folder, or import your rekordbox library once.")
-                                : @tr("No tracks here yet. Select tracks in All tracks and press + next to this list in the sidebar.");
-                            sort(c) => { root.sort(c); }
-                            row-clicked(i, c, s) => { root.row-clicked(i, c, s); keys.focus(); }
-                            row-activated(i) => { root.row-activated(i); }
-                        }
-                        if root.section == "library" && root.node-kind == "all" && root.tracks.length == 0: HorizontalLayout {
-                            alignment: center;
-                            spacing: 10px;
-                            PlateButton { label: @tr("ADD MUSIC FOLDER"); tone: Theme.live; clicked => { root.import-folder(); } }
-                            PlateButton { label: @tr("IMPORT FROM REKORDBOX"); tone: Theme.w486; clicked => { root.import-rekordbox(); } }
-                        }
-
-                        // ── Devices section ──
-                        if root.section == "devices": SectionTitle { title: @tr("USB STICKS"); sub: @tr("{} REGISTERED", root.devices.length); }
-                        if root.section == "devices": Text {
-                            text: @tr("Registered sticks are kept in sync automatically while they are plugged in. Every change to a playlist, cue or beatgrid reaches the stick within seconds.");
-                            wrap: word-wrap; font-family: Theme.family; font-size: 14px; color: Theme.bone-2;
-                        }
-                        if root.section == "devices": HorizontalLayout {
-                            vertical-stretch: 1;
-                            spacing: 32px;
-                            VerticalLayout {
-                                width: 360px;
-                                spacing: 6px;
-                                for d in root.devices: DeviceLine {
-                                    device: d;
-                                    roomy: true;
-                                    selected: d.id == root.device-selected;
-                                    sync => { root.sync-device(d.id); }
-                                    eject => { root.eject-device(d.id); }
-                                    open => { root.open-device(d.id); }
-                                }
-                                Rectangle { vertical-stretch: 1; }
-                            }
-                            if root.device-selected >= 0: VerticalLayout {
-                                horizontal-stretch: 1;
-                                spacing: 10px;
-                                Field {
-                                    text: root.device-name;
-                                    placeholder: @tr("STICK NAME");
-                                    accepted(t) => { root.rename-device(t); }
-                                }
-                                Caps { text: @tr("FORMATS"); }
-                                HorizontalLayout {
-                                    spacing: 18px;
-                                    LineToggle { label: @tr("Pioneer players (export.pdb)"); checked: root.device-pioneer; toggled(v) => { root.set-device-formats(v, root.device-opendecks); } }
-                                    LineToggle { label: @tr("OpenDecks"); checked: root.device-opendecks; toggled(v) => { root.set-device-formats(root.device-pioneer, v); } }
-                                }
-                                Caps { text: @tr("CONTENT — LISTS ON THIS STICK"); }
-                                Rectangle {
-                                    vertical-stretch: 1;
-                                    Flickable {
-                                        VerticalLayout {
-                                            alignment: start;
-                                            for c in root.device-content: LineToggle {
-                                                x: c.depth * 16px;
-                                                label: c.name;
-                                                checked: c.checked;
-                                                toggled(v) => { root.set-device-node(c.id, v); }
-                                            }
-                                        }
-                                    }
-                                }
-                                if root.proposals.length > 0: Caps { text: @tr("CHANGES MADE ON PLAYERS — REVIEW"); color: Theme.attention; }
-                                for p in root.proposals: HorizontalLayout {
-                                    spacing: 10px;
-                                    height: 44px;
-                                    VLine { weight: 2px; form: "double"; tone: Theme.attention; }
-                                    VerticalLayout {
-                                        horizontal-stretch: 1;
-                                        Text { text: p.title; font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; overflow: elide; }
-                                        Text { text: p.detail; font-family: Theme.family; font-size: 12px; color: Theme.bone-3; overflow: elide; }
-                                    }
-                                    PlateButton { compact: true; label: p.kind == "history" ? @tr("IMPORT") : @tr("TAKE STICK CUES"); tone: Theme.live; clicked => { root.accept-proposal(p.index); } }
-                                    PlateButton { compact: true; label: p.kind == "history" ? @tr("DISMISS") : @tr("KEEP LIBRARY"); clicked => { root.reject-proposal(p.index); } }
-                                }
-                                HorizontalLayout {
-                                    spacing: 8px;
-                                    PlateButton { compact: true; label: @tr("SYNC NOW"); tone: Theme.live; clicked => { root.sync-device(root.device-selected); } }
-                                    PlateButton { compact: true; label: @tr("REBUILD STICK"); tone: Theme.attention; clicked => { root.rebuild-device(root.device-selected); } }
-                                    PlateButton { compact: true; label: @tr("FORGET"); tone: Theme.fault; clicked => { root.forget-device(root.device-selected); } }
-                                }
-                            }
-                        }
-
-                        // ── Recordings section ──
-                        if root.section == "recordings": SectionTitle { title: @tr("RECORDINGS"); sub: @tr("{} MIXES", root.recordings.length); }
-                        if root.section == "recordings": VerticalLayout {
-                            vertical-stretch: 1;
-                            spacing: 4px;
-                            if root.recordings.length == 0: Text {
-                                text: @tr("No recordings yet. Press RECORD in Perform, or the record button on your controller.");
-                                wrap: word-wrap; font-family: Theme.family; font-size: 14px; color: Theme.bone-3;
-                            }
-                            for r in root.recordings: Rectangle {
-                                height: 48px;
-                                VLine { x: 0; y: 8px; height: parent.height - 16px; tone: Theme.w656; }
-                                Text { x: 16px; y: 6px; text: r.name; font-family: Theme.family; font-size: 15px; font-weight: 600; color: Theme.bone; }
-                                Caps { x: 16px; y: 28px; text: r.detail; }
-                                TouchArea { width: parent.width - 260px; clicked => { root.reveal-recording(r.id); } }
-                                HorizontalLayout {
-                                    x: parent.width - 250px; y: 8px; width: 250px; height: 26px;
-                                    spacing: 6px; alignment: end;
-                                    PlateButton { compact: true; label: @tr("SHOW FILE"); clicked => { root.reveal-recording(r.id); } }
-                                    PlateButton { compact: true; label: @tr("SPLIT INTO TRACKS"); tone: Theme.w656; clicked => { root.split-recording(r.id); } }
-                                }
-                            }
-                            Rectangle { vertical-stretch: 1; }
-                        }
-                    }
-
-                    VLine { weight: 1px; tone: Theme.rule; }
-
-                    // Right column: track plate and device board.
-                    VerticalLayout {
-                        width: 340px;
-                        padding: 20px;
-                        spacing: 24px;
-                        TrackPlate {
-                            has-track: root.has-track;
-                            title: root.track-title;
-                            artist: root.track-artist;
-                            bpm: root.track-bpm;
-                            key: root.track-key;
-                            duration: root.track-duration;
-                            grid-source: root.grid-source;
-                            grid-locked: root.grid-locked;
-                            overview: root.track-overview;
-                            cues: root.track-cues;
-                            hot-cues-top: root.hot-cues-top;
-                            hot-cues-bottom: root.hot-cues-bottom;
-                            cursor: root.cursor;
-                            previewing: root.previewing;
-                            analysed: root.track-analysed;
-                            seek(p) => { root.seek(p); }
-                            hot-cue(s) => { root.hot-cue(s); }
-                            remove-hot-cue(s) => { root.remove-hot-cue(s); }
-                            add-memory-cue => { root.add-memory-cue(); }
-                            grid-shift(ms) => { root.grid-shift(ms); }
-                            grid-scale(f) => { root.grid-scale(f); }
-                            grid-downbeat => { root.grid-downbeat(); }
-                            grid-lock => { root.grid-lock(); }
-                            analyse => { root.analyse-selected(); }
-                            toggle-preview => { root.toggle-preview(); }
-                        }
-                        DeviceBoard {
-                            devices: root.devices;
-                            volumes: root.volumes;
-                            register-target: root.register-target;
-                            sync(id) => { root.sync-device(id); }
-                            eject(id) => { root.eject-device(id); }
-                            open(id) => { root.open-device(id); }
-                            register(i) => { root.register-volume(i); }
-                        }
-                        Rectangle { vertical-stretch: 1; }
-                    }
-                }
-
-                // Status band.
-                Rectangle {
-                    height: 30px;
-                    HLine { y: 0; width: parent.width; tone: Theme.rule; }
-                    HorizontalLayout {
-                        padding-left: 24px;
-                        padding-right: 20px;
-                        spacing: 16px;
-                        if root.analysis-progress > 0 && root.analysis-progress < 1: ProgressLine {
-                            width: 120px; y: 14px; height: 2px;
-                            progress: root.analysis-progress; tone: Theme.attention;
-                        }
-                        Caps { text: root.analysis-text; vertical-alignment: center; }
-                        Text {
-                            horizontal-stretch: 1;
-                            text: root.status-text;
-                            font-family: Theme.family; font-size: 12px; color: Theme.bone-2;
-                            vertical-alignment: center; overflow: elide;
-                        }
-                        if root.undo-label != "": Caps {
-                            text: @tr("UNDO  {}  ⌘Z", root.undo-label);
-                            vertical-alignment: center;
-                            TouchArea { mouse-cursor: pointer; clicked => { root.undo(); } }
-                        }
-                    }
-                }
-            }
-
-            // ── Perform ───────────────────────────────────────────────
-            if root.mode == "perform": VerticalLayout {
-              horizontal-stretch: 1;
-              if !(root.kiosk && root.browser-open): PerformView {
-                vertical-stretch: 3;
-                show-browse-button: root.kiosk;
-                tight: root.small-screen;
-                browser-open: root.browser-open;
-                toggle-browser => { root.browser-open = !root.browser-open; }
-                decks: root.decks;
+                kiosk: root.kiosk;
+                status: root.mode == "perform"
+                    ? (root.engine-ready ? (root.master-bpm == "" ? @tr("NO MASTER") : @tr("MASTER {} BPM", root.master-bpm)) : root.engine-message)
+                    : root.analysis-text;
                 recording: root.recording;
                 recording-time: root.recording-time;
-                master-bpm: root.master-bpm;
+                undo-label: root.undo-label;
+                set-mode(m) => { root.set-mode(m); }
+                toggle-recording => { root.toggle-recording(); }
+                undo => { root.undo(); }
+            }
+
+            // ── Upper half: player (Prepare) or decks + mixer (Perform) ──
+            upper := VerticalLayout {
+            vertical-stretch: root.kiosk ? 1 : 0;
+            preferred-height: root.upper-height > 0 ? root.upper-height : (root.mode == "prepare" ? 280px : 620px);
+            if root.mode == "prepare": PreparePlayer {
+                phrases: root.track-phrases;
+                info-width: root.sidebar-width;
+                info-dragged(d) => { root.sidebar-width = clamp(root.sidebar-width + d, 180px, 480px); }
+                info-reset => { root.sidebar-width = 260px; }
+                has-track: root.has-track;
+                title: root.track-title;
+                artist: root.track-artist;
+                bpm: root.track-bpm;
+                key: root.track-key;
+                duration: root.track-duration;
+                position: root.track-position;
+                grid-source: root.grid-source;
+                grid-locked: root.grid-locked;
+                analysed: root.track-analysed;
+                read-only: root.read-only;
+                overview: root.track-overview;
+                detail: root.track-detail;
+                cues: root.track-cues;
+                hot-cues: root.hot-cues;
+                cursor: root.cursor;
+                previewing: root.previewing;
+                seek(p) => { root.seek(p); }
+                nudge(d) => { root.nudge(d); }
+                hot-cue(s) => { root.hot-cue(s); }
+                remove-hot-cue(s) => { root.remove-hot-cue(s); }
+                add-memory-cue => { root.add-memory-cue(); }
+                grid-shift(ms) => { root.grid-shift(ms); }
+                grid-scale(f) => { root.grid-scale(f); }
+                grid-downbeat => { root.grid-downbeat(); }
+                grid-lock => { root.grid-lock(); }
+                analyse => { root.analyse-selected(); }
+                toggle-preview => { root.toggle-preview(); }
+                jump-start => { root.jump-start(); }
+            }
+            if root.mode == "perform" && !(root.kiosk && root.browser-open): PerformView {
+                vertical-stretch: 1;
+                decks: root.decks;
+                decks-left: root.decks-left;
+                decks-right: root.decks-right;
+                channels: root.channels;
                 crossfader: root.crossfader;
-                engine-ready: root.engine-ready;
-                engine-message: root.engine-message;
-                focus-mode: root.focus-mode;
-                focus-deck: root.focus-deck;
+                master-level: root.master-level;
+                headphone-mix: root.headphone-mix;
+                headphone-level: root.headphone-level;
+                tight: root.small-screen;
+                touch-size: root.kiosk;
+                show-mixer: !root.small-screen;
                 toggle-play(d) => { root.deck-toggle-play(d); }
                 cue(d) => { root.deck-cue(d); }
                 sync(d) => { root.deck-sync(d); }
+                master(d) => { root.deck-master(d); }
+                keylock(d) => { root.deck-keylock(d); }
+                quantize(d) => { root.deck-quantize(d); }
+                slip(d) => { root.deck-slip(d); }
                 seek(d, p) => { root.deck-seek(d, p); }
                 hot-cue(d, s) => { root.deck-hot-cue(d, s); }
-                toggle-recording => { root.toggle-recording(); }
-                set-deck-count(n) => { root.set-deck-count(n); }
-              }
-              // Library browser: browse encoder moves, press loads.
-              if root.browser-open: Rectangle {
+                tempo(d, v) => { root.deck-tempo(d, v); }
+                stem(d, s) => { root.deck-stem(d, s); }
+                loop(d, b) => { root.deck-loop(d, b); }
+                loop-exit(d) => { root.deck-loop-exit(d); }
+                loop-scale(d, f) => { root.deck-loop-scale(d, f); }
+                beat-jump(d, b) => { root.deck-beat-jump(d, b); }
+                load(d) => { root.deck-load(d); }
+                trim(c, v) => { root.mixer-trim(c, v); }
+                eq(c, b, v) => { root.mixer-eq(c, b, v); }
+                cfx(c, v) => { root.mixer-cfx(c, v); }
+                fader(c, v) => { root.mixer-fader(c, v); }
+                channel-cue(c) => { root.mixer-cue(c); }
+                set-crossfader(v) => { root.set-crossfader(v); }
+                set-master-level(v) => { root.set-master-level(v); }
+                set-headphone-mix(v) => { root.set-headphone-mix(v); }
+                set-headphone-level(v) => { root.set-headphone-level(v); }
+            }
+            }
+            if !root.kiosk: Splitter {
+                horizontal: true;
+                dragged(d) => { root.upper-height = clamp(upper.height + d, upper.min-height, root.height - 260px); }
+                reset => { root.upper-height = 0px; }
+            }
+
+            // ── Lower half: the browser ──
+            if !root.kiosk || root.browser-open: HorizontalLayout {
                 vertical-stretch: 1;
-                min-height: 160px;
-                HLine { y: 0; width: parent.width; tone: Theme.rule; }
+                min-height: 180px;
+                if !root.kiosk: Sidebar {
+                    width: root.sidebar-width;
+                    tree: root.tree;
+                    selected-node: root.selected-node;
+                    section: root.section;
+                    can-add: root.has-selection;
+                    devices: root.devices;
+                    volumes: root.volumes;
+                    register-target: root.register-target;
+                    device-selected: root.device-selected;
+                    recordings-count: root.recordings.length;
+                    select-node(id) => { root.select-node(id); }
+                    toggle-node(id) => { root.toggle-node(id); }
+                    add-to-node(id) => { root.add-to-node(id); }
+                    create-node(k) => { root.create-node(k); }
+                    select-section(s) => { root.select-section(s); }
+                    open-device(id) => { root.open-device(id); }
+                    sync-device(id) => { root.sync-device(id); }
+                    eject-device(id) => { root.eject-device(id); }
+                    register-volume(i) => { root.register-volume(i); }
+                    import-folder => { root.import-folder(); }
+                    import-rekordbox => { root.import-rekordbox(); }
+                }
+                if !root.kiosk: Splitter {
+                    horizontal: false;
+                    dragged(d) => { root.sidebar-width = clamp(root.sidebar-width + d, 180px, 480px); }
+                    reset => { root.sidebar-width = 260px; }
+                }
                 VerticalLayout {
-                    padding-left: 16px; padding-right: 16px; padding-top: 8px;
-                    spacing: 6px;
-                    HorizontalLayout {
+                    horizontal-stretch: 1;
+                    padding-left: 14px;
+                    padding-right: 12px;
+                    padding-top: 8px;
+                    spacing: 8px;
+
+                    // List header: title, count, search and list actions.
+                    if root.section == "library": HorizontalLayout {
                         spacing: 10px;
-                        height: 32px;
+                        height: root.kiosk ? 44px : 32px;
                         if root.kiosk: PlateButton {
                             horizontal-stretch: 0; compact: true; tall: true;
                             label: @tr("DECKS"); tone: Theme.w486;
                             clicked => { root.browser-open = false; }
                         }
-                        Caps { text: root.node-title + "  ·  " + root.node-sub; vertical-alignment: center; }
+                        title := TextInput {
+                            width: min(self.preferred-width + 8px, 360px);
+                            text: root.node-title;
+                            read-only: root.node-kind == "all" || root.read-only;
+                            font-family: Theme.family; font-size: 18px; font-weight: 600;
+                            color: Theme.bone;
+                            vertical-alignment: center;
+                            single-line: true;
+                            accepted => { root.rename-node(self.text); keys.focus(); }
+                        }
+                        Caps { text: root.node-sub; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; }
+                        if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; clicked => { root.find-moved-files(); } }
+                        if root.node-kind == "all" && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; clicked => { root.import-folder(); } }
+                        if root.node-kind != "all" && root.node-kind != "stick" && !root.read-only && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
                         Field {
-                            width: 240px;
+                            width: 260px;
                             height: root.kiosk ? 44px : 32px;
-                            placeholder: @tr("SEARCH");
+                            placeholder: @tr("SEARCH  ⌘F");
                             text <=> root.search-text;
                             edited(t) => { root.search(t); }
                         }
                     }
-                    TrackTable {
+                    if root.section == "library" && root.node-kind == "smart": VerticalLayout {
+                        spacing: 4px;
+                        Field {
+                            placeholder: @tr("RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d");
+                            text: root.smart-rule-text;
+                            tone: Theme.w436;
+                            accepted(t) => { root.set-smart-rule(t); }
+                        }
+                        if root.smart-rule-error != "": Text {
+                            text: root.smart-rule-error;
+                            font-family: Theme.family; font-size: 12px; color: Theme.fault;
+                        }
+                    }
+                    if root.section == "library" && root.node-kind == "set" && root.mode == "prepare": SetFlow {
+                        points: root.flow;
+                        total: root.flow-total;
+                        selected: root.flow-selected;
+                        select(i) => { root.flow-select(i); }
+                    }
+                    if root.section == "library" && root.node-kind == "set" && root.flow-selected >= 0 && root.mode == "prepare": Field {
+                        placeholder: @tr("TRANSITION NOTE FOR THE SELECTED POSITION — ENTER TO SAVE");
+                        text: root.transition-note;
+                        tone: Theme.attention;
+                        accepted(t) => { root.set-transition-note(t); }
+                    }
+                    if root.section == "library": TrackTable {
                         vertical-stretch: 1;
                         rows: root.tracks;
                         sort-column: root.sort-column;
                         descending: root.sort-descending;
-                        show-position: root.node-kind == "playlist" || root.node-kind == "set";
-                        empty-text: @tr("No tracks in this list.");
                         focus-row: root.focus-row;
+                        show-position: root.node-kind == "playlist" || root.node-kind == "set";
+                        empty-text: root.node-kind == "all"
+                            ? @tr("Your library is empty. Use ADD MUSIC to add a folder, or import your rekordbox library once.")
+                            : @tr("No tracks here yet. Select tracks in All tracks and press + next to this list in the sidebar.");
                         sort(c) => { root.sort(c); }
                         row-clicked(i, c, s) => { root.row-clicked(i, c, s); keys.focus(); }
                         row-activated(i) => { root.row-activated(i); }
                     }
+                    if root.section == "library" && root.node-kind == "all" && root.tracks.length == 0: HorizontalLayout {
+                        alignment: center;
+                        spacing: 10px;
+                        PlateButton { label: @tr("ADD MUSIC FOLDER"); tone: Theme.live; clicked => { root.import-folder(); } }
+                        PlateButton { label: @tr("IMPORT FROM REKORDBOX"); tone: Theme.w486; clicked => { root.import-rekordbox(); } }
+                    }
+
+                    // ── Devices section ──
+                    if root.section == "devices": SectionTitle { title: @tr("USB STICKS"); sub: @tr("{} REGISTERED", root.devices.length); }
+                    if root.section == "devices": Text {
+                        text: @tr("Registered sticks are kept in sync automatically while they are plugged in. Every change to a playlist, cue or beatgrid reaches the stick within seconds.");
+                        wrap: word-wrap; font-family: Theme.family; font-size: 14px; color: Theme.bone-2;
+                    }
+                    if root.section == "devices": HorizontalLayout {
+                        vertical-stretch: 1;
+                        spacing: 32px;
+                        VerticalLayout {
+                            width: 360px;
+                            spacing: 6px;
+                            for d in root.devices: DeviceLine {
+                                device: d;
+                                roomy: true;
+                                selected: d.id == root.device-selected;
+                                sync => { root.sync-device(d.id); }
+                                eject => { root.eject-device(d.id); }
+                                open => { root.open-device(d.id); }
+                            }
+                            Rectangle { vertical-stretch: 1; }
+                        }
+                        if root.device-selected >= 0: VerticalLayout {
+                            horizontal-stretch: 1;
+                            spacing: 10px;
+                            Field {
+                                text: root.device-name;
+                                placeholder: @tr("STICK NAME");
+                                accepted(t) => { root.rename-device(t); }
+                            }
+                            Caps { text: @tr("FORMATS"); }
+                            HorizontalLayout {
+                                spacing: 18px;
+                                LineToggle { label: @tr("Pioneer players (export.pdb)"); checked: root.device-pioneer; toggled(v) => { root.set-device-formats(v, root.device-opendecks); } }
+                                LineToggle { label: @tr("OpenDecks"); checked: root.device-opendecks; toggled(v) => { root.set-device-formats(root.device-pioneer, v); } }
+                            }
+                            Caps { text: @tr("CONTENT — LISTS ON THIS STICK"); }
+                            Rectangle {
+                                vertical-stretch: 1;
+                                Flickable {
+                                    VerticalLayout {
+                                        alignment: start;
+                                        for c in root.device-content: LineToggle {
+                                            x: c.depth * 16px;
+                                            label: c.name;
+                                            checked: c.checked;
+                                            toggled(v) => { root.set-device-node(c.id, v); }
+                                        }
+                                    }
+                                }
+                            }
+                            if root.proposals.length > 0: Caps { text: @tr("CHANGES MADE ON PLAYERS — REVIEW"); color: Theme.attention; }
+                            for p in root.proposals: HorizontalLayout {
+                                spacing: 10px;
+                                height: 44px;
+                                VLine { weight: 2px; form: "double"; tone: Theme.attention; }
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    Text { text: p.title; font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; overflow: elide; }
+                                    Text { text: p.detail; font-family: Theme.family; font-size: 12px; color: Theme.bone-3; overflow: elide; }
+                                }
+                                PlateButton { compact: true; label: p.kind == "history" ? @tr("IMPORT") : @tr("TAKE STICK CUES"); tone: Theme.live; clicked => { root.accept-proposal(p.index); } }
+                                PlateButton { compact: true; label: p.kind == "history" ? @tr("DISMISS") : @tr("KEEP LIBRARY"); clicked => { root.reject-proposal(p.index); } }
+                            }
+                            HorizontalLayout {
+                                spacing: 8px;
+                                PlateButton { compact: true; label: @tr("SYNC NOW"); tone: Theme.live; clicked => { root.sync-device(root.device-selected); } }
+                                PlateButton { compact: true; label: @tr("REBUILD STICK"); tone: Theme.attention; clicked => { root.rebuild-device(root.device-selected); } }
+                                PlateButton { compact: true; label: @tr("FORGET"); tone: Theme.fault; clicked => { root.forget-device(root.device-selected); } }
+                            }
+                        }
+                    }
+
+                    // ── Recordings section ──
+                    if root.section == "recordings": SectionTitle { title: @tr("RECORDINGS"); sub: @tr("{} MIXES", root.recordings.length); }
+                    if root.section == "recordings": VerticalLayout {
+                        vertical-stretch: 1;
+                        spacing: 4px;
+                        if root.recordings.length == 0: Text {
+                            text: @tr("No recordings yet. Press RECORD in Perform, or the record button on your controller.");
+                            wrap: word-wrap; font-family: Theme.family; font-size: 14px; color: Theme.bone-3;
+                        }
+                        for r in root.recordings: Rectangle {
+                            height: 48px;
+                            VLine { x: 0; y: 8px; height: parent.height - 16px; tone: Theme.w656; }
+                            Text { x: 16px; y: 6px; text: r.name; font-family: Theme.family; font-size: 15px; font-weight: 600; color: Theme.bone; }
+                            Caps { x: 16px; y: 28px; text: r.detail; }
+                            TouchArea { width: parent.width - 260px; clicked => { root.reveal-recording(r.id); } }
+                            HorizontalLayout {
+                                x: parent.width - 250px; y: 8px; width: 250px; height: 26px;
+                                spacing: 6px; alignment: end;
+                                PlateButton { compact: true; label: @tr("SHOW FILE"); clicked => { root.reveal-recording(r.id); } }
+                                PlateButton { compact: true; label: @tr("SPLIT INTO TRACKS"); tone: Theme.w656; clicked => { root.split-recording(r.id); } }
+                            }
+                        }
+                        Rectangle { vertical-stretch: 1; }
+                    }
                 }
-              }
+            }
+
+            // Status band.
+            Rectangle {
+                height: 26px;
+                HLine { y: 0; width: parent.width; tone: Theme.rule; }
+                HorizontalLayout {
+                    padding-left: 14px;
+                    padding-right: 14px;
+                    spacing: 16px;
+                    if root.analysis-progress > 0 && root.analysis-progress < 1: ProgressLine {
+                        width: 120px; y: 12px; height: 2px;
+                        progress: root.analysis-progress; tone: Theme.attention;
+                    }
+                    Caps { text: root.analysis-text; vertical-alignment: center; }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.status-text;
+                        font-family: Theme.family; font-size: 12px; color: Theme.bone-2;
+                        vertical-alignment: center; overflow: elide;
+                    }
+                }
             }
         }
     }

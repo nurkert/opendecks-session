@@ -82,6 +82,12 @@ pub enum DeckCommand {
     /// Loads a track (replacing any loaded one). The deck pauses at the
     /// first memory cue, or the first beat/start of the track.
     Load(Arc<TrackData>),
+    /// Replaces the loaded track's data with a new build of the *same* track
+    /// (same [`TrackData::id`]), e.g. once stems were separated, without
+    /// interrupting playback: position, play state, loops, cues, tempo,
+    /// sync and keylock are kept. Ignored if another track (or none) is
+    /// loaded. Stem levels ramp from unity to their targets (no clicks).
+    SwapTrackData(Arc<TrackData>),
     Unload,
     Play,
     Pause,
@@ -171,6 +177,13 @@ pub enum DeckCommand {
     /// Needle search on the strip: `fraction` 0..=1 of the track length.
     NeedleSearch {
         fraction: f64,
+    },
+    /// Level 0..=1 of one part of the track (1 = unchanged, 0 = muted).
+    /// Ramped over ~20 ms. Only audible if the loaded track has stems
+    /// ([`crate::DeckState::stems_available`]); levels persist across loads.
+    SetStemLevel {
+        stem: crate::stems::Stem,
+        level: f32,
     },
 }
 

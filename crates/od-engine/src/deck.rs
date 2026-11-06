@@ -11,6 +11,7 @@ use crate::config::{HOT_CUES, Profile};
 use crate::keylock::{MAX_FEED, Stretcher};
 use crate::rt::RtCtx;
 use crate::state::{DeckState, Event, LoopState};
+use crate::stems::{StemRamp, frame_at};
 use crate::track::{HotCue, TrackData};
 
 /// Audio length of one jog platter revolution (33⅓ rpm record).
@@ -97,6 +98,13 @@ pub(crate) struct Deck {
     slip_diverged: bool,
 
     pending_jump: Option<PendingJump>,
+
+    /// Stem levels set by the user (vocals, drums, bass, inst).
+    stem_target: [f32; 4],
+    /// Smoothed levels applied to output frames (resampler path).
+    stem_play: StemRamp,
+    /// Smoothed levels applied to the frames fed to the keylock stretcher.
+    stem_feed: StemRamp,
 }
 
 #[inline]
@@ -161,6 +169,9 @@ impl Deck {
             slip_pos: 0.0,
             slip_diverged: false,
             pending_jump: None,
+            stem_target: [1.0; 4],
+            stem_play: StemRamp::new(sample_rate),
+            stem_feed: StemRamp::new(sample_rate),
         }
     }
 
@@ -412,12 +423,17 @@ impl Deck {
                 DeckCommand::SetSync(on) => self.sync = on,
                 DeckCommand::SetJogMode(m) => self.jog_mode = m,
                 DeckCommand::SetSlip(on) => self.slip = on,
+                DeckCommand::SetStemLevel { stem, level } => self.set_stem_level(stem, level),
+                // Never drop track data on the audio thread.
+                DeckCommand::SwapTrackData(t) => ctx.dispose_track(t),
                 _ => {}
             }
             return;
         }
         match cmd {
             DeckCommand::Load(track) => self.load(track, ctx),
+            DeckCommand::SwapTrackData(track) => self.swap_track_data(track, ctx),
+            DeckCommand::SetStemLevel { stem, level } => self.set_stem_level(stem, level),
             DeckCommand::Unload => {
                 if let Some(old) = self.track.take() {
                     ctx.dispose_track(old);
@@ -596,10 +612,51 @@ impl Deck {
         self.pos = start;
         self.cue_point = start;
         self.hot_cues = self.track.as_ref().unwrap().hot_cues;
+        // New audio: no ramp from the previous track's state.
+        self.stem_play.level = self.stem_target;
+        self.stem_feed.level = self.stem_target;
         ctx.event(Event::TrackLoaded {
             deck: self.index,
             track: id,
         });
+    }
+
+    fn swap_track_data(&mut self, track: Arc<TrackData>, ctx: &mut RtCtx) {
+        let same = self.track.as_ref().is_some_and(|t| t.id == track.id);
+        if !same {
+            ctx.dispose_track(track);
+            return;
+        }
+        let had_stems = self.track.as_ref().is_some_and(|t| t.stems.is_some());
+        if let Some(old) = self.track.replace(track) {
+            ctx.dispose_track(old);
+        }
+        let end = self.frames();
+        if self.pos > end {
+            self.pos = end;
+        }
+        // The mix is unchanged, so the keylock stretcher keeps running; the
+        // stem mix (if levels ≠ 1) fades in from unity instead of jumping.
+        let has_stems = self.track.as_ref().is_some_and(|t| t.stems.is_some());
+        if has_stems && !had_stems {
+            self.stem_play.level = [1.0; 4];
+            self.stem_feed.level = [1.0; 4];
+        }
+    }
+
+    fn set_stem_level(&mut self, stem: crate::stems::Stem, level: f32) {
+        let level = if level.is_finite() { level.clamp(0.0, 1.0) } else { 1.0 };
+        self.stem_target[stem.index()] = level;
+    }
+
+    /// Whether frames must go through the stem mix (else: plain mix). Snaps
+    /// the ramp when the track has no stems.
+    fn stems_active(track: &TrackData, ramp: &mut StemRamp, target: &[f32; 4]) -> bool {
+        if track.stems.is_none() {
+            ramp.level = *target;
+            return false;
+        }
+        !(ramp.settled(target) && *target == [1.0; 4])
     }
 
     fn reset_transport(&mut self) {
@@ -1001,10 +1058,41 @@ impl Deck {
         }
     }
 
+    /// Fills `kl_in[..req]` with input frames from `kl_feed_pos` (stem
+    /// levels applied, following an active loop) and advances it.
+    fn fill_feed(&mut self, track: &TrackData, req: usize, loop_range: Option<(i64, i64)>) {
+        let frames = track.frames() as i64;
+        let [l, r] = &mut self.kl_in;
+        let mut p = self.kl_feed_pos;
+        let stems = Self::stems_active(track, &mut self.stem_feed, &self.stem_target)
+            .then_some(track.stems.as_ref())
+            .flatten();
+        for k in 0..req {
+            if let Some(st) = stems {
+                self.stem_feed.tick(&self.stem_target);
+                let c = self.stem_feed.coefs();
+                (l[k], r[k]) = frame_at(&track.samples, st, p as isize, &c);
+            } else if p < 0 || p >= frames {
+                l[k] = 0.0;
+                r[k] = 0.0;
+            } else {
+                let j = p as usize * 2;
+                l[k] = track.samples[j];
+                r[k] = track.samples[j + 1];
+            }
+            p += 1;
+            if let Some((i, o)) = loop_range
+                && p >= o
+            {
+                p = i + (p - o);
+            }
+        }
+        self.kl_feed_pos = p;
+    }
+
     /// Feeds the stretcher from `kl_feed_pos` with at most `budget` input
     /// frames, until `need` output frames are available.
     fn kl_feed(&mut self, st: &mut Stretcher, track: &TrackData, need: usize, budget: usize) {
-        let frames = track.frames() as i64;
         let loop_range = match (self.loop_active, self.loop_in, self.loop_out) {
             (true, Some(i), Some(o)) if o - i >= 2.0 => Some((i.round() as i64, o.round() as i64)),
             _ => None,
@@ -1012,25 +1100,8 @@ impl Deck {
         let mut fed = 0;
         while st.available() < need && fed < budget {
             let req = st.samples_required().clamp(64, MAX_FEED).min(budget - fed).max(64);
-            let [l, r] = &mut self.kl_in;
-            let mut p = self.kl_feed_pos;
-            for k in 0..req {
-                if p < 0 || p >= frames {
-                    l[k] = 0.0;
-                    r[k] = 0.0;
-                } else {
-                    let j = p as usize * 2;
-                    l[k] = track.samples[j];
-                    r[k] = track.samples[j + 1];
-                }
-                p += 1;
-                if let Some((i, o)) = loop_range
-                    && p >= o
-                {
-                    p = i + (p - o);
-                }
-            }
-            self.kl_feed_pos = p;
+            self.fill_feed(track, req, loop_range);
+            let [l, r] = &self.kl_in;
             st.process(&l[..req], &r[..req]);
             fed += req;
         }
@@ -1127,6 +1198,13 @@ impl Deck {
     }
 
     fn render_resample(&mut self, out: &mut [f32], n: usize) {
+        {
+            let track = self.track.as_ref().unwrap();
+            if Self::stems_active(track, &mut self.stem_play, &self.stem_target) {
+                self.render_resample_stems(out, n);
+                return;
+            }
+        }
         let track = self.track.as_ref().unwrap();
         let s = &track.samples;
         let total = (s.len() / 2) as isize;
@@ -1175,6 +1253,47 @@ impl Deck {
         self.pos = pos;
     }
 
+    /// [`Deck::render_resample`] with stem levels applied per source frame.
+    fn render_resample_stems(&mut self, out: &mut [f32], n: usize) {
+        let track = self.track.as_ref().unwrap();
+        let Some(stems) = track.stems.as_ref() else {
+            return;
+        };
+        let s = &track.samples;
+        let speed = self.speed;
+        let mut pos = self.pos;
+        let loop_check = self.loop_active && self.loop_in.is_some() && self.loop_out.is_some();
+        let (li, lo) = (self.loop_in.unwrap_or(0.0), self.loop_out.unwrap_or(0.0));
+        let target = self.stem_target;
+        let ramp = &mut self.stem_play;
+        for f in out.as_chunks_mut::<2>().0.iter_mut().take(n) {
+            ramp.tick(&target);
+            let c = ramp.coefs();
+            let ip = pos.floor();
+            let t = (pos - ip) as f32;
+            let i = ip as isize;
+            let (a0, a1) = frame_at(s, stems, i - 1, &c);
+            let (b0, b1) = frame_at(s, stems, i, &c);
+            let (c0, c1) = frame_at(s, stems, i + 1, &c);
+            let (d0, d1) = frame_at(s, stems, i + 2, &c);
+            f[0] = hermite(a0, b0, c0, d0, t);
+            f[1] = hermite(a1, b1, c1, d1, t);
+            pos += speed;
+            if loop_check && lo > li {
+                let len = lo - li;
+                if speed > 0.0 && pos >= lo {
+                    pos -= len * ((pos - lo) / len).floor().max(0.0) + len;
+                } else if speed < 0.0 && pos < li {
+                    pos += len * ((li - pos) / len).floor().max(0.0) + len;
+                }
+            }
+            if speed < 0.0 && pos < 0.0 {
+                pos = 0.0;
+            }
+        }
+        self.pos = pos;
+    }
+
     fn render_keylock(&mut self, out: &mut [f32], n: usize) {
         // Temporarily move the Arc out (no refcount traffic, never dropped here).
         let Some(track) = self.track.take() else {
@@ -1190,31 +1309,13 @@ impl Deck {
             (true, Some(i), Some(o)) if o - i >= 2.0 => Some((i.round() as i64, o.round() as i64)),
             _ => None,
         };
-        let frames = track.frames() as i64;
         // Feed until enough output is available.
         let mut guard = 0;
         while st.available() < n + self.kl_discard && guard < 64 {
             guard += 1;
             let req = st.samples_required().clamp(64, MAX_FEED);
-            let [l, r] = &mut self.kl_in;
-            let mut p = self.kl_feed_pos;
-            for k in 0..req {
-                if p < 0 || p >= frames {
-                    l[k] = 0.0;
-                    r[k] = 0.0;
-                } else {
-                    let j = p as usize * 2;
-                    l[k] = track.samples[j];
-                    r[k] = track.samples[j + 1];
-                }
-                p += 1;
-                if let Some((i, o)) = loop_range
-                    && p >= o
-                {
-                    p = i + (p - o);
-                }
-            }
-            self.kl_feed_pos = p;
+            self.fill_feed(&track, req, loop_range);
+            let [l, r] = &self.kl_in;
             st.process(&l[..req], &r[..req]);
         }
         // Drop the start delay after a (re-)prime.
@@ -1299,6 +1400,8 @@ impl Deck {
                 roll: self.roll,
             },
             at_end: self.at_end,
+            stems_available: self.track.as_ref().is_some_and(|t| t.stems.is_some()),
+            stem_levels: self.stem_target,
         }
     }
 }

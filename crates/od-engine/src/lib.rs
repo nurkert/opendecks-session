@@ -21,7 +21,8 @@
 //! println!("{:?}", engine.state().decks[0].position);
 //! ```
 //!
-//! Signal flow per channel: deck (resampler or Rubber Band keylock) → trim /
+//! Signal flow per channel: deck (stem levels → resampler or Rubber Band
+//! keylock) → trim /
 //! auto-gain → 3-band EQ → colour FX → Beat FX (if targeted) → PFL tap →
 //! channel fader → crossfader → master bus. Master bus: + sampler → Beat FX
 //! (if targeted) → master level → limiter/soft clip → meters → record tap.
@@ -39,6 +40,7 @@ pub mod mixer;
 mod rt;
 mod sampler;
 pub mod state;
+pub mod stems;
 pub mod track;
 
 pub use command::*;
@@ -48,4 +50,5 @@ pub use dsp::eq::EqMode;
 pub use dsp::meter::MeterReading;
 pub use engine::{CommandSender, Engine, EngineError, EngineProcessor, Outputs, RecordTap};
 pub use state::*;
+pub use stems::{Stem, StemData, StemInput};
 pub use track::{HotCue, SampleData, TrackData};

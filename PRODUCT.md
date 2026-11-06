@@ -31,11 +31,11 @@ An open, cross-platform alternative that treats the USB stick as a live, always-
 
 ## Capabilities and Constraints
 
-See docs/SPEC.md (authoritative). Highlights: two work modes (Prepare, Perform), two performance profiles (Lite for Raspberry Pi, Full for desktop), offline-first with no accounts, cloud or telemetry, English and German UI, GPL-3.0. No streaming services, stems, DVS, lighting or Pro DJ Link in v1. Terms: "set" (ordered, annotated playlist for a gig), "device"/"stick" (registered USB drive), "hot cue" A–H, "memory cue", "beatgrid", "Camelot key".
+See docs/SPEC.md (authoritative). Highlights: two work modes (Prepare, Perform), two performance profiles (Lite for Raspberry Pi, Full for desktop), offline-first with no accounts, cloud or telemetry, English and German UI, GPL-3.0. Stems (vocals, drums, bass, instrumental) are part of v1; no streaming services, DVS, lighting or Pro DJ Link. Terms: "set" (ordered, annotated playlist for a gig), "device"/"stick" (registered USB drive), "hot cue" A–H, "memory cue", "beatgrid", "Camelot key".
 
 ## Brand Commitments
 
-Name: OpenDecks Session. Must not resemble rekordbox (layout, styling, assets) or any AlphaTheta/Pioneer DJ visual identity; product names only used descriptively. Dark, high contrast, calm and precise; one accent colour per deck (binding from the requirements session).
+Name: OpenDecks Session. Layout and workflow follow the conventions rekordbox users know (players/decks on top, browser below, tree on the left, USB devices with sync in the sidebar, Export-like Prepare and Performance modes) so they feel at home immediately (decided by the owner on 2026-11-06). The visual identity stays our own: the emission-line world from DESIGN.md; no rekordbox or AlphaTheta/Pioneer DJ assets, icons, colours or styling; product names only used descriptively. Dark, high contrast, calm and precise; one accent colour per deck.
 
 ## Evidence on Hand
 

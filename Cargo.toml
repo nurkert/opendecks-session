@@ -24,6 +24,7 @@ od-recorder = { path = "crates/od-recorder" }
 od-controller = { path = "crates/od-controller" }
 od-i18n = { path = "crates/od-i18n" }
 od-ui = { path = "crates/od-ui" }
+od-stems = { path = "crates/od-stems", default-features = false }
 
 anyhow = "1"
 thiserror = "2"

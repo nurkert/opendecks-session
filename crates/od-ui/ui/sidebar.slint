@@ -1,0 +1,200 @@
+// Browser sidebar (the tree DJs know): collection, playlists, USB devices
+// with their sync state, recordings — and the actions to create lists.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, Toggle, PlateButton, Glyph } from "controls.slint";
+import { TreeItem } from "rail.slint";
+import { TreeRow, DeviceRow, VolumeRow } from "structs.slint";
+
+component Heading inherits Rectangle {
+    in property <string> label;
+    in property <string> action;
+    callback act();
+    height: 30px;
+    Caps { x: 12px; y: 12px; text: root.label; color: Theme.bone-2; font-weight: 600; }
+    if root.action != "": Rectangle {
+        x: parent.width - 30px; y: 7px; width: 22px; height: 20px;
+        background: t.has-hover ? Theme.plate : transparent;
+        Glyph { x: 6px; y: 5px; width: 10px; height: 10px; kind: root.action; tone: Theme.bone-2; }
+        t := TouchArea { mouse-cursor: pointer; clicked => { root.act(); } }
+    }
+}
+
+// A USB stick: state line, name, detail, sync and eject.
+component DeviceItem inherits Rectangle {
+    in property <DeviceRow> device;
+    in property <bool> selected;
+    callback open();
+    callback sync();
+    callback eject();
+    height: 46px;
+    background: touch.has-hover ? Theme.ground-band : transparent;
+    property <string> form:
+        device.state == "in-sync" ? "solid" :
+        device.state == "pending" ? "dashed" :
+        device.state == "error" ? "struck" : "half";
+    property <color> tone:
+        device.state == "in-sync" ? Theme.live :
+        device.state == "pending" || device.state == "syncing" ? Theme.attention :
+        device.state == "error" ? Theme.fault : Theme.bone-3;
+    if root.selected: Rectangle { x: 0; y: parent.height / 2 - 1px; width: 8px; height: 2px; background: Theme.attention; }
+    if root.device.state != "syncing": VLine { x: 14px; y: 8px; height: parent.height - 16px; form: root.form; tone: root.tone; }
+    if root.device.state == "syncing": Rectangle {
+        x: 14px; y: 8px; width: 2px; height: parent.height - 16px;
+        VLine { height: parent.height; form: "dashed"; tone: Theme.attention.with-alpha(0.6); }
+        Rectangle {
+            y: parent.height * (1 - clamp(root.device.progress, 0, 1));
+            height: parent.height * clamp(root.device.progress, 0, 1);
+            background: Theme.live;
+            animate y, height { duration: Theme.motion ? 320ms : 0ms; easing: Theme.spring; }
+        }
+    }
+    Glyph { x: 24px; y: 9px; width: 10px; height: 10px; kind: "usb"; tone: root.device.connected ? Theme.bone-2 : Theme.bone-3; }
+    Text {
+        x: 40px; y: 6px; width: parent.width - 100px;
+        text: root.device.name;
+        font-family: Theme.family; font-size: 14px; font-weight: 600;
+        color: root.device.connected ? Theme.bone : Theme.bone-3; overflow: elide;
+    }
+    Text {
+        x: 40px; y: 25px; width: parent.width - 100px;
+        text: root.device.detail;
+        font-family: Theme.family; font-size: 11px;
+        color: root.device.state == "error" ? Theme.fault : Theme.bone-3; overflow: elide;
+    }
+    touch := TouchArea { clicked => { root.open(); } }
+    if root.device.connected: Rectangle {
+        x: parent.width - 56px; y: 12px; width: 22px; height: 22px;
+        background: s.has-hover ? Theme.plate : transparent;
+        border-width: 1px; border-color: s.has-hover ? Theme.live : transparent;
+        Glyph { x: 6px; y: 6px; width: 10px; height: 10px; kind: "sync"; tone: Theme.live; }
+        s := TouchArea { mouse-cursor: pointer; clicked => { root.sync(); } }
+    }
+    if root.device.connected: Rectangle {
+        x: parent.width - 30px; y: 12px; width: 22px; height: 22px;
+        background: e.has-hover ? Theme.plate : transparent;
+        border-width: 1px; border-color: e.has-hover ? Theme.bone-3 : transparent;
+        Glyph { x: 6px; y: 6px; width: 10px; height: 10px; kind: "eject"; tone: Theme.bone-2; }
+        e := TouchArea { mouse-cursor: pointer; clicked => { root.eject(); } }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+    in property <[TreeRow]> tree;
+    in property <int> selected-node;
+    in property <string> section;
+    in property <bool> can-add;
+    in property <[DeviceRow]> devices;
+    in property <[VolumeRow]> volumes;
+    in property <string> register-target;
+    in property <int> device-selected;
+    in property <int> recordings-count;
+    callback select-node(int);
+    callback toggle-node(int);
+    callback add-to-node(int);
+    callback create-node(string);
+    callback select-section(string);
+    callback open-device(int);
+    callback sync-device(int);
+    callback eject-device(int);
+    callback register-volume(int);
+    callback import-folder();
+    callback import-rekordbox();
+    background: Theme.ground;
+
+    VerticalLayout {
+        Flickable {
+            vertical-stretch: 1;
+            VerticalLayout {
+                width: root.width;
+                alignment: start;
+                Heading { label: @tr("COLLECTION"); action: "plus"; act => { root.import-folder(); } }
+                for r in root.tree: TreeItem {
+                    visible: r.kind == "all";
+                    height: r.kind == "all" ? 26px : 0px;
+                    item: r;
+                    selected: root.selected-node == r.id && root.section == "library";
+                    can-add: false;
+                    clicked => { root.select-node(r.id); }
+                }
+                Heading { label: @tr("PLAYLISTS"); action: "plus"; act => { root.create-node("playlist"); } }
+                for r in root.tree: TreeItem {
+                    visible: r.kind != "all" && r.kind != "stick" && r.id > -100;
+                    height: r.kind != "all" && r.kind != "stick" && r.id > -100 ? 26px : 0px;
+                    item: r;
+                    selected: root.selected-node == r.id && root.section == "library";
+                    can-add: root.can-add;
+                    clicked => { root.select-node(r.id); }
+                    toggled => { root.toggle-node(r.id); }
+                    add => { root.add-to-node(r.id); }
+                }
+                Heading { label: @tr("DEVICES"); }
+                if root.devices.length == 0 && root.volumes.length == 0: Text {
+                    x: 12px; width: root.width - 24px;
+                    text: @tr("Plug in a USB stick to register it.");
+                    font-family: Theme.family; font-size: 12px; color: Theme.bone-3; wrap: word-wrap;
+                }
+                for d in root.devices: DeviceItem {
+                    device: d;
+                    selected: root.section == "devices" && root.device-selected == d.id;
+                    open => { root.open-device(d.id); }
+                    sync => { root.sync-device(d.id); }
+                    eject => { root.eject-device(d.id); }
+                }
+                // Browsable stick libraries (read-only).
+                for r in root.tree: TreeItem {
+                    visible: r.kind == "stick" || r.id <= -1000000;
+                    height: r.kind == "stick" || r.id <= -1000000 ? 26px : 0px;
+                    item: r;
+                    selected: root.selected-node == r.id && root.section == "library";
+                    can-add: false;
+                    clicked => { root.select-node(r.id); }
+                }
+                for v in root.volumes: Rectangle {
+                    height: 54px;
+                    VLine { x: 14px; y: 8px; height: parent.height - 16px; form: "half"; tone: Theme.bone-2; }
+                    Text {
+                        x: 24px; y: 4px; width: root.width - 36px;
+                        text: @tr("New stick: {}", v.name);
+                        font-family: Theme.family; font-size: 13px; font-weight: 600; color: Theme.bone; overflow: elide;
+                    }
+                    PlateButton {
+                        x: 24px; y: 24px; compact: true;
+                        enabled: root.register-target != "";
+                        label: root.register-target == "" ? @tr("SELECT A PLAYLIST FIRST") : @tr("REGISTER WITH {}", root.register-target);
+                        tone: Theme.live;
+                        clicked => { root.register-volume(v.index); }
+                    }
+                }
+                Heading { label: @tr("RECORDINGS"); }
+                Rectangle {
+                    height: 26px;
+                    background: rt.has-hover ? Theme.ground-band : transparent;
+                    if root.section == "recordings": Rectangle { x: 0; y: parent.height / 2 - 1px; width: 8px; height: 2px; background: Theme.attention; }
+                    Glyph { x: 18px; y: 8px; width: 10px; height: 10px; kind: "play"; tone: Theme.w656; }
+                    Text {
+                        x: 36px; height: parent.height;
+                        text: @tr("Recordings");
+                        font-family: Theme.family; font-size: 14px; color: root.section == "recordings" ? Theme.bone : Theme.bone-2;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        x: parent.width - 40px; width: 32px; height: parent.height; horizontal-alignment: right;
+                        text: root.recordings-count; font-family: Theme.family; font-size: 12px; color: Theme.bone-3; vertical-alignment: center;
+                    }
+                    rt := TouchArea { mouse-cursor: pointer; clicked => { root.select-section("recordings"); } }
+                }
+            }
+        }
+        HLine { tone: Theme.rule; }
+        HorizontalLayout {
+            padding: 8px;
+            spacing: 4px;
+            // New list buttons share the width (the sidebar is resizable).
+            Toggle { horizontal-stretch: 1; label: @tr("+ SET"); tone: Theme.attention; clicked => { root.create-node("set"); } }
+            Toggle { horizontal-stretch: 1; label: @tr("+ SMART"); tone: Theme.w436; clicked => { root.create-node("smart"); } }
+            Toggle { horizontal-stretch: 1; label: @tr("+ FOLDER"); clicked => { root.create-node("folder"); } }
+        }
+    }
+}

@@ -64,11 +64,54 @@ enum Cmd {
     Verify { mount: PathBuf },
     /// Create a backup of the library now.
     Backup,
+    /// Stem separation: precompute stems for library tracks (`stems 12 13`,
+    /// `stems --all`), fetch the model, or test on a file.
+    #[command(args_conflicts_with_subcommands = true)]
+    Stems(StemsArgs),
+}
+
+#[derive(clap::Args)]
+struct StemsArgs {
+    #[command(subcommand)]
+    cmd: Option<StemsCmd>,
+    /// Library track ids to separate.
+    tracks: Vec<i64>,
+    /// Separate every track without cached stems.
+    #[arg(long)]
+    all: bool,
+    /// Separate again even if stems are cached.
+    #[arg(long)]
+    force: bool,
+}
+
+#[derive(Subcommand)]
+enum StemsCmd {
+    /// Download the separation model (verifies SHA-256).
+    FetchModel,
+    /// Separate an audio file (outside the library) and print timing and
+    /// per-section stem energies; `--store` also writes the stem cache.
+    File {
+        path: PathBuf,
+        #[arg(long)]
+        store: bool,
+        /// Section length for the energy table, seconds.
+        #[arg(long, default_value_t = 15.0)]
+        section: f64,
+        /// Segment overlap 0..0.5 (default: the library default).
+        #[arg(long)]
+        overlap: Option<f32>,
+        /// ONNX Runtime threads (0 = all cores).
+        #[arg(long, default_value_t = 0)]
+        threads: usize,
+    },
 }
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into())).init();
     let cli = Cli::parse();
+    if let Cmd::Stems(StemsArgs { cmd: Some(c), .. }) = &cli.command {
+        return stems_cmd(c);
+    }
     let path = cli.library.unwrap_or_else(Library::default_path);
     let mut lib = Library::open(&path).with_context(|| format!("opening {}", path.display()))?;
     match cli.command {
@@ -246,6 +289,126 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Cmd::Backup => println!("{}", lib.backup_now("cli")?.display()),
+        Cmd::Stems(a) => {
+            let cache = od_stems::StemCache::open_default();
+            let records = if a.all {
+                lib.tracks(od_library::SortKey::Artist, false)?
+            } else if a.tracks.is_empty() {
+                bail!("give track ids or --all (see `od-cli stems --help`)");
+            } else {
+                a.tracks.iter().map(|id| lib.track(od_core::TrackId(*id))).collect::<Result<Vec<_>, _>>()?
+            };
+            let todo: Vec<_> = records.into_iter().filter(|t| !t.missing && (a.force || !cache.exists(&t.content_hash))).collect();
+            if todo.is_empty() {
+                println!("all stems cached in {}", cache.dir().display());
+                return Ok(());
+            }
+            fetch_model_cli()?;
+            let mut sep = od_stems::Separator::new(&od_stems::model_path(), &Default::default())?;
+            let cancel = AtomicBool::new(false);
+            let (mut ok, mut audio_s, started) = (0, 0.0, std::time::Instant::now());
+            for (n, t) in todo.iter().enumerate() {
+                let t0 = std::time::Instant::now();
+                let label = format!("[{}/{}] {} — {}", n + 1, todo.len(), t.tags.artist, t.tags.title);
+                let r = sep.separate_file(&t.path, &mut |f| eprint!("\r{label}: {:3.0} %", f * 100.0), &cancel);
+                eprintln!();
+                match r.and_then(|s| cache.store(&t.content_hash, &s)) {
+                    Ok(p) => {
+                        ok += 1;
+                        audio_s += t.duration;
+                        println!("{label}: {:.1} s → {}", t0.elapsed().as_secs_f64(), p.display());
+                    }
+                    Err(e) => eprintln!("{label}: {e}"),
+                }
+            }
+            let secs = started.elapsed().as_secs_f64();
+            println!("separated {ok}/{} tracks in {secs:.1} s ({:.2}× real time)", todo.len(), secs / audio_s.max(1e-9));
+        }
+    }
+    Ok(())
+}
+
+fn fetch_model_cli() -> anyhow::Result<PathBuf> {
+    if od_stems::model_available() {
+        return Ok(od_stems::model_path());
+    }
+    let m = od_stems::MODEL;
+    eprintln!("downloading {} ({} MB, {}) …", m.file_name, m.size / 1_000_000, m.license);
+    let mut last = 0;
+    let p = od_stems::fetch_model(
+        &mut |done, total| {
+            let pct = done * 100 / total.max(1);
+            if pct != last {
+                last = pct;
+                eprint!("\r{pct:3} %");
+            }
+        },
+        &AtomicBool::new(false),
+    )?;
+    eprintln!("\nmodel verified: {}", p.display());
+    Ok(p)
+}
+
+fn stems_cmd(cmd: &StemsCmd) -> anyhow::Result<()> {
+    match cmd {
+        StemsCmd::FetchModel => {
+            let p = fetch_model_cli()?;
+            println!("{}", p.display());
+        }
+        StemsCmd::File { path, store, section, overlap, threads } => {
+            fetch_model_cli()?;
+            let t0 = std::time::Instant::now();
+            let mut opts = od_stems::SeparatorOptions { threads: *threads, ..Default::default() };
+            if let Some(o) = overlap {
+                opts.overlap = *o;
+            }
+            let mut sep = od_stems::Separator::new(&od_stems::model_path(), &opts)?;
+            let load_s = t0.elapsed().as_secs_f64();
+            let t1 = std::time::Instant::now();
+            let audio = od_decode::decode(path, od_decode::Layout::Stereo)?;
+            let decode_s = t1.elapsed().as_secs_f64();
+            let dur = audio.frames() as f64 / audio.sample_rate as f64;
+            let t2 = std::time::Instant::now();
+            let stems = sep.separate(&audio, &mut |f| eprint!("\rseparating {:3.0} %", f * 100.0), &AtomicBool::new(false))?;
+            let sep_s = t2.elapsed().as_secs_f64();
+            eprintln!();
+            println!("{}: {:.1} s audio at {} Hz", path.display(), dur, audio.sample_rate);
+            println!("model load {load_s:.2} s, decode {decode_s:.2} s, separation {sep_s:.1} s = {:.3}× real time", sep_s / dur);
+            // Energy per section (dBFS RMS): mix, vocals, drums, bass, inst.
+            let sr = audio.sample_rate as f64;
+            let n = (section * sr) as usize * 2;
+            let db = |x: &[f32]| 10.0 * ((x.iter().map(|v| (*v as f64).powi(2)).sum::<f64>() / x.len().max(1) as f64) + 1e-12).log10();
+            println!("{:>7}  {:>6}  {:>6}  {:>6}  {:>6}  {:>6}", "t [s]", "mix", "vocals", "drums", "bass", "inst");
+            for (k, m) in audio.samples.chunks(n).enumerate() {
+                let r = k * n..k * n + m.len();
+                let inst: Vec<f32> = r.clone().map(|i| m[i - k * n] - stems.vocals[i] - stems.drums[i] - stems.bass[i]).collect();
+                println!(
+                    "{:>7.0}  {:>6.1}  {:>6.1}  {:>6.1}  {:>6.1}  {:>6.1}",
+                    k as f64 * section,
+                    db(m),
+                    db(&stems.vocals[r.clone()]),
+                    db(&stems.drums[r.clone()]),
+                    db(&stems.bass[r]),
+                    db(&inst)
+                );
+            }
+            if *store {
+                let hash = od_decode::content_hash(path)?;
+                let t3 = std::time::Instant::now();
+                let p = od_stems::StemCache::open_default().store(&hash, &stems)?;
+                println!("cached in {:.2} s: {} ({:.1} MB)", t3.elapsed().as_secs_f64(), p.display(), std::fs::metadata(&p)?.len() as f64 / 1e6);
+                let cache = od_stems::StemCache::open_default();
+                let t4 = std::time::Instant::now();
+                let track = od_stems::load_track_data(&cache, od_core::TrackId(0), path, Some(&hash), 48_000, Default::default(), &[], 0.0)?;
+                let s = track.stems.as_ref().context("stems not attached")?;
+                println!(
+                    "deck load with stems (decode + cache + resample to 48 kHz): {:.2} s; memory: mix {:.0} MB + stems {:.0} MB",
+                    t4.elapsed().as_secs_f64(),
+                    (track.samples.len() * 4) as f64 / 1e6,
+                    s.memory_bytes() as f64 / 1e6
+                );
+            }
+        }
     }
     Ok(())
 }

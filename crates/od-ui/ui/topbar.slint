@@ -1,0 +1,89 @@
+// Global header: brand, work mode (PREPARE ≈ export, PERFORM ≈ performance),
+// engine state, recording and undo — where DJs expect them.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, PlateButton, Glyph } from "controls.slint";
+
+component ModeTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> current;
+    callback clicked();
+    min-width: t.preferred-width + 32px;
+    background: root.current ? Theme.plate : touch.has-hover ? Theme.ground-band : transparent;
+    Rectangle {
+        y: parent.height - 2px; height: 2px;
+        background: root.current ? Theme.attention : transparent;
+    }
+    t := Text {
+        text: root.label;
+        font-family: Theme.family; font-size: 13px; font-weight: 600; letter-spacing: 2.4px;
+        color: root.current ? Theme.bone : Theme.bone-3;
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+export component TopBar inherits Rectangle {
+    in property <string> mode;
+    in property <string> status;
+    in property <bool> recording;
+    in property <string> recording-time;
+    in property <string> undo-label;
+    in property <bool> kiosk;
+    callback set-mode(string);
+    callback toggle-recording();
+    callback undo();
+    height: 44px;
+    background: Theme.ground;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 12px;
+        spacing: 0px;
+        // Brand on the rail.
+        Rectangle {
+            width: 196px;
+            VLine { x: 12px; y: 10px; height: parent.height - 20px; weight: 1px; tone: Theme.rule-strong; }
+            Rectangle { x: 9px; y: 6px; width: 7px; height: 7px; border-radius: 3.5px; border-width: 1px; border-color: Theme.bone-3; }
+            Text {
+                x: 28px; height: parent.height;
+                text: "OPENDECKS";
+                font-family: Theme.family; font-size: 16px; font-weight: 600; letter-spacing: 2.6px;
+                color: Theme.bone; vertical-alignment: center;
+            }
+            Caps { x: 132px; height: parent.height; text: "SESSION"; font-size: 9px; letter-spacing: 3px; vertical-alignment: center; }
+        }
+        ModeTab { label: @tr("PREPARE"); current: root.mode == "prepare"; clicked => { root.set-mode("prepare"); } }
+        ModeTab { label: @tr("PERFORM"); current: root.mode == "perform"; clicked => { root.set-mode("perform"); } }
+        Rectangle { width: 24px; }
+        Caps { text: root.status; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        if root.undo-label != "": Rectangle {
+            width: u.preferred-width + 24px;
+            u := Caps { text: @tr("UNDO  {}  ⌘Z", root.undo-label); vertical-alignment: center; height: parent.height; }
+            TouchArea { mouse-cursor: pointer; clicked => { root.undo(); } }
+        }
+        Rectangle { width: 8px; }
+        // Recording: always one click away, as on the hardware.
+        Rectangle {
+            width: rec.preferred-width + 44px;
+            Rectangle {
+                y: 8px; height: parent.height - 16px;
+                border-width: 1px;
+                border-color: root.recording ? Theme.fault : Theme.rule-strong;
+                background: root.recording ? Theme.fault.with-alpha(0.12) : rt.has-hover ? Theme.plate : transparent;
+            }
+            Rectangle {
+                x: 12px; y: (parent.height - 8px) / 2; width: 8px; height: 8px; border-radius: 4px;
+                background: root.recording ? Theme.fault : Theme.bone-3;
+            }
+            rec := Text {
+                x: 28px; height: parent.height;
+                text: root.recording ? @tr("REC {}", root.recording-time) : @tr("RECORD");
+                font-family: Theme.family; font-size: 12px; font-weight: 600; letter-spacing: 1.8px;
+                color: root.recording ? Theme.bone : Theme.bone-2; vertical-alignment: center;
+            }
+            rt := TouchArea { mouse-cursor: pointer; clicked => { root.toggle-recording(); } }
+        }
+    }
+    HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+}

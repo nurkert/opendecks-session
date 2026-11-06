@@ -36,7 +36,7 @@ component SectionTick inherits Rectangle {
     TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
 
-component TreeItem inherits Rectangle {
+export component TreeItem inherits Rectangle {
     in property <TreeRow> item;
     in property <bool> selected;
     in property <bool> can-add;
@@ -48,10 +48,10 @@ component TreeItem inherits Rectangle {
 
     // Selection is a rail tick, not a fill.
     if root.selected: Rectangle {
-        x: Theme.rail-x - 6px; y: parent.height / 2 - 1px; width: 14px; height: 2px;
+        x: 0; y: parent.height / 2 - 1px; width: 8px; height: 2px;
         background: Theme.attention;
     }
-    property <length> indent: Theme.rail-x + 20px + root.item.depth * 14px;
+    property <length> indent: 24px + root.item.depth * 14px;
 
     if root.item.has-children: Rectangle {
         x: root.indent - 16px; y: (parent.height - 12px) / 2; width: 12px; height: 12px;

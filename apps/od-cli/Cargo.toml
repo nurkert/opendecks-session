@@ -17,6 +17,7 @@ od-analysis.workspace = true
 od-devices.workspace = true
 od-format-native.workspace = true
 od-format-pioneer.workspace = true
+od-stems = { workspace = true, features = ["separation"] }
 anyhow.workspace = true
 clap.workspace = true
 rayon.workspace = true

@@ -2,7 +2,7 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"POT-Creation-Date: 2026-11-06 12:30+0000\n"
+"POT-Creation-Date: 2026-11-06 17:43+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -12,211 +12,186 @@ msgstr ""
 "Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
 
-#: ui/app.slint:255
+#: ui/app.slint:242
 msgctxt "AppWindow"
-msgid "SEARCH  ⌘F"
+msgid "NO MASTER"
 msgstr ""
 
-#: ui/app.slint:259
+#: ui/app.slint:242
 msgctxt "AppWindow"
-msgid "ADD MUSIC"
+msgid "MASTER {} BPM"
 msgstr ""
 
-#: ui/app.slint:260
+#: ui/app.slint:367
 msgctxt "AppWindow"
-msgid "PLAYLIST"
+msgid "DECKS"
 msgstr ""
 
-#: ui/app.slint:261
-msgctxt "AppWindow"
-msgid "SET"
-msgstr ""
-
-#: ui/app.slint:262
-msgctxt "AppWindow"
-msgid "SMART"
-msgstr ""
-
-#: ui/app.slint:263
-msgctxt "AppWindow"
-msgid "FOLDER"
-msgstr ""
-
-#: ui/app.slint:264
+#: ui/app.slint:382
 msgctxt "AppWindow"
 msgid "FIND {} MOVED FILES"
 msgstr ""
 
-#: ui/app.slint:265
+#: ui/app.slint:383
+msgctxt "AppWindow"
+msgid "ADD MUSIC"
+msgstr ""
+
+#: ui/app.slint:384
 msgctxt "AppWindow"
 msgid "DELETE"
 msgstr ""
 
-#: ui/app.slint:270
+#: ui/app.slint:388
+msgctxt "AppWindow"
+msgid "SEARCH  ⌘F"
+msgstr ""
+
+#: ui/app.slint:396
 msgctxt "AppWindow"
 msgid "RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
 msgstr ""
 
-#: ui/app.slint:287
+#: ui/app.slint:413
 msgctxt "AppWindow"
 msgid "TRANSITION NOTE FOR THE SELECTED POSITION — ENTER TO SAVE"
 msgstr ""
 
-#: ui/app.slint:300
+#: ui/app.slint:426
 msgctxt "AppWindow"
 msgid ""
 "Your library is empty. Use ADD MUSIC to add a folder, or import your "
 "rekordbox library once."
 msgstr ""
 
-#: ui/app.slint:301
+#: ui/app.slint:427
 msgctxt "AppWindow"
 msgid ""
 "No tracks here yet. Select tracks in All tracks and press + next to this "
 "list in the sidebar."
 msgstr ""
 
-#: ui/app.slint:309
+#: ui/app.slint:435
 msgctxt "AppWindow"
 msgid "ADD MUSIC FOLDER"
 msgstr ""
 
-#: ui/app.slint:310
+#: ui/app.slint:436
 msgctxt "AppWindow"
 msgid "IMPORT FROM REKORDBOX"
 msgstr ""
 
 #. ── Devices section ──
-#: ui/app.slint:314
+#: ui/app.slint:440
 msgctxt "AppWindow"
 msgid "USB STICKS"
 msgstr ""
 
 #. ── Devices section ──
-#: ui/app.slint:314
+#: ui/app.slint:440
 msgctxt "AppWindow"
 msgid "{} REGISTERED"
 msgstr ""
 
-#: ui/app.slint:316
+#: ui/app.slint:442
 msgctxt "AppWindow"
 msgid ""
 "Registered sticks are kept in sync automatically while they are plugged in. "
 "Every change to a playlist, cue or beatgrid reaches the stick within seconds."
 msgstr ""
 
-#: ui/app.slint:340
+#: ui/app.slint:466
 msgctxt "AppWindow"
 msgid "STICK NAME"
 msgstr ""
 
-#: ui/app.slint:343
+#: ui/app.slint:469
 msgctxt "AppWindow"
 msgid "FORMATS"
 msgstr ""
 
-#: ui/app.slint:346
+#: ui/app.slint:472
 msgctxt "AppWindow"
 msgid "Pioneer players (export.pdb)"
 msgstr ""
 
-#: ui/app.slint:347
+#: ui/app.slint:473
 msgctxt "AppWindow"
 msgid "OpenDecks"
 msgstr ""
 
-#: ui/app.slint:349
+#: ui/app.slint:475
 msgctxt "AppWindow"
 msgid "CONTENT — LISTS ON THIS STICK"
 msgstr ""
 
-#: ui/app.slint:364
+#: ui/app.slint:490
 msgctxt "AppWindow"
 msgid "CHANGES MADE ON PLAYERS — REVIEW"
 msgstr ""
 
-#: ui/app.slint:374
+#: ui/app.slint:500
 msgctxt "AppWindow"
 msgid "IMPORT"
 msgstr ""
 
-#: ui/app.slint:374
+#: ui/app.slint:500
 msgctxt "AppWindow"
 msgid "TAKE STICK CUES"
 msgstr ""
 
-#: ui/app.slint:375
+#: ui/app.slint:501
 msgctxt "AppWindow"
 msgid "DISMISS"
 msgstr ""
 
-#: ui/app.slint:375
+#: ui/app.slint:501
 msgctxt "AppWindow"
 msgid "KEEP LIBRARY"
 msgstr ""
 
-#: ui/app.slint:379
+#: ui/app.slint:505
 msgctxt "AppWindow"
 msgid "SYNC NOW"
 msgstr ""
 
-#: ui/app.slint:380
+#: ui/app.slint:506
 msgctxt "AppWindow"
 msgid "REBUILD STICK"
 msgstr ""
 
-#: ui/app.slint:381
+#: ui/app.slint:507
 msgctxt "AppWindow"
 msgid "FORGET"
 msgstr ""
 
 #. ── Recordings section ──
-#: ui/app.slint:387
+#: ui/app.slint:513
 msgctxt "AppWindow"
 msgid "RECORDINGS"
 msgstr ""
 
 #. ── Recordings section ──
-#: ui/app.slint:387
+#: ui/app.slint:513
 msgctxt "AppWindow"
 msgid "{} MIXES"
 msgstr ""
 
-#: ui/app.slint:392
+#: ui/app.slint:518
 msgctxt "AppWindow"
 msgid ""
 "No recordings yet. Press RECORD in Perform, or the record button on your "
 "controller."
 msgstr ""
 
-#: ui/app.slint:404
+#: ui/app.slint:530
 msgctxt "AppWindow"
 msgid "SHOW FILE"
 msgstr ""
 
-#: ui/app.slint:405
+#: ui/app.slint:531
 msgctxt "AppWindow"
 msgid "SPLIT INTO TRACKS"
-msgstr ""
-
-#: ui/app.slint:479
-msgctxt "AppWindow"
-msgid "UNDO  {}  ⌘Z"
-msgstr ""
-
-#: ui/app.slint:526
-msgctxt "AppWindow"
-msgid "DECKS"
-msgstr ""
-
-#: ui/app.slint:534
-msgctxt "AppWindow"
-msgid "SEARCH"
-msgstr ""
-
-#: ui/app.slint:545
-msgctxt "AppWindow"
-msgid "No tracks in this list."
 msgstr ""
 
 #: ui/devices.slint:69
@@ -266,84 +241,49 @@ msgctxt "SetFlow"
 msgid "HEIGHT ENERGY  ·  DASHED CAUTION  ·  STRUCK CLASH"
 msgstr ""
 
-#: ui/perform.slint:68
-msgctxt "DeckPlate"
-msgid "Empty — load a track"
+#: ui/perform.slint:127
+msgctxt "DeckPanel"
+msgid "Not loaded — double-click a track or press LOAD"
 msgstr ""
 
-#: ui/perform.slint:80
-msgctxt "DeckPlate"
-msgid "TEMPO"
-msgstr ""
-
-#: ui/perform.slint:81
-msgctxt "DeckPlate"
-msgid "KEY"
-msgstr ""
-
-#: ui/perform.slint:82
-msgctxt "DeckPlate"
+#: ui/perform.slint:138
+msgctxt "DeckPanel"
 msgid "REMAIN"
 msgstr ""
 
-#: ui/perform.slint:114 ui/perform.slint:126
-msgctxt "DeckPlate"
-msgid "PLAY"
+#: ui/perform.slint:139
+msgctxt "DeckPanel"
+msgid "KEY"
 msgstr ""
 
-#: ui/perform.slint:117
-msgctxt "DeckPlate"
-msgid "KEYLOCK"
+#: ui/perform.slint:163
+msgctxt "DeckPanel"
+msgid "LOAD SELECTED"
 msgstr ""
 
-#: ui/perform.slint:118
-msgctxt "DeckPlate"
+#: ui/perform.slint:170
+msgctxt "DeckPanel"
+msgid "SEPARATING…"
+msgstr ""
+
+#: ui/perform.slint:201
+msgctxt "DeckPanel"
 msgid "LOOP"
 msgstr ""
 
-#: ui/perform.slint:126
-msgctxt "DeckPlate"
-msgid "PAUSE"
+#: ui/perform.slint:214
+msgctxt "DeckPanel"
+msgid "BEAT JUMP"
 msgstr ""
 
-#: ui/perform.slint:186
+#: ui/perform.slint:475
 msgctxt "PerformView"
-msgid "NO MASTER"
+msgid "PHONES"
 msgstr ""
 
-#: ui/perform.slint:186
+#: ui/perform.slint:477
 msgctxt "PerformView"
-msgid "MASTER {} BPM"
-msgstr ""
-
-#: ui/perform.slint:193
-msgctxt "PerformView"
-msgid "DECKS"
-msgstr ""
-
-#: ui/perform.slint:193
-msgctxt "PerformView"
-msgid "BROWSE"
-msgstr ""
-
-#: ui/perform.slint:197
-msgctxt "PerformView"
-msgid "2 DECKS"
-msgstr ""
-
-#: ui/perform.slint:198
-msgctxt "PerformView"
-msgid "4 DECKS"
-msgstr ""
-
-#: ui/perform.slint:203
-msgctxt "PerformView"
-msgid "REC {}"
-msgstr ""
-
-#: ui/perform.slint:203
-msgctxt "PerformView"
-msgid "RECORD"
+msgid "LEVEL"
 msgstr ""
 
 #: ui/plate.slint:84
@@ -426,6 +366,81 @@ msgctxt "TrackPlate"
 msgid "LOCK"
 msgstr ""
 
+#: ui/player.slint:64
+msgctxt "PreparePlayer"
+msgid "No track selected"
+msgstr ""
+
+#: ui/player.slint:72
+msgctxt "PreparePlayer"
+msgid "KEY"
+msgstr ""
+
+#: ui/player.slint:73
+msgctxt "PreparePlayer"
+msgid "TIME"
+msgstr ""
+
+#: ui/player.slint:84
+msgctxt "PreparePlayer"
+msgid "POSITION"
+msgstr ""
+
+#: ui/player.slint:111
+msgctxt "PreparePlayer"
+msgid "Select a track to prepare it"
+msgstr ""
+
+#: ui/player.slint:141
+msgctxt "PreparePlayer"
+msgid "HOT CUE"
+msgstr ""
+
+#: ui/player.slint:143
+msgctxt "PreparePlayer"
+msgid "CLICK EMPTY = SET AT CURSOR"
+msgstr ""
+
+#: ui/player.slint:158
+msgctxt "PreparePlayer"
+msgid "MEMORY CUE"
+msgstr ""
+
+#: ui/player.slint:159
+msgctxt "PreparePlayer"
+msgid "ANALYSE"
+msgstr ""
+
+#: ui/player.slint:161
+msgctxt "PreparePlayer"
+msgid "GRID"
+msgstr ""
+
+#: ui/player.slint:167
+msgctxt "PreparePlayer"
+msgid "HALF"
+msgstr ""
+
+#: ui/player.slint:168
+msgctxt "PreparePlayer"
+msgid "DOUBLE"
+msgstr ""
+
+#: ui/player.slint:172
+msgctxt "PreparePlayer"
+msgid "DOWNBEAT AT CURSOR"
+msgstr ""
+
+#: ui/player.slint:173
+msgctxt "PreparePlayer"
+msgid "UNLOCK"
+msgstr ""
+
+#: ui/player.slint:173
+msgctxt "PreparePlayer"
+msgid "LOCK"
+msgstr ""
+
 #: ui/rail.slint:159
 msgctxt "Rail"
 msgid "LIBRARY"
@@ -466,32 +481,122 @@ msgctxt "Rail"
 msgid "PERFORM"
 msgstr ""
 
-#: ui/table.slint:174
-msgctxt "TrackTable"
-msgid "TITLE"
+#: ui/sidebar.slint:112
+msgctxt "Sidebar"
+msgid "COLLECTION"
 msgstr ""
 
-#: ui/table.slint:175
-msgctxt "TrackTable"
-msgid "ARTIST"
+#: ui/sidebar.slint:121
+msgctxt "Sidebar"
+msgid "PLAYLISTS"
 msgstr ""
 
-#: ui/table.slint:176
-msgctxt "TrackTable"
-msgid "GENRE"
+#: ui/sidebar.slint:132
+msgctxt "Sidebar"
+msgid "DEVICES"
 msgstr ""
 
-#: ui/table.slint:178
-msgctxt "TrackTable"
-msgid "KEY"
+#: ui/sidebar.slint:135
+msgctxt "Sidebar"
+msgid "Plug in a USB stick to register it."
+msgstr ""
+
+#: ui/sidebar.slint:159
+msgctxt "Sidebar"
+msgid "New stick: {}"
+msgstr ""
+
+#: ui/sidebar.slint:165
+msgctxt "Sidebar"
+msgid "SELECT A PLAYLIST FIRST"
+msgstr ""
+
+#: ui/sidebar.slint:165
+msgctxt "Sidebar"
+msgid "REGISTER WITH {}"
+msgstr ""
+
+#: ui/sidebar.slint:170
+msgctxt "Sidebar"
+msgid "RECORDINGS"
+msgstr ""
+
+#: ui/sidebar.slint:178
+msgctxt "Sidebar"
+msgid "Recordings"
+msgstr ""
+
+#: ui/sidebar.slint:194
+msgctxt "Sidebar"
+msgid "SET"
+msgstr ""
+
+#: ui/sidebar.slint:195
+msgctxt "Sidebar"
+msgid "SMART"
+msgstr ""
+
+#: ui/sidebar.slint:196
+msgctxt "Sidebar"
+msgid "FOLDER"
 msgstr ""
 
 #: ui/table.slint:179
 msgctxt "TrackTable"
-msgid "TIME"
+msgid "PREVIEW"
 msgstr ""
 
 #: ui/table.slint:180
 msgctxt "TrackTable"
+msgid "TITLE"
+msgstr ""
+
+#: ui/table.slint:181
+msgctxt "TrackTable"
+msgid "ARTIST"
+msgstr ""
+
+#: ui/table.slint:182
+msgctxt "TrackTable"
+msgid "GENRE"
+msgstr ""
+
+#: ui/table.slint:184
+msgctxt "TrackTable"
+msgid "KEY"
+msgstr ""
+
+#: ui/table.slint:185
+msgctxt "TrackTable"
+msgid "TIME"
+msgstr ""
+
+#: ui/table.slint:186
+msgctxt "TrackTable"
 msgid "RATING"
+msgstr ""
+
+#: ui/topbar.slint:56
+msgctxt "TopBar"
+msgid "PREPARE"
+msgstr ""
+
+#: ui/topbar.slint:57
+msgctxt "TopBar"
+msgid "PERFORM"
+msgstr ""
+
+#: ui/topbar.slint:62
+msgctxt "TopBar"
+msgid "UNDO  {}  ⌘Z"
+msgstr ""
+
+#: ui/topbar.slint:81
+msgctxt "TopBar"
+msgid "REC {}"
+msgstr ""
+
+#: ui/topbar.slint:81
+msgctxt "TopBar"
+msgid "RECORD"
 msgstr ""

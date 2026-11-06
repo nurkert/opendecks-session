@@ -60,6 +60,8 @@ pub(crate) struct State {
     sticks: Vec<(String, PathBuf)>,
     /// The stick being browsed (read-only source), with its index in `sticks`.
     stick: Option<(usize, od_format_native::Stick)>,
+    /// Mini overview waveforms for the PREVIEW column, by track.
+    previews: std::collections::HashMap<(bool, TrackId), slint::Image>,
 }
 
 /// Tree ids: stick roots are `STICK_ROOT - i`, nodes inside stick `i` are
@@ -263,6 +265,7 @@ impl App {
             analysis: (0, 0),
             sticks: Vec::new(),
             stick: None,
+            previews: std::collections::HashMap::new(),
         }));
         let app = Rc::new(App {
             ui,
@@ -294,6 +297,8 @@ impl App {
         let track = get("ui.track").and_then(|v| v.parse::<i64>().ok()).map(TrackId);
         let section = get("ui.section");
         let mode = get("ui.mode");
+        let sidebar = get("ui.sidebar_width").and_then(|v| v.parse::<f32>().ok());
+        let upper = get("ui.upper_height").and_then(|v| v.parse::<f32>().ok());
         if let Some(n) = node.filter(|n| st.lib.node(*n).is_ok()) {
             st.node = Some(n);
             let in_list = st.lib.node(n).is_ok_and(|n| n.kind.has_entries());
@@ -321,6 +326,12 @@ impl App {
         if let Some(s) = section {
             self.ui.set_section(s.into());
         }
+        if let Some(w) = sidebar {
+            self.ui.set_sidebar_width(w.clamp(180.0, 480.0));
+        }
+        if let Some(h) = upper {
+            self.ui.set_upper_height(h.max(0.0));
+        }
         if let Some(m) = mode.filter(|_| !self.state.borrow().config.kiosk) {
             self.ui.set_mode(m.into());
         }
@@ -335,6 +346,8 @@ impl App {
         let _ = st.lib.set_meta("ui.track", &track);
         let _ = st.lib.set_meta("ui.section", self.ui.get_section().as_str());
         let _ = st.lib.set_meta("ui.mode", self.ui.get_mode().as_str());
+        let _ = st.lib.set_meta("ui.sidebar_width", &self.ui.get_sidebar_width().to_string());
+        let _ = st.lib.set_meta("ui.upper_height", &self.ui.get_upper_height().to_string());
     }
 
     pub fn run(self: &Rc<Self>) -> anyhow::Result<()> {
@@ -476,6 +489,7 @@ impl App {
     }
 
     pub(crate) fn refresh_tracks(&self) {
+        self.fill_previews();
         let st = self.state.borrow();
         let current_key = st.current.and_then(|id| st.rows.iter().find(|t| t.id == id)).and_then(|t| t.key);
         let kind = st.node_kind();
@@ -489,6 +503,7 @@ impl App {
             .iter()
             .enumerate()
             .map(|(i, t)| TrackRow {
+                preview: st.previews.get(&(st.read_only(), t.id)).cloned().unwrap_or_default(),
                 id: t.id.0 as i32,
                 position: i as i32 + 1,
                 title: t.tags.title.clone().into(),
@@ -579,6 +594,30 @@ impl App {
         }
     }
 
+    /// Renders missing PREVIEW-column waveforms (bounded so very large
+    /// lists stay fast; the cache keeps them for later refreshes).
+    fn fill_previews(&self) {
+        const LIMIT: usize = 3000;
+        let scale = self.ui.window().scale_factor();
+        let (w, h) = ((110.0 * scale) as u32, (20.0 * scale) as u32);
+        let mut st = self.state.borrow_mut();
+        let ro = st.read_only();
+        let missing: Vec<TrackId> = st
+            .rows
+            .iter()
+            .take(LIMIT)
+            .map(|t| t.id)
+            .filter(|id| !st.previews.contains_key(&(ro, *id)))
+            .collect();
+        for id in missing {
+            let a = st.src().analysis(id).unwrap_or_default();
+            let img = if a.waveform.columns.is_empty() { slint::Image::default() } else { render::preview(&a.waveform, w, h) };
+            if !a.waveform.columns.is_empty() {
+                st.previews.insert((ro, id), img);
+            }
+        }
+    }
+
     pub(crate) fn refresh_detail(&self) {
         let st = self.state.borrow();
         let Some(id) = st.current else {
@@ -605,7 +644,8 @@ impl App {
         );
         self.ui.set_grid_locked(grid.as_ref().is_some_and(|(g, _)| g.locked));
         let scale = self.ui.window().scale_factor();
-        self.ui.set_track_overview(render::overview(&analysis.waveform, &analysis.beatgrid, t.duration, (300.0 * scale) as u32, (92.0 * scale) as u32));
+        self.ui.set_track_overview(render::overview(&analysis.waveform, &analysis.beatgrid, t.duration, (1000.0 * scale) as u32, (48.0 * scale) as u32));
+        self.ui.set_track_phrases(model(crate::perform::phrase_marks(&analysis.phrases, &analysis.beatgrid, t.duration)));
         let marks: Vec<CueMark> = cues
             .iter()
             .map(|c| {
@@ -639,7 +679,11 @@ impl App {
             .collect();
         self.ui.set_hot_cues_top(model(slots[..4].to_vec()));
         self.ui.set_hot_cues_bottom(model(slots[4..].to_vec()));
+        self.ui.set_hot_cues(model(slots));
         self.ui.set_cursor((st.cursor / duration) as f32);
+        self.ui.set_track_position(fmt_cue_time(st.cursor).into());
+        let width = ((self.ui.window().size().width as f32 / scale - 680.0).max(300.0) * scale) as u32;
+        self.ui.set_track_detail(render::detail(&analysis.waveform, &analysis.beatgrid, &analysis.phrases, st.cursor, 8.0, width, (150.0 * scale) as u32));
     }
 
     fn refresh_devices(&self) {
@@ -1290,6 +1334,28 @@ impl App {
                         }
                     }
                 }
+            }
+            crate::perform::preview_seek(&app);
+            app.refresh_detail();
+        }));
+        ui.on_nudge(with_app1!(app, d: f32, {
+            {
+                let mut st = app.state.borrow_mut();
+                let dur = st.current.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
+                st.cursor = (st.cursor + d as f64).clamp(0.0, dur);
+            }
+            crate::perform::preview_seek(&app);
+            app.refresh_detail();
+        }));
+        ui.on_jump_start(with_app!(app, {
+            {
+                // CUE: back to the first memory cue, or the start.
+                let mut st = app.state.borrow_mut();
+                let first = st
+                    .current
+                    .and_then(|id| st.src().cues(id).ok())
+                    .and_then(|c| c.iter().filter(|c| c.kind == CueKind::Memory).map(|c| c.start).reduce(f64::min));
+                st.cursor = first.unwrap_or(0.0);
             }
             crate::perform::preview_seek(&app);
             app.refresh_detail();

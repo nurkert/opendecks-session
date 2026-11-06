@@ -232,13 +232,16 @@ A charcoal continuum with bone ink and seven narrow spectral lines; each wavelen
 
 ## Layout
 
-The window is three bands on desktop (preferred 1440x900, min 1180x640): the rail column (232px), the centre column (24px left, 20px right, 20px top, 12px gaps), and the right working column (340px, 20px padding, 24px gaps) holding the track plate and the device board. Hairline vertical rules separate columns; nothing is boxed. A 30px status band closes the centre column with a top rule, carrying the analysis progress line (120px), status text and undo.
+The arrangement follows the conventions rekordbox users know (owner decision 2026-11-06); only the visual language is ours. Desktop (preferred 1440x900, min 1180x640) stacks four bands:
+
+1. **Top bar** (44px): brand, PREPARE / PERFORM tabs (2px sodium underline on the current one), engine state, undo, RECORD on the right.
+2. **Player band.** Prepare: the 236px track player (title, BPM / KEY / TIME, round CUE and PLAY, position; detail waveform over the overview; HOT CUE A–D | E–H, MEMORY CUE, grid tools on the right). Perform: one enlarged waveform lane per deck (84px, 58px with four decks, 46px tight) with the deck numeral and centre playhead, then odd decks left, mixer centre, even decks right, then the PHONES / crossfader / MASTER footer (44px).
+3. **Browser:** the 260px sidebar tree (COLLECTION, PLAYLISTS, DEVICES with sync and eject, RECORDINGS, SET / SMART / FOLDER footer) beside the list: title, count and duration, list actions, search (260px), set flow and transition note for sets, and the track table with a PREVIEW waveform column.
+4. **Status band** (30px).
 
 Rhythm is a 4px grid (s1 to s6: 4, 8, 12, 16, 24, 32). Desktop rows are 28px tall; tree rows 26px; table header 30px.
 
-The rail sits at x = 28px within its column: a 1px strong-rule line between two 7px hollow circular nodes. Section ticks grow from 12px x 1px to 18px x 2px in the section's wavelength when current; tree rows indent 14px per level from rail-x + 20px.
-
-**Kiosk** (Raspberry Pi, full screen, min 480x320): opens in Perform with the browser open. Row height becomes 44px; plate buttons in the perform header and browser become 44px tall; the browser search field becomes 44px. Below the tight-screen threshold (set from Rust by window size), deck plates go compact: padding 10px, spacing 6px, BPM and REMAIN rise to 34px when two or fewer decks show, and the transport and hot-cue plate row is dropped. Browse and Decks are separate screens, swapped with BROWSE / DECKS plates.
+**Kiosk** (Raspberry Pi, full screen, min 480x320): opens in Perform; the sidebar is hidden and the browser is a separate screen. Spare height goes to the waveform lanes; deck panels keep their natural height. Touch sizes: hot cue pads 40px (32px tight), transports 52px (44px tight), rows and fields 44px. Below 620px of height (set from Rust) the mixer is hidden and lanes shrink to 46px.
 
 ## Elevation & Depth
 
@@ -274,10 +277,10 @@ Square corners throughout (0px). Borders are 1px hairlines (2px in high contrast
 ### Toggles (line toggles)
 - A 2px vertical line plus a 13px label: solid in its tone when on, half-height strong-rule when off. Perform state marks (PLAY, SYNC, MASTER, KEYLOCK, LOOP, SLIP) use the same grammar at 11px / 600 / 1.5px caps.
 
-### Navigation (the rail)
-- **Sections:** LIBRARY (486), DEVICES (546), RECORDINGS (656), each a 40px tick row with a 10px caps sub-label underneath. The current section's tick lengthens and takes its wavelength (160ms ease-out); its label goes bone.
-- **Tree:** 26px rows; kind marker lines left of the name (sticks solid green 2px, sets solid sodium 1px, smart lists dashed indigo 1px); a 1px strong-rule length bar under each list proportional to its playing time; counts right-aligned in bone-3. Selection is a sodium tick on the rail, never a fill.
-- **Mode switch:** PREPARE / PERFORM caps tabs at the rail foot; the current one gets a 2px sodium underline.
+### Navigation (sidebar and top bar)
+- **Sidebar sections:** caps headings (COLLECTION, PLAYLISTS, DEVICES, RECORDINGS) with a hairline plus glyph for creation where it applies.
+- **Tree:** 26px rows indented 14px per level; kind marker lines left of the name (sticks solid green 2px, sets solid sodium 1px, smart lists dashed indigo 1px); a 1px strong-rule length bar under each list proportional to its playing time; counts right-aligned in bone-3. Selection is an 8px sodium tick at the left edge, never a fill.
+- **Mode tabs:** PREPARE / PERFORM in the top bar; the current one sits on plate with a 2px sodium underline.
 
 ### Track Table
 - No boxes, no zebra fills. Caps header with a bone sort label and hairline arrow, 1px rule beneath.
@@ -301,10 +304,13 @@ Square corners throughout (0px). Borders are 1px hairlines (2px in high contrast
 - 150px. Each position is a vertical line whose height is the track's energy (min 6px, max 92px), bone-2 at 2px, or sodium at 3px when selected; BPM and key are written beside it.
 - Transitions between positions are 1px lines whose form is the fit: solid bone-3 good, dashed sodium caution, half unknown, struck deep red clash. A 9px caps legend spells the code out.
 
-### Deck Plate (Perform)
-- The deck's 2px line runs the full plate height on the left (doubled when master) next to its numeral in the same colour; content starts at 52px.
-- Readouts across the top; a scrolling detail waveform (played audio dimmed, beat ticks top and bottom, downbeats longer and brighter) with a doubled sodium playhead at the centre (half-height strong rule when empty); an overview with played-portion veil, cue lines and a doubled sodium position line; state marks; transport and A to H hot cue plates in cue colours.
-- A 2px level meter on the right edge in bone-2, deep red above 95%.
+### Deck Panel and Mixer (Perform)
+- The deck's 2px line runs the full panel height on the left (doubled when master) beside its numeral in the deck colour.
+- **Header:** numeral, title and artist, REMAIN / KEY / BPM readouts (24px, BPM 28px), SYNC and MASTER toggles.
+- **Overview** (34px, 26px compact) with played-portion veil, cue lines, doubled sodium position line and needle search; LOAD SELECTED when empty.
+- **Stems row:** VOCAL / INST / DRUMS / BASS mute toggles (disabled until the track has stems, SEPARATING… while separating) and KEY LOCK.
+- **Performance row:** hot cue pads A–D | E–H in two columns, LOOP (½, size, 2×), BEAT JUMP −4 / +4, Q and SLIP, round CUE and PLAY, the tempo fader with its range.
+- **Mixer:** per channel a knob column (TRIM, HI, MID, LOW, CFX) beside the channel numeral, CUE toggle, a 4px level line (deep red at clip) and the channel fader. Knobs are drawn rings with a single indicator line; a changed knob's line takes its band wavelength; double-click resets.
 - The crossfader is a single 2px bone line on a strong-rule ruler between A and B.
 
 ## Do's and Don'ts

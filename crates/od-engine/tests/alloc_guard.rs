@@ -73,9 +73,17 @@ fn process_never_allocates() {
         SR,
     );
     let tracks: Vec<_> = (0..4)
-        .map(|i| sine_track(i, 30.0, 300.0 + 50.0 * i as f64, 0.3, 120.0 + i as f64))
+        .map(|i| {
+            if i % 2 == 0 {
+                stem_track(i, 30.0, 300.0, 700.0, 1100.0)
+            } else {
+                sine_track(i, 30.0, 300.0 + 50.0 * i as f64, 0.3, 120.0 + i as f64)
+            }
+        })
         .collect();
     let replacement = sine_track(9, 5.0, 500.0, 0.3, 125.0);
+    let swap_same = stem_track(2, 30.0, 300.0, 700.0, 1100.0);
+    let swap_other = stem_track(42, 1.0, 300.0, 700.0, 1100.0);
     let mut sender = rig.engine.new_sender().unwrap();
     let mut tap = rig.engine.take_record_tap().unwrap();
     let mut drained = Vec::with_capacity(1 << 20);
@@ -119,6 +127,14 @@ fn process_never_allocates() {
     rig.block(BLOCK);
 
     let script: Vec<Vec<Command>> = vec![
+        vec![
+            Command::Deck(0, DeckCommand::SetStemLevel { stem: Stem::Vocals, level: 0.0 }),
+            Command::Deck(2, DeckCommand::SetStemLevel { stem: Stem::Inst, level: 0.3 }),
+        ],
+        vec![
+            Command::Deck(2, DeckCommand::SwapTrackData(swap_same)),
+            Command::Deck(1, DeckCommand::SwapTrackData(swap_other)),
+        ],
         vec![Command::Deck(0, DeckCommand::AutoLoop { beats: 1.0 / 8.0 })],
         vec![
             Command::Deck(0, DeckCommand::SetSlip(true)),

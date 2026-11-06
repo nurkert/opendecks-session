@@ -363,11 +363,22 @@ implemented with `rusb` in the FLX10 device module.
 - Library browser usable fully from the controller (browse, load, back,
   shift-sort).
 
-### 10.2 Out of scope for v1
+### 10.2 Stems (added 2026-11-06 on the owner's request)
 
-Stems, DVS, lighting, streaming services, Pro DJ Link, video.
+- Four parts per track: vocals, drums, bass and instrumental (INST = mix −
+  vocals − drums − bass), separated offline by a local ONNX model that is
+  downloaded once on demand; nothing leaves the machine.
+- Separation runs in the background and is cached per track; a deck shows
+  SEPARATING… until the parts are ready and the mute toggles then work
+  instantly and click-free.
+- Desktop (Full profile) separates; the Raspberry Pi plays parts that were
+  separated on the desktop.
 
-### 10.3 Audio I/O
+### 10.3 Out of scope for v1
+
+DVS, lighting, streaming services, Pro DJ Link, video.
+
+### 10.4 Audio I/O
 
 - macOS: CoreAudio.
 - Raspberry Pi (Lite profile): ALSA directly on the controller's hardware
@@ -464,7 +475,7 @@ format with the FLX10 for 1 hour with 4 decks without dropouts at ≥ 30 fps.
 
 ### M5 — Later
 
-OneLibrary export, LAN sync between desktop and Pi, stems (desktop only),
+OneLibrary export, LAN sync between desktop and Pi,
 more controllers, real-player CDJ validation if not done earlier.
 
 ## 16. Open items and risks

@@ -2,7 +2,7 @@
 //! controller actions and LED feedback, recording, and the Prepare preview.
 
 use crate::app::App;
-use crate::{CueMark, DeckView, render};
+use crate::{ChannelView, CueMark, DeckView, HotCueSlot, PhraseMark, render};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use od_controller::{
     BrowseAction, ControlAction, ControlFeedback, CrossfaderSide, DeckAction, DeckElement, FeedbackTarget,
@@ -16,6 +16,7 @@ use od_engine::{
 };
 use od_recorder::Recorder;
 use slint::{ComponentHandle, Image, ModelRc, VecModel};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -38,12 +39,28 @@ struct Loaded {
     grid: Beatgrid,
     overview: Image,
     cues: Vec<CueMark>,
+    labels: [String; 8],
+    phrases: Vec<od_core::Phrase>,
+    phrase_marks: Vec<PhraseMark>,
+    /// What a reload with stems needs.
+    source: TrackSource,
+}
+
+/// File and analysis of a loaded track, kept to reload it with stems.
+#[derive(Clone)]
+struct TrackSource {
+    path: PathBuf,
+    hash: od_core::ContentHash,
+    cues: Vec<od_core::Cue>,
+    gain: f32,
 }
 
 struct Prepared {
     deck: usize,
     data: Arc<TrackData>,
     play_from: Option<f64>,
+    /// Stems arrived for the track already on `deck`: swap in place.
+    swap: bool,
 }
 
 pub(crate) struct Perform {
@@ -66,6 +83,13 @@ pub(crate) struct Perform {
     last_frame: Instant,
     controller_name: Option<String>,
     loaded_from_stick: bool,
+    /// Auto-loop size per deck, in beats.
+    loop_size: [f64; DECKS],
+    stem_cache: od_stems::StemCache,
+    #[cfg(feature = "separation")]
+    stem_worker: Option<od_stems::StemWorker>,
+    /// Separation progress (0..1) of queued or running tracks.
+    stem_progress: HashMap<TrackId, f32>,
 }
 
 impl Default for Perform {
@@ -90,6 +114,11 @@ impl Default for Perform {
             last_frame: Instant::now(),
             controller_name: None,
             loaded_from_stick: false,
+            loop_size: [4.0; DECKS],
+            stem_cache: od_stems::StemCache::open_default(),
+            #[cfg(feature = "separation")]
+            stem_worker: None,
+            stem_progress: HashMap::new(),
         }
     }
 }
@@ -237,6 +266,8 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
             label: c.label.clone().into(),
         })
         .collect();
+    let gain = analysis.loudness_lufs.map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0)).unwrap_or(0.0);
+    let source = TrackSource { path: st.resolve(&t.path), hash: t.content_hash.clone(), cues: cues.clone(), gain };
     let meta = Loaded {
         id: track,
         title: t.tags.title.clone(),
@@ -246,21 +277,121 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
         waveform: analysis.waveform.clone(),
         grid: analysis.beatgrid.clone(),
         cues: marks,
+        labels: std::array::from_fn(|s| {
+            cues.iter().find(|c| c.kind == CueKind::Hot(s as u8)).map(|c| c.label.clone()).unwrap_or_default()
+        }),
+        phrases: analysis.phrases.clone(),
+        phrase_marks: phrase_marks(&analysis.phrases, &analysis.beatgrid, t.duration),
+        source: source.clone(),
     };
-    let gain = analysis.loudness_lufs.map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0)).unwrap_or(0.0);
-    let path = st.resolve(&t.path);
     let grid = analysis.beatgrid;
     drop(st);
     app.ui.set_engine_message(format!("Loading {} …", meta.title).into());
-    app.perform.borrow_mut().pending[deck] = Some(meta);
+    let cache = {
+        let mut p = app.perform.borrow_mut();
+        p.pending[deck] = Some(meta);
+        p.stem_cache.clone()
+    };
     app.perform.borrow_mut().loaded_from_stick = app.state.borrow().read_only();
-    std::thread::spawn(move || match TrackData::load(track, &path, rate, grid, &cues, gain) {
-        Ok(data) => {
-            let _ = tx.send(Prepared { deck, data, play_from });
+    prepare_in_background(cache, tx, deck, track, source, rate, grid, play_from, false);
+}
+
+/// Decodes a track (with its cached stems, if any) off the UI thread.
+#[allow(clippy::too_many_arguments)]
+fn prepare_in_background(
+    cache: od_stems::StemCache,
+    tx: Sender<Prepared>,
+    deck: usize,
+    track: TrackId,
+    src: TrackSource,
+    rate: u32,
+    grid: Beatgrid,
+    play_from: Option<f64>,
+    swap: bool,
+) {
+    std::thread::spawn(move || {
+        match od_stems::load_track_data(&cache, track, &src.path, Some(&src.hash), rate, grid, &src.cues, src.gain) {
+            Ok(data) => {
+                let _ = tx.send(Prepared { deck, data, play_from, swap });
+            }
+            Err(e) => tracing::warn!(error = %e, "track load failed"),
         }
-        Err(e) => tracing::warn!(error = %e, "track load failed"),
     });
 }
+
+/// Queues stem separation of a loaded track (desktop profile only).
+#[cfg(feature = "separation")]
+fn request_stems(app: &App, track: TrackId, src: &TrackSource) {
+    if app.state.borrow().config.lite {
+        return;
+    }
+    let mut p = app.perform.borrow_mut();
+    if p.stem_progress.contains_key(&track) {
+        return;
+    }
+    let cache = p.stem_cache.clone();
+    let worker = p
+        .stem_worker
+        .get_or_insert_with(|| od_stems::StemWorker::spawn(cache, od_stems::StemWorkerOptions::default()));
+    worker.enqueue(od_stems::StemJob { track, path: src.path.clone(), hash: src.hash.clone() });
+    worker.prioritize(track);
+    p.stem_progress.insert(track, 0.0);
+}
+
+#[cfg(not(feature = "separation"))]
+fn request_stems(_app: &App, _track: TrackId, _src: &TrackSource) {}
+
+/// Separation events → progress, status and in-place stem swaps.
+#[cfg(feature = "separation")]
+fn poll_stems(app: &App) {
+    use od_stems::StemEvent;
+    let events: Vec<StemEvent> =
+        app.perform.borrow().stem_worker.as_ref().map(|w| w.events().try_iter().collect()).unwrap_or_default();
+    for ev in events {
+        match ev {
+            StemEvent::ModelDownload { done, total } => {
+                let pct = if total > 0 { done * 100 / total } else { 0 };
+                say(app, format!("Downloading the stem model … {pct} %"));
+            }
+            StemEvent::Started { track } => {
+                app.perform.borrow_mut().stem_progress.insert(track, 0.0);
+            }
+            StemEvent::Progress { track, fraction } => {
+                app.perform.borrow_mut().stem_progress.insert(track, fraction);
+            }
+            StemEvent::Done { track, .. } | StemEvent::AlreadyCached { track, .. } => {
+                app.perform.borrow_mut().stem_progress.remove(&track);
+                let (rate, tx, cache, decks) = {
+                    let p = app.perform.borrow();
+                    let decks: Vec<(usize, TrackSource, Beatgrid)> = (0..DECKS)
+                        .filter_map(|d| {
+                            p.loaded[d].as_ref().filter(|l| l.id == track).map(|l| (d, l.source.clone(), l.grid.clone()))
+                        })
+                        .collect();
+                    (
+                        p.engine.as_ref().map(|e| e.config().sample_rate).unwrap_or(48_000),
+                        p.prepared_tx.clone(),
+                        p.stem_cache.clone(),
+                        decks,
+                    )
+                };
+                for (deck, src, grid) in decks {
+                    prepare_in_background(cache.clone(), tx.clone(), deck, track, src, rate, grid, None, true);
+                }
+            }
+            StemEvent::Failed { track, error } => {
+                app.perform.borrow_mut().stem_progress.remove(&track);
+                say(app, format!("Stem separation failed: {error}"));
+            }
+            StemEvent::Cancelled { track } => {
+                app.perform.borrow_mut().stem_progress.remove(&track);
+            }
+        }
+    }
+}
+
+#[cfg(not(feature = "separation"))]
+fn poll_stems(_app: &App) {}
 
 /// Double-click in the library: load into the first deck that is not
 /// playing (Perform) or start the preview (Prepare).
@@ -595,6 +726,57 @@ fn feedback(app: &App) {
     ctrl.send_feedback(None, ControlFeedback::led(FeedbackTarget::Recording, recording));
 }
 
+/// All decks plus the odd (left) and even (right) columns around the mixer.
+fn set_decks(app: &App, decks: Vec<DeckView>) {
+    let side = |odd: bool| decks.iter().filter(|d| (d.deck % 2 == 1) == odd).cloned().collect::<Vec<_>>();
+    app.ui.set_decks_left(ModelRc::new(VecModel::from(side(true))));
+    app.ui.set_decks_right(ModelRc::new(VecModel::from(side(false))));
+    app.ui.set_decks(ModelRc::new(VecModel::from(decks)));
+}
+
+/// Phrase blocks as fractions of the track, for the phrase bars.
+pub(crate) fn phrase_marks(phrases: &[od_core::Phrase], grid: &Beatgrid, duration: f64) -> Vec<PhraseMark> {
+    let at = |beat: u32| grid.beats.get(beat as usize).map(|b| b.time).unwrap_or(duration);
+    phrases
+        .iter()
+        .filter(|_| duration > 0.0)
+        .map(|p| {
+            let [r, g, b] = render::phrase_rgb(p.kind);
+            PhraseMark {
+                pos: (at(p.start_beat) / duration) as f32,
+                end: (at(p.end_beat) / duration).min(1.0) as f32,
+                label: render::phrase_label(p.kind).into(),
+                tone: slint::Color::from_rgb_u8(r, g, b),
+            }
+        })
+        .collect()
+}
+
+/// "CHORUS · 8" — the phrase at `beat` and the bars left in it.
+fn phrase_now(phrases: &[od_core::Phrase], beat: f64) -> String {
+    let b = beat.max(0.0) as u32;
+    phrases
+        .iter()
+        .find(|p| p.start_beat <= b && b < p.end_beat)
+        .map(|p| format!("{} · {}", render::phrase_label(p.kind), (p.end_beat - b).div_ceil(4)))
+        .unwrap_or_default()
+}
+
+fn pad_slots(s: &od_engine::DeckState, meta: Option<&Loaded>, slots: std::ops::Range<usize>) -> Vec<HotCueSlot> {
+    slots
+        .map(|slot| {
+            let hc = s.hot_cues[slot];
+            HotCueSlot {
+                slot: slot as i32,
+                letter: ((b'A' + slot as u8) as char).to_string().into(),
+                set: hc.is_some(),
+                time: hc.map(|h| fmt_time(h.start)).unwrap_or_default().into(),
+                label: meta.map(|m| m.labels[slot].clone()).unwrap_or_default().into(),
+            }
+        })
+        .collect()
+}
+
 fn frame(app: &App) {
     let scale = app.ui.window().scale_factor();
     let small = (app.ui.window().size().height as f32 / scale) < 620.0;
@@ -605,9 +787,21 @@ fn frame(app: &App) {
     let prepared: Vec<Prepared> = app.perform.borrow().prepared_rx.try_iter().collect();
     for pr in prepared {
         let (deck, play_from) = (pr.deck, pr.play_from);
+        if pr.swap {
+            // Same track still on the deck: attach the stems without a gap.
+            if app.perform.borrow().loaded[deck].as_ref().is_some_and(|l| l.id == pr.data.id) {
+                deck_cmd(app, deck, DeckCommand::SwapTrackData(pr.data));
+                say(app, format!("Stems ready on deck {}", deck + 1));
+            }
+            continue;
+        }
+        let needs_stems = !pr.data.has_stems();
         let meta = app.perform.borrow_mut().pending[deck].take().filter(|m| m.id == pr.data.id);
         let Some(meta) = meta else { continue };
         let title = meta.title.clone();
+        if needs_stems && deck != PREVIEW_DECK {
+            request_stems(app, meta.id, &meta.source);
+        }
         app.perform.borrow_mut().loaded[deck] = Some(meta);
         app.refresh_tracks();
         deck_cmd(app, deck, DeckCommand::Load(pr.data));
@@ -619,6 +813,7 @@ fn frame(app: &App) {
         app.ui.set_engine_message(msg.into());
         say(app, format!("Loaded {title} on deck {}", deck + 1));
     }
+    poll_stems(app);
     // Controller events.
     let events: Vec<od_controller::io::ControllerEvent> =
         app.perform.borrow().controllers.as_ref().map(|c| c.events().try_iter().collect()).unwrap_or_default();
@@ -653,7 +848,7 @@ fn frame(app: &App) {
             let empty: Vec<DeckView> = (0..count)
                 .map(|d| DeckView { deck: d as i32 + 1, ..Default::default() })
                 .collect();
-            app.ui.set_decks(ModelRc::new(VecModel::from(empty)));
+            set_decks(app, empty);
         }
         return;
     };
@@ -701,14 +896,14 @@ fn frame(app: &App) {
     let scale = app.ui.window().scale_factor();
     let count = app.perform.borrow().deck_count;
     let width = ((app.ui.window().size().width as f32 / scale - 120.0).max(400.0) * scale) as u32;
-    let height = ((if count > 2 { 64.0 } else { 120.0 }) * scale) as u32;
+    let height = ((if count > 2 { 64.0 } else { 110.0 }) * scale) as u32;
     let p = app.perform.borrow();
     let decks: Vec<DeckView> = (0..count)
         .map(|d| {
             let s = &state.decks[d];
             let meta = p.loaded[d].as_ref().filter(|m| Some(m.id) == s.track);
             let (waveform, overview) = match meta {
-                Some(m) => (render::detail(&m.waveform, &m.grid, s.position, DETAIL_SPAN * s.tempo.max(0.25), width, height), m.overview.clone()),
+                Some(m) => (render::detail(&m.waveform, &m.grid, &m.phrases, s.position, DETAIL_SPAN * s.tempo.max(0.25), width, height), m.overview.clone()),
                 None => (Image::default(), Image::default()),
             };
             DeckView {
@@ -734,11 +929,61 @@ fn frame(app: &App) {
                 waveform,
                 overview,
                 cues: ModelRc::new(VecModel::from(meta.map(|m| m.cues.clone()).unwrap_or_default())),
+                pads: ModelRc::new(VecModel::from(pad_slots(s, meta, 0..8))),
+                pads_left: ModelRc::new(VecModel::from(pad_slots(s, meta, 0..4))),
+                pads_right: ModelRc::new(VecModel::from(pad_slots(s, meta, 4..8))),
+                tempo_value: s.tempo_fader,
+                tempo_range: match s.tempo_range {
+                    TempoRange::Six => "±6%",
+                    TempoRange::Ten => "±10%",
+                    TempoRange::Sixteen => "±16%",
+                    TempoRange::Wide => "WIDE",
+                }
+                .into(),
+                quantize: state.quantize,
+                stems_available: s.stems_available,
+                stems_busy: meta.is_some_and(|m| p.stem_progress.contains_key(&m.id)),
+                mute_vocal: s.stem_levels[od_engine::Stem::Vocals.index()] < 0.5,
+                mute_inst: s.stem_levels[od_engine::Stem::Inst.index()] < 0.5,
+                mute_drums: s.stem_levels[od_engine::Stem::Drums.index()] < 0.5,
+                mute_bass: s.stem_levels[od_engine::Stem::Bass.index()] < 0.5,
+                loop_size: {
+                    let b = s.loop_state.beats.filter(|_| s.loop_state.active).unwrap_or(p.loop_size[d]);
+                    if b < 1.0 { format!("1/{}", (1.0 / b).round()) } else { format!("{}", b) }
+                }
+                .into(),
+                phrases: ModelRc::new(VecModel::from(meta.map(|m| m.phrase_marks.clone()).unwrap_or_default())),
+                phrase: meta.map(|m| phrase_now(&m.phrases, s.beat)).unwrap_or_default().into(),
+                // 33⅓ rpm: 200° per second of audio.
+                jog_angle: (s.position * 200.0).rem_euclid(360.0) as f32,
+                beat_pos: if s.beat_in_bar > 0 { format!("{}.{}", (s.beat.max(0.0) as u64) / 4 + 1, s.beat_in_bar) } else { String::new() }.into(),
             }
         })
         .collect();
     drop(p);
-    app.ui.set_decks(ModelRc::new(VecModel::from(decks)));
+    set_decks(app, decks);
+    let channels: Vec<ChannelView> = (0..count)
+        .map(|d| {
+            let c = &state.channels[d];
+            ChannelView {
+                channel: d as i32 + 1,
+                // Trim knob: −24..+12 dB mapped onto −1..1.
+                trim: if c.trim_db < 0.0 { c.trim_db / 24.0 } else { c.trim_db / 12.0 },
+                high: c.eq[2],
+                mid: c.eq[1],
+                low: c.eq[0],
+                cfx: c.color_fx_amount,
+                fader: c.fader,
+                cue: c.cue,
+                level: c.meter.rms.min(1.0),
+                peak: c.meter.peak,
+            }
+        })
+        .collect();
+    app.ui.set_channels(ModelRc::new(VecModel::from(channels)));
+    app.ui.set_master_level(state.master_level);
+    app.ui.set_headphone_mix(state.headphone_mix);
+    app.ui.set_headphone_level(state.headphone_level);
     app.ui.set_master_bpm(if state.master_deck.is_some() { format!("{:.1}", state.master_bpm) } else { String::new() }.into());
     app.ui.set_crossfader((state.crossfader + 1.0) / 2.0);
     app.ui.set_engine_ready(true);
@@ -796,6 +1041,91 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_set_deck_count(move |n| {
         if let Some(app) = w.upgrade() {
             app.perform.borrow_mut().deck_count = (n as usize).clamp(2, 4);
+        }
+    });
+
+    macro_rules! deck_cb {
+        ($setter:ident, |$app:ident, $d:ident $(, $a:ident : $t:ty)*| $body:expr) => {{
+            let w = Rc::downgrade(app);
+            ui.$setter(move |$d $(, $a)*| {
+                if let Some($app) = w.upgrade() {
+                    ensure_engine(&$app);
+                    let $d = ($d as usize).saturating_sub(1).min(DECKS - 1);
+                    $body
+                }
+            });
+        }};
+    }
+    let state_of = |app: &App, d: usize| app.perform.borrow_mut().engine.as_mut().map(|e| e.state().decks[d]);
+    deck_cb!(on_deck_master, |app, d| send(&app, Command::SetMasterDeck(Some(d))));
+    deck_cb!(on_deck_keylock, |app, d| {
+        let on = state_of(&app, d).map(|s| s.keylock).unwrap_or(false);
+        deck_cmd(&app, d, DeckCommand::SetKeylock(!on));
+    });
+    deck_cb!(on_deck_quantize, |app, _d| {
+        let q = app.perform.borrow_mut().engine.as_mut().map(|e| e.state().quantize).unwrap_or(true);
+        send(&app, Command::SetQuantize(!q));
+    });
+    deck_cb!(on_deck_slip, |app, d| {
+        let on = state_of(&app, d).map(|s| s.slip).unwrap_or(false);
+        deck_cmd(&app, d, DeckCommand::SetSlip(!on));
+    });
+    deck_cb!(on_deck_tempo, |app, d, v: f32| deck_cmd(&app, d, DeckCommand::SetTempoFader(v)));
+    deck_cb!(on_deck_stem, |app, d, stem: slint::SharedString| {
+        let s = match stem.as_str() {
+            "vocal" => od_engine::Stem::Vocals,
+            "drums" => od_engine::Stem::Drums,
+            "bass" => od_engine::Stem::Bass,
+            _ => od_engine::Stem::Inst,
+        };
+        let level = state_of(&app, d).map(|st| st.stem_levels[s.index()]).unwrap_or(1.0);
+        deck_cmd(&app, d, DeckCommand::SetStemLevel { stem: s, level: if level < 0.5 { 1.0 } else { 0.0 } });
+    });
+    deck_cb!(on_deck_loop, |app, d, beats: f32| {
+        let b = if beats > 0.0 { beats as f64 } else { app.perform.borrow().loop_size[d] };
+        deck_cmd(&app, d, DeckCommand::AutoLoop { beats: b });
+    });
+    deck_cb!(on_deck_loop_exit, |app, d| deck_cmd(&app, d, DeckCommand::LoopExit));
+    deck_cb!(on_deck_loop_scale, |app, d, f: f32| {
+        let looping = state_of(&app, d).map(|s| s.loop_state.active).unwrap_or(false);
+        if looping {
+            deck_cmd(&app, d, if f < 1.0 { DeckCommand::LoopHalve } else { DeckCommand::LoopDouble });
+        }
+        let mut p = app.perform.borrow_mut();
+        p.loop_size[d] = (p.loop_size[d] * f as f64).clamp(1.0 / 32.0, 32.0);
+    });
+    deck_cb!(on_deck_beat_jump, |app, d, beats: f32| deck_cmd(&app, d, DeckCommand::BeatJump { beats: beats as f64 }));
+    deck_cb!(on_deck_load, |app, d| load_selected(&app, d));
+    deck_cb!(on_mixer_trim, |app, c, v: f32| send(&app, Command::Channel(c, ChannelCommand::SetTrim(if v < 0.0 { v * 24.0 } else { v * 12.0 }))));
+    deck_cb!(on_mixer_eq, |app, c, band: i32, v: f32| send(&app, Command::Channel(c, ChannelCommand::SetEq { band: band as usize, value: v })));
+    deck_cb!(on_mixer_cfx, |app, c, v: f32| send(&app, Command::Channel(c, ChannelCommand::SetColorFxAmount(v))));
+    deck_cb!(on_mixer_fader, |app, c, v: f32| send(&app, Command::Channel(c, ChannelCommand::SetFader(v))));
+    deck_cb!(on_mixer_cue, |app, c| {
+        let on = app.perform.borrow_mut().engine.as_mut().map(|e| e.state().channels[c].cue).unwrap_or(false);
+        send(&app, Command::Channel(c, ChannelCommand::SetCue(!on)));
+    });
+    let w = Rc::downgrade(app);
+    ui.on_set_crossfader(move |v| {
+        if let Some(app) = w.upgrade() {
+            send(&app, Command::Mixer(MixerCommand::SetCrossfader(v * 2.0 - 1.0)));
+        }
+    });
+    let w = Rc::downgrade(app);
+    ui.on_set_master_level(move |v| {
+        if let Some(app) = w.upgrade() {
+            send(&app, Command::Mixer(MixerCommand::SetMasterLevel(v)));
+        }
+    });
+    let w = Rc::downgrade(app);
+    ui.on_set_headphone_mix(move |v| {
+        if let Some(app) = w.upgrade() {
+            send(&app, Command::Mixer(MixerCommand::SetHeadphoneMix(v)));
+        }
+    });
+    let w = Rc::downgrade(app);
+    ui.on_set_headphone_level(move |v| {
+        if let Some(app) = w.upgrade() {
+            send(&app, Command::Mixer(MixerCommand::SetHeadphoneLevel(v)));
         }
     });
 

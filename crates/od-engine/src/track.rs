@@ -11,6 +11,7 @@ use std::path::Path;
 use std::sync::Arc;
 
 use crate::config::HOT_CUES;
+use crate::stems::{StemData, StemInput};
 
 /// A hot cue inside the engine, positions in seconds.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -35,6 +36,9 @@ pub struct TrackData {
     pub memory_cues: Box<[HotCue]>,
     /// Auto-gain in dB derived from loudness analysis (0 if unknown).
     pub auto_gain_db: f32,
+    /// Separated vocals/drums/bass at the engine rate, if available
+    /// (enables [`crate::DeckCommand::SetStemLevel`]).
+    pub stems: Option<StemData>,
 }
 
 impl TrackData {
@@ -49,6 +53,22 @@ impl TrackData {
         cues: &[Cue],
         auto_gain_db: f32,
     ) -> Arc<Self> {
+        Self::new_with_stems(id, audio, engine_rate, beatgrid, cues, auto_gain_db, None)
+    }
+
+    /// Like [`TrackData::new`], additionally attaching separated stems
+    /// (resampled to `engine_rate` like the mix). `stems` must be aligned
+    /// with `audio` (same start, normally the same rate).
+    pub fn new_with_stems(
+        id: TrackId,
+        audio: DecodedAudio,
+        engine_rate: u32,
+        beatgrid: Beatgrid,
+        cues: &[Cue],
+        auto_gain_db: f32,
+        stems: Option<&StemInput>,
+    ) -> Arc<Self> {
+        let stems = stems.map(|s| StemData::new(s, engine_rate));
         let stereo: Vec<f32> = match audio.channels {
             2 => audio.samples,
             1 => audio.samples.iter().flat_map(|&v| [v, v]).collect(),
@@ -88,6 +108,7 @@ impl TrackData {
             hot_cues,
             memory_cues: memory.into_boxed_slice(),
             auto_gain_db,
+            stems,
         })
     }
 
@@ -111,8 +132,28 @@ impl TrackData {
         ))
     }
 
+    /// Decodes `path` and attaches `stems` (see [`TrackData::new_with_stems`];
+    /// `od_stems::StemCache` provides them for cached tracks).
+    #[allow(clippy::too_many_arguments)]
+    pub fn load_with_stems(
+        id: TrackId,
+        path: &Path,
+        engine_rate: u32,
+        beatgrid: Beatgrid,
+        cues: &[Cue],
+        auto_gain_db: f32,
+        stems: Option<&StemInput>,
+    ) -> Result<Arc<Self>, DecodeError> {
+        let audio = od_decode::decode(path, Layout::Stereo)?;
+        Ok(Self::new_with_stems(id, audio, engine_rate, beatgrid, cues, auto_gain_db, stems))
+    }
+
     pub fn frames(&self) -> usize {
         self.samples.len() / 2
+    }
+
+    pub fn has_stems(&self) -> bool {
+        self.stems.is_some()
     }
 
     pub fn duration(&self) -> f64 {

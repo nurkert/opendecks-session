@@ -141,6 +141,33 @@ pub enum DeckAction {
     NeedleSearch(f32),
     /// This deck became the active deck on its side of a 4-deck controller.
     DeckSelect,
+    /// Stem (part isolator) level 0.0..=1.0 for one part of the track.
+    StemLevel { stem: StemPart, level: f32 },
+    /// Stem mute button: toggles the part between muted and full level.
+    StemMuteToggle { stem: StemPart },
+}
+
+/// A separated part of a track (see `od_engine::Stem`).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum StemPart {
+    Vocals,
+    Drums,
+    Bass,
+    /// Instrumental remainder (everything but vocals, drums and bass).
+    Inst,
+}
+
+impl StemPart {
+    pub fn parse(s: &str) -> Option<Self> {
+        Some(match s {
+            "vocals" | "vocal" => Self::Vocals,
+            "drums" | "drum" => Self::Drums,
+            "bass" => Self::Bass,
+            "inst" | "instrumental" | "other" => Self::Inst,
+            _ => return None,
+        })
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

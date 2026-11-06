@@ -16,6 +16,8 @@ export struct TreeRow {
 
 export struct TrackRow {
     id: int,
+    // Mini overview waveform for the PREVIEW column.
+    preview: image,
     position: int,
     title: string,
     artist: string,
@@ -34,6 +36,14 @@ export struct TrackRow {
     note: string,
     // Deck (1-based) the track is loaded on, 0 if none.
     deck: int,
+}
+
+// One phrase on a phrase bar (positions as fractions of the track).
+export struct PhraseMark {
+    pos: float,
+    end: float,
+    label: string,
+    tone: color,
 }
 
 export struct CueMark {
@@ -109,4 +119,40 @@ export struct DeckView {
     waveform: image,
     overview: image,
     cues: [CueMark],
+    // Hot cue pads A–H, and the two columns A–D / E–H.
+    pads: [HotCueSlot],
+    pads-left: [HotCueSlot],
+    pads-right: [HotCueSlot],
+    tempo-value: float,
+    tempo-range: string,
+    quantize: bool,
+    // Stems (rekordbox-style part mute): true = muted.
+    stems-available: bool,
+    stems-busy: bool,
+    mute-vocal: bool,
+    mute-inst: bool,
+    mute-drums: bool,
+    mute-bass: bool,
+    loop-size: string,
+    phrases: [PhraseMark],
+    // Current phrase and bars left in it, e.g. "CHORUS · 8".
+    phrase: string,
+    // Platter rotation in degrees.
+    jog-angle: float,
+    // Bar.beat counter, e.g. "33.2".
+    beat-pos: string,
+}
+
+// One mixer channel.
+export struct ChannelView {
+    channel: int,
+    trim: float,
+    high: float,
+    mid: float,
+    low: float,
+    cfx: float,
+    fader: float,
+    cue: bool,
+    level: float,
+    peak: float,
 }

@@ -131,7 +131,7 @@ four-deck soak without dropouts and sync to FAT32/exFAT sticks) and what needs h
   midi_monitor` helps with that.
 - Vendor USB settings and jog displays of the DDJ-FLX10 (milestone M4) need a
   USB capture with the controller connected.
-- OneLibrary (`exportLibrary.db`), LAN sync and stems are planned for M5.
+- OneLibrary (`exportLibrary.db`) and LAN sync are planned for M5.
 
 ## License
 

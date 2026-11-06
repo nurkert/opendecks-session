@@ -60,6 +60,11 @@ pub struct DeckState {
     pub hot_cues: [Option<HotCue>; HOT_CUES],
     pub loop_state: LoopState,
     pub at_end: bool,
+    /// The loaded track carries separated stems.
+    pub stems_available: bool,
+    /// Target stem levels, indexed by [`crate::Stem::index`]
+    /// (vocals, drums, bass, inst).
+    pub stem_levels: [f32; 4],
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]

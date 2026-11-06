@@ -1,26 +1,24 @@
-//! CPU rendering of waveforms and the ground texture, in the emission-line
-//! style: amplitude is drawn as bone hairline columns with charcoal gaps;
-//! colour appears only as a pure-wavelength 1px mark on columns where one
-//! frequency band clearly dominates.
+//! CPU rendering of waveforms and the ground texture. Waveforms use the
+//! three-band convention DJs read at a glance: each column draws the low band
+//! (blue), then the mids (amber) and the highs (bone) on top, each at its own
+//! amplitude, so kicks, basslines, vocals and hats separate visually.
 
-use od_core::{Beatgrid, Waveform, WaveformColumn};
+use od_core::{Beatgrid, Phrase, PhraseKind, Waveform, WaveformColumn};
 use slint::{Image, Rgba8Pixel, SharedPixelBuffer};
 
 const GROUND: [u8; 3] = [0x1A, 0x1A, 0x19];
-const BONE: [u8; 3] = [0xB7, 0xB1, 0xA4];
-const BONE_DIM: [u8; 3] = [0x6E, 0x6A, 0x62];
-/// Band marks: low = 656 nm, mid = 546 nm, high = 486 nm.
-const LOW: [u8; 3] = [0xEF, 0x5A, 0x5A];
-const MID: [u8; 3] = [0x82, 0xD1, 0x6B];
-const HIGH: [u8; 3] = [0x4F, 0xB8, 0xF0];
-/// Colour-blind-safe band marks (Okabe–Ito vermillion, bluish green, sky blue).
-const LOW_CB: [u8; 3] = [0xD5, 0x5E, 0x00];
-const MID_CB: [u8; 3] = [0x00, 0x9E, 0x73];
-const HIGH_CB: [u8; 3] = [0x56, 0xB4, 0xE9];
+/// Band colours: low ≈ 450 nm blue, mid = 589 nm amber, high = bone.
+const LOW: [u8; 3] = [0x2F, 0x6F, 0xF2];
+const MID: [u8; 3] = [0xE8, 0xA1, 0x3A];
+const HIGH: [u8; 3] = [0xF2, 0xEE, 0xE4];
+/// Colour-blind-safe bands (Okabe–Ito blue, orange, white).
+const LOW_CB: [u8; 3] = [0x00, 0x72, 0xB2];
+const MID_CB: [u8; 3] = [0xE6, 0x9F, 0x00];
+const HIGH_CB: [u8; 3] = [0xFF, 0xFF, 0xFF];
 
 static COLORBLIND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
-/// Switches waveform band marks to the colour-blind-safe palette.
+/// Switches waveform bands to the colour-blind-safe palette.
 pub fn set_colorblind_safe(on: bool) {
     COLORBLIND.store(on, std::sync::atomic::Ordering::Relaxed);
 }
@@ -29,20 +27,33 @@ const DOWNBEAT: [u8; 3] = [0x8B, 0x86, 0x7B];
 /// 589 nm, dimmed: phrase ticks on the overview.
 const TICK: [u8; 3] = [0xB8, 0x9B, 0x3A];
 
-/// The pure-wavelength mark of a column whose energy is dominated by one band.
-fn band_mark(c: &WaveformColumn) -> Option<[u8; 3]> {
-    let (l, m, h) = (c.low as f32, c.mid as f32, c.high as f32);
-    let sum = l + m + h;
-    if sum < 30.0 {
-        return None;
+fn bands() -> [[u8; 3]; 3] {
+    if COLORBLIND.load(std::sync::atomic::Ordering::Relaxed) { [LOW_CB, MID_CB, HIGH_CB] } else { [LOW, MID, HIGH] }
+}
+
+/// Colour of a phrase kind (shared by the phrase bar in the UI).
+pub fn phrase_rgb(kind: PhraseKind) -> [u8; 3] {
+    match kind {
+        PhraseKind::Intro | PhraseKind::Outro => [0x7C, 0x83, 0xFF],
+        PhraseKind::Up => [0x82, 0xD1, 0x6B],
+        PhraseKind::Down => [0x4F, 0xB8, 0xF0],
+        PhraseKind::Chorus => [0xF0, 0x8A, 0x3C],
+        PhraseKind::Verse => [0xE6, 0xE0, 0xD2],
+        PhraseKind::Bridge => [0xB0, 0x7C, 0xF0],
     }
-    let cb = COLORBLIND.load(std::sync::atomic::Ordering::Relaxed);
-    let (low, mid, high) = if cb { (LOW_CB, MID_CB, HIGH_CB) } else { (LOW, MID, HIGH) };
-    let (best, share) = [(low, l), (mid, m), (high, h)]
-        .into_iter()
-        .map(|(rgb, v)| (rgb, v / sum))
-        .max_by(|a, b| a.1.total_cmp(&b.1))?;
-    (share > 0.55).then_some(best)
+}
+
+/// Label of a phrase kind as shown on the phrase bar.
+pub fn phrase_label(kind: PhraseKind) -> &'static str {
+    match kind {
+        PhraseKind::Intro => "INTRO",
+        PhraseKind::Verse => "VERSE",
+        PhraseKind::Chorus => "CHORUS",
+        PhraseKind::Bridge => "BRIDGE",
+        PhraseKind::Up => "UP",
+        PhraseKind::Down => "DOWN",
+        PhraseKind::Outro => "OUTRO",
+    }
 }
 
 fn fill(buf: &mut SharedPixelBuffer<Rgba8Pixel>, rgb: [u8; 3]) {
@@ -62,13 +73,39 @@ fn vline(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, y0: u32, y1: u32, rgb:
     }
 }
 
-/// Draws one amplitude column centred on `mid` plus its band mark at the
-/// top of the column.
-fn column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, dim: bool) {
-    let top = mid.saturating_sub(amp);
-    vline(buf, x, top, mid + amp, if dim { BONE_DIM } else { BONE });
-    if let Some(mark) = band_mark(c) {
-        vline(buf, x, top, (top + 2).min(mid + amp), mark);
+fn dim(rgb: [u8; 3]) -> [u8; 3] {
+    rgb.map(|c| (c as u16 * 2 / 5) as u8)
+}
+
+/// Draws one three-band column centred on `mid`; `amp` is the half height of
+/// the loudest band.
+fn column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, played: bool) {
+    let [lo, mi, hi] = bands();
+    let top = c.low.max(c.mid).max(c.high).max(1) as f32;
+    for (v, rgb) in [(c.low, lo), (c.mid, mi), (c.high, hi)] {
+        let a = (v as f32 / top * amp as f32).round() as u32;
+        if a == 0 {
+            continue;
+        }
+        let rgb = if played { dim(rgb) } else { rgb };
+        vline(buf, x, mid.saturating_sub(a), mid + a, rgb);
+    }
+}
+
+/// Paints phrase colours as a strip of `strip` pixels along the bottom.
+fn phrase_strip(buf: &mut SharedPixelBuffer<Rgba8Pixel>, phrases: &[Phrase], grid: &Beatgrid, x_of: impl Fn(f64) -> Option<u32>, strip: u32) {
+    let (w, h) = (buf.width(), buf.height());
+    for p in phrases {
+        let (Some(a), Some(b)) = (grid.beats.get(p.start_beat as usize), grid.beats.get((p.end_beat as usize).min(grid.beats.len().saturating_sub(1)))) else {
+            continue;
+        };
+        let (Some(x0), Some(x1)) = (x_of(a.time), x_of(b.time)) else { continue };
+        let rgb = phrase_rgb(p.kind);
+        for x in x0..x1.min(w) {
+            vline(buf, x, h.saturating_sub(strip), h, rgb);
+        }
+        // A dark gap marks the phrase boundary.
+        vline(buf, x0, h.saturating_sub(strip), h, GROUND);
     }
 }
 
@@ -89,25 +126,43 @@ pub fn overview(w: &Waveform, grid: &Beatgrid, duration: f64, width: u32, height
     if w.columns.is_empty() {
         return Image::from_rgba8(buf);
     }
-    let lines = (width / 2).max(1) as usize;
-    let cols = w.overview(lines);
+    let cols = w.overview(width.max(1) as usize);
     let max = cols.iter().map(|c| c.peak).max().unwrap_or(1).max(1) as f32;
     let mid = height / 2;
     for (i, c) in cols.iter().enumerate() {
         let amp = (c.peak as f32 / max * (height as f32 / 2.0 - margin as f32)).max(1.0) as u32;
-        column(&mut buf, i as u32 * 2, mid, amp, c, false);
+        column(&mut buf, i as u32, mid, amp, c, false);
+    }
+    Image::from_rgba8(buf)
+}
+
+/// Small overview for list rows (transparent background).
+pub fn preview(w: &Waveform, width: u32, height: u32) -> Image {
+    let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width.max(1), height.max(1));
+    for p in buf.make_mut_slice() {
+        *p = Rgba8Pixel { r: 0, g: 0, b: 0, a: 0 };
+    }
+    let cols = w.overview(width.max(1) as usize);
+    let max = cols.iter().map(|c| c.peak).max().unwrap_or(1).max(1) as f32;
+    let mid = height / 2;
+    for (i, c) in cols.iter().enumerate() {
+        let amp = (c.peak as f32 / max * (height as f32 / 2.0 - 1.0)).max(1.0) as u32;
+        column(&mut buf, i as u32, mid, amp, c, false);
     }
     Image::from_rgba8(buf)
 }
 
 /// Scrolling detail waveform centred on `position` seconds, showing
-/// `span` seconds in total, with beat ticks from `grid`. Audio already
-/// played is drawn dimmed.
-pub fn detail(w: &Waveform, grid: &Beatgrid, position: f64, span: f64, width: u32, height: u32) -> Image {
+/// `span` seconds in total, with beat ticks from `grid` and a phrase strip
+/// along the bottom. Audio already played is drawn dimmed.
+#[allow(clippy::too_many_arguments)]
+pub fn detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], position: f64, span: f64, width: u32, height: u32) -> Image {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width.max(1), height.max(1));
     fill(&mut buf, GROUND);
     let start = position - span / 2.0;
     let secs_per_px = span / width.max(1) as f64;
+    let strip = (height / 18).max(3);
+    let wave_h = height - strip - 1;
     if !grid.beats.is_empty() {
         let first = grid.beat_index_at(start.max(0.0)).unwrap_or(0);
         for b in grid.beats.iter().skip(first) {
@@ -118,34 +173,39 @@ pub fn detail(w: &Waveform, grid: &Beatgrid, position: f64, span: f64, width: u3
                 continue;
             }
             let x = ((b.time - start) / secs_per_px) as u32;
-            let (rgb, len) = if b.bar_position == 1 { (DOWNBEAT, height / 4) } else { (BEAT, height / 8) };
+            let (rgb, len) = if b.bar_position == 1 { (DOWNBEAT, wave_h / 5) } else { (BEAT, wave_h / 10) };
             vline(&mut buf, x, 0, len, rgb);
-            vline(&mut buf, x, height - len, height, rgb);
+            vline(&mut buf, x, wave_h - len, wave_h, rgb);
         }
     }
+    let x_of = |t: f64| {
+        let x = (t - start) / secs_per_px;
+        Some(x.clamp(0.0, width as f64) as u32)
+    };
+    phrase_strip(&mut buf, phrases, grid, x_of, strip);
     if w.columns.is_empty() {
         return Image::from_rgba8(buf);
     }
-    let mid = height / 2;
+    let mid = wave_h / 2;
     let rate = w.columns_per_second;
-    let mut x = 0;
-    while x < width {
+    for x in 0..width {
         let t = start + x as f64 * secs_per_px;
-        if t >= 0.0 {
-            let a = (t * rate) as usize;
-            let b = (((t + secs_per_px * 2.0) * rate) as usize).max(a + 1);
-            if a < w.columns.len() {
-                let c = w.columns[a..b.min(w.columns.len())].iter().fold(WaveformColumn::default(), |acc, c| WaveformColumn {
-                    low: acc.low.max(c.low),
-                    mid: acc.mid.max(c.mid),
-                    high: acc.high.max(c.high),
-                    peak: acc.peak.max(c.peak),
-                });
-                let amp = (c.peak as f32 / 255.0 * (height as f32 / 2.0 - 2.0)).max(1.0) as u32;
-                column(&mut buf, x, mid, amp, &c, t < position);
-            }
+        if t < 0.0 {
+            continue;
         }
-        x += 2;
+        let a = (t * rate) as usize;
+        let b = (((t + secs_per_px) * rate) as usize).max(a + 1);
+        if a >= w.columns.len() {
+            break;
+        }
+        let c = w.columns[a..b.min(w.columns.len())].iter().fold(WaveformColumn::default(), |acc, c| WaveformColumn {
+            low: acc.low.max(c.low),
+            mid: acc.mid.max(c.mid),
+            high: acc.high.max(c.high),
+            peak: acc.peak.max(c.peak),
+        });
+        let amp = (c.peak as f32 / 255.0 * (wave_h as f32 / 2.0 - 2.0)).max(1.0) as u32;
+        column(&mut buf, x, mid, amp, &c, t < position);
     }
     Image::from_rgba8(buf)
 }

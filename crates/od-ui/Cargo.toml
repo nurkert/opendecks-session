@@ -7,7 +7,10 @@ license.workspace = true
 build = "build.rs"
 
 [features]
-default = []
+default = ["separation"]
+# Stem separation on this machine (ONNX Runtime). Without it, stems that were
+# separated elsewhere still play.
+separation = ["od-stems/separation"]
 # Full-screen kiosk on the Raspberry Pi (no desktop environment).
 kiosk = ["slint/backend-linuxkms-noseat", "slint/renderer-femtovg"]
 
@@ -27,6 +30,7 @@ od-engine.workspace = true
 od-audio-io.workspace = true
 od-controller.workspace = true
 od-recorder.workspace = true
+od-stems = { workspace = true, default-features = false }
 od-i18n.workspace = true
 od-import-rekordbox.workspace = true
 serde_json.workspace = true
