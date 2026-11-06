@@ -72,18 +72,22 @@ component TreeItem inherits Rectangle {
         overflow: elide;
         font-family: Theme.family;
         font-size: 14px;
-        font-weight: root.item.kind == "folder" ? 600 : 400;
+        font-weight: root.item.kind == "folder" || root.item.kind == "stick" ? 600 : 400;
         color: root.selected ? Theme.bone : Theme.bone-2;
         vertical-alignment: center;
     }
     // Kind marker: sets carry a sodium hairline, smart lists a dashed one.
+    if root.item.kind == "stick": VLine {
+        x: root.indent - 6px; y: 6px; height: parent.height - 12px; weight: 2px;
+        tone: Theme.live; form: "solid";
+    }
     if root.item.kind == "set" || root.item.kind == "smart": VLine {
         x: root.indent - 6px; y: 8px; height: parent.height - 16px; weight: 1px;
         tone: root.item.kind == "set" ? Theme.attention : Theme.w436;
         form: root.item.kind == "smart" ? "dashed" : "solid";
     }
     // Length bar proportional to playing time.
-    if root.item.kind != "folder": Rectangle {
+    if root.item.kind != "folder" && root.item.kind != "stick": Rectangle {
         x: root.indent; y: parent.height - 4px;
         width: max(2px, (parent.width - root.indent - 56px) * root.item.length-frac);
         height: 1px;

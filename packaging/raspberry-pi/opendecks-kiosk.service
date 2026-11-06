@@ -1,0 +1,23 @@
+[Unit]
+Description=OpenDecks Session (kiosk)
+After=systemd-user-sessions.service sound.target
+Conflicts=getty@tty1.service
+
+[Service]
+User=@USER@
+SupplementaryGroups=audio video input render plugdev
+PAMName=login
+TTYPath=/dev/tty1
+StandardInput=tty
+Environment=SLINT_BACKEND=linuxkms-femtovg
+Environment=OPENDECKS_MAPPINGS=/opt/opendecks/mappings
+Environment=RUST_LOG=info
+ExecStart=/opt/opendecks/opendecks --kiosk --profile lite
+Restart=always
+RestartSec=2
+LimitRTPRIO=95
+LimitMEMLOCK=infinity
+Nice=-10
+
+[Install]
+WantedBy=multi-user.target

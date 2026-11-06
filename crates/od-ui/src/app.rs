@@ -49,6 +49,26 @@ pub(crate) struct State {
     flow_selected: Option<usize>,
     last_seq: i64,
     analysis: (usize, usize),
+    /// Mounted sticks carrying an OpenDecks library: (name, root).
+    sticks: Vec<(String, PathBuf)>,
+    /// The stick being browsed (read-only source), with its index in `sticks`.
+    stick: Option<(usize, od_format_native::Stick)>,
+}
+
+/// Tree ids: stick roots are `STICK_ROOT - i`, nodes inside stick `i` are
+/// `-(STICK_NODE * (i + 1) + node)`.
+const STICK_ROOT: i32 = -100;
+const STICK_NODE: i32 = 1_000_000;
+
+fn decode_stick_id(id: i32) -> Option<(usize, Option<NodeId>)> {
+    if id <= -STICK_NODE {
+        let v = -id;
+        Some(((v / STICK_NODE - 1) as usize, Some(NodeId((v % STICK_NODE) as i64))))
+    } else if id <= STICK_ROOT && id > STICK_ROOT - 1000 {
+        Some(((STICK_ROOT - id) as usize, None))
+    } else {
+        None
+    }
 }
 
 fn fmt_time(secs: f64) -> String {
@@ -85,8 +105,26 @@ fn model<T: Clone + 'static>(v: Vec<T>) -> ModelRc<T> {
 }
 
 impl State {
+    /// The library the current view reads from: a browsed stick or the main
+    /// library.
+    pub(crate) fn src(&self) -> &Library {
+        self.stick.as_ref().map(|(_, s)| &s.library).unwrap_or(&self.lib)
+    }
+
+    /// Absolute path of a track of the current source.
+    pub(crate) fn resolve(&self, path: &std::path::Path) -> PathBuf {
+        match &self.stick {
+            Some((_, s)) => s.resolve(path),
+            None => path.to_path_buf(),
+        }
+    }
+
+    pub(crate) fn read_only(&self) -> bool {
+        self.stick.is_some()
+    }
+
     fn node_kind(&self) -> Option<NodeKind> {
-        self.node.and_then(|n| self.lib.node(n).ok()).map(|n| n.kind)
+        self.node.and_then(|n| self.src().node(n).ok()).map(|n| n.kind)
     }
 
     fn key_text(&self, t: &TrackRecord) -> String {
@@ -99,10 +137,10 @@ impl State {
 
     fn load_rows(&mut self) {
         let mut rows = match self.node {
-            None if !self.search.trim().is_empty() => self.lib.search(&self.search, 5000).unwrap_or_default(),
-            None => self.lib.tracks(sort_key(&self.sort).unwrap_or_default(), self.descending).unwrap_or_default(),
+            None if !self.search.trim().is_empty() => self.src().search(&self.search, 5000).unwrap_or_default(),
+            None => self.src().tracks(sort_key(&self.sort).unwrap_or_default(), self.descending).unwrap_or_default(),
             Some(n) => {
-                let mut r = self.lib.node_tracks(n).unwrap_or_default();
+                let mut r = self.src().node_tracks(n).unwrap_or_default();
                 if !self.search.trim().is_empty() {
                     let q = self.search.to_lowercase();
                     r.retain(|t| {
@@ -162,6 +200,9 @@ impl App {
             od_i18n::set_language(od_i18n::Language::German);
         }
         ui.set_kiosk(config.kiosk);
+        if config.kiosk {
+            ui.set_mode("perform".into());
+        }
         let (wtx, wrx) = unbounded();
         let analysis = Rc::new(AnalysisWorker::start(config.library_path.clone(), config.lite, wtx.clone()));
         let devices = Rc::new(DeviceManager::start(ManagerConfig::new(config.library_path.clone()))?);
@@ -185,6 +226,8 @@ impl App {
             flow_selected: None,
             last_seq: -1,
             analysis: (0, 0),
+            sticks: Vec::new(),
+            stick: None,
         }));
         let app = Rc::new(App {
             ui,
@@ -242,7 +285,7 @@ impl App {
         if let Some(s) = section {
             self.ui.set_section(s.into());
         }
-        if let Some(m) = mode {
+        if let Some(m) = mode.filter(|_| !self.state.borrow().config.kiosk) {
             self.ui.set_mode(m.into());
         }
     }
@@ -335,12 +378,58 @@ impl App {
             }
         }
         walk(&st, &all, None, 0, &mut rows, &mut durations, &device_nodes);
+        // Sticks with an OpenDecks library, browsable as read-only sources.
+        for (i, (name, _)) in st.sticks.iter().enumerate() {
+            let open = st.stick.as_ref().filter(|(j, _)| *j == i).map(|(_, s)| s);
+            rows.push(TreeRow {
+                id: STICK_ROOT - i as i32,
+                name: name.clone().into(),
+                kind: "stick".into(),
+                depth: 0,
+                count: open.and_then(|s| s.library.track_count().ok()).unwrap_or(0) as i32,
+                length_frac: 0.0,
+                duration: SharedString::new(),
+                has_children: false,
+                expanded: open.is_some(),
+                on_device: true,
+            });
+            if let Some(s) = open {
+                for n in s.library.all_nodes().unwrap_or_default() {
+                    let depth = {
+                        let mut d = 1;
+                        let mut p = n.parent;
+                        while let Some(x) = p {
+                            d += 1;
+                            p = s.library.node(x).ok().and_then(|n| n.parent);
+                        }
+                        d
+                    };
+                    rows.push(TreeRow {
+                        id: -(STICK_NODE * (i as i32 + 1) + n.id.0 as i32),
+                        name: n.name.clone().into(),
+                        kind: n.kind.as_str().into(),
+                        depth,
+                        count: s.library.node_tracks(n.id).map(|t| t.len()).unwrap_or(0) as i32,
+                        length_frac: 0.0,
+                        duration: SharedString::new(),
+                        has_children: false,
+                        expanded: false,
+                        on_device: false,
+                    });
+                }
+            }
+        }
         let max = durations.iter().cloned().fold(1.0, f64::max) as f32;
         for r in rows.iter_mut().skip(1) {
             r.length_frac /= max;
         }
         self.ui.set_tree(model(rows));
-        self.ui.set_selected_node(st.node.map(|n| n.0 as i32).unwrap_or(-1));
+        let selected = match (&st.stick, st.node) {
+            (Some((i, _)), Some(n)) => -(STICK_NODE * (*i as i32 + 1) + n.0 as i32),
+            (Some((i, _)), None) => STICK_ROOT - *i as i32,
+            (None, n) => n.map(|n| n.0 as i32).unwrap_or(-1),
+        };
+        self.ui.set_selected_node(selected);
     }
 
     fn refresh_tracks(&self) {
@@ -348,7 +437,7 @@ impl App {
         let current_key = st.current.and_then(|id| st.rows.iter().find(|t| t.id == id)).and_then(|t| t.key);
         let kind = st.node_kind();
         let entries = match (st.node, kind) {
-            (Some(n), Some(NodeKind::Set)) => st.lib.entries(n).unwrap_or_default(),
+            (Some(n), Some(NodeKind::Set)) => st.src().entries(n).unwrap_or_default(),
             _ => vec![],
         };
         let rows: Vec<TrackRow> = st
@@ -386,21 +475,23 @@ impl App {
         self.ui.set_sort_descending(st.descending);
         self.ui.set_has_selection(!st.selection.is_empty());
         self.ui.set_selection_count(st.selection.len() as i32);
-        let (title, kind_str) = match st.node.and_then(|n| st.lib.node(n).ok()) {
-            Some(n) => (n.name.clone(), n.kind.as_str()),
-            None => (od_i18n::tr("All tracks").to_string(), "all"),
+        let (title, kind_str) = match (st.node.and_then(|n| st.src().node(n).ok()), &st.stick) {
+            (Some(n), _) => (n.name.clone(), n.kind.as_str()),
+            (None, Some((i, _))) => (st.sticks.get(*i).map(|s| s.0.clone()).unwrap_or_default(), "stick"),
+            (None, None) => (od_i18n::tr("All tracks").to_string(), "all"),
         };
         self.ui.set_node_title(title.clone().into());
         self.ui.set_node_kind(kind_str.into());
         self.ui.set_node_sub(od_i18n::trf("{} TRACKS  ·  {}", &[&st.rows.len(), &fmt_time(total)]).into());
-        self.ui.set_register_target(if kind_str == "all" { SharedString::new() } else { title.to_uppercase().into() });
+        self.ui.set_read_only(st.read_only());
+        self.ui.set_register_target(if kind_str == "all" || st.read_only() { SharedString::new() } else { title.to_uppercase().into() });
         if kind == Some(NodeKind::Smart) {
-            let rule = st.node.and_then(|n| st.lib.node(n).ok()).and_then(|n| n.smart_rule);
+            let rule = st.node.and_then(|n| st.src().node(n).ok()).and_then(|n| n.smart_rule);
             self.ui.set_smart_rule_text(rule.map(|r| smart_text::format(&r)).unwrap_or_default().into());
         }
         // Set flow.
         if let (Some(n), Some(NodeKind::Set)) = (st.node, kind) {
-            if let Ok(flow) = st.lib.set_flow(n) {
+            if let Ok(flow) = st.src().set_flow(n) {
                 let fit = |f: Fit| match f {
                     Fit::Good => "good",
                     Fit::Ok => "ok",
@@ -448,13 +539,13 @@ impl App {
             self.ui.set_has_track(false);
             return;
         };
-        let Ok(t) = st.lib.track(id) else {
+        let Ok(t) = st.src().track(id) else {
             self.ui.set_has_track(false);
             return;
         };
-        let analysis = st.lib.analysis(id).unwrap_or_default();
-        let grid = st.lib.beatgrid_with_source(id).ok().flatten();
-        let cues = st.lib.cues(id).unwrap_or_default();
+        let analysis = st.src().analysis(id).unwrap_or_default();
+        let grid = st.src().beatgrid_with_source(id).ok().flatten();
+        let cues = st.src().cues(id).unwrap_or_default();
         let duration = t.duration.max(0.001);
         self.ui.set_has_track(true);
         self.ui.set_track_title(t.tags.title.clone().into());
@@ -616,6 +707,75 @@ impl App {
         self.ui.set_proposals(model(props));
     }
 
+    /// Recomputes the browsable sticks from connected volumes.
+    fn update_sticks(&self) {
+        let changed = {
+            let mut st = self.state.borrow_mut();
+            let mut sticks: Vec<(String, PathBuf)> = st
+                .statuses
+                .iter()
+                .filter_map(|s| s.volume.as_ref().map(|v| (s.device.name.clone(), v.mount_point.clone())))
+                .chain(st.volumes.iter().map(|v| {
+                    let name = od_format_native::read_marker(&v.mount_point).ok().flatten().map(|m| m.name).unwrap_or_else(|| v.name.clone());
+                    (name, v.mount_point.clone())
+                }))
+                .filter(|(_, root)| od_format_native::library_path(root).exists())
+                .collect();
+            sticks.sort();
+            sticks.dedup_by(|a, b| a.1 == b.1);
+            if sticks == st.sticks {
+                false
+            } else {
+                // Leave a stick view whose stick went away.
+                let active_root = st.stick.as_ref().map(|(i, _)| st.sticks.get(*i).map(|s| s.1.clone()));
+                st.sticks = sticks;
+                if let Some(root) = active_root.flatten() {
+                    match st.sticks.iter().position(|s| s.1 == root) {
+                        Some(i) => {
+                            if let Some(s) = st.stick.as_mut() {
+                                s.0 = i;
+                            }
+                        }
+                        None => {
+                            st.stick = None;
+                            st.node = None;
+                            st.current = None;
+                            st.selection.clear();
+                        }
+                    }
+                }
+                true
+            }
+        };
+        if changed {
+            // Standalone: a stick becomes the source as soon as it is plugged in.
+            let auto = {
+                let st = self.state.borrow();
+                st.stick.is_none() && !st.sticks.is_empty() && (st.config.kiosk || st.lib.track_count().unwrap_or(0) == 0)
+            };
+            if auto {
+                self.ui.invoke_select_node(STICK_ROOT);
+            }
+            self.state.borrow_mut().load_rows();
+            self.refresh_tree();
+            self.refresh_tracks();
+            self.refresh_detail();
+        }
+    }
+
+    /// Selects the next (or previous) list in the tree; used by the
+    /// controller's back button in kiosk mode.
+    pub(crate) fn cycle_list(&self, forward: bool) {
+        let ids: Vec<i32> = self.ui.get_tree().iter().map(|r| r.id).collect();
+        if ids.is_empty() {
+            return;
+        }
+        let cur = self.ui.get_selected_node();
+        let i = ids.iter().position(|&x| x == cur).unwrap_or(0);
+        let next = if forward { (i + 1) % ids.len() } else { (i + ids.len() - 1) % ids.len() };
+        self.ui.invoke_select_node(ids[next]);
+    }
+
     fn refresh_recordings(&self) {
         let st = self.state.borrow();
         let mut rows = Vec::new();
@@ -732,6 +892,7 @@ impl App {
             }
         }
         if devices_changed {
+            self.update_sticks();
             self.refresh_devices();
         }
         // Changes made through other connections.
@@ -802,7 +963,21 @@ impl App {
         self.refresh_detail();
     }
 
+    /// Tells the user that stick tracks cannot be edited; returns true when
+    /// the current view is read-only.
+    pub(crate) fn guard_read_only(&self) -> bool {
+        if self.state.borrow().read_only() {
+            self.status("Tracks on a stick are read-only here — edit them in your library and the stick follows");
+            true
+        } else {
+            false
+        }
+    }
+
     fn edit_grid(&self, f: impl FnOnce(&mut Beatgrid, f64)) {
+        if self.guard_read_only() {
+            return;
+        }
         let (id, cursor) = {
             let st = self.state.borrow();
             match st.current {
@@ -864,14 +1039,30 @@ impl App {
         ui.on_select_node(with_app1!(app, id: i32, {
             {
                 let mut st = app.state.borrow_mut();
-                st.node = if id < 0 { None } else { Some(NodeId(id as i64)) };
+                match decode_stick_id(id) {
+                    Some((i, node)) => {
+                        let reuse = st.stick.as_ref().is_some_and(|(j, _)| *j == i);
+                        if !reuse {
+                            let root = st.sticks.get(i).map(|s| s.1.clone());
+                            st.stick = root.and_then(|r| od_format_native::Stick::open(&r).ok().flatten()).map(|s| (i, s));
+                        }
+                        st.node = node;
+                        st.current = None;
+                    }
+                    None => {
+                        if st.stick.take().is_some() {
+                            st.current = None;
+                        }
+                        st.node = if id < 0 { None } else { Some(NodeId(id as i64)) };
+                    }
+                }
                 st.selection.clear();
                 st.flow_selected = None;
                 st.search.clear();
-                let in_list = st.node.is_some_and(|n| st.lib.node(n).is_ok_and(|n| n.kind.has_entries()));
+                let in_list = st.node.is_some_and(|n| st.src().node(n).is_ok_and(|n| n.kind.has_entries()));
                 st.sort = if in_list { "position".into() } else { "date_added".into() };
                 st.descending = !in_list;
-                if let Some(n) = st.node {
+                if let (Some(n), false) = (st.node, st.read_only()) {
                     if st.lib.node(n).is_ok_and(|n| n.kind == NodeKind::Folder) {
                         st.expanded.insert(n);
                     }
@@ -894,6 +1085,9 @@ impl App {
             app.refresh_tree();
         }));
         ui.on_add_to_node(with_app1!(app, id: i32, {
+            if app.guard_read_only() {
+                return;
+            }
             let ids = app.state.borrow().selected_ids();
             let name = app.state.borrow().lib.node(NodeId(id as i64)).map(|n| n.name).unwrap_or_default();
             let r = app.state.borrow_mut().lib.add_to_node(NodeId(id as i64), &ids, None);
@@ -902,6 +1096,12 @@ impl App {
             }
         }));
         ui.on_create_node(with_app1!(app, kind: SharedString, {
+            if app.state.borrow().read_only() {
+                let mut st = app.state.borrow_mut();
+                st.stick = None;
+                st.node = None;
+                st.selection.clear();
+            }
             let (kind, name) = match kind.as_str() {
                 "folder" => (NodeKind::Folder, "New folder"),
                 "set" => (NodeKind::Set, "New set"),
@@ -931,6 +1131,9 @@ impl App {
             }
         }));
         ui.on_rename_node(with_app1!(app, name: SharedString, {
+            if app.guard_read_only() {
+                return;
+            }
             let node = app.state.borrow().node;
             if let Some(n) = node {
                 let r = app.state.borrow_mut().lib.rename_node(n, name.trim());
@@ -940,6 +1143,9 @@ impl App {
             }
         }));
         ui.on_delete_node(with_app!(app, {
+            if app.guard_read_only() {
+                return;
+            }
             let node = app.state.borrow().node;
             if let Some(n) = node {
                 let r = app.state.borrow_mut().lib.delete_node(n);
@@ -956,6 +1162,9 @@ impl App {
             app.refresh_tracks();
         }));
         ui.on_set_smart_rule(with_app1!(app, text: SharedString, {
+            if app.guard_read_only() {
+                return;
+            }
             match smart_text::parse(&text) {
                 Ok(rule) => {
                     app.ui.set_smart_rule_error(SharedString::new());
@@ -1013,10 +1222,10 @@ impl App {
         ui.on_seek(with_app1!(app, p: f32, {
             {
                 let mut st = app.state.borrow_mut();
-                let d = st.current.and_then(|id| st.lib.track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
+                let d = st.current.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
                 st.cursor = p as f64 * d;
                 // Snap the cursor to the nearest beat when a grid exists.
-                if let Some(g) = st.current.and_then(|id| st.lib.beatgrid(id).ok().flatten()) {
+                if let Some(g) = st.current.and_then(|id| st.src().beatgrid(id).ok().flatten()) {
                     if let Some(b) = g.beat_position(st.cursor) {
                         if let Some(t) = g.time_of_beat(b.round()) {
                             if (t - st.cursor).abs() < 0.08 {
@@ -1037,11 +1246,12 @@ impl App {
                     None => return,
                 }
             };
-            let cues = app.state.borrow().lib.cues(id).unwrap_or_default();
+            let cues = app.state.borrow().src().cues(id).unwrap_or_default();
             if let Some(c) = cues.iter().find(|c| c.kind == CueKind::Hot(slot as u8)) {
                 app.state.borrow_mut().cursor = c.start;
                 crate::perform::preview_seek(&app);
                 app.refresh_detail();
+            } else if app.guard_read_only() {
             } else {
                 let mut cues = cues;
                 cues.push(Cue::hot(slot as u8, cursor));
@@ -1052,6 +1262,9 @@ impl App {
             }
         }));
         ui.on_remove_hot_cue(with_app1!(app, slot: i32, {
+            if app.guard_read_only() {
+                return;
+            }
             let id = app.state.borrow().current;
             if let Some(id) = id {
                 let mut cues = app.state.borrow().lib.cues(id).unwrap_or_default();
@@ -1063,6 +1276,9 @@ impl App {
             }
         }));
         ui.on_add_memory_cue(with_app!(app, {
+            if app.guard_read_only() {
+                return;
+            }
             let (id, cursor) = {
                 let st = app.state.borrow();
                 match st.current {
@@ -1095,6 +1311,9 @@ impl App {
         }));
         ui.on_grid_lock(with_app!(app, { app.edit_grid(|g, _| g.locked = !g.locked); }));
         ui.on_analyse_selected(with_app!(app, {
+            if app.guard_read_only() {
+                return;
+            }
             let id = app.state.borrow().current;
             if let Some(id) = id {
                 let _ = app.state.borrow().lib.conn().execute("UPDATE track SET analysis_version = 0 WHERE id = ?1", [id.0]);
@@ -1105,6 +1324,9 @@ impl App {
         ui.on_toggle_preview(with_app!(app, { crate::perform::toggle_preview(&app); }));
         ui.on_flow_select(with_app1!(app, i: i32, { app.select_row(i as usize, false, false); }));
         ui.on_set_transition_note(with_app1!(app, text: SharedString, {
+            if app.guard_read_only() {
+                return;
+            }
             let (node, pos) = {
                 let st = app.state.borrow();
                 (st.node, st.flow_selected)
@@ -1257,6 +1479,9 @@ impl App {
     }
 
     fn remove_selected(&self) {
+        if self.state.borrow().read_only() {
+            return;
+        }
         let (node, positions) = {
             let st = self.state.borrow();
             (st.node, st.selection.iter().copied().collect::<Vec<_>>())

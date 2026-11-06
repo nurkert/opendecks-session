@@ -1,0 +1,4 @@
+# Mount USB stick file systems under /media/opendecks/<kernel name>.
+ACTION=="add", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", ENV{ID_FS_USAGE}=="filesystem", \
+  RUN{program}+="/usr/bin/systemd-mount --no-block --automount=no --collect --options=uid=1000,gid=1000,umask=002 $devnode /media/opendecks/%k"
+ACTION=="remove", SUBSYSTEM=="block", ENV{ID_BUS}=="usb", RUN{program}+="/usr/bin/systemd-umount /media/opendecks/%k"

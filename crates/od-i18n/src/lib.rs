@@ -27,6 +27,7 @@ const DE: &[(&str, &str)] = &[
     ("{} TRACKS  ·  {}", "{} TRACKS  ·  {}"),
     ("Not connected", "Nicht verbunden"),
     ("In sync", "Synchron"),
+    ("Tracks on a stick are read-only here — edit them in your library and the stick follows", "Tracks auf einem Stick sind hier schreibgeschützt — bearbeite sie in deiner Bibliothek, der Stick folgt"),
     ("In sync · {}", "Synchron · {}"),
     ("Add tracks", "Tracks hinzufügen"),
     ("Remove tracks", "Tracks entfernen"),

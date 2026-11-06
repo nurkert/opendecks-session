@@ -108,9 +108,11 @@ fn mappings_dir() -> PathBuf {
             if p.is_dir() {
                 return p;
             }
-            let p = anc.join("Resources/mappings");
-            if p.is_dir() {
-                return p;
+            for sub in ["Resources/mappings", "share/opendecks/mappings"] {
+                let p = anc.join(sub);
+                if p.is_dir() {
+                    return p;
+                }
             }
         }
     }
@@ -214,9 +216,9 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
         (p.engine.as_ref().map(|e| e.config().sample_rate).unwrap_or(48_000), p.prepared_tx.clone())
     };
     let st = app.state.borrow();
-    let Ok(t) = st.lib.track(track) else { return };
-    let analysis = st.lib.analysis(track).unwrap_or_default();
-    let cues = st.lib.cues(track).unwrap_or_default();
+    let Ok(t) = st.src().track(track) else { return };
+    let analysis = st.src().analysis(track).unwrap_or_default();
+    let cues = st.src().cues(track).unwrap_or_default();
     let scale = app.ui.window().scale_factor();
     let marks = cues
         .iter()
@@ -244,7 +246,7 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
         cues: marks,
     };
     let gain = analysis.loudness_lufs.map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0)).unwrap_or(0.0);
-    let path = t.path.clone();
+    let path = st.resolve(&t.path);
     let grid = analysis.beatgrid;
     drop(st);
     app.ui.set_engine_message(format!("Loading {} …", meta.title).into());
@@ -496,8 +498,12 @@ fn handle_action(app: &App, action: ControlAction) {
             }
             BrowseAction::Press { .. } => load_selected_into_free_deck(app),
             BrowseAction::Back => {
-                let next = if app.ui.get_mode() == "prepare" { "perform" } else { "prepare" };
-                app.ui.set_mode(next.into());
+                if app.state.borrow().config.kiosk {
+                    app.cycle_list(true);
+                } else {
+                    let next = if app.ui.get_mode() == "prepare" { "perform" } else { "prepare" };
+                    app.ui.set_mode(next.into());
+                }
             }
             _ => {}
         },
@@ -640,7 +646,9 @@ fn frame(app: &App) {
                 let meta = app.perform.borrow().loaded[d].clone();
                 if let (Some(m), Some(r)) = (meta, app.perform.borrow_mut().recorder.as_mut()) {
                     r.mark_track(Some(m.id), &m.title, &m.artist);
-                    let _ = app.state.borrow_mut().lib.record_play(m.id, "recording", "opendecks");
+                    if !app.state.borrow().read_only() {
+                        let _ = app.state.borrow_mut().lib.record_play(m.id, "recording", "opendecks");
+                    }
                 }
             }
         }

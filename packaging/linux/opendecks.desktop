@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=OpenDecks Session
+Comment=Prepare, sync and perform DJ sets
+Exec=opendecks
+Icon=opendecks
+Categories=AudioVideo;Audio;Music;
+Terminal=false

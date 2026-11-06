@@ -1,0 +1,43 @@
+# Flatpak manifest. Build: flatpak-builder --user --install build packaging/linux/org.opendecks.Session.yml
+app-id: org.opendecks.Session
+runtime: org.freedesktop.Platform
+runtime-version: "24.08"
+sdk: org.freedesktop.Sdk
+sdk-extensions: [org.freedesktop.Sdk.Extension.rust-stable]
+command: opendecks
+finish-args:
+  - --socket=wayland
+  - --socket=fallback-x11
+  - --share=ipc
+  - --device=all          # controllers (MIDI) and audio interfaces
+  - --socket=pulseaudio
+  - --filesystem=xdg-music
+  - --filesystem=/media   # USB sticks
+  - --filesystem=/run/media
+  - --talk-name=org.freedesktop.UDisks2
+build-options:
+  append-path: /usr/lib/sdk/rust-stable/bin
+  env:
+    CARGO_HOME: /run/build/opendecks/cargo
+modules:
+  - name: rubberband
+    buildsystem: meson
+    config-opts: [-Dfft=builtin, -Dresampler=builtin, -Dtests=disabled, -Dcmdline=disabled]
+    sources:
+      - type: archive
+        url: https://breakfastquay.com/files/releases/rubberband-4.0.0.tar.bz2
+        sha256: af050313ee63bc18b35b2e064e5dce05b276aaf6d1aa2b8a82ced1fe2f8028e9
+  - name: opendecks
+    buildsystem: simple
+    build-options:
+      build-args: [--share=network]
+    build-commands:
+      - cargo build --release --locked -p opendecks
+      - install -Dm755 target/release/opendecks /app/bin/opendecks
+      - mkdir -p /app/share/opendecks && cp -R mappings /app/share/opendecks/
+      - sed 's/^Icon=opendecks$/Icon=org.opendecks.Session/' packaging/linux/opendecks.desktop > org.opendecks.Session.desktop
+      - install -Dm644 org.opendecks.Session.desktop /app/share/applications/org.opendecks.Session.desktop
+      - install -Dm644 packaging/linux/opendecks.svg /app/share/icons/hicolor/scalable/apps/org.opendecks.Session.svg
+    sources:
+      - type: dir
+        path: ../..

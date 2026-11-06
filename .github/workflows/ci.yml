@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-14        # Apple Silicon
+          - os: macos-13        # Intel
+          - os: ubuntu-24.04    # x86_64
+          - os: ubuntu-24.04-arm  # aarch64 (Raspberry Pi class)
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: System dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install rubberband pkg-config
+      - name: System dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: packaging/linux/install-build-deps.sh
+      - name: Test
+        run: cargo test --workspace --locked
+      - name: Build release
+        run: cargo build --release --locked -p opendecks -p od-cli
+
+  kiosk:
+    runs-on: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: packaging/linux/install-build-deps.sh
+      - name: Build kiosk binary (Raspberry Pi 4/5)
+        run: cargo build --release --locked -p opendecks --features kiosk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: opendecks-kiosk-aarch64
+          path: target/release/opendecks

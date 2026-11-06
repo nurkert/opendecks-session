@@ -73,6 +73,8 @@ export component AppWindow inherits Window {
     in property <string> smart-rule-text;
     in property <string> smart-rule-error;
     in property <bool> has-selection;
+    // Browsing a stick: no editing.
+    in property <bool> read-only;
     in property <int> selection-count;
 
     // Selected track.
@@ -226,7 +228,7 @@ export component AppWindow inherits Window {
                             title := TextInput {
                                 horizontal-stretch: 1;
                                 text: root.node-title;
-                                read-only: root.node-kind == "all";
+                                read-only: root.node-kind == "all" || root.read-only;
                                 font-family: Theme.family; font-size: Theme.rank-b; font-weight: 600;
                                 color: Theme.bone;
                                 vertical-alignment: center;
@@ -244,12 +246,12 @@ export component AppWindow inherits Window {
                                 text <=> root.search-text;
                                 edited(t) => { root.search(t); }
                             }
-                            PlateButton { compact: true; label: @tr("ADD MUSIC"); tone: Theme.live; clicked => { root.import-folder(); } }
-                            PlateButton { compact: true; label: @tr("PLAYLIST"); glyph: "+"; clicked => { root.create-node("playlist"); } }
-                            PlateButton { compact: true; label: @tr("SET"); glyph: "+"; tone: Theme.attention; clicked => { root.create-node("set"); } }
-                            PlateButton { compact: true; label: @tr("SMART"); glyph: "+"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
-                            PlateButton { compact: true; label: @tr("FOLDER"); glyph: "+"; clicked => { root.create-node("folder"); } }
-                            if root.node-kind != "all": PlateButton { compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
+                            if !root.read-only: PlateButton { compact: true; label: @tr("ADD MUSIC"); tone: Theme.live; clicked => { root.import-folder(); } }
+                            if !root.read-only: PlateButton { compact: true; label: @tr("PLAYLIST"); glyph: "+"; clicked => { root.create-node("playlist"); } }
+                            if !root.read-only: PlateButton { compact: true; label: @tr("SET"); glyph: "+"; tone: Theme.attention; clicked => { root.create-node("set"); } }
+                            if !root.read-only: PlateButton { compact: true; label: @tr("SMART"); glyph: "+"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
+                            if !root.read-only: PlateButton { compact: true; label: @tr("FOLDER"); glyph: "+"; clicked => { root.create-node("folder"); } }
+                            if root.node-kind != "all" && !root.read-only: PlateButton { compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
                         }
                         if root.section == "library" && root.node-kind == "smart": VerticalLayout {
                             spacing: 4px;
