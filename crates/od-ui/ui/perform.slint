@@ -82,7 +82,9 @@ component WaveLane inherits Rectangle {
         font-family: Theme.family; font-size: 10px; font-weight: 600; letter-spacing: 1px; color: Theme.bone;
     }
     if root.deck.loaded: Text {
-        x: parent.width - self.preferred-width - 8px; y: 4px;
+        // Fixed width (template "-000.0"), right-aligned: digits never shift.
+        x: parent.width - 64px; width: 56px; y: 4px;
+        horizontal-alignment: right;
         text: root.deck.beat-pos;
         font-family: Theme.family; font-size: 11px; font-weight: 600; color: Theme.bone-2;
     }
@@ -132,13 +134,18 @@ component Readout inherits VerticalLayout {
     in property <color> tone: Theme.bone;
     in property <length> size: 22px;
     in property <TextHorizontalAlignment> align: right;
+    // Widest value this readout shows (e.g. "-00:00.0"): the readout keeps
+    // that width so changing digits never move their neighbours.
+    in property <string> template;
     spacing: 0;
     alignment: center;
     Caps { text: root.label; font-size: 10px; horizontal-alignment: root.align; }
     Text {
+        min-width: probe.preferred-width;
         text: root.value == "" ? "—" : root.value;
         font-family: Theme.family; font-size: root.size; font-weight: 600;
         color: root.tone; horizontal-alignment: root.align;
+        probe := Text { visible: false; text: root.template; font-family: Theme.family; font-size: root.size; font-weight: 600; }
     }
     if root.sub != "": Text {
         text: root.sub;
@@ -341,9 +348,9 @@ export component DeckPanel inherits Rectangle {
                     overflow: elide;
                 }
             }
-            Readout { label: "BPM"; value: root.deck.bpm; size: root.compact ? 18px : 22px; tone: root.deck.master ? Theme.attention : Theme.bone; }
-            Readout { label: @tr("REMAIN"); value: root.deck.remaining; sub: root.compact ? "" : root.deck.elapsed; size: root.compact ? 18px : 22px; }
-            Readout { label: @tr("KEY"); value: root.deck.key; size: root.compact ? 18px : 22px; }
+            Readout { label: "BPM"; template: "000.00"; value: root.deck.bpm; size: root.compact ? 18px : 22px; tone: root.deck.master ? Theme.attention : Theme.bone; }
+            Readout { label: @tr("REMAIN"); template: "-00:00.0"; value: root.deck.remaining; sub: root.compact ? "" : root.deck.elapsed; size: root.compact ? 18px : 22px; }
+            Readout { label: @tr("KEY"); template: "12A"; value: root.deck.key; size: root.compact ? 18px : 22px; }
             VerticalLayout {
                 spacing: 3px;
                 alignment: center;

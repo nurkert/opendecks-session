@@ -30,9 +30,16 @@ component Tab inherits Rectangle {
 component Reading inherits HorizontalLayout {
     in property <string> label;
     in property <string> value;
+    // Widest value shown here; keeps the width fixed while digits change.
+    in property <string> template;
     spacing: 6px;
     Caps { text: root.label; font-size: 10px; vertical-alignment: center; }
-    Text { text: root.value == "" ? "—" : root.value; font-family: Theme.family; font-size: 18px; font-weight: 600; color: Theme.bone; vertical-alignment: center; }
+    Text {
+        min-width: probe.preferred-width;
+        horizontal-alignment: right;
+        text: root.value == "" ? "—" : root.value; font-family: Theme.family; font-size: 18px; font-weight: 600; color: Theme.bone; vertical-alignment: center;
+        probe := Text { visible: false; text: root.template; font-family: Theme.family; font-size: 18px; font-weight: 600; }
+    }
 }
 
 export component PreparePlayer inherits Rectangle {
@@ -110,10 +117,10 @@ export component PreparePlayer inherits Rectangle {
                     color: root.has-track ? Theme.bone : Theme.bone-3; overflow: elide;
                 }
                 Text { horizontal-stretch: 1; text: root.artist; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
-                Reading { label: @tr("POS"); value: root.position; }
-                Reading { label: @tr("TIME"); value: root.duration; }
-                Reading { label: "BPM"; value: root.bpm; }
-                Reading { label: @tr("KEY"); value: root.key; }
+                Reading { label: @tr("POS"); template: "00:00.000"; value: root.position; }
+                Reading { label: @tr("TIME"); template: "00:00"; value: root.duration; }
+                Reading { label: "BPM"; template: "000.00"; value: root.bpm; }
+                Reading { label: @tr("KEY"); template: "12A"; value: root.key; }
             }
             Rectangle {
                 height: 40px;
