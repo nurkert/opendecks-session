@@ -16,6 +16,7 @@ od-format-pioneer.workspace = true
 rusqlite = { workspace = true }
 serde.workspace = true
 thiserror.workspace = true
+quick-xml = "0.37"
 tracing.workspace = true
 tempfile.workspace = true
 # Pure-Rust crypto for SQLCipher 4 pages (AES-256-CBC, HMAC-SHA512, PBKDF2).
