@@ -3,6 +3,9 @@
 //! from the engine's "audible track" logic and written as a `.cue` sheet and
 //! plain text, and the recording can be split into one file per track.
 
+mod encode;
+pub use encode::{AutoAction, SilenceDetector, wav_to_flac, wav_to_mp3};
+
 use od_core::TrackId;
 use od_engine::RecordTap;
 use serde::{Deserialize, Serialize};
@@ -22,6 +25,8 @@ pub enum RecordError {
     Busy,
     #[error("not recording")]
     Idle,
+    #[error("encoding: {0}")]
+    Encode(String),
 }
 
 pub type Result<T> = std::result::Result<T, RecordError>;
@@ -50,6 +55,8 @@ struct Active {
     path: PathBuf,
     stop: Arc<AtomicBool>,
     frames: Arc<AtomicU64>,
+    /// Peak of the last block written, as f32 bits (for the level meter).
+    peak: Arc<std::sync::atomic::AtomicU32>,
     thread: JoinHandle<Result<()>>,
     tracklist: Vec<TracklistEntry>,
 }
@@ -59,6 +66,8 @@ pub struct Recorder {
     tap: Arc<parking::Tap>,
     sample_rate: u32,
     active: Option<Active>,
+    /// Recording gain (linear), applied before writing.
+    gain: Arc<std::sync::atomic::AtomicU32>,
 }
 
 mod parking {
@@ -71,7 +80,23 @@ mod parking {
 
 impl Recorder {
     pub fn new(tap: RecordTap, sample_rate: u32) -> Self {
-        Self { tap: Arc::new(parking::Tap(std::sync::Mutex::new(tap))), sample_rate, active: None }
+        Self {
+            tap: Arc::new(parking::Tap(std::sync::Mutex::new(tap))),
+            sample_rate,
+            active: None,
+            gain: Arc::new(std::sync::atomic::AtomicU32::new(1.0f32.to_bits())),
+        }
+    }
+
+    /// Sets the recording gain in dB (applies immediately, also while recording).
+    pub fn set_gain_db(&self, db: f32) {
+        let g = 10f32.powf(db.clamp(-24.0, 12.0) / 20.0);
+        self.gain.store(g.to_bits(), Ordering::Relaxed);
+    }
+
+    /// Peak level (0..=1+) of the most recent audio written.
+    pub fn level(&self) -> f32 {
+        self.active.as_ref().map(|a| f32::from_bits(a.peak.load(Ordering::Relaxed))).unwrap_or(0.0)
     }
 
     pub fn is_recording(&self) -> bool {
@@ -105,6 +130,8 @@ impl Recorder {
         let frames = Arc::new(AtomicU64::new(0));
         let tap = self.tap.clone();
         let (stop2, frames2) = (stop.clone(), frames.clone());
+        let peak = Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let (peak2, gain) = (peak.clone(), self.gain.clone());
         // Discard whatever accumulated before the start.
         {
             let mut t = tap.0.lock().unwrap_or_else(|e| e.into_inner());
@@ -117,8 +144,15 @@ impl Recorder {
                 let done = stop2.load(Ordering::Relaxed);
                 buf.clear();
                 tap.0.lock().unwrap_or_else(|e| e.into_inner()).drain_into(&mut buf);
+                let g = f32::from_bits(gain.load(Ordering::Relaxed));
+                let mut p = 0.0f32;
                 for s in &buf {
-                    writer.write_sample((s.clamp(-1.0, 1.0) * 8_388_607.0) as i32)?;
+                    let v = s * g;
+                    p = p.max(v.abs());
+                    writer.write_sample((v.clamp(-1.0, 1.0) * 8_388_607.0) as i32)?;
+                }
+                if !buf.is_empty() {
+                    peak2.store(p.to_bits(), Ordering::Relaxed);
                 }
                 frames2.fetch_add(buf.len() as u64 / 2, Ordering::Relaxed);
                 if done {
@@ -129,7 +163,7 @@ impl Recorder {
             writer.finalize()?;
             Ok(())
         })?;
-        self.active = Some(Active { path: path.clone(), stop, frames, thread, tracklist: Vec::new() });
+        self.active = Some(Active { path: path.clone(), stop, frames, peak, thread, tracklist: Vec::new() });
         Ok(path)
     }
 
@@ -297,5 +331,54 @@ mod tests {
         let parts = split(&r).unwrap();
         assert_eq!(parts.len(), 2);
         assert!(matches!(rec.stop(), Err(RecordError::Idle)));
+    }
+
+    fn sine_wav(path: &std::path::Path, secs: f32) {
+        let spec = hound::WavSpec { channels: 2, sample_rate: 48_000, bits_per_sample: 24, sample_format: hound::SampleFormat::Int };
+        let mut w = hound::WavWriter::create(path, spec).unwrap();
+        for i in 0..(48_000.0 * secs) as usize {
+            let v = ((i as f32 * 440.0 * std::f32::consts::TAU / 48_000.0).sin() * 0.5 * 8_388_607.0) as i32;
+            w.write_sample(v).unwrap();
+            w.write_sample(-v).unwrap();
+        }
+        w.finalize().unwrap();
+    }
+
+    #[test]
+    fn flac_is_lossless_and_mp3_is_written() {
+        let dir = tempfile::tempdir().unwrap();
+        let wav = dir.path().join("mix.wav");
+        sine_wav(&wav, 1.3);
+        let flac = dir.path().join("mix.flac");
+        wav_to_flac(&wav, &flac).unwrap();
+        let bytes = std::fs::read(&flac).unwrap();
+        assert_eq!(&bytes[..4], b"fLaC");
+        // Decode with an independent decoder (symphonia via od-decode) and
+        // compare every sample: FLAC must be bit-exact.
+        let decoded = od_decode::decode(&flac, od_decode::Layout::Stereo).unwrap();
+        let original: Vec<i32> = hound::WavReader::open(&wav).unwrap().samples::<i32>().map(|s| s.unwrap()).collect();
+        assert_eq!(decoded.samples.len(), original.len());
+        for (d, o) in decoded.samples.iter().zip(&original) {
+            assert!((d * 8_388_608.0 - *o as f32).abs() < 0.5, "{d} vs {o}");
+        }
+        assert!(bytes.len() < std::fs::metadata(&wav).unwrap().len() as usize);
+
+        let mp3 = dir.path().join("mix.mp3");
+        wav_to_mp3(&wav, &mp3).unwrap();
+        let m = std::fs::read(&mp3).unwrap();
+        // 1.3 s at 320 kbit/s is about 52 kB; an MPEG frame sync starts it.
+        assert!(m.len() > 40_000 && m.len() < 70_000, "{}", m.len());
+        assert!(m.windows(2).any(|w| w[0] == 0xFF && w[1] & 0xE0 == 0xE0));
+    }
+
+    #[test]
+    fn silence_detector_starts_and_stops() {
+        let mut d = SilenceDetector::new(-50.0, 1.0, 10.0);
+        assert_eq!(d.update(-20.0, 0.5, false), None);
+        assert_eq!(d.update(-20.0, 0.6, false), Some(AutoAction::Start));
+        assert_eq!(d.update(-70.0, 9.0, true), None);
+        assert_eq!(d.update(-20.0, 0.1, true), None);
+        assert_eq!(d.update(-70.0, 9.9, true), None);
+        assert_eq!(d.update(-70.0, 0.2, true), Some(AutoAction::Stop));
     }
 }

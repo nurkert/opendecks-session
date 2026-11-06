@@ -14,6 +14,9 @@ tracing.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 hound = "3"
+flacenc = "0.5"
+mp3lame-encoder = "0.3"
 
 [dev-dependencies]
+od-decode.workspace = true
 tempfile.workspace = true
