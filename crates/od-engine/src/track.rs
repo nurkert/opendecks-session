@@ -10,7 +10,11 @@ use od_decode::{DecodeError, DecodedAudio, Layout};
 use std::path::Path;
 use std::sync::Arc;
 
-use crate::config::HOT_CUES;
+use crate::config::{HOT_CUE_BANKS, HOT_CUES};
+
+/// Level (peak, linear) above which auto cue considers the track audible
+/// (−54 dBFS).
+pub const AUTO_CUE_THRESHOLD: f32 = 0.002;
 use crate::stems::{StemData, StemInput};
 
 /// A hot cue inside the engine, positions in seconds.
@@ -30,12 +34,16 @@ pub struct TrackData {
     /// Interleaved stereo samples.
     pub samples: Box<[f32]>,
     pub beatgrid: Beatgrid,
-    /// Hot cues A–H as stored in the library.
-    pub hot_cues: [Option<HotCue>; HOT_CUES],
+    /// Hot cues as stored in the library: `hot_cues[bank][slot]` holds
+    /// library hot cue `bank * 8 + slot` (A–H of bank 0, …).
+    pub hot_cues: [[Option<HotCue>; HOT_CUES]; HOT_CUE_BANKS],
     /// Memory cue (and memory loop) start positions in seconds, sorted.
     pub memory_cues: Box<[HotCue]>,
     /// Auto-gain in dB derived from loudness analysis (0 if unknown).
     pub auto_gain_db: f32,
+    /// First audible position in seconds (peak above
+    /// [`AUTO_CUE_THRESHOLD`]), used by auto cue; 0 for silent tracks.
+    pub first_sound: f64,
     /// Separated vocals/drums/bass at the engine rate, if available
     /// (enables [`crate::DeckCommand::SetStemLevel`]).
     pub stems: Option<StemData>,
@@ -84,7 +92,7 @@ impl TrackData {
         } else {
             stereo
         };
-        let mut hot_cues = [None; HOT_CUES];
+        let mut hot_cues = [[None; HOT_CUES]; HOT_CUE_BANKS];
         let mut memory: Vec<HotCue> = Vec::new();
         for c in cues {
             let hc = HotCue {
@@ -92,14 +100,19 @@ impl TrackData {
                 loop_end: c.loop_end,
             };
             match c.kind {
-                CueKind::Hot(slot) if (slot as usize) < HOT_CUES => {
-                    hot_cues[slot as usize] = Some(hc)
+                CueKind::Hot(slot) if (slot as usize) < HOT_CUES * HOT_CUE_BANKS => {
+                    let slot = slot as usize;
+                    hot_cues[slot / HOT_CUES][slot % HOT_CUES] = Some(hc)
                 }
                 CueKind::Hot(_) => {}
                 CueKind::Memory => memory.push(hc),
             }
         }
         memory.sort_by(|a, b| a.start.total_cmp(&b.start));
+        let first_sound = samples
+            .iter()
+            .position(|v| v.abs() > AUTO_CUE_THRESHOLD)
+            .map_or(0.0, |i| (i / 2) as f64 / engine_rate as f64);
         Arc::new(Self {
             id,
             sample_rate: engine_rate,
@@ -108,6 +121,7 @@ impl TrackData {
             hot_cues,
             memory_cues: memory.into_boxed_slice(),
             auto_gain_db,
+            first_sound,
             stems,
         })
     }

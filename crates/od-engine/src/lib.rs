@@ -17,7 +17,7 @@
 //! engine.deck(0, DeckCommand::Play).unwrap();
 //! let mut master = vec![0.0; 256];
 //! let mut phones = vec![0.0; 256];
-//! processor.process(128, &mut Outputs { master: &mut master, headphones: Some(&mut phones) });
+//! processor.process(128, &mut Outputs { master: &mut master, headphones: Some(&mut phones), booth: None });
 //! println!("{:?}", engine.state().decks[0].position);
 //! ```
 //!
@@ -51,4 +51,4 @@ pub use dsp::meter::MeterReading;
 pub use engine::{CommandSender, Engine, EngineError, EngineProcessor, Outputs, RecordTap};
 pub use state::*;
 pub use stems::{Stem, StemData, StemInput};
-pub use track::{HotCue, SampleData, TrackData};
+pub use track::{AUTO_CUE_THRESHOLD, HotCue, SampleData, TrackData};

@@ -657,7 +657,7 @@ fn sampler_and_beat_fx_run() {
         BeatFxKind::Flanger,
         BeatFxKind::Phaser,
         BeatFxKind::Roll,
-        BeatFxKind::FilterSweep,
+        BeatFxKind::Filter,
         BeatFxKind::Trans,
     ] {
         rig.send(Command::BeatFx(0, BeatFxCommand::SetKind(kind)));

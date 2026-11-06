@@ -281,7 +281,7 @@ mod tests {
         };
         let mut master = vec![0.0; 512];
         for i in 0..400 {
-            proc.process(256, &mut Outputs { master: &mut master, headphones: None });
+            proc.process(256, &mut Outputs { master: &mut master, headphones: None, booth: None });
             if i % 50 == 49 {
                 wait_for(&rec, (i + 1) * 256);
             }

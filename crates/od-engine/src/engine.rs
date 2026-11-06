@@ -3,7 +3,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use crate::beatfx::{BeatClock, BeatFxUnit};
+use crate::beatfx::{BeatClock, FxUnit};
 use crate::command::{Command, CrossfaderCurve, DeckCommand, FxTarget, MixerCommand};
 use crate::config::{BEAT_FX_UNITS, EngineConfig, MAX_SENDERS};
 use crate::deck::{Deck, SyncTarget};
@@ -11,6 +11,7 @@ use crate::dsp::limiter::Limiter;
 use crate::dsp::meter::Meter;
 use crate::dsp::smooth::Smoothed;
 use crate::dsp::soft_clip;
+use crate::config::MAX_DECKS;
 use crate::mixer::{Channel, crossfader_gains, level_gain};
 use crate::rt::{Garbage, RtCtx};
 use crate::sampler::Sampler;
@@ -24,6 +25,10 @@ const GARBAGE_CAPACITY: usize = 256;
 const RECORD_SECONDS: usize = 10;
 /// Contribution RMS above which a playing deck counts as audible (−40 dBFS).
 const AUDIBLE_THRESHOLD: f32 = 0.01;
+/// Longest delay / roll / tape history of the two Beat FX units, seconds.
+const BEAT_FX_SECONDS: f32 = 8.0;
+/// Same for the per-channel Pad FX units.
+const PAD_FX_SECONDS: f32 = 4.0;
 
 #[derive(Debug, thiserror::Error)]
 pub enum EngineError {
@@ -33,12 +38,15 @@ pub enum EngineError {
     TooManySenders,
 }
 
-/// Output buffers for one call of [`EngineProcessor::process`]. Both are
+/// Output buffers for one call of [`EngineProcessor::process`]. All are
 /// interleaved stereo with at least `frames * 2` samples.
 pub struct Outputs<'a> {
     pub master: &'a mut [f32],
     /// Headphone (cue) output; `None` if the device has no headphone pair.
     pub headphones: Option<&'a mut [f32]>,
+    /// Booth output (master bus × booth level, independent of the master
+    /// level); `None` if not routed.
+    pub booth: Option<&'a mut [f32]>,
 }
 
 /// Non-real-time handle: send commands, read the state snapshot and events.
@@ -230,7 +238,8 @@ pub struct EngineProcessor {
 
     decks: Vec<Deck>,
     channels: Vec<Channel>,
-    beat_fx: Vec<BeatFxUnit>,
+    beat_fx: Vec<FxUnit>,
+    pad_fx: Vec<FxUnit>,
     sampler: Sampler,
     limiter: Limiter,
     limiter_on: bool,
@@ -240,6 +249,8 @@ pub struct EngineProcessor {
     deck_bufs: Vec<Vec<f32>>,
     master_buf: Vec<f32>,
     cue_buf: Vec<f32>,
+    sampler_buf: Vec<f32>,
+    booth_buf: Vec<f32>,
 
     quantize: bool,
     explicit_master: Option<usize>,
@@ -254,6 +265,10 @@ pub struct EngineProcessor {
     hp_level: f32,
     hp_gain: Smoothed,
     sampler_level: f32,
+    sampler_cue: bool,
+    booth_level: f32,
+    booth_gain: Smoothed,
+    master_cue: bool,
     frames_total: u64,
     state: EngineState,
 }
@@ -292,8 +307,13 @@ impl EngineProcessor {
             channels: (0..n)
                 .map(|i| Channel::new(sr, 0x9E37_79B9 ^ (i as u32 + 1)))
                 .collect(),
-            beat_fx: (0..BEAT_FX_UNITS).map(|_| BeatFxUnit::new(sr)).collect(),
-            sampler: Sampler::new(),
+            beat_fx: (0..BEAT_FX_UNITS)
+                .map(|_| FxUnit::new(sr, BEAT_FX_SECONDS, FxTarget::Master))
+                .collect(),
+            pad_fx: (0..n)
+                .map(|i| FxUnit::new(sr, PAD_FX_SECONDS, FxTarget::Channel(i)))
+                .collect(),
+            sampler: Sampler::new(sr),
             limiter: Limiter::new(sr),
             limiter_on: true,
             master_meter: Meter::new(sr),
@@ -301,6 +321,8 @@ impl EngineProcessor {
             deck_bufs: (0..n).map(|_| vec![0.0; block]).collect(),
             master_buf: vec![0.0; block],
             cue_buf: vec![0.0; block],
+            sampler_buf: vec![0.0; block],
+            booth_buf: vec![0.0; block],
             quantize: true,
             explicit_master: None,
             master: None,
@@ -314,6 +336,10 @@ impl EngineProcessor {
             hp_level: 1.0,
             hp_gain: Smoothed::new(1.0, ramp),
             sampler_level: 1.0,
+            sampler_cue: false,
+            booth_level: 1.0,
+            booth_gain: Smoothed::new(1.0, ramp),
+            master_cue: false,
             frames_total: 0,
             state: EngineState {
                 sample_rate: sr,
@@ -340,6 +366,9 @@ impl EngineProcessor {
             m.copy_from_slice(&self.master_buf[..n * 2]);
             if let Some(hp) = outputs.headphones.as_deref_mut() {
                 hp[done * 2..(done + n) * 2].copy_from_slice(&self.cue_buf[..n * 2]);
+            }
+            if let Some(b) = outputs.booth.as_deref_mut() {
+                b[done * 2..(done + n) * 2].copy_from_slice(&self.booth_buf[..n * 2]);
             }
             done += n;
         }
@@ -417,6 +446,9 @@ impl EngineProcessor {
                 MixerCommand::SetHeadphoneMix(x) => self.hp_mix = x.clamp(0.0, 1.0),
                 MixerCommand::SetHeadphoneLevel(l) => self.hp_level = l.clamp(0.0, 1.5),
                 MixerCommand::SetSamplerLevel(l) => self.sampler_level = l.clamp(0.0, 1.5),
+                MixerCommand::SetSamplerCue(on) => self.sampler_cue = on,
+                MixerCommand::SetBoothLevel(l) => self.booth_level = l.clamp(0.0, 1.5),
+                MixerCommand::SetMasterCue(on) => self.master_cue = on,
                 MixerCommand::SetLimiter(on) => self.limiter_on = on,
                 MixerCommand::ResetClipIndicators => {
                     self.master_meter.reset_clip();
@@ -427,6 +459,11 @@ impl EngineProcessor {
             Command::BeatFx(u, c) => {
                 if let Some(unit) = self.beat_fx.get_mut(u) {
                     unit.apply(c);
+                }
+            }
+            Command::PadFx(ch, c) => {
+                if let Some(unit) = self.pad_fx.get_mut(ch) {
+                    unit.apply_pad(c);
                 }
             }
             Command::Sampler(c) => self.sampler.apply(c, &mut ctx),
@@ -496,11 +533,28 @@ impl EngineProcessor {
             },
         };
         self.free_beat = clock.beat + bpf * n as f64;
+        let master_key = self.master.and_then(|m| self.decks[m].key_pitch());
         let target = master_info.map(|(beat, playing)| SyncTarget {
             bpm: self.master_bpm,
             beat,
             playing,
+            key: master_key,
         });
+        // Per-channel FX clocks: the channel's own deck if it plays a track
+        // with a grid, else the master clock.
+        let mut clocks = [clock; MAX_DECKS];
+        for (i, d) in self.decks.iter().enumerate() {
+            if d.is_playing()
+                && let (Some(bpm), Some(beat)) = (d.bpm(), d.current_beat())
+                && bpm > 1.0
+            {
+                clocks[i] = BeatClock {
+                    bpm,
+                    beat,
+                    beats_per_frame: bpm / 60.0 / sr,
+                };
+            }
+        }
 
         // Decks.
         {
@@ -526,19 +580,20 @@ impl EngineProcessor {
         let xf = crossfader_gains(self.crossfader, self.xf_curve);
         let master_lin = level_gain(self.master_level);
         self.master_gain.set(master_lin);
-        let beat_frames = clock.beat_frames();
         let block_s = n as f32 / sr as f32;
         let contrib_a = (-block_s / 0.25).exp();
         for (i, ch) in self.channels.iter_mut().enumerate() {
             let buf = &mut self.deck_bufs[i][..len];
             let auto_gain = self.decks[i].track().map_or(0.0, |t| t.auto_gain_db);
             ch.update_gains(auto_gain, xf);
-            ch.process_pre(buf, beat_frames);
+            let ch_clock = clocks[i];
+            ch.process_pre(buf, &ch_clock);
             for unit in self.beat_fx.iter_mut() {
                 if unit.target() == FxTarget::Channel(i) {
-                    unit.process(buf, &clock);
+                    unit.process(buf, &ch_clock);
                 }
             }
+            self.pad_fx[i].process(buf, &ch_clock);
             if ch.cue {
                 for (c, s) in cue_buf.iter_mut().zip(buf.iter()) {
                     *c += *s;
@@ -563,12 +618,34 @@ impl EngineProcessor {
             ch.gain_to_master = ch.post_gain.target() * master_lin;
         }
 
+        let sampler_buf = &mut self.sampler_buf[..len];
+        sampler_buf.fill(0.0);
         self.sampler
-            .mix_into(master_buf, level_gain(self.sampler_level));
+            .mix_into(sampler_buf, level_gain(self.sampler_level), &clock);
+        for (m, s) in master_buf.iter_mut().zip(sampler_buf.iter()) {
+            *m += *s;
+        }
+        if self.sampler_cue {
+            for (c, s) in cue_buf.iter_mut().zip(sampler_buf.iter()) {
+                *c += *s;
+            }
+        }
         for unit in self.beat_fx.iter_mut() {
             if unit.target() == FxTarget::Master {
                 unit.process(master_buf, &clock);
             }
+        }
+        // Booth: master bus before master level / limiter.
+        self.booth_gain.set(level_gain(self.booth_level));
+        for (b, m) in self.booth_buf[..len]
+            .as_chunks_mut::<2>()
+            .0
+            .iter_mut()
+            .zip(master_buf.chunks_exact(2))
+        {
+            let g = self.booth_gain.next();
+            b[0] = soft_clip(m[0] * g);
+            b[1] = soft_clip(m[1] * g);
         }
         for f in master_buf.as_chunks_mut::<2>().0 {
             let g = self.master_gain.next();
@@ -583,6 +660,12 @@ impl EngineProcessor {
         if self.record_enabled {
             let (pushed, _) = self.record.push_partial_slice(master_buf);
             self.record_dropped += (len - pushed.len()) as u64;
+        }
+
+        if self.master_cue {
+            for (c, m) in cue_buf.iter_mut().zip(master_buf.iter()) {
+                *c += *m;
+            }
         }
 
         // Headphones: cue bus / master blend.
@@ -615,6 +698,7 @@ impl EngineProcessor {
         let mut best: Option<(usize, f32)> = None;
         for (i, c) in self.channels.iter().enumerate() {
             s.channels[i] = c.state();
+            s.channels[i].pad_fx = self.pad_fx[i].pad_state();
             let level = c.contribution.max(0.0).sqrt() * master_lin;
             audible.level[i] = level;
             let playing = self.decks[i].is_playing() && self.decks[i].is_loaded();
@@ -638,6 +722,9 @@ impl EngineProcessor {
         s.headphone_mix = self.hp_mix;
         s.headphone_level = self.hp_level;
         s.sampler_level = self.sampler_level;
+        s.sampler_cue = self.sampler_cue;
+        s.booth_level = self.booth_level;
+        s.master_cue = self.master_cue;
         s.quantize = self.quantize;
         s.master_deck = self.master;
         s.master_bpm = self.master_bpm;
@@ -645,6 +732,7 @@ impl EngineProcessor {
             s.beat_fx[i] = u.state();
         }
         s.sampler = self.sampler.state();
+        s.sequencer = self.sampler.sequencer();
         s.record_tap = self.record_enabled;
         s.record_dropped = self.record_dropped;
         s.garbage_leaked = self.leaked;
