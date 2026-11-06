@@ -1,127 +1,127 @@
 msgid ""
 msgstr ""
-"POT-Creation-Date: 2026-11-06 20:53+0000\n"
+"POT-Creation-Date: 2026-11-06 21:28+0000\n"
 "Language: de\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
-#: ui/app.slint:273
+#: ui/app.slint:283
 msgctxt "AppWindow"
 msgid "File"
 msgstr "Ablage"
 
-#: ui/app.slint:274
+#: ui/app.slint:284
 msgctxt "AppWindow"
 msgid "Preferences…"
 msgstr "Einstellungen…"
 
-#: ui/app.slint:275
+#: ui/app.slint:285
 msgctxt "AppWindow"
 msgid "Check for Updates…"
 msgstr "Nach Updates suchen …"
 
-#: ui/app.slint:276
+#: ui/app.slint:286
 msgctxt "AppWindow"
 msgid "Add Music Folder…"
 msgstr "Musikordner hinzufügen…"
 
-#: ui/app.slint:277
+#: ui/app.slint:287
 msgctxt "AppWindow"
 msgid "Import from rekordbox…"
 msgstr "Aus rekordbox importieren…"
 
-#: ui/app.slint:280
+#: ui/app.slint:290
 msgctxt "AppWindow"
 msgid "View"
 msgstr "Ansicht"
 
-#: ui/app.slint:281
+#: ui/app.slint:291
 msgctxt "AppWindow"
 msgid "Prepare"
 msgstr "Prepare"
 
-#: ui/app.slint:282
+#: ui/app.slint:292
 msgctxt "AppWindow"
 msgid "Perform"
 msgstr "Perform"
 
-#: ui/app.slint:309
+#: ui/app.slint:324
 msgctxt "AppWindow"
 msgid "NO MASTER"
 msgstr "KEIN MASTER"
 
-#: ui/app.slint:309
+#: ui/app.slint:324
 msgctxt "AppWindow"
 msgid "MASTER {} BPM"
 msgstr "MASTER {} BPM"
 
-#: ui/app.slint:412 ui/app.slint:452
+#: ui/app.slint:427 ui/app.slint:467
 msgctxt "AppWindow"
 msgid "Drag to resize, double-click to reset"
 msgstr "Ziehen zum Ändern der Größe, Doppelklick setzt zurück"
 
-#: ui/app.slint:469
+#: ui/app.slint:484
 msgctxt "AppWindow"
 msgid "DECKS"
 msgstr "DECKS"
 
-#: ui/app.slint:469
+#: ui/app.slint:484
 msgctxt "AppWindow"
 msgid "Back to the decks"
 msgstr "Zurück zu den Decks"
 
-#: ui/app.slint:484
+#: ui/app.slint:499
 msgctxt "AppWindow"
 msgid "FIND {} MOVED FILES"
 msgstr "{} VERSCHOBENE DATEIEN SUCHEN"
 
-#: ui/app.slint:484
+#: ui/app.slint:499
 msgctxt "AppWindow"
 msgid "Search a folder for tracks whose files have moved"
 msgstr "Einen Ordner nach verschobenen Track-Dateien durchsuchen"
 
-#: ui/app.slint:485
+#: ui/app.slint:500
 msgctxt "AppWindow"
 msgid "ADD MUSIC"
 msgstr "MUSIK HINZUFÜGEN"
 
-#: ui/app.slint:485 ui/app.slint:547
+#: ui/app.slint:500 ui/app.slint:566
 msgctxt "AppWindow"
 msgid "Add a music folder"
 msgstr "Musikordner hinzufügen"
 
-#: ui/app.slint:488
+#: ui/app.slint:503
 msgctxt "AppWindow"
 msgid "Include subfolders"
 msgstr "Unterordner einbeziehen"
 
-#: ui/app.slint:492
+#: ui/app.slint:507
 msgctxt "AppWindow"
 msgid "DELETE"
 msgstr "LÖSCHEN"
 
-#: ui/app.slint:492
+#: ui/app.slint:507
 msgctxt "AppWindow"
 msgid "Delete the open list"
 msgstr "Geöffnete Liste löschen"
 
-#: ui/app.slint:498
+#: ui/app.slint:513
 msgctxt "AppWindow"
 msgid "SEARCH  ⌘F"
 msgstr "SUCHEN  ⌘F"
 
-#: ui/app.slint:506
+#: ui/app.slint:521
 msgctxt "AppWindow"
 msgid ""
 "RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
 msgstr ""
 "REGELN, Z. B.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
 
-#: ui/app.slint:523
+#: ui/app.slint:538
 msgctxt "AppWindow"
 msgid "TRANSITION NOTE FOR THE SELECTED POSITION — ENTER TO SAVE"
 msgstr "ÜBERGANGSNOTIZ FÜR DIE GEWÄHLTE POSITION — ENTER ZUM SPEICHERN"
 
-#: ui/app.slint:536
+#: ui/app.slint:551
 msgctxt "AppWindow"
 msgid ""
 "Your library is empty. Use ADD MUSIC to add a folder, or import your "
@@ -130,12 +130,12 @@ msgstr ""
 "Deine Bibliothek ist leer. Füge mit MUSIK HINZUFÜGEN einen Ordner hinzu oder "
 "importiere einmalig deine rekordbox-Bibliothek."
 
-#: ui/app.slint:538
+#: ui/app.slint:553
 msgctxt "AppWindow"
 msgid "No audio files in this folder."
 msgstr "Keine Audiodateien in diesem Ordner."
 
-#: ui/app.slint:539
+#: ui/app.slint:554
 msgctxt "AppWindow"
 msgid ""
 "No tracks here yet. Select tracks in All tracks and press + next to this "
@@ -144,34 +144,34 @@ msgstr ""
 "Hier sind noch keine Tracks. Wähle Tracks unter „Alle Tracks“ und drücke + "
 "neben dieser Liste in der Seitenleiste."
 
-#: ui/app.slint:547
+#: ui/app.slint:566
 msgctxt "AppWindow"
 msgid "ADD MUSIC FOLDER"
 msgstr "MUSIKORDNER HINZUFÜGEN"
 
-#: ui/app.slint:548
+#: ui/app.slint:567
 msgctxt "AppWindow"
 msgid "IMPORT FROM REKORDBOX"
 msgstr "AUS REKORDBOX IMPORTIEREN"
 
-#: ui/app.slint:548
+#: ui/app.slint:567
 msgctxt "AppWindow"
 msgid "Import playlists, cues and grids from rekordbox"
 msgstr "Playlists, Cues und Grids aus rekordbox importieren"
 
 #. ── Devices section ──
-#: ui/app.slint:552
+#: ui/app.slint:571
 msgctxt "AppWindow"
 msgid "USB STICKS"
 msgstr "USB-STICKS"
 
 #. ── Devices section ──
-#: ui/app.slint:552
+#: ui/app.slint:571
 msgctxt "AppWindow"
 msgid "{} REGISTERED"
 msgstr "{} REGISTRIERT"
 
-#: ui/app.slint:554
+#: ui/app.slint:573
 msgctxt "AppWindow"
 msgid ""
 "Registered sticks are kept in sync automatically while they are plugged in. "
@@ -181,129 +181,129 @@ msgstr ""
 "eingesteckt sind. Jede Änderung an Playlists, Cues oder Beatgrids ist in "
 "Sekunden auf dem Stick."
 
-#: ui/app.slint:578
+#: ui/app.slint:597
 msgctxt "AppWindow"
 msgid "STICK NAME"
 msgstr "STICK-NAME"
 
-#: ui/app.slint:581
+#: ui/app.slint:600
 msgctxt "AppWindow"
 msgid "FORMATS"
 msgstr "FORMATE"
 
-#: ui/app.slint:584
+#: ui/app.slint:603
 msgctxt "AppWindow"
 msgid "Pioneer players (export.pdb)"
 msgstr "Pioneer-Player (export.pdb)"
 
-#: ui/app.slint:584
+#: ui/app.slint:603
 msgctxt "AppWindow"
 msgid "Write the database Pioneer CDJs and XDJs read"
 msgstr "Die Datenbank schreiben, die kompatible CDJs und XDJs lesen"
 
-#: ui/app.slint:585
+#: ui/app.slint:604
 msgctxt "AppWindow"
 msgid "OpenDecks"
 msgstr "OpenDecks"
 
-#: ui/app.slint:585
+#: ui/app.slint:604
 msgctxt "AppWindow"
 msgid "Write the OpenDecks library for other OpenDecks setups"
 msgstr "Die OpenDecks-Bibliothek für andere OpenDecks-Geräte schreiben"
 
-#: ui/app.slint:587
+#: ui/app.slint:606
 msgctxt "AppWindow"
 msgid "CONTENT — LISTS ON THIS STICK"
 msgstr "INHALT — LISTEN AUF DIESEM STICK"
 
-#: ui/app.slint:602
+#: ui/app.slint:621
 msgctxt "AppWindow"
 msgid "CHANGES MADE ON PLAYERS — REVIEW"
 msgstr "ÄNDERUNGEN AN PLAYERN — PRÜFEN"
 
-#: ui/app.slint:612
+#: ui/app.slint:631
 msgctxt "AppWindow"
 msgid "IMPORT"
 msgstr "IMPORTIEREN"
 
-#: ui/app.slint:612
+#: ui/app.slint:631
 msgctxt "AppWindow"
 msgid "TAKE STICK CUES"
 msgstr "STICK-CUES ÜBERNEHMEN"
 
-#: ui/app.slint:612
+#: ui/app.slint:631
 msgctxt "AppWindow"
 msgid "Import the play history from the stick"
 msgstr "Die Wiedergabe-Historie vom Stick importieren"
 
-#: ui/app.slint:612
+#: ui/app.slint:631
 msgctxt "AppWindow"
 msgid "Replace the library cues with the ones edited on the players"
 msgstr "Bibliotheks-Cues durch die auf den Playern bearbeiteten ersetzen"
 
-#: ui/app.slint:613
+#: ui/app.slint:632
 msgctxt "AppWindow"
 msgid "DISMISS"
 msgstr "VERWERFEN"
 
-#: ui/app.slint:613
+#: ui/app.slint:632
 msgctxt "AppWindow"
 msgid "KEEP LIBRARY"
 msgstr "BIBLIOTHEK BEHALTEN"
 
-#: ui/app.slint:613
+#: ui/app.slint:632
 msgctxt "AppWindow"
 msgid "Ignore this history"
 msgstr "Diese Historie ignorieren"
 
-#: ui/app.slint:613
+#: ui/app.slint:632
 msgctxt "AppWindow"
 msgid "Keep the library cues; the stick gets them at the next sync"
 msgstr "Bibliotheks-Cues behalten; der Stick bekommt sie beim nächsten Sync"
 
-#: ui/app.slint:617
+#: ui/app.slint:636
 msgctxt "AppWindow"
 msgid "SYNC NOW"
 msgstr "JETZT SYNCHRONISIEREN"
 
-#: ui/app.slint:617
+#: ui/app.slint:636
 msgctxt "AppWindow"
 msgid "Sync this stick now"
 msgstr "Diesen Stick jetzt synchronisieren"
 
-#: ui/app.slint:618
+#: ui/app.slint:637
 msgctxt "AppWindow"
 msgid "REBUILD STICK"
 msgstr "STICK NEU SCHREIBEN"
 
-#: ui/app.slint:618
+#: ui/app.slint:637
 msgctxt "AppWindow"
 msgid "Write the whole stick again from the library"
 msgstr "Den ganzen Stick neu aus der Bibliothek schreiben"
 
-#: ui/app.slint:619
+#: ui/app.slint:638
 msgctxt "AppWindow"
 msgid "FORGET"
 msgstr "VERGESSEN"
 
-#: ui/app.slint:619
+#: ui/app.slint:638
 msgctxt "AppWindow"
 msgid "Stop keeping this stick in sync"
 msgstr "Diesen Stick nicht mehr synchronisieren"
 
 #. ── Recordings section ──
-#: ui/app.slint:625
+#: ui/app.slint:644
 msgctxt "AppWindow"
 msgid "RECORDINGS"
 msgstr "AUFNAHMEN"
 
 #. ── Recordings section ──
-#: ui/app.slint:625
+#: ui/app.slint:644
 msgctxt "AppWindow"
 msgid "{} MIXES"
 msgstr "{} MIXE"
 
-#: ui/app.slint:630
+#: ui/app.slint:649
 msgctxt "AppWindow"
 msgid ""
 "No recordings yet. Press RECORD in Perform, or the record button on your "
@@ -312,22 +312,22 @@ msgstr ""
 "Noch keine Aufnahmen. Drücke AUFNEHMEN in Perform oder die Aufnahmetaste am "
 "Controller."
 
-#: ui/app.slint:642
+#: ui/app.slint:661
 msgctxt "AppWindow"
 msgid "SHOW FILE"
 msgstr "DATEI ZEIGEN"
 
-#: ui/app.slint:642
+#: ui/app.slint:661
 msgctxt "AppWindow"
 msgid "Show the recording in the file manager"
 msgstr "Aufnahme im Dateimanager zeigen"
 
-#: ui/app.slint:643
+#: ui/app.slint:662
 msgctxt "AppWindow"
 msgid "SPLIT INTO TRACKS"
 msgstr "IN TRACKS TEILEN"
 
-#: ui/app.slint:643
+#: ui/app.slint:662
 msgctxt "AppWindow"
 msgid "Cut the recording into one file per played track"
 msgstr "Aufnahme in eine Datei pro gespieltem Track schneiden"
@@ -391,42 +391,233 @@ msgctxt "SetFlow"
 msgid "HEIGHT ENERGY  ·  DASHED CAUTION  ·  STRUCK CLASH"
 msgstr "HÖHE ENERGIE  ·  GESTRICHELT VORSICHT  ·  DURCHGESTRICHEN CLASH"
 
-#: ui/perform.slint:184
+#: ui/fx.slint:14 ui/fx.slint:17
+msgctxt "FxNames"
+msgid "ECHO"
+msgstr ""
+
+#: ui/fx.slint:14
+msgctxt "FxNames"
+msgid "DELAY"
+msgstr ""
+
+#: ui/fx.slint:14
+msgctxt "FxNames"
+msgid "PING PONG"
+msgstr ""
+
+#: ui/fx.slint:14
+msgctxt "FxNames"
+msgid "REVERB"
+msgstr ""
+
+#: ui/fx.slint:14
+msgctxt "FxNames"
+msgid "FLANGER"
+msgstr ""
+
+#: ui/fx.slint:14
+msgctxt "FxNames"
+msgid "PHASER"
+msgstr ""
+
+#: ui/fx.slint:14
+msgctxt "FxNames"
+msgid "ROLL"
+msgstr ""
+
+#: ui/fx.slint:15
+msgctxt "FxNames"
+msgid "SLIP ROLL"
+msgstr ""
+
+#: ui/fx.slint:15 ui/fx.slint:17
+msgctxt "FxNames"
+msgid "FILTER"
+msgstr ""
+
+#: ui/fx.slint:15
+msgctxt "FxNames"
+msgid "TRANS"
+msgstr ""
+
+#: ui/fx.slint:15 ui/fx.slint:17
+msgctxt "FxNames"
+msgid "PITCH"
+msgstr ""
+
+#: ui/fx.slint:15
+msgctxt "FxNames"
+msgid "VINYL BRAKE"
+msgstr ""
+
+#: ui/fx.slint:15
+msgctxt "FxNames"
+msgid "HELIX"
+msgstr ""
+
+#: ui/fx.slint:15
+msgctxt "FxNames"
+msgid "SPIRAL"
+msgstr ""
+
+#: ui/fx.slint:17
+msgctxt "FxNames"
+msgid "NOISE"
+msgstr ""
+
+#: ui/fx.slint:17
+msgctxt "FxNames"
+msgid "SPACE"
+msgstr ""
+
+#: ui/fx.slint:17
+msgctxt "FxNames"
+msgid "CRUSH"
+msgstr ""
+
+#: ui/fx.slint:17
+msgctxt "FxNames"
+msgid "DUB ECHO"
+msgstr ""
+
+#: ui/fx.slint:17
+msgctxt "FxNames"
+msgid "SWEEP"
+msgstr ""
+
+#: ui/fx.slint:18
+msgctxt "FxNames"
+msgid "BRAKE"
+msgstr ""
+
+#: ui/fx.slint:18
+msgctxt "FxNames"
+msgid "BACKSPIN"
+msgstr ""
+
+#: ui/fx.slint:18
+msgctxt "FxNames"
+msgid "ECHO OUT"
+msgstr ""
+
+#: ui/fx.slint:95
+msgctxt "FxUnit"
+msgid "TAP"
+msgstr ""
+
+#: ui/fx.slint:103
+msgctxt "FxUnit"
+msgid "Beat FX: previous / next effect — click the name for the list"
+msgstr ""
+
+#: ui/fx.slint:110
+msgctxt "FxUnit"
+msgid "BEAT"
+msgstr ""
+
+#: ui/fx.slint:114
+msgctxt "FxUnit"
+msgid "Beat length: shorter / longer"
+msgstr ""
+
+#: ui/fx.slint:131
+msgctxt "FxUnit"
+msgid "Insert the effect on channel {}"
+msgstr ""
+
+#: ui/fx.slint:137
+msgctxt "FxUnit"
+msgid "Insert the effect on the master output"
+msgstr ""
+
+#: ui/fx.slint:147
+msgctxt "FxUnit"
+msgid "Release FX: slow the target to a stop while held"
+msgstr ""
+
+#: ui/fx.slint:148
+msgctxt "FxUnit"
+msgid "Release FX: spin the target backwards while held"
+msgstr ""
+
+#: ui/fx.slint:149
+msgctxt "FxUnit"
+msgid "Release FX: cut the target and let it echo out while held"
+msgstr ""
+
+#: ui/fx.slint:157
+msgctxt "FxUnit"
+msgid "LEVEL"
+msgstr ""
+
+#: ui/fx.slint:159
+msgctxt "FxUnit"
+msgid "Level / depth of the effect"
+msgstr ""
+
+#: ui/fx.slint:163
+msgctxt "FxUnit"
+msgid "PARAM"
+msgstr ""
+
+#: ui/fx.slint:165
+msgctxt "FxUnit"
+msgid "Effect parameter (filter direction, pitch, reverb colour)"
+msgstr ""
+
+#: ui/fx.slint:175
+msgctxt "FxUnit"
+msgid "Beat FX on / off"
+msgstr ""
+
+#: ui/fx.slint:181
+msgctxt "FxUnit"
+msgid "Tap the tempo of the effect; AUTO returns to the deck tempo"
+msgstr ""
+
+#: ui/fx.slint:241
+msgctxt "ColorFxSelector"
+msgid ""
+"Colour FX of the CFX knobs: previous / next — click the name for the list"
+msgstr ""
+
+#: ui/perform.slint:185
 msgctxt "Overview"
 msgid "LOAD SELECTED"
 msgstr "AUSWAHL LADEN"
 
-#: ui/perform.slint:340
+#: ui/perform.slint:341
 msgctxt "DeckPanel"
 msgid "Not loaded"
 msgstr "Nicht geladen"
 
-#: ui/perform.slint:352
+#: ui/perform.slint:353
 msgctxt "DeckPanel"
 msgid "REMAIN"
 msgstr "REST"
 
-#: ui/perform.slint:353
+#: ui/perform.slint:354
 msgctxt "DeckPanel"
 msgid "KEY"
 msgstr "TONART"
 
-#: ui/perform.slint:373 ui/perform.slint:375
+#: ui/perform.slint:374 ui/perform.slint:376
 msgctxt "DeckPanel"
 msgid "SPLIT…"
 msgstr "TRENNEN…"
 
-#: ui/perform.slint:544
+#: ui/perform.slint:546
 msgctxt "GlobalBar"
 msgid "PHONES"
 msgstr "KOPFHÖRER"
 
-#: ui/perform.slint:546
+#: ui/perform.slint:548
 msgctxt "GlobalBar"
 msgid "LEVEL"
 msgstr "PEGEL"
 
-#: ui/perform.slint:558
+#: ui/perform.slint:560
 msgctxt "GlobalBar"
 msgid "MASTER OUT"
 msgstr "MASTER OUT"
@@ -511,82 +702,83 @@ msgctxt "TrackPlate"
 msgid "LOCK"
 msgstr "SPERREN"
 
-#: ui/player.slint:98
+#: ui/player.slint:99
 msgctxt "PreparePlayer"
 msgid "SECONDS"
 msgstr "SEKUNDEN"
 
-#: ui/player.slint:115
+#: ui/player.slint:116
 msgctxt "PreparePlayer"
 msgid "No track selected"
 msgstr "Kein Track ausgewählt"
 
-#: ui/player.slint:120
+#: ui/player.slint:121
 msgctxt "PreparePlayer"
 msgid "POS"
 msgstr "POS"
 
-#: ui/player.slint:121 ui/player.slint:239
+#: ui/player.slint:122 ui/player.slint:240
 msgctxt "PreparePlayer"
 msgid "TIME"
 msgstr "ZEIT"
 
-#: ui/player.slint:123 ui/player.slint:238
+#: ui/player.slint:124 ui/player.slint:239
 msgctxt "PreparePlayer"
 msgid "KEY"
 msgstr "TONART"
 
-#: ui/player.slint:166
+#: ui/player.slint:167
 msgctxt "PreparePlayer"
 msgid "Select a track to prepare it"
 msgstr "Track auswählen, um ihn vorzubereiten"
 
-#: ui/player.slint:181 ui/player.slint:240
+#: ui/player.slint:182 ui/player.slint:241
 msgctxt "PreparePlayer"
 msgid "GRID"
 msgstr "RASTER"
 
-#: ui/player.slint:190
+#: ui/player.slint:191
 msgctxt "PreparePlayer"
 msgid "MEMORY"
 msgstr "MEMORY"
 
-#: ui/player.slint:198
+#: ui/player.slint:199
 msgctxt "PreparePlayer"
 msgid "HALF"
 msgstr "HALB"
 
-#: ui/player.slint:199
+#: ui/player.slint:200
 msgctxt "PreparePlayer"
 msgid "DOUBLE"
 msgstr "DOPPELT"
 
-#: ui/player.slint:200
+#: ui/player.slint:201
 msgctxt "PreparePlayer"
 msgid "DOWNBEAT AT CURSOR"
 msgstr "DOWNBEAT AM CURSOR"
 
-#: ui/player.slint:203
+#: ui/player.slint:204
 msgctxt "PreparePlayer"
 msgid "GRID LOCKED"
 msgstr "GRID GESPERRT"
 
-#: ui/player.slint:203
+#: ui/player.slint:204
 msgctxt "PreparePlayer"
 msgid "LOCK GRID"
 msgstr "GRID SPERREN"
 
-#: ui/player.slint:232
+#: ui/player.slint:233
 msgctxt "PreparePlayer"
 msgid "Memory cues appear here. Set one with MEMORY +."
 msgstr "Memory Cues erscheinen hier. Mit MEMORY + einen setzen."
 
-#: ui/player.slint:232
+#: ui/player.slint:233
 msgctxt "PreparePlayer"
 msgid "Hot cues appear here. Click an empty pad to set one at the cursor."
-msgstr "Hot Cues erscheinen hier. Ein leeres Pad klicken setzt einen am Cursor."
+msgstr ""
+"Hot Cues erscheinen hier. Ein leeres Pad klicken setzt einen am Cursor."
 
-#: ui/player.slint:241
+#: ui/player.slint:242
 msgctxt "PreparePlayer"
 msgid "ANALYSE"
 msgstr "ANALYSIEREN"
@@ -1248,7 +1440,10 @@ msgid ""
 "Only GitHub's public release list is read; nothing about you or your library "
 "is sent. Checks never run while a deck plays in Perform, and an update never "
 "interrupts a performance."
-msgstr "Es wird nur die öffentliche Release-Liste auf GitHub gelesen; nichts über dich oder deine Bibliothek wird gesendet. Während in Perform ein Deck spielt, wird nie geprüft, und ein Update unterbricht nie eine Performance."
+msgstr ""
+"Es wird nur die öffentliche Release-Liste auf GitHub gelesen; nichts über "
+"dich oder deine Bibliothek wird gesendet. Während in Perform ein Deck "
+"spielt, wird nie geprüft, und ein Update unterbricht nie eine Performance."
 
 #: ui/rail.slint:106
 msgctxt "TreeItem"
@@ -1422,117 +1617,247 @@ msgctxt "Sidebar"
 msgid "New folder"
 msgstr "Neuer Ordner"
 
-#: ui/table.slint:43
+#: ui/table.slint:44
 msgctxt "HeaderCell"
 msgid "Sorted by this column — click to reverse"
 msgstr "Nach dieser Spalte sortiert — klicken zum Umkehren"
 
-#: ui/table.slint:43
+#: ui/table.slint:44
 msgctxt "HeaderCell"
 msgid "Sort by this column"
 msgstr "Nach dieser Spalte sortieren"
 
+#: ui/table.slint:176
+msgctxt "TrackLine"
+msgid "Load to deck"
+msgstr "Auf Deck laden"
+
+#: ui/table.slint:177
+msgctxt "TrackLine"
+msgid "Deck 1"
+msgstr "Deck 1"
+
+#: ui/table.slint:178
+msgctxt "TrackLine"
+msgid "Deck 2"
+msgstr "Deck 2"
+
+#: ui/table.slint:179
+msgctxt "TrackLine"
+msgid "Deck 3"
+msgstr "Deck 3"
+
+#: ui/table.slint:180
+msgctxt "TrackLine"
+msgid "Deck 4"
+msgstr "Deck 4"
+
 #: ui/table.slint:183
+msgctxt "TrackLine"
+msgid "Add to playlist"
+msgstr "Zu Playlist hinzufügen"
+
+#: ui/table.slint:187
+msgctxt "TrackLine"
+msgid "Colour"
+msgstr "Farbe"
+
+#: ui/table.slint:188
+msgctxt "TrackLine"
+msgid "Pink"
+msgstr "Pink"
+
+#: ui/table.slint:189
+msgctxt "TrackLine"
+msgid "Red"
+msgstr "Rot"
+
+#: ui/table.slint:190
+msgctxt "TrackLine"
+msgid "Orange"
+msgstr "Orange"
+
+#: ui/table.slint:191
+msgctxt "TrackLine"
+msgid "Yellow"
+msgstr "Gelb"
+
+#: ui/table.slint:192
+msgctxt "TrackLine"
+msgid "Green"
+msgstr "Grün"
+
+#: ui/table.slint:193
+msgctxt "TrackLine"
+msgid "Aqua"
+msgstr "Türkis"
+
+#: ui/table.slint:194
+msgctxt "TrackLine"
+msgid "Blue"
+msgstr "Blau"
+
+#: ui/table.slint:195
+msgctxt "TrackLine"
+msgid "Purple"
+msgstr "Lila"
+
+#: ui/table.slint:196
+msgctxt "TrackLine"
+msgid "No colour"
+msgstr "Keine Farbe"
+
+#: ui/table.slint:199
+msgctxt "TrackLine"
+msgid "Rating"
+msgstr "Bewertung"
+
+#: ui/table.slint:205
+msgctxt "TrackLine"
+msgid "No rating"
+msgstr "Keine Bewertung"
+
+#: ui/table.slint:207
+msgctxt "TrackLine"
+msgid "Analyse"
+msgstr "Analysieren"
+
+#: ui/table.slint:208
+msgctxt "TrackLine"
+msgid "Show in file manager"
+msgstr "Im Dateimanager zeigen"
+
+#: ui/table.slint:209
+msgctxt "TrackLine"
+msgid "Remove from this list"
+msgstr "Aus dieser Liste entfernen"
+
+#: ui/table.slint:262
 msgctxt "TrackTable"
 msgid "PREVIEW"
 msgstr "VORSCHAU"
 
-#: ui/table.slint:184
+#: ui/table.slint:263
 msgctxt "TrackTable"
 msgid "TITLE"
 msgstr "TITEL"
 
-#: ui/table.slint:185
+#: ui/table.slint:264
 msgctxt "TrackTable"
 msgid "ARTIST"
 msgstr "KÜNSTLER"
 
-#: ui/table.slint:186
+#: ui/table.slint:265
 msgctxt "TrackTable"
 msgid "GENRE"
 msgstr "GENRE"
 
-#: ui/table.slint:188
+#: ui/table.slint:267
 msgctxt "TrackTable"
 msgid "KEY"
 msgstr "TONART"
 
-#: ui/table.slint:189
+#: ui/table.slint:268
 msgctxt "TrackTable"
 msgid "TIME"
 msgstr "ZEIT"
 
-#: ui/table.slint:190
+#: ui/table.slint:269
 msgctxt "TrackTable"
 msgid "RATING"
 msgstr "WERTUNG"
 
-#: ui/topbar.slint:62
+#: ui/topbar.slint:93
 msgctxt "TopBar"
 msgid "PREPARE"
 msgstr "PREPARE"
 
-#: ui/topbar.slint:62
+#: ui/topbar.slint:93
 msgctxt "TopBar"
 msgid "Prepare: library, beatgrids, cues and sticks"
 msgstr "Prepare: Bibliothek, Beatgrids, Cues und Sticks"
 
-#: ui/topbar.slint:63
+#: ui/topbar.slint:94
 msgctxt "TopBar"
 msgid "PERFORM"
 msgstr "PERFORM"
 
-#: ui/topbar.slint:63
+#: ui/topbar.slint:94
 msgctxt "TopBar"
 msgid "Perform: decks and mixer"
 msgstr "Perform: Decks und Mixer"
 
-#: ui/topbar.slint:80
+#: ui/topbar.slint:99
+msgctxt "TopBar"
+msgid "Hide the Beat FX panel"
+msgstr ""
+
+#: ui/topbar.slint:99
+msgctxt "TopBar"
+msgid "Show the Beat FX panel"
+msgstr ""
+
+#: ui/topbar.slint:105
+msgctxt "TopBar"
+msgid "SAMPLER"
+msgstr ""
+
+#: ui/topbar.slint:106
+msgctxt "TopBar"
+msgid "Hide the sampler panel"
+msgstr ""
+
+#: ui/topbar.slint:106
+msgctxt "TopBar"
+msgid "Show the sampler panel"
+msgstr ""
+
+#: ui/topbar.slint:125
 msgctxt "TopBar"
 msgid "Appearance: light — click for system"
 msgstr "Darstellung: hell — klicken für System"
 
-#: ui/topbar.slint:80
+#: ui/topbar.slint:125
 msgctxt "TopBar"
 msgid "Appearance: follows the system — click for dark"
 msgstr "Darstellung: folgt dem System — klicken für dunkel"
 
-#: ui/topbar.slint:80
+#: ui/topbar.slint:125
 msgctxt "TopBar"
 msgid "Appearance: dark — click for light"
 msgstr "Darstellung: dunkel — klicken für hell"
 
-#: ui/topbar.slint:93
+#: ui/topbar.slint:138
 msgctxt "TopBar"
 msgid "Preferences"
 msgstr "Einstellungen"
 
-#: ui/topbar.slint:98
+#: ui/topbar.slint:143
 msgctxt "TopBar"
 msgid "UNDO  {}  ⌘Z"
 msgstr "RÜCKGÄNGIG  {}  ⌘Z"
 
-#: ui/topbar.slint:99
+#: ui/topbar.slint:144
 msgctxt "TopBar"
 msgid "Undo the last change"
 msgstr "Letzte Änderung rückgängig machen"
 
-#: ui/topbar.slint:117
+#: ui/topbar.slint:162
 msgctxt "TopBar"
 msgid "REC {}"
 msgstr "REC {}"
 
-#: ui/topbar.slint:117
+#: ui/topbar.slint:162
 msgctxt "TopBar"
 msgid "RECORD"
 msgstr "AUFNEHMEN"
 
-#: ui/topbar.slint:121
+#: ui/topbar.slint:166
 msgctxt "TopBar"
 msgid "Stop recording"
 msgstr "Aufnahme stoppen"
 
-#: ui/topbar.slint:121
+#: ui/topbar.slint:166
 msgctxt "TopBar"
 msgid "Record the master output"
 msgstr "Master-Ausgang aufnehmen"

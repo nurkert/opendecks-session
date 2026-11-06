@@ -6,7 +6,7 @@ import { Theme } from "tokens.slint";
 import { DragState } from "drag.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, Glyph, TipArea } from "controls.slint";
-import { TrackRow } from "structs.slint";
+import { TrackRow, MenuTarget } from "structs.slint";
 
 export global Columns {
     out property <length> pos: 34px;
@@ -62,6 +62,12 @@ component TrackLine inherits Rectangle {
     callback double-clicked();
     // Dropped on a target (DragState.target) after dragging this row.
     callback dropped(int);
+    // Rating clicked (1..=5; the current value again clears it).
+    callback rate(int);
+    // Context menu action, e.g. "deck:2", "color:3", "playlist:17".
+    callback menu(string);
+    in property <[MenuTarget]> playlists;
+    in property <int> deck-count: 2;
     height: Theme.row-height;
     background: touch.has-hover ? Theme.ground-band : transparent;
 
@@ -82,6 +88,11 @@ component TrackLine inherits Rectangle {
             color: Theme.deck-color(root.item.deck);
             vertical-alignment: center; horizontal-alignment: center;
         }
+    }
+    // Colour tag: a short bar on the inner edge of the position column.
+    if root.item.tag-color.alpha > 0: Rectangle {
+        x: 34px; y: 7px; width: 3px; height: parent.height - 14px;
+        background: root.item.tag-color;
     }
     property <color> ink: root.item.missing ? Theme.bone-3 : root.item.selected ? Theme.bone : Theme.bone-2;
 
@@ -131,7 +142,8 @@ component TrackLine inherits Rectangle {
         Cell { width: Columns.time; text: root.item.time; color: Theme.bone-3; horizontal-alignment: right; }
         Rectangle {
             width: Columns.rating;
-            if root.item.rating > 0: HorizontalLayout {
+            // Five cells, always clickable to rate; empty ones are faint outlines.
+            HorizontalLayout {
                 alignment: end;
                 spacing: 4px;
                 padding-top: 10px; padding-bottom: 10px;
@@ -139,7 +151,12 @@ component TrackLine inherits Rectangle {
                     width: 6px;
                     background: i < root.item.rating ? Theme.bone-2 : transparent;
                     border-width: 1px;
-                    border-color: i < root.item.rating ? Theme.bone-2 : Theme.rule-strong;
+                    border-color: i < root.item.rating ? Theme.bone-2 : Theme.rule;
+                    TouchArea {
+                        x: -2px; width: parent.width + 4px; y: -10px; height: parent.height + 20px;
+                        mouse-cursor: pointer;
+                        clicked => { root.rate(i + 1); }
+                    }
                 }
             }
         }
@@ -153,7 +170,48 @@ component TrackLine inherits Rectangle {
             }
         }
     }
+    ContextMenuArea {
+        Menu {
+            Menu {
+                title: @tr("Load to deck");
+                MenuItem { title: @tr("Deck 1"); activated => { root.menu("deck:1"); } }
+                MenuItem { title: @tr("Deck 2"); activated => { root.menu("deck:2"); } }
+                MenuItem { title: @tr("Deck 3"); activated => { root.menu("deck:3"); } }
+                MenuItem { title: @tr("Deck 4"); activated => { root.menu("deck:4"); } }
+            }
+            Menu {
+                title: @tr("Add to playlist");
+                for p in root.playlists: MenuItem { title: p.name; activated => { root.menu("playlist:" + p.id); } }
+            }
+            Menu {
+                title: @tr("Colour");
+                MenuItem { title: @tr("Pink"); activated => { root.menu("color:1"); } }
+                MenuItem { title: @tr("Red"); activated => { root.menu("color:2"); } }
+                MenuItem { title: @tr("Orange"); activated => { root.menu("color:3"); } }
+                MenuItem { title: @tr("Yellow"); activated => { root.menu("color:4"); } }
+                MenuItem { title: @tr("Green"); activated => { root.menu("color:5"); } }
+                MenuItem { title: @tr("Aqua"); activated => { root.menu("color:6"); } }
+                MenuItem { title: @tr("Blue"); activated => { root.menu("color:7"); } }
+                MenuItem { title: @tr("Purple"); activated => { root.menu("color:8"); } }
+                MenuItem { title: @tr("No colour"); activated => { root.menu("color:0"); } }
+            }
+            Menu {
+                title: @tr("Rating");
+                MenuItem { title: "★★★★★"; activated => { root.menu("rating:5"); } }
+                MenuItem { title: "★★★★"; activated => { root.menu("rating:4"); } }
+                MenuItem { title: "★★★"; activated => { root.menu("rating:3"); } }
+                MenuItem { title: "★★"; activated => { root.menu("rating:2"); } }
+                MenuItem { title: "★"; activated => { root.menu("rating:1"); } }
+                MenuItem { title: @tr("No rating"); activated => { root.menu("rating:0"); } }
+            }
+            MenuItem { title: @tr("Analyse"); activated => { root.menu("analyse"); } }
+            MenuItem { title: @tr("Show in file manager"); activated => { root.menu("reveal"); } }
+            MenuItem { title: @tr("Remove from this list"); activated => { root.menu("remove"); } }
+        }
     touch := TouchArea {
+        // Leaves the rating cells (and the state column) to their own clicks.
+        x: 0;
+        width: parent.width - Columns.rating - Columns.state - 36px;
         pointer-event(ev) => {
             if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
                 root.clicked(ev.modifiers.control || ev.modifiers.meta, ev.modifiers.shift);
@@ -174,6 +232,7 @@ component TrackLine inherits Rectangle {
         }
         double-clicked => { root.double-clicked(); }
     }
+    }
 }
 
 export component TrackTable inherits Rectangle {
@@ -188,6 +247,9 @@ export component TrackTable inherits Rectangle {
     callback row-clicked(int, bool, bool);
     callback row-activated(int);
     callback row-dropped(int, int);
+    callback row-rated(int, int);
+    callback row-menu(int, string);
+    in property <[MenuTarget]> playlists;
 
     VerticalLayout {
         Rectangle {
@@ -238,6 +300,9 @@ export component TrackTable inherits Rectangle {
                 clicked(ctrl, shift) => { root.row-clicked(i, ctrl, shift); }
                 double-clicked => { root.row-activated(i); }
                 dropped(t) => { root.row-dropped(i, t); }
+                rate(n) => { root.row-rated(i, n == row.rating ? 0 : n); }
+                menu(a) => { root.row-menu(i, a); }
+                playlists: root.playlists;
             }
         }
     }

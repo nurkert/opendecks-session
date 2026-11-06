@@ -12,10 +12,13 @@ import { DeviceLine } from "devices.slint";
 import { SetFlow } from "flow.slint";
 import { PerformView } from "perform.slint";
 import { PreferencesWindow, KeyRow } from "preferences.slint";
-import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion } from "structs.slint";
+import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget } from "structs.slint";
 
 export { PreferencesWindow, KeyRow }
-export { Theme, TooltipState, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion }
+// Perform panels (FX, sampler, pad modes).
+import { FxUnitView } from "structs.slint";
+export { FxUnitView }
+export { Theme, TooltipState, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget }
 
 export struct ProposalRow {
     index: int,
@@ -164,6 +167,20 @@ export component AppWindow inherits Window {
     in property <bool> sampler-panel;
     callback toggle-fx-panel();
     callback toggle-sampler-panel();
+    // Beat FX units (1-based unit numbers) and the Colour FX selection.
+    in property <[FxUnitView]> fx-units;
+    in property <int> color-fx;
+    callback fx-kind(int, int);
+    callback fx-kind-step(int, int);
+    callback fx-beats-step(int, int);
+    callback fx-target(int, int);
+    callback fx-level(int, float);
+    callback fx-param(int, float);
+    callback fx-on(int);
+    callback fx-tap(int);
+    callback fx-release(int, int, bool);
+    callback color-fx-select(int);
+    callback color-fx-step(int);
     in property <bool> small-screen;
     in property <image> ground-texture;
 
@@ -189,6 +206,9 @@ export component AppWindow inherits Window {
     callback row-clicked(int, bool, bool);
     callback row-activated(int);
     callback row-dropped(int, int);
+    callback row-rated(int, int);
+    callback row-menu(int, string);
+    in property <[MenuTarget]> menu-playlists;
     callback import-folder();
     callback import-rekordbox();
     callback explorer-select(int);
@@ -379,6 +399,20 @@ export component AppWindow inherits Window {
                 lane-motion: root.lane-motion;
                 zoom(d, delta) => { root.deck-zoom(d, delta); }
                 zoom-reset(d) => { root.deck-zoom-reset(d); }
+                show-fx: root.fx-panel;
+                fx-units: root.fx-units;
+                color-fx: root.color-fx;
+                fx-kind(u, k) => { root.fx-kind(u, k); }
+                fx-kind-step(u, d) => { root.fx-kind-step(u, d); }
+                fx-beats-step(u, d) => { root.fx-beats-step(u, d); }
+                fx-target(u, t) => { root.fx-target(u, t); }
+                fx-level(u, v) => { root.fx-level(u, v); }
+                fx-param(u, v) => { root.fx-param(u, v); }
+                fx-on(u) => { root.fx-on(u); }
+                fx-tap(u) => { root.fx-tap(u); }
+                fx-release(u, k, p) => { root.fx-release(u, k, p); }
+                color-fx-select(i) => { root.color-fx-select(i); }
+                color-fx-step(d) => { root.color-fx-step(d); }
                 decks-left: root.decks-left;
                 decks-right: root.decks-right;
                 channels: root.channels;
@@ -553,6 +587,9 @@ export component AppWindow inherits Window {
                         row-clicked(i, c, s) => { root.row-clicked(i, c, s); keys.focus(); }
                         row-activated(i) => { root.row-activated(i); }
                         row-dropped(i, t) => { root.row-dropped(i, t); }
+                        row-rated(i, n) => { root.row-rated(i, n); }
+                        row-menu(i, a) => { root.row-menu(i, a); }
+                        playlists: root.menu-playlists;
                     }
                     if root.section == "library" && root.node-kind == "all" && root.tracks.length == 0: HorizontalLayout {
                         alignment: center;

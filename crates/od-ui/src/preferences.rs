@@ -519,7 +519,7 @@ fn flag(app: &App, key: &str, v: bool) {
     }
 }
 
-fn reveal(path: &std::path::Path) {
+pub(crate) fn reveal(path: &std::path::Path) {
     let (opener, args) = if cfg!(target_os = "macos") {
         ("open", vec!["-R".to_string(), path.display().to_string()])
     } else {

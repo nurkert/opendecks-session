@@ -48,6 +48,14 @@ export struct TrackRow {
     note: string,
     // Deck (1-based) the track is loaded on, 0 if none.
     deck: int,
+    // Track colour tag (transparent when none).
+    tag-color: color,
+}
+
+// A playlist / set the row context menu can add tracks to.
+export struct MenuTarget {
+    id: int,
+    name: string,
 }
 
 // One phrase on a phrase bar (positions as fractions of the track).
@@ -187,4 +195,28 @@ export struct ChannelView {
     cue: bool,
     level: float,
     peak: float,
+}
+
+// One Beat FX unit in the FX panel.
+export struct FxUnitView {
+    // 1 or 2.
+    unit: int,
+    // Effect: index into the engine's Beat FX list (ECHO … SPIRAL).
+    kind: int,
+    // Beat length, e.g. "1/2", "3/4", "4".
+    beats: string,
+    // Channel the unit is inserted on: 0 = master, 1..4 = channel.
+    target: int,
+    // Depth 0..1 and effect parameter -1..1.
+    level: float,
+    param: float,
+    on: bool,
+    // Still sounding after switching off (tail or release).
+    ringing: bool,
+    // Tempo the unit follows, e.g. "124.0".
+    bpm: string,
+    // The tempo comes from TAP instead of the decks.
+    tapped: bool,
+    // Engaged Release FX: -1 none, 0 vinyl brake, 1 backspin, 2 echo out.
+    release: int,
 }

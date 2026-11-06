@@ -123,6 +123,8 @@ const DE: &[(&str, &str)] = &[
     ("{} h ago", "vor {} Std."),
     ("{} days ago", "vor {} Tagen"),
     ("Check for updates", "Nach Updates suchen"),
+    ("Rating set", "Bewertung gesetzt"),
+    ("Colour set", "Farbe gesetzt"),
     ("Stem separation failed: {}", "Stem-Trennung fehlgeschlagen: {}"),
     ("Recording saved: {} ({} tracks)", "Aufnahme gespeichert: {} ({} Tracks)"),
     ("Audio starts when you load a track", "Audio startet, sobald du einen Track lädst"),

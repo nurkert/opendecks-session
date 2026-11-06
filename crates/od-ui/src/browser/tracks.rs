@@ -252,6 +252,7 @@ pub(crate) fn refresh_tracks(app: &App) {
             selected: b.selection.contains(&i),
             note: SharedString::new(),
             deck: loaded.iter().find(|(id, _)| *id == t.id).map(|(_, d)| *d as i32 + 1).unwrap_or(0),
+            tag_color: t.tags.color.map(|c| slint::Color::from_rgb_u8(c.r, c.g, c.b)).unwrap_or(slint::Color::from_argb_u8(0, 0, 0, 0)),
         })
         .collect();
     let total: f64 = b.rows.iter().map(|t| t.duration).sum();

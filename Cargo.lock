@@ -4471,6 +4471,7 @@ dependencies = [
  "od-devices",
  "od-engine",
  "od-format-native",
+ "od-format-pioneer",
  "od-i18n",
  "od-import-rekordbox",
  "od-library",

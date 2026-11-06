@@ -379,6 +379,11 @@ pub(crate) fn wire(app: &Rc<App>) {
             decks::load_selected_into_free_deck(&a);
         }
     }));
+    ui.on_row_rated(handler!(app, |a, i: i32, n: i32| {
+        select_row(&a, i as usize, false, false);
+        edit_tags(&a, |t| t.rating = n.clamp(0, 5) as u8, "Rating set");
+    }));
+    ui.on_row_menu(handler!(app, |a, i: i32, action: SharedString| row_menu(&a, i as usize, action.as_str())));
     // Drag and drop: target 1..=4 = that deck, -1 = the Prepare player.
     ui.on_row_dropped(handler!(app, |a, i: i32, target: i32| {
         select_row(&a, i as usize, false, false);
@@ -438,4 +443,85 @@ pub(crate) fn wire(app: &Rc<App>) {
             Err(e) => a.status(format!("{e}")),
         }
     }));
+}
+
+/// Applies `f` to the tags of the selected tracks (one undo step per track).
+fn edit_tags(app: &App, f: impl Fn(&mut od_core::TrackTags), done: &str) {
+    if app.guard_read_only() {
+        return;
+    }
+    let ids = app.state.borrow().selected_ids();
+    for id in &ids {
+        let tags = app.state.borrow().lib.track(*id).map(|t| t.tags);
+        let Ok(mut tags) = tags else { continue };
+        f(&mut tags);
+        let r = app.state.borrow_mut().lib.set_tags(*id, tags);
+        if app.report(r).is_none() {
+            return;
+        }
+    }
+    app.after_edit(done);
+}
+
+/// Track row context menu.
+fn row_menu(app: &App, i: usize, action: &str) {
+    // Right-click acts on the clicked row, keeping a selection it belongs to.
+    if !app.state.borrow().browser.selection.contains(&i) {
+        select_row(app, i, false, false);
+    }
+    let (what, arg) = action.split_once(':').unwrap_or((action, ""));
+    let n: i64 = arg.parse().unwrap_or(0);
+    match what {
+        "deck" => {
+            let deck = (n.clamp(1, decks::DECKS as i64) - 1) as usize;
+            if app.state.borrow().explorer.open.is_some() {
+                crate::explorer::activate(app, i, Some(deck));
+            } else {
+                let track = app.state.borrow().player.current;
+                if let Some(track) = track {
+                    decks::load_track(app, deck, track, None);
+                }
+            }
+        }
+        "playlist" => {
+            if app.guard_read_only() {
+                return;
+            }
+            let ids = app.state.borrow().selected_ids();
+            let node = od_library::NodeId(n);
+            let name = app.state.borrow().lib.node(node).map(|n| n.name).unwrap_or_default();
+            let r = app.state.borrow_mut().lib.add_to_node(node, &ids, None);
+            if app.report(r).is_some() {
+                app.after_edit(&format!("Added {} track(s) to {name}", ids.len()));
+            }
+        }
+        "color" => {
+            let color = od_format_pioneer::TRACK_COLORS.get((n as usize).wrapping_sub(1)).map(|(_, c)| *c);
+            edit_tags(app, |t| t.color = color, "Colour set");
+        }
+        "rating" => edit_tags(app, |t| t.rating = n.clamp(0, 5) as u8, "Rating set"),
+        "analyse" => {
+            if app.guard_read_only() {
+                return;
+            }
+            let ids = app.state.borrow().selected_ids();
+            for id in &ids {
+                let _ = app.state.borrow().lib.conn().execute("UPDATE track SET analysis_version = 0 WHERE id = ?1", [id.0]);
+                app.analysis.control.lock().unwrap_or_else(|e| e.into_inner()).requested.push(*id);
+            }
+            let _ = app.analysis.wake.send(());
+            app.status("Queued for analysis");
+        }
+        "reveal" => {
+            let path = {
+                let st = app.state.borrow();
+                st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| st.resolve(&t.path))
+            };
+            if let Some(p) = path {
+                crate::preferences::reveal(&p);
+            }
+        }
+        "remove" => remove_selected(app),
+        _ => {}
+    }
 }

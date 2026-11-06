@@ -76,6 +76,7 @@ fn walk(st: &AppState, all: &[od_library::Node], parent: Option<NodeId>, depth: 
 }
 
 pub(crate) fn refresh_tree(app: &App) {
+    refresh_menu_targets(app);
     let st = app.state.borrow();
     let b = &st.browser;
     let all = st.lib.all_nodes().unwrap_or_default();
@@ -143,4 +144,21 @@ mod tests {
         scale_lengths(&mut rows, 600.0);
         assert_eq!(rows.iter().map(|r| r.length_frac).collect::<Vec<_>>(), [0.0, 0.5, 1.0]);
     }
+}
+
+/// Playlists and sets offered by the track row's "Add to playlist" menu.
+fn refresh_menu_targets(app: &App) {
+    let st = app.state.borrow();
+    if st.read_only() {
+        return;
+    }
+    let targets: Vec<crate::MenuTarget> = st
+        .lib
+        .all_nodes()
+        .unwrap_or_default()
+        .into_iter()
+        .filter(|n| matches!(n.kind, od_library::NodeKind::Playlist | od_library::NodeKind::Set))
+        .map(|n| crate::MenuTarget { id: n.id.0 as i32, name: n.name.into() })
+        .collect();
+    app.ui.set_menu_playlists(crate::models::model(targets));
 }
