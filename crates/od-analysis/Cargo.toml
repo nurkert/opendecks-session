@@ -1,0 +1,14 @@
+[package]
+name = "od-analysis"
+description = "Pure-Rust track analysis (tempo, key, waveform, phrases, loudness) for OpenDecks Session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+od-core = { workspace = true }
+od-decode = { workspace = true }
+rayon = { workspace = true }
+realfft = "3"
+
+[dev-dependencies]
