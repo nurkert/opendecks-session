@@ -315,6 +315,7 @@ export component DeckPanel inherits Rectangle {
         padding-left: 14px; padding-right: 12px;
         padding-top: 8px; padding-bottom: 10px;
         spacing: 6px;
+        alignment: start;
 
         // Header: numeral, title / artist, BPM, remaining / elapsed, key, SYNC / MASTER.
         HorizontalLayout {
@@ -422,6 +423,7 @@ export component DeckPanel inherits Rectangle {
 // meter + fader.
 component ChannelStrip inherits Rectangle {
     in property <ChannelView> ch;
+    in property <bool> compact;
     callback trim(float);
     callback eq(int, float);
     callback cfx(float);
@@ -432,16 +434,16 @@ component ChannelStrip inherits Rectangle {
     VerticalLayout {
         spacing: 2px;
         Text { text: root.ch.channel; font-family: Theme.family; font-size: 14px; font-weight: 600; color: root.tone; horizontal-alignment: center; }
-        Knob { label: "TRIM"; value: root.ch.trim; size: 22px; changed(v) => { root.trim(v); } }
-        Knob { label: "HI"; value: root.ch.high; size: 22px; tone: Theme.w486; changed(v) => { root.eq(2, v); } }
-        Knob { label: "MID"; value: root.ch.mid; size: 22px; tone: Theme.w546; changed(v) => { root.eq(1, v); } }
-        Knob { label: "LOW"; value: root.ch.low; size: 22px; tone: Theme.w656; changed(v) => { root.eq(0, v); } }
-        Knob { label: "CFX"; value: root.ch.cfx; size: 22px; tone: Theme.w405; changed(v) => { root.cfx(v); } }
+        Knob { label: "TRIM"; value: root.ch.trim; size: root.compact ? 16px : 22px; changed(v) => { root.trim(v); } }
+        Knob { label: "HI"; value: root.ch.high; size: root.compact ? 16px : 22px; tone: Theme.w486; changed(v) => { root.eq(2, v); } }
+        Knob { label: "MID"; value: root.ch.mid; size: root.compact ? 16px : 22px; tone: Theme.w546; changed(v) => { root.eq(1, v); } }
+        Knob { label: "LOW"; value: root.ch.low; size: root.compact ? 16px : 22px; tone: Theme.w656; changed(v) => { root.eq(0, v); } }
+        Knob { label: "CFX"; value: root.ch.cfx; size: root.compact ? 16px : 22px; tone: Theme.w405; changed(v) => { root.cfx(v); } }
         Rectangle { height: 2px; }
         Toggle { size: 22px; label: "CUE"; on: root.ch.cue; tone: Theme.attention; clicked => { root.cue(); } }
         HorizontalLayout {
             vertical-stretch: 1;
-            min-height: 64px;
+            min-height: root.compact ? 36px : 64px;
             spacing: 3px;
             alignment: center;
             // Level meter: amber near the top, red at clip.
@@ -481,6 +483,7 @@ component Crossfader inherits Rectangle {
 // The mixer column between the decks: channel strips only.
 export component MixerPanel inherits Rectangle {
     in property <[ChannelView]> channels;
+    in property <bool> compact;
     callback trim(int, float);
     callback eq(int, int, float);
     callback cfx(int, float);
@@ -495,6 +498,7 @@ export component MixerPanel inherits Rectangle {
         alignment: center;
         for c in root.channels: ChannelStrip {
             ch: c;
+            compact: root.compact;
             trim(v) => { root.trim(c.channel, v); }
             eq(b, v) => { root.eq(c.channel, b, v); }
             cfx(v) => { root.cfx(c.channel, v); }
@@ -583,6 +587,8 @@ export component PerformView inherits Rectangle {
     in property <bool> tight;
     in property <bool> touch-size;
     in property <bool> show-mixer: true;
+    // Too narrow for the full deck layout: decks go compact.
+    property <bool> narrow: root.width < 1300px;
     in property <bool> recording;
     in property <string> recording-time;
     callback toggle-recording();
@@ -632,10 +638,9 @@ export component PerformView inherits Rectangle {
             VerticalLayout {
                 horizontal-stretch: 1;
                 spacing: 0;
-                alignment: start;
                 for d in root.decks-left: DeckPanel {
                     deck: d;
-                    compact: root.tight || root.decks.length > 2;
+                    compact: root.tight || root.narrow || root.decks.length > 2;
                     touch-size: root.touch-size;
                     toggle-play => { root.toggle-play(d.deck); }
                     cue => { root.cue(d.deck); }
@@ -660,6 +665,7 @@ export component PerformView inherits Rectangle {
                 visible: root.show-mixer;
                 width: root.show-mixer ? self.preferred-width : 0px;
                 horizontal-stretch: 0;
+                compact: root.tight || root.narrow || root.decks.length > 2;
                 channels: root.channels;
                 trim(c, v) => { root.trim(c, v); }
                 eq(c, b, v) => { root.eq(c, b, v); }
@@ -671,11 +677,10 @@ export component PerformView inherits Rectangle {
             VerticalLayout {
                 horizontal-stretch: 1;
                 spacing: 0;
-                alignment: start;
                 for d in root.decks-right: DeckPanel {
                     deck: d;
                     mirror: true;
-                    compact: root.tight || root.decks.length > 2;
+                    compact: root.tight || root.narrow || root.decks.length > 2;
                     touch-size: root.touch-size;
                     toggle-play => { root.toggle-play(d.deck); }
                     cue => { root.cue(d.deck); }

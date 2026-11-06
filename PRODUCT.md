@@ -31,11 +31,11 @@ An open, cross-platform alternative that treats the USB stick as a live, always-
 
 ## Capabilities and Constraints
 
-See docs/SPEC.md (authoritative). Highlights: two work modes (Prepare, Perform), two performance profiles (Lite for Raspberry Pi, Full for desktop), offline-first with no accounts, cloud or telemetry, English and German UI, GPL-3.0. Stems (vocals, drums, bass, instrumental) are part of v1; no streaming services, DVS, lighting or Pro DJ Link. Terms: "set" (ordered, annotated playlist for a gig), "device"/"stick" (registered USB drive), "hot cue" A–H, "memory cue", "beatgrid", "Camelot key".
+See docs/SPEC.md (authoritative). Highlights: two work modes (Prepare, Perform), two performance profiles (Lite for Raspberry Pi, Full for desktop), offline-first with no accounts, cloud or telemetry, English and German UI, GPL-3.0. Stems (vocals, drums, bass, instrumental) and DMX lighting are part of the scope; no streaming services, DVS or Pro DJ Link yet. Terms: "set" (ordered, annotated playlist for a gig), "device"/"stick" (registered USB drive), "hot cue" A–H, "memory cue", "beatgrid", "Camelot key".
 
 ## Brand Commitments
 
-Name: OpenDecks Session. Layout and workflow mirror rekordbox closely — same regions, proportions and control order — and the feature set matches rekordbox 7's top plan except for streaming, cloud, video, lighting and DVS (decided by the owner on 2026-11-06). The visual identity stays our own: the emission-line world from DESIGN.md; no rekordbox or AlphaTheta/Pioneer DJ assets, icons, colours or styling; product names only used descriptively. Dark, high contrast, calm and precise; one accent colour per deck.
+Name: OpenDecks Session. Layout and workflow mirror rekordbox closely — same regions, proportions and control order — and the feature set matches rekordbox 7's top plan except for streaming, cloud, video and DVS (decided by the owner on 2026-11-06). The visual identity stays our own: the emission-line world from DESIGN.md; no rekordbox or AlphaTheta/Pioneer DJ assets, icons, colours or styling; product names only used descriptively. Dark, high contrast, calm and precise; one accent colour per deck.
 
 ## Evidence on Hand
 

@@ -586,13 +586,13 @@ pub(crate) fn tempo_range_label(r: TempoRange) -> &'static str {
     }
 }
 
-/// "CHORUS · 8" — the phrase at `beat` and the bars left in it.
+/// "CHORUS -7.4" — the phrase at `beat` and the bars.beats left in it.
 pub(crate) fn phrase_now(phrases: &[od_core::Phrase], beat: f64) -> String {
     let b = beat.max(0.0) as u32;
     phrases
         .iter()
         .find(|p| p.start_beat <= b && b < p.end_beat)
-        .map(|p| format!("{} · {}", render::phrase_label(p.kind), (p.end_beat - b).div_ceil(4)))
+        .map(|p| format!("{} {}", render::phrase_label(p.kind), format::bar_countdown(beat, p.end_beat as f64)))
         .unwrap_or_default()
 }
 

@@ -5,7 +5,7 @@ use std::fmt;
 use std::path::Path;
 
 /// Exclusions that SPEC §1 names. Nothing else may be out of scope.
-pub const EXCLUSIONS: &[&str] = &["streaming", "cloud", "video", "lighting", "dvs"];
+pub const EXCLUSIONS: &[&str] = &["streaming", "cloud", "video", "dvs"];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Deserialize)]
 #[serde(rename_all = "kebab-case")]

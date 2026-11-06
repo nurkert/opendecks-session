@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 206 features; 198 in scope: 79 DONE (40 %), 29 PARTIAL, 25 ENGINE-ONLY, 65 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
+**Summary:** 211 features; 204 in scope: 79 DONE (39 %), 29 PARTIAL, 25 ENGINE-ONLY, 71 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The reference list is the rekordbox 7 feature set (top plan) relevant to a DJ who prepares in
 EXPORT mode and plays in PERFORMANCE mode with a DDJ-FLX10 / DDJ-FLX4, extended by the
@@ -294,12 +294,22 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Raspberry Pi kiosk (linuxkms, Perform, controller browsing) | DONE (beyond rekordbox) | Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); no cargo test; (SPEC §3.3) | — |  |
 | Keyboard shortcuts for layouts and a View menu | MISSING | (UX §1.9, §4 P3.7) | — | P3 |
 
-## 13. Video, lighting, DVS, streaming, cloud
+## 13. DMX lighting
+
+| Feature | Status | Evidence / note | Tests | Prio |
+|---|---|---|---|---|
+| DMX outputs: FLX10 DMX port, Enttec USB-DMX, Art-Net, sACN, several universes | MISSING | (SPEC §10.5) | — | P2 |
+| Fixture library (OFL), patch, groups, moving heads / bars / PARs / strobes / lasers / fog | MISSING | (SPEC §10.5) | — | P2 |
+| Automatic light show from beat, phrase, energy and the mix (crossfade-aware) | MISSING | (SPEC §10.5) | — | P2 |
+| Easy manual mode: scene pads, dimmer, strobe, blackout, tap/sync, controller pad mode | MISSING | (SPEC §10.5) | — | P2 |
+| Pro mode: programmer, effects engine, cue stacks, per-track lighting cues, MIDI mapping | MISSING | (SPEC §10.5) | — | P2 |
+| LIGHTING tab, split view in Perform, detachable window, 2D visualiser | MISSING | (SPEC §10.5) | — | P2 |
+
+## 14. Video, DVS, streaming, cloud
 
 | Feature | Status | Reason |
 |---|---|---|
 | Video / lyric | OUT-OF-SCOPE | SPEC §1: video; Video and lyric display |
-| Lighting | OUT-OF-SCOPE | SPEC §1: lighting |
 | DVS | OUT-OF-SCOPE | SPEC §1: dvs |
 | Streaming services | OUT-OF-SCOPE | SPEC §1: streaming; Beatport, Beatsource, SoundCloud, Spotify, TIDAL, Apple Music sources |
 | Cloud library sync / Dropbox / mobile app sync | OUT-OF-SCOPE | SPEC §1: cloud; offline-first, no accounts (SPEC §2) |
@@ -314,10 +324,10 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | DONE | 79 |
 | PARTIAL | 29 |
 | ENGINE-ONLY | 25 |
-| MISSING | 65 |
+| MISSING | 71 |
 | deferred (in scope, later milestone) | 2 |
-| OUT-OF-SCOPE | 6 |
-| **Total** | **206** |
+| OUT-OF-SCOPE | 5 |
+| **Total** | **211** |
 
 ## P1 gaps and implementation notes
 

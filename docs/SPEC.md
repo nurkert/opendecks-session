@@ -2,7 +2,7 @@
 
 Status: version 2, revised 2026-11-06 on the owner's request: the goal is a
 full-featured, open-source DJ toolkit with the feature set of rekordbox 7 at
-its highest plan (minus streaming, cloud, video and lighting), arranged the
+its highest plan (minus streaming, cloud and video; DMX lighting included since 2026-11-06), arranged the
 way rekordbox users know it, in OpenDecks' own visual language. This
 document is the goal for implementation. Anything not stated here is out of
 scope until it is added to this document. `docs/feature-matrix.md` tracks
@@ -28,7 +28,7 @@ The feature set is **identical to rekordbox 7's top plan** except for the
 fixed exclusions below: library, analysis, cue and grid editing, Explorer playback
 straight from folders, stems, all FX, sampler and sequencer, recording, USB
 export with automatic sync. Fixed exclusions: streaming services, cloud sync and
-accounts (offline-first), video, lighting, DVS.
+accounts (offline-first), video, DVS.
 
 ### Core problems it solves
 
@@ -484,7 +484,51 @@ as in Perform.
 
 ### 10.3b Out of scope
 
-Streaming services, cloud, DVS, lighting, video, Pro DJ Link (later).
+Streaming services, cloud, DVS, video, Pro DJ Link (later).
+
+### 10.5 DMX lighting (owner requirement 2026-11-06)
+
+A full DMX lighting controller, first as its own tab (LIGHTING) next to
+Prepare / Perform, later also as a split view inside Perform or a separate
+window (detachable, second screen).
+
+- **Outputs:** the DDJ-FLX10's built-in DMX port (through its USB vendor
+  protocol, as rekordbox's lighting mode does — reverse-engineered for
+  interoperability, see §9.3), USB-DMX interfaces (Enttec Open DMX /
+  DMX USB Pro and compatibles), Art-Net and sACN on the local network.
+  Several universes.
+- **Fixtures:** a fixture library in the Open Fixture Library format
+  (import from the OFL JSON files, plus user-defined fixtures), patching
+  with addresses and modes, groups (e.g. all moving heads left), and the
+  fixture types DJs use: moving heads (pan / tilt / fine, gobo, prism,
+  zoom, focus), LED bars and pixel bars, PARs, wash lights, strobes,
+  lasers (DMX), fog / hazer, blinders, dimmers.
+- **Automatic mode:** the show follows the music without any input —
+  beat- and bar-locked chases from the master deck's grid, scene choice
+  from the current phrase (intro, up, chorus/drop, down, outro), energy and
+  the three-band waveform, colours that fit the track (from its colour or
+  key / energy mapping), and **smooth transitions that follow the mix**
+  (crossfader / channel levels blend the scenes of the outgoing and the
+  incoming track; a drop in the incoming track triggers the drop look).
+  Uses phrase analysis ahead of time, so builds and drops are anticipated.
+- **Easy manual mode:** big scene pads (colour, intensity, strobe,
+  blackout, movement presets, fog burst), master dimmer and speed,
+  tap / sync to the master BPM; usable from the controller pads (a
+  "lighting" pad mode) and the touch screen in kiosk.
+- **Pro mode:** fixture patch editor, programmer with per-attribute
+  control (colour pickers, pan/tilt XY pad, beam), an effects engine
+  (sine / saw / square / random on any attribute, phase spread across a
+  group, beat-synced), cue stacks and chases, per-track or per-phrase
+  lighting cues stored with the track (like rekordbox's lighting
+  scenes), timeline preview, and full MIDI mapping.
+- Real-time rules: DMX output runs on its own thread at a steady frame
+  rate (≥ 40 Hz), never on the audio thread; the engine publishes beat /
+  phrase / level data to it lock-free.
+- Verification: offline tests render the DMX frames for a recorded mix and
+  assert beat alignment, scene changes at phrase boundaries and smooth
+  crossfades; protocol tests for Art-Net / sACN / Enttec packets; a
+  virtual visualiser view (2D stage plot) shows the output without
+  hardware.
 
 ### 10.4 Audio I/O
 
