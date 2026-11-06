@@ -18,6 +18,6 @@ pub use color::CueColor;
 pub use cue::{Cue, CueKind};
 pub use ids::*;
 pub use key::{KeyNotation, Mode, MusicalKey};
-pub use phrase::{Phrase, PhraseKind, PhraseMood};
+pub use phrase::{Phrase, PhraseKind, PhraseMood, normalize_phrases};
 pub use track::{AudioFormat, DataSource, TrackAnalysis, TrackTags};
 pub use waveform::{Waveform, WaveformColumn};

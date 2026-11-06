@@ -529,7 +529,9 @@ impl Library {
                 a.waveform = blob::decode_waveform(&wf, rate.unwrap_or(od_core::Waveform::DETAIL_RATE));
             }
             if let Some(p) = phrases {
-                a.phrases = serde_json::from_str::<Vec<Phrase>>(&p)?;
+                // Stored phrases may come from older analyses or a rekordbox
+                // import; readers always get DJ-readable sections.
+                a.phrases = od_core::normalize_phrases(&serde_json::from_str::<Vec<Phrase>>(&p)?);
             }
             if let Some(m) = mood {
                 a.phrase_mood = serde_json::from_str::<PhraseMood>(&m)?;

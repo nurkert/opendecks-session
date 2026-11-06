@@ -13,9 +13,9 @@
 //!    boundaries land where the arrangement actually changes.
 //! 4. Heuristic labelling from relative energy, bass presence and energy
 //!    slope: Intro / Outro at the edges, Chorus for high-energy phrases with
-//!    bass, Down for breakdowns (low energy or no bass), Up for rising
-//!    phrases leading into a Chorus, Verse before the first Chorus and Bridge
-//!    after it.
+//!    bass, Up for rising phrases leading into a Chorus, Down for breakdowns
+//!    (low energy or no bass), Verse before the first Chorus and Bridge
+//!    after it. Neighbouring phrases of the same kind are merged into one.
 //! 5. The mood (High / Mid / Low) follows from tempo, share of Chorus bars
 //!    and bass weight.
 
@@ -234,12 +234,15 @@ pub fn detect_phrases(
             PhraseKind::Outro
         } else if n >= 4 && i == 1 && kinds[0] == PhraseKind::Intro && en < 0.5 && !hi[i] {
             PhraseKind::Intro
-        } else if hi[i] {
+        } else if hi[i] || (kinds.last() == Some(&PhraseKind::Chorus) && en >= 0.6 && bass) {
+            // Hysteresis: a chorus stays a chorus until the energy clearly
+            // drops, so phrases near the threshold do not flap.
             PhraseKind::Chorus
+        } else if hi.get(i + 1).copied().unwrap_or(false) && s.slope > 1.0 {
+            // A riser into the drop is Up even without bass.
+            PhraseKind::Up
         } else if en < 0.4 || !bass {
             PhraseKind::Down
-        } else if hi.get(i + 1).copied().unwrap_or(false) && s.slope > 1.0 {
-            PhraseKind::Up
         } else if seen_chorus {
             PhraseKind::Bridge
         } else {
@@ -248,16 +251,30 @@ pub fn detect_phrases(
         seen_chorus |= kind == PhraseKind::Chorus;
         kinds.push(kind);
     }
+    // Neighbouring phrases of the same kind are one section. The segmentation
+    // cuts wherever the texture shifts, but a drop that loses its hats halfway
+    // is still one Chorus, not Chorus, Chorus, Chorus.
+    let mut i = 1;
+    while i < kinds.len() {
+        if kinds[i] == kinds[i - 1] {
+            kinds.remove(i);
+            boundaries.remove(i);
+        } else {
+            i += 1;
+        }
+    }
 
-    let phrases: Vec<Phrase> = boundaries
-        .windows(2)
-        .zip(&kinds)
-        .map(|(w, &kind)| Phrase {
-            start_beat: end_beat_of(w[0]),
-            end_beat: end_beat_of(w[1]),
-            kind,
-        })
-        .collect();
+    let phrases: Vec<Phrase> = od_core::normalize_phrases(
+        &boundaries
+            .windows(2)
+            .zip(&kinds)
+            .map(|(w, &kind)| Phrase {
+                start_beat: end_beat_of(w[0]),
+                end_beat: end_beat_of(w[1]),
+                kind,
+            })
+            .collect::<Vec<_>>(),
+    );
 
     // Mood.
     let bpm = grid.dominant_bpm().unwrap_or(120.0);
@@ -401,13 +418,13 @@ mod tests {
         ]);
         let (phrases, mood) = detect_phrases(&x, FS, &grid);
         assert!(!phrases.is_empty());
-        // Contiguous, bar aligned, 8/16/32 bars except possibly the last.
+        // Contiguous, bar aligned, whole 8-bar blocks except possibly the last.
         for w in phrases.windows(2) {
             assert_eq!(w[0].end_beat, w[1].start_beat);
         }
         for p in &phrases[..phrases.len() - 1] {
             let bars = (p.end_beat - p.start_beat) / 4;
-            assert!([8, 16, 32].contains(&bars), "{phrases:?}");
+            assert!(bars > 0 && bars % 8 == 0, "{phrases:?}");
             assert_eq!(p.start_beat % 4, 0);
         }
         let kind_at = |bar: u32| {
@@ -429,6 +446,28 @@ mod tests {
         assert_eq!(kind_at(60), Some(PhraseKind::Chorus), "{phrases:?}");
         assert_eq!(kind_at(70), Some(PhraseKind::Chorus), "{phrases:?}");
         assert_eq!(mood, PhraseMood::High);
+    }
+
+    #[test]
+    fn same_kind_neighbours_are_merged() {
+        let (x, grid) = arrangement(&[
+            (16, true, false, false, 0.0, false),  // intro
+            (16, true, true, true, 0.08, false),   // drop
+            (16, true, true, false, 0.08, false),  // drop without hats
+            (8, false, false, false, 0.05, false), // breakdown
+            (16, true, true, true, 0.08, false),   // drop
+            (16, true, false, false, 0.0, false),  // outro
+        ]);
+        let (phrases, _) = detect_phrases(&x, FS, &grid);
+        for w in phrases.windows(2) {
+            assert_ne!(w[0].kind, w[1].kind, "{phrases:?}");
+        }
+        let first_drop = phrases.iter().find(|p| p.kind == PhraseKind::Chorus).unwrap();
+        assert_eq!(
+            (first_drop.start_beat / 4, first_drop.end_beat / 4),
+            (16, 48),
+            "{phrases:?}"
+        );
     }
 
     #[test]
