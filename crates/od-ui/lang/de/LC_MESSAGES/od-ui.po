@@ -28,6 +28,10 @@ msgid "FOLDER"
 msgstr "ORDNER"
 
 msgctxt "AppWindow"
+msgid "FIND {} MOVED FILES"
+msgstr "{} VERSCHOBENE DATEIEN SUCHEN"
+
+msgctxt "AppWindow"
 msgid "DELETE"
 msgstr "LÖSCHEN"
 
@@ -130,6 +134,14 @@ msgstr "{} MIXE"
 msgctxt "AppWindow"
 msgid "No recordings yet. Press RECORD in Perform, or the record button on your controller."
 msgstr "Noch keine Aufnahmen. Drücke AUFNEHMEN in Perform oder die Aufnahmetaste am Controller."
+
+msgctxt "AppWindow"
+msgid "SHOW FILE"
+msgstr "DATEI ZEIGEN"
+
+msgctxt "AppWindow"
+msgid "SPLIT INTO TRACKS"
+msgstr "IN TRACKS TEILEN"
 
 msgctxt "AppWindow"
 msgid "UNDO  {}  ⌘Z"

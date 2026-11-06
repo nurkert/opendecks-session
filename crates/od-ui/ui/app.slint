@@ -179,6 +179,9 @@ export component AppWindow inherits Window {
     callback undo();
     callback redo();
     callback reveal-recording(int);
+    callback split-recording(int);
+    callback find-moved-files();
+    in property <int> missing-count;
     callback deck-toggle-play(int);
     callback deck-cue(int);
     callback deck-sync(int);
@@ -258,6 +261,7 @@ export component AppWindow inherits Window {
                             if !root.read-only: PlateButton { compact: true; label: @tr("SET"); glyph: "plus"; tone: Theme.attention; clicked => { root.create-node("set"); } }
                             if !root.read-only: PlateButton { compact: true; label: @tr("SMART"); glyph: "plus"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
                             if !root.read-only: PlateButton { compact: true; label: @tr("FOLDER"); glyph: "plus"; clicked => { root.create-node("folder"); } }
+                            if root.node-kind == "all" && root.missing-count > 0: PlateButton { compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; clicked => { root.find-moved-files(); } }
                             if root.node-kind != "all" && !root.read-only: PlateButton { compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
                         }
                         if root.section == "library" && root.node-kind == "smart": VerticalLayout {
@@ -393,7 +397,13 @@ export component AppWindow inherits Window {
                                 VLine { x: 0; y: 8px; height: parent.height - 16px; tone: Theme.w656; }
                                 Text { x: 16px; y: 6px; text: r.name; font-family: Theme.family; font-size: 15px; font-weight: 600; color: Theme.bone; }
                                 Caps { x: 16px; y: 28px; text: r.detail; }
-                                TouchArea { clicked => { root.reveal-recording(r.id); } }
+                                TouchArea { width: parent.width - 260px; clicked => { root.reveal-recording(r.id); } }
+                                HorizontalLayout {
+                                    x: parent.width - 250px; y: 8px; width: 250px; height: 26px;
+                                    spacing: 6px; alignment: end;
+                                    PlateButton { compact: true; label: @tr("SHOW FILE"); clicked => { root.reveal-recording(r.id); } }
+                                    PlateButton { compact: true; label: @tr("SPLIT INTO TRACKS"); tone: Theme.w656; clicked => { root.split-recording(r.id); } }
+                                }
                             }
                             Rectangle { vertical-stretch: 1; }
                         }

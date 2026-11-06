@@ -274,6 +274,7 @@ impl App {
             _timer: slint::Timer::default(),
         });
         app.wire(wtx);
+        let _ = app.state.borrow_mut().lib.check_missing();
         app.restore_view();
         app.refresh_all();
         let weak = Rc::downgrade(&app);
@@ -515,6 +516,7 @@ impl App {
             .collect();
         let total: f64 = st.rows.iter().map(|t| t.duration).sum();
         self.ui.set_tracks(model(rows));
+        self.ui.set_missing_count(st.lib.conn().query_row("SELECT count(*) FROM track WHERE missing = 1", [], |r| r.get::<_, i32>(0)).unwrap_or(0));
         self.ui.set_sort_column(st.sort.clone().into());
         self.ui.set_sort_descending(st.descending);
         self.ui.set_has_selection(!st.selection.is_empty());
@@ -1481,6 +1483,43 @@ impl App {
                 let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
                 let target = if cfg!(target_os = "macos") { vec!["-R".to_string(), p] } else { vec![PathBuf::from(p).parent().map(|d| d.display().to_string()).unwrap_or_default()] };
                 let _ = std::process::Command::new(opener).args(target).spawn();
+            }
+        }));
+        ui.on_find_moved_files(with_app!(app, {
+            let Some(dirs) = rfd::FileDialog::new().set_title("Where are the moved files?").pick_folders() else { return };
+            let found = app.state.borrow().lib.find_relocations(&dirs, od_decode::content_hash);
+            match found {
+                Ok(rel) if rel.is_empty() => app.status("No moved files found in that folder"),
+                Ok(rel) => {
+                    let n = rel.len();
+                    let r = app.state.borrow_mut().lib.apply_relocations(&rel);
+                    if app.report(r).is_some() {
+                        app.after_edit(&format!("Found {n} moved file(s)"));
+                    }
+                }
+                Err(e) => app.status(format!("{e}")),
+            }
+        }));
+        ui.on_split_recording(with_app1!(app, id: i32, {
+            let row: Option<(String, f64, String)> = app
+                .state
+                .borrow()
+                .lib
+                .conn()
+                .query_row("SELECT path, duration, tracklist FROM recording WHERE id = ?1", [id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))
+                .ok();
+            let Some((path, duration, tracklist)) = row else { return };
+            let path = PathBuf::from(path);
+            let rec = od_recorder::Recording {
+                cue_path: path.with_extension("cue"),
+                text_path: path.with_extension("txt"),
+                tracklist: serde_json::from_str(&tracklist).unwrap_or_default(),
+                duration,
+                path,
+            };
+            match od_recorder::split(&rec) {
+                Ok(files) => app.status(format!("Split into {} track files next to the recording", files.len())),
+                Err(e) => app.status(format!("Split failed: {e}")),
             }
         }));
         {
