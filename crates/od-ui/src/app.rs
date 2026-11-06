@@ -203,6 +203,9 @@ impl App {
             od_i18n::set_language(od_i18n::Language::German);
         }
         ui.set_kiosk(config.kiosk);
+        if config.kiosk {
+            ui.global::<crate::Theme>().set_row_height(44.0);
+        }
         ui.set_ground_texture(crate::render::ground_texture());
         if config.kiosk {
             ui.set_mode("perform".into());

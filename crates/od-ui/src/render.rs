@@ -15,6 +15,8 @@ const MID: [u8; 3] = [0x82, 0xD1, 0x6B];
 const HIGH: [u8; 3] = [0x4F, 0xB8, 0xF0];
 const BEAT: [u8; 3] = [0x3A, 0x39, 0x36];
 const DOWNBEAT: [u8; 3] = [0x8B, 0x86, 0x7B];
+/// 589 nm, dimmed: phrase ticks on the overview.
+const TICK: [u8; 3] = [0xB8, 0x9B, 0x3A];
 
 /// The pure-wavelength mark of a column whose energy is dominated by one band.
 fn band_mark(c: &WaveformColumn) -> Option<[u8; 3]> {
@@ -62,11 +64,13 @@ fn column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c
 pub fn overview(w: &Waveform, grid: &Beatgrid, duration: f64, width: u32, height: u32) -> Image {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width.max(1), height.max(1));
     fill(&mut buf, GROUND);
+    // Ticks every 16 bars sit in a margin above and below the waveform.
+    let margin = (height / 10).max(3);
     if duration > 0.0 {
         for b in grid.beats.iter().step_by(64) {
             let x = (b.time / duration * width as f64) as u32;
-            vline(&mut buf, x, 0, height / 8, DOWNBEAT);
-            vline(&mut buf, x, height - height / 8, height, DOWNBEAT);
+            vline(&mut buf, x, 0, margin - 1, TICK);
+            vline(&mut buf, x, height - margin + 1, height, TICK);
         }
     }
     if w.columns.is_empty() {
@@ -77,7 +81,7 @@ pub fn overview(w: &Waveform, grid: &Beatgrid, duration: f64, width: u32, height
     let max = cols.iter().map(|c| c.peak).max().unwrap_or(1).max(1) as f32;
     let mid = height / 2;
     for (i, c) in cols.iter().enumerate() {
-        let amp = (c.peak as f32 / max * (height as f32 / 2.0 - 2.0)).max(1.0) as u32;
+        let amp = (c.peak as f32 / max * (height as f32 / 2.0 - margin as f32)).max(1.0) as u32;
         column(&mut buf, i as u32 * 2, mid, amp, c, false);
     }
     Image::from_rgba8(buf)

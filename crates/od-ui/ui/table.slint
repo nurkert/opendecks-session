@@ -89,15 +89,15 @@ component TrackLine inherits Rectangle {
             font-size: 12px;
         }
         Rectangle {
-            horizontal-stretch: 3;
+            horizontal-stretch: 3; min-width: 0px; preferred-width: 0px;
             Cell { x: 0; width: parent.width; text: root.item.title; color: root.ink; font-weight: root.item.selected ? 500 : 400; }
         }
         Rectangle {
-            horizontal-stretch: 2;
+            horizontal-stretch: 2; min-width: 0px; preferred-width: 0px;
             Cell { x: 0; width: parent.width; text: root.item.artist; color: root.item.selected ? Theme.bone-2 : Theme.bone-3; }
         }
         Rectangle {
-            horizontal-stretch: 1;
+            horizontal-stretch: 1; min-width: 0px; preferred-width: 0px;
             Cell { x: 0; width: parent.width; text: root.item.genre; color: Theme.bone-3; font-size: 13px; }
         }
         Cell { width: Columns.bpm; text: root.item.bpm; color: root.ink; horizontal-alignment: right; }
@@ -171,9 +171,9 @@ export component TrackTable inherits Rectangle {
                 padding-right: 12px;
                 spacing: 12px;
                 HeaderCell { width: Columns.pos; label: "#"; column: "position"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
-                HeaderCell { horizontal-stretch: 3; label: @tr("TITLE"); column: "title"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
-                HeaderCell { horizontal-stretch: 2; label: @tr("ARTIST"); column: "artist"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
-                HeaderCell { horizontal-stretch: 1; label: @tr("GENRE"); column: "genre"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
+                HeaderCell { min-width: 0px; preferred-width: 0px; horizontal-stretch: 3; label: @tr("TITLE"); column: "title"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
+                HeaderCell { min-width: 0px; preferred-width: 0px; horizontal-stretch: 2; label: @tr("ARTIST"); column: "artist"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
+                HeaderCell { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; label: @tr("GENRE"); column: "genre"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
                 HeaderCell { width: Columns.bpm; label: "BPM"; column: "bpm"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
                 HeaderCell { width: Columns.key; label: @tr("KEY"); column: "key"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
                 HeaderCell { width: Columns.time; label: @tr("TIME"); column: "duration"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }

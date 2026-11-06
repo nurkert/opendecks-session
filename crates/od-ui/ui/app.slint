@@ -512,7 +512,7 @@ export component AppWindow inherits Window {
                         spacing: 10px;
                         height: 32px;
                         if root.kiosk: PlateButton {
-                            horizontal-stretch: 0; compact: true;
+                            horizontal-stretch: 0; compact: true; tall: true;
                             label: @tr("DECKS"); tone: Theme.w486;
                             clicked => { root.browser-open = false; }
                         }

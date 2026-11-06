@@ -68,7 +68,8 @@ export global Theme {
 
     // The off-centre rail.
     out property <length> rail-x: 28px;
-    out property <length> row-height: 28px;
+    // Raised to touch size in kiosk mode.
+    in-out property <length> row-height: 28px;
 
     // Deck n (1-based) to its emission line.
     public pure function deck-color(deck: int) -> color {

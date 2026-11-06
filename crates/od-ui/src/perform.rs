@@ -822,7 +822,9 @@ pub(crate) fn wire(app: &Rc<App>) {
                 if let (Ok(d), Ok(t)) = (d.trim().parse::<usize>(), t.trim().parse::<i64>()) {
                     if (1..=DECKS).contains(&d) {
                         load_track(app, d - 1, TrackId(t), None);
-                        app.ui.set_browser_open(false);
+                        if app.state.borrow().config.kiosk {
+                            app.ui.set_browser_open(false);
+                        }
                     }
                 }
             }
