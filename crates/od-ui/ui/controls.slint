@@ -28,6 +28,9 @@ export component Glyph inherits Path {
         : kind == "up" ? "M 5 10 L 5 1 M 1.5 4.5 L 5 1 L 8.5 4.5"
         : kind == "down" ? "M 5 0 L 5 9 M 1.5 5.5 L 5 9 L 8.5 5.5"
         : kind == "close" ? "M 1 1 L 9 9 M 9 1 L 1 9"
+        // Chevrons for steppers (previous / next value).
+        : kind == "prev" ? "M 6.5 1 L 2.5 5 L 6.5 9"
+        : kind == "next" ? "M 3.5 1 L 7.5 5 L 3.5 9"
         // A six-tooth cog with its hub (not a sun: that is the light mode).
         : kind == "gear" ? "M 8.06 3.76 L 8.34 4.35 L 9.75 4.33 L 9.75 5.67 L 8.34 5.65 L 8.06 6.24 L 7.60 7.03 L 7.23 7.57 L 7.96 8.78 L 6.80 9.45 L 6.11 8.21 L 5.46 8.27 L 4.54 8.27 L 3.89 8.21 L 3.20 9.45 L 2.04 8.78 L 2.77 7.57 L 2.40 7.03 L 1.94 6.24 L 1.66 5.65 L 0.25 5.67 L 0.25 4.33 L 1.66 4.35 L 1.94 3.76 L 2.40 2.97 L 2.77 2.43 L 2.04 1.22 L 3.20 0.55 L 3.89 1.79 L 4.54 1.73 L 5.46 1.73 L 6.11 1.79 L 6.80 0.55 L 7.96 1.22 L 7.23 2.43 L 7.60 2.97 Z M 5 3.6 A 1.4 1.4 0 1 0 5 6.4 A 1.4 1.4 0 1 0 5 3.6"
         // Appearance: sun (light), crescent moon (dark), half disc (system).
@@ -426,4 +429,86 @@ export component Transport inherits Rectangle {
         tone: root.on ? root.tone : Theme.bone-2;
     }
     touch := TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+// A value with ‹ › on either side (effect, beat length, bank). The value
+// keeps the width of `template`, so stepping never moves its neighbours;
+// clicking the value can open a list (`value-clicked`).
+export component Stepper inherits Rectangle {
+    in property <string> tooltip;
+    in property <string> command;
+    in property <string> value;
+    in property <string> template: "00000";
+    in property <length> size: 24px;
+    in property <color> tone: Theme.bone-3;
+    in property <bool> lit;
+    in property <bool> enabled: true;
+    in property <length> font-size: 12px;
+    callback step(int);
+    callback value-clicked();
+    height: root.size;
+    min-width: probe.preferred-width + 2 * root.size + 12px;
+    background: Theme.plate;
+    border-width: 1px;
+    border-color: root.lit ? root.tone.with-alpha(0.8) : Theme.rule;
+    probe := Text { visible: false; text: root.template; font-family: Theme.family; font-size: root.font-size; font-weight: 600; letter-spacing: 1px; }
+    Rectangle {
+        x: 0; width: root.size;
+        background: prev.pressed ? Theme.plate-raised : prev.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : transparent;
+        Glyph { x: (parent.width - 10px) / 2; y: (parent.height - 10px) / 2; kind: "prev"; tone: root.enabled ? Theme.bone-2 : Theme.bone-3; }
+        prev := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.step(-1); } }
+    }
+    VLine { x: root.size; height: parent.height; weight: 1px; tone: Theme.rule; }
+    Rectangle {
+        x: root.size + 1px; width: parent.width - 2 * root.size - 2px;
+        background: mid.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : transparent;
+        Text {
+            text: root.value;
+            font-family: Theme.family; font-size: root.font-size; font-weight: 600; letter-spacing: 1px;
+            color: !root.enabled ? Theme.bone-3 : root.lit ? Theme.bone : Theme.bone-2;
+            horizontal-alignment: center; vertical-alignment: center;
+            overflow: elide;
+        }
+        mid := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.value-clicked(); } }
+    }
+    VLine { x: parent.width - root.size - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
+    Rectangle {
+        x: parent.width - root.size; width: root.size;
+        background: next.pressed ? Theme.plate-raised : next.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : transparent;
+        Glyph { x: (parent.width - 10px) / 2; y: (parent.height - 10px) / 2; kind: "next"; tone: root.enabled ? Theme.bone-2 : Theme.bone-3; }
+        next := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.step(1); } }
+    }
+}
+
+// A momentary button: reports press and release (Release FX, gate pads).
+// Lit while held or while `on`.
+export component HoldButton inherits Rectangle {
+    in property <string> tooltip;
+    in property <string> command;
+    in property <string> label;
+    in property <bool> on;
+    in property <color> tone: Theme.attention;
+    in property <length> size: 24px;
+    callback pressed();
+    callback released();
+    property <bool> lit: root.on || touch.pressed;
+    min-width: t.preferred-width + 16px;
+    height: root.size;
+    background: root.lit ? root.tone.with-alpha(0.22) : touch.has-hover ? Theme.plate-raised.mix(Theme.plate, 0.5) : Theme.plate;
+    border-width: 1px;
+    border-color: root.lit ? root.tone.with-alpha(0.8) : Theme.rule;
+    Rectangle { y: 0; height: 2px; background: root.lit ? root.tone : transparent; }
+    t := Text {
+        text: root.label;
+        font-family: Theme.family; font-size: 10px; font-weight: 600; letter-spacing: 1.1px;
+        color: root.lit ? Theme.bone : Theme.bone-2;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+    touch := TipArea {
+        tooltip: root.tooltip; command: root.command; mouse-cursor: pointer;
+        pointer-event(ev) => {
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.down) { root.pressed(); }
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.up) { root.released(); }
+        }
+    }
 }

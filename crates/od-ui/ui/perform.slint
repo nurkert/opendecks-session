@@ -9,7 +9,8 @@ import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, PlateButton, Glyph, Knob, Fader, Toggle, Transport, Jog } from "controls.slint";
 import { DropZone } from "drag.slint";
-import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark, LaneMotion } from "structs.slint";
+import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark, LaneMotion, FxUnitView } from "structs.slint";
+import { FxPanel, ColorFxSelector } from "fx.slint";
 
 // Phrase bar: one labelled block per phrase.
 export component PhraseBar inherits Rectangle {
@@ -498,21 +499,33 @@ export component MixerPanel inherits Rectangle {
     callback cfx(int, float);
     callback fader(int, float);
     callback cue(int);
+    // Colour FX of the CFX knobs (index into FxNames.color).
+    in property <int> color-fx;
+    callback color-fx-select(int);
+    callback color-fx-step(int);
     background: Theme.ground-band;
     min-width: lay.min-width;
     preferred-width: lay.preferred-width;
-    lay := HorizontalLayout {
+    lay := VerticalLayout {
         padding-left: 8px; padding-right: 8px; padding-top: 8px; padding-bottom: 10px;
         spacing: 6px;
-        alignment: center;
-        for c in root.channels: ChannelStrip {
-            ch: c;
-            compact: root.compact;
-            trim(v) => { root.trim(c.channel, v); }
-            eq(b, v) => { root.eq(c.channel, b, v); }
-            cfx(v) => { root.cfx(c.channel, v); }
-            fader(v) => { root.fader(c.channel, v); }
-            cue => { root.cue(c.channel); }
+        HorizontalLayout {
+            spacing: 6px;
+            alignment: center;
+            for c in root.channels: ChannelStrip {
+                ch: c;
+                compact: root.compact;
+                trim(v) => { root.trim(c.channel, v); }
+                eq(b, v) => { root.eq(c.channel, b, v); }
+                cfx(v) => { root.cfx(c.channel, v); }
+                fader(v) => { root.fader(c.channel, v); }
+                cue => { root.cue(c.channel); }
+            }
+        }
+        ColorFxSelector {
+            current: root.color-fx;
+            select(i) => { root.color-fx-select(i); }
+            step(d) => { root.color-fx-step(d); }
         }
     }
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
@@ -589,6 +602,21 @@ export component PerformView inherits Rectangle {
     in property <[LaneMotion]> lane-motion;
     callback zoom(int, float);
     callback zoom-reset(int);
+    // Beat FX panel above the waveforms.
+    in property <bool> show-fx;
+    in property <[FxUnitView]> fx-units;
+    in property <int> color-fx;
+    callback fx-kind(int, int);
+    callback fx-kind-step(int, int);
+    callback fx-beats-step(int, int);
+    callback fx-target(int, int);
+    callback fx-level(int, float);
+    callback fx-param(int, float);
+    callback fx-on(int);
+    callback fx-tap(int);
+    callback fx-release(int, int, bool);
+    callback color-fx-select(int);
+    callback color-fx-step(int);
     in property <float> crossfader: 0.5;
     in property <float> master-level: 1;
     in property <float> headphone-mix: 0.5;
@@ -630,6 +658,19 @@ export component PerformView inherits Rectangle {
 
     VerticalLayout {
         spacing: 0;
+        if root.show-fx: FxPanel {
+            units: root.fx-units;
+            channels: root.decks.length;
+            kind(u, k) => { root.fx-kind(u, k); }
+            kind-step(u, d) => { root.fx-kind-step(u, d); }
+            beats-step(u, d) => { root.fx-beats-step(u, d); }
+            target(u, t) => { root.fx-target(u, t); }
+            level(u, v) => { root.fx-level(u, v); }
+            param(u, v) => { root.fx-param(u, v); }
+            on(u) => { root.fx-on(u); }
+            tap(u) => { root.fx-tap(u); }
+            release(u, k, p) => { root.fx-release(u, k, p); }
+        }
         // Zoomed waveforms; they take any spare height.
         for d in root.decks: WaveLane {
             deck: d;
@@ -683,6 +724,9 @@ export component PerformView inherits Rectangle {
                 cfx(c, v) => { root.cfx(c, v); }
                 fader(c, v) => { root.fader(c, v); }
                 cue(c) => { root.channel-cue(c); }
+                color-fx: root.color-fx;
+                color-fx-select(i) => { root.color-fx-select(i); }
+                color-fx-step(d) => { root.color-fx-step(d); }
             }
             if root.show-mixer: VLine { weight: 1px; tone: Theme.rule; }
             VerticalLayout {
