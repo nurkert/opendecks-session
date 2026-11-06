@@ -68,6 +68,23 @@ enum Cmd {
     /// `stems --all`), fetch the model, or test on a file.
     #[command(args_conflicts_with_subcommands = true)]
     Stems(StemsArgs),
+    /// Read the rekordbox preferences (read-only) and print how each one maps
+    /// to OpenDecks. Does not change anything.
+    RekordboxSettings(RekordboxSettingsArgs),
+}
+
+#[derive(clap::Args)]
+struct RekordboxSettingsArgs {
+    /// Folder with rekordbox3.settings (default: the rekordbox 6/7
+    /// preference folder on macOS; on Linux a copied folder).
+    #[arg(long)]
+    dir: Option<PathBuf>,
+    /// Write the translated keyboard shortcuts as an OpenDecks keymap file.
+    #[arg(long)]
+    keymap_out: Option<PathBuf>,
+    /// Also list every shortcut and every ignored preference name.
+    #[arg(long)]
+    verbose: bool,
 }
 
 #[derive(clap::Args)]
@@ -111,6 +128,9 @@ fn main() -> anyhow::Result<()> {
     let cli = Cli::parse();
     if let Cmd::Stems(StemsArgs { cmd: Some(c), .. }) = &cli.command {
         return stems_cmd(c);
+    }
+    if let Cmd::RekordboxSettings(a) = &cli.command {
+        return rekordbox_settings_cmd(a);
     }
     let path = cli.library.unwrap_or_else(Library::default_path);
     let mut lib = Library::open(&path).with_context(|| format!("opening {}", path.display()))?;
@@ -289,6 +309,7 @@ fn main() -> anyhow::Result<()> {
             }
         }
         Cmd::Backup => println!("{}", lib.backup_now("cli")?.display()),
+        Cmd::RekordboxSettings(_) => unreachable!("handled before opening the library"),
         Cmd::Stems(a) => {
             let cache = od_stems::StemCache::open_default();
             let records = if a.all {
@@ -409,6 +430,69 @@ fn stems_cmd(cmd: &StemsCmd) -> anyhow::Result<()> {
                 );
             }
         }
+    }
+    Ok(())
+}
+
+/// `od-cli rekordbox-settings`: the mapping table of the rekordbox
+/// preferences (read-only; values of unknown names are never printed).
+fn rekordbox_settings_cmd(a: &RekordboxSettingsArgs) -> anyhow::Result<()> {
+    use od_import_rekordbox::settings::{self, MapStatus};
+    let (s, r) = settings::read(a.dir.as_deref()).context("reading the rekordbox preferences")?;
+    println!("Files read:");
+    for f in &r.files {
+        println!("  {}", f.display());
+    }
+    let w = r.entries.iter().map(|e| e.setting.chars().count()).max().unwrap_or(0);
+    let wv = r.entries.iter().map(|e| e.value.chars().count()).max().unwrap_or(0).min(40);
+    for status in [MapStatus::Mapped, MapStatus::EngineOnly, MapStatus::Unmapped] {
+        println!("\n{} ({}):", status, r.count(status));
+        for e in r.entries.iter().filter(|e| e.status == status) {
+            let what = if e.target.is_empty() { e.note.clone() } else if e.note.is_empty() { e.target.clone() } else { format!("{}  [{}]", e.target, e.note) };
+            println!("  {:w$}  {:wv$}  -> {}   ({})", e.setting, e.value, what, e.source);
+        }
+    }
+    if !r.unmapped_files.is_empty() {
+        println!("\nFiles not imported:");
+        for (f, why) in &r.unmapped_files {
+            println!("  {f}: {why}");
+        }
+    }
+    let unmatched: Vec<_> = s.shortcuts.iter().filter(|k| k.target.is_none() || k.binding.is_none()).collect();
+    println!(
+        "\nKeyboard: {} ({} shortcuts, {} translated, {} without an OpenDecks command)",
+        s.keymap_name.as_deref().unwrap_or("none"),
+        s.shortcuts.len(),
+        s.shortcuts.len() - unmatched.len(),
+        unmatched.len()
+    );
+    if a.verbose {
+        for k in &s.shortcuts {
+            let to = match (&k.target, &k.binding) {
+                (Some(t), Some(b)) => format!("{t} = {b}"),
+                (None, _) => "(no OpenDecks command)".into(),
+                (Some(_), None) => "(key not translatable)".into(),
+            };
+            println!("  {:5} {:45} {:28} -> {to}", k.command_id, k.description, k.key);
+        }
+    } else {
+        for k in &unmatched {
+            println!("  not mapped: {} [{}]", k.description, k.key);
+        }
+    }
+    println!("\nPreference values for OpenDecks:");
+    for (k, v) in s.preference_values() {
+        println!("  {k} = {v}");
+    }
+    println!("\n{} other preference names ignored (window, account, video, lighting, streaming …)", r.ignored_keys.len());
+    if a.verbose {
+        for k in &r.ignored_keys {
+            println!("  {k}");
+        }
+    }
+    if let Some(out) = &a.keymap_out {
+        std::fs::write(out, s.keymap_toml()).with_context(|| format!("writing {}", out.display()))?;
+        println!("\nKeymap written to {}", out.display());
     }
     Ok(())
 }

@@ -4063,6 +4063,7 @@ dependencies = [
  "od-devices",
  "od-format-native",
  "od-format-pioneer",
+ "od-import-rekordbox",
  "od-library",
  "od-stems",
  "rayon",
