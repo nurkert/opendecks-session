@@ -611,3 +611,8 @@ msgstr ""
 msgctxt "TopBar"
 msgid "RECORD"
 msgstr ""
+
+#: ui/app.slint
+msgctxt "AppWindow"
+msgid "Include subfolders"
+msgstr ""

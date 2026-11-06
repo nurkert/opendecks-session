@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 211 features; 204 in scope: 79 DONE (39 %), 29 PARTIAL, 25 ENGINE-ONLY, 71 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 212 features; 205 in scope: 81 DONE (40 %), 30 PARTIAL, 25 ENGINE-ONLY, 69 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -71,8 +71,9 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Set backup tracks / planned start | ENGINE-ONLY | `nodes.rs::set_entry_backups/set_set_meta` | — | P2 |
 | Keyboard shortcuts for Prepare | DONE | `keymap.rs::registry`, `commands.rs::run`, `docs/keyboard.md`; One command registry (177 actions, conventional DJ-software defaults for decks 1/2); Preferences > Keyboard rebinds with conflict detection, reset, TOML import/export | 4 | P2 |
 | Browse from controller | PARTIAL | Rotate / press / back handled (`handle_action` `BrowseAction`); tree navigation, view toggle, shift-sort and related dropped | 1 | P2 |
-| Explorer: browse folders on disk and play directly | MISSING | `crates/od-ui/src/explorer.rs`; Module is a placeholder (`ExplorerState::load` returns nothing, `wire` is empty); (SPEC §5.5; UX §2.2) | — | **P1** |
-| Explorer: loading a file adds it to the collection and analyses it in the background | MISSING | Depends on `browser-explorer`; import and analysis paths exist (`od-ui/src/workers.rs`); (SPEC §5.5) | — | **P1** |
+| Explorer: browse folders on disk and play directly | DONE | `crates/od-ui/src/explorer.rs::ExplorerState::rows`, `crates/od-ui/src/explorer.rs::open_folder`, `crates/od-ui/ui/sidebar.slint::ExplorerItem`; User-added roots (persisted in library meta) as a nested folder tree of any depth: sub-folders are listed lazily on expand/select, each probed one level so only expandable folders get a mark; hidden and player data folders are skipped. Selecting a folder expands it and lists its audio files; (SPEC §5.5; UX §2.2) | 5 |  |
+| Explorer: "Include subfolders" lists the files of a folder and all its sub-folders | DONE (beyond rekordbox) | `crates/od-ui/src/explorer.rs::list_files`, `crates/od-ui/src/explorer.rs::set_recursive`, `crates/od-ui/ui/app.slint`; Toggle in the folder list header (persisted as `explorer.recursive`); rekordbox lists only the folder itself. Depth-first, each folder by name, symlink loops followed once, capped at 32 levels / 20 000 files; (SPEC §5.5) | 3 |  |
+| Explorer: loading a file adds it to the collection and analyses it in the background | PARTIAL | `crates/od-ui/src/explorer.rs::start_import`, `crates/od-ui/src/explorer.rs::poll`; Implemented (`explorer.rs` `start_import` adds the file in the background via `workers::import_file`, `poll` wakes analysis and loads it); no automated test yet; (SPEC §5.5) | — | **P1** |
 | Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings) | PARTIAL | `crates/od-ui/ui/rail.slint`; Rail with sections exists; Explorer, Histories, Related and Tag list sources missing; (UX §1.6, §4 P4.9) | — | P2 |
 | Re-orderable columns and multi-sort | MISSING | Fixed column order, one sort key (`browser/tracks.rs`); (SPEC §5.5) | — | P3 |
 | Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | PARTIAL | `crates/od-ui/src/decks.rs::free_deck`; Activate/double-click and controller load work; drag to deck and the context menu do not exist; (UX §2.1) | 1 | **P1** |
@@ -320,13 +321,13 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 79 |
-| PARTIAL | 29 |
+| DONE | 81 |
+| PARTIAL | 30 |
 | ENGINE-ONLY | 25 |
-| MISSING | 71 |
+| MISSING | 69 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
-| **Total** | **211** |
+| **Total** | **212** |
 
 ## P1 gaps and implementation notes
 
