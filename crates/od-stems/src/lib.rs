@@ -88,7 +88,10 @@ use od_engine::TrackData;
 
 mod cache;
 mod model;
-#[cfg(feature = "separation")]
+#[cfg(onnx)]
+mod separate;
+#[cfg(all(feature = "separation", not(onnx)))]
+#[path = "separate_unsupported.rs"]
 mod separate;
 #[cfg(feature = "separation")]
 mod worker;
@@ -126,9 +129,11 @@ pub enum Error {
     Model(String),
     #[error("cancelled")]
     Cancelled,
+    #[error("stem separation is not available on this platform; stems separated on another computer still play")]
+    Unsupported,
 }
 
-#[cfg(feature = "separation")]
+#[cfg(onnx)]
 impl From<ort::Error> for Error {
     fn from(e: ort::Error) -> Self {
         Error::Model(e.to_string())

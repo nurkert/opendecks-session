@@ -23,10 +23,13 @@ parking_lot.workspace = true
 zstd = { version = "0.13", features = ["zstdmt"] }
 # rustls for the build-time binary download: the native-tls/platform-verifier
 # path hung in our sandboxed build environment.
-ort = { version = "2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-rustls", "copy-dylibs", "api-24"], optional = true }
 ureq = { version = "3", optional = true }
 sha2 = { version = "0.10", optional = true }
 
 [dev-dependencies]
 tempfile.workspace = true
 hound = "3"
+
+# ONNX Runtime has no prebuilt binaries for Intel Macs (see build.rs).
+[target.'cfg(not(all(target_os = "macos", target_arch = "x86_64")))'.dependencies]
+ort = { version = "2.0.0-rc.13", default-features = false, features = ["std", "download-binaries", "tls-rustls", "copy-dylibs", "api-24"], optional = true }
