@@ -30,6 +30,8 @@ export component TopBar inherits Rectangle {
     in property <string> recording-time;
     in property <string> undo-label;
     in property <bool> kiosk;
+    // In Perform, recording lives in the global bar under the decks.
+    in property <bool> show-record: true;
     callback set-mode(string);
     callback toggle-recording();
     callback undo();
@@ -64,7 +66,7 @@ export component TopBar inherits Rectangle {
         }
         Rectangle { width: 8px; }
         // Recording: always one click away, as on the hardware.
-        Rectangle {
+        if root.show-record || root.recording: Rectangle {
             width: rec.preferred-width + 44px;
             Rectangle {
                 y: 8px; height: parent.height - 16px;
