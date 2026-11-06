@@ -520,6 +520,7 @@ export component AppWindow inherits Window {
                         Rectangle { horizontal-stretch: 1; }
                         Field {
                             width: 240px;
+                            height: root.kiosk ? 44px : 32px;
                             placeholder: @tr("SEARCH");
                             text <=> root.search-text;
                             edited(t) => { root.search(t); }

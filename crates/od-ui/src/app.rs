@@ -676,6 +676,16 @@ impl App {
                 }
             })
             .collect();
+        // OPENDECKS_DEMO_SYNC=0.4 shows the first connected stick mid-sync
+        // (documentation screenshots and design review).
+        let mut rows = rows;
+        if let Some(p) = std::env::var("OPENDECKS_DEMO_SYNC").ok().and_then(|v| v.parse::<f32>().ok()) {
+            if let Some(r) = rows.iter_mut().find(|r| r.connected) {
+                r.state = "syncing".into();
+                r.progress = p.clamp(0.0, 1.0);
+                r.detail = od_i18n::translate_message("Copying {}").replace("{}", "…").into();
+            }
+        }
         self.ui.set_devices(model(rows));
         let vols: Vec<VolumeRow> = st
             .volumes
