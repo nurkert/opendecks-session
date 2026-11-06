@@ -249,6 +249,7 @@ export component AppWindow inherits Window {
             TopBar {
                 mode: root.mode;
                 kiosk: root.kiosk;
+                show-record: root.mode != "perform";
                 status: root.mode == "perform"
                     ? (root.engine-ready ? (root.master-bpm == "" ? @tr("NO MASTER") : @tr("MASTER {} BPM", root.master-bpm)) : root.engine-message)
                     : root.analysis-text;
@@ -263,7 +264,7 @@ export component AppWindow inherits Window {
             // ── Upper half: player (Prepare) or decks + mixer (Perform) ──
             upper := VerticalLayout {
             vertical-stretch: root.kiosk ? 1 : 0;
-            preferred-height: root.upper-height > 0 ? root.upper-height : (root.mode == "prepare" ? 280px : 620px);
+            preferred-height: root.upper-height > 0 ? root.upper-height : (root.mode == "prepare" ? 280px : 560px);
             if root.mode == "prepare": PreparePlayer {
                 phrases: root.track-phrases;
                 info-width: root.sidebar-width;
@@ -312,6 +313,9 @@ export component AppWindow inherits Window {
                 tight: root.small-screen;
                 touch-size: root.kiosk;
                 show-mixer: !root.small-screen;
+                recording: root.recording;
+                recording-time: root.recording-time;
+                toggle-recording => { root.toggle-recording(); }
                 toggle-play(d) => { root.deck-toggle-play(d); }
                 cue(d) => { root.deck-cue(d); }
                 sync(d) => { root.deck-sync(d); }
