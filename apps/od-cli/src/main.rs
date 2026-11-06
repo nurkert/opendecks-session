@@ -37,6 +37,12 @@ enum Cmd {
     },
     /// Show the playlist tree.
     Tree,
+    /// Write the library as rekordbox XML (for other DJ applications).
+    XmlExport { file: PathBuf },
+    /// Import a rekordbox XML library (tracks, cues, grids, playlists).
+    XmlImport { file: PathBuf },
+    /// List duplicate tracks (same file, or same artist and title).
+    Duplicates,
     /// Create a playlist (or set) with tracks matching a search.
     Playlist {
         name: String,
@@ -204,6 +210,30 @@ fn main() -> anyhow::Result<()> {
                     t.tags.title
                 );
             }
+        }
+        Cmd::XmlExport { file } => {
+            let n = od_import_rekordbox::xml::export_xml(&lib, &file)?;
+            println!("wrote {n} tracks to {}", file.display());
+        }
+        Cmd::XmlImport { file } => {
+            let r = od_import_rekordbox::xml::import_xml(&mut lib, &file)?;
+            println!("imported {} tracks, {} cues, {} playlists", r.tracks, r.cues, r.playlists);
+            for m in &r.missing {
+                println!("missing file: {}", m.display());
+            }
+        }
+        Cmd::Duplicates => {
+            let groups = lib.find_duplicates()?;
+            for g in &groups {
+                let names: Vec<String> = g
+                    .tracks
+                    .iter()
+                    .filter_map(|id| lib.track(*id).ok())
+                    .map(|t| format!("#{} {} – {} ({})", t.id.0, t.tags.artist, t.tags.title, t.path.display()))
+                    .collect();
+                println!("{:?}:\n  {}", g.kind, names.join("\n  "));
+            }
+            println!("{} duplicate group(s)", groups.len());
         }
         Cmd::Tree => {
             fn walk(lib: &Library, parent: Option<od_library::NodeId>, depth: usize) -> anyhow::Result<()> {
