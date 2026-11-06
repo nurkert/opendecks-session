@@ -35,6 +35,7 @@ od-i18n.workspace = true
 od-import-rekordbox.workspace = true
 serde_json.workspace = true
 rfd = "0.15"
+symphonia.workspace = true
 
 [build-dependencies]
 slint-build = "1.18"

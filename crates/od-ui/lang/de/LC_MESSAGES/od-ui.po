@@ -1,57 +1,57 @@
 msgid ""
 msgstr ""
-"POT-Creation-Date: 2026-11-06 17:43+0000\n"
+"POT-Creation-Date: 2026-11-06 18:59+0000\n"
 "Language: de\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 
-#: ui/app.slint:242
+#: ui/app.slint:253
 msgctxt "AppWindow"
 msgid "NO MASTER"
 msgstr "KEIN MASTER"
 
-#: ui/app.slint:242
+#: ui/app.slint:253
 msgctxt "AppWindow"
 msgid "MASTER {} BPM"
 msgstr "MASTER {} BPM"
 
-#: ui/app.slint:367
+#: ui/app.slint:399
 msgctxt "AppWindow"
 msgid "DECKS"
 msgstr "DECKS"
 
-#: ui/app.slint:382
+#: ui/app.slint:414
 msgctxt "AppWindow"
 msgid "FIND {} MOVED FILES"
 msgstr "{} VERSCHOBENE DATEIEN SUCHEN"
 
-#: ui/app.slint:383
+#: ui/app.slint:415
 msgctxt "AppWindow"
 msgid "ADD MUSIC"
 msgstr "MUSIK HINZUFÜGEN"
 
-#: ui/app.slint:384
+#: ui/app.slint:416
 msgctxt "AppWindow"
 msgid "DELETE"
 msgstr "LÖSCHEN"
 
-#: ui/app.slint:388
+#: ui/app.slint:420
 msgctxt "AppWindow"
 msgid "SEARCH  ⌘F"
 msgstr "SUCHEN  ⌘F"
 
-#: ui/app.slint:396
+#: ui/app.slint:428
 msgctxt "AppWindow"
 msgid ""
 "RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
 msgstr ""
 "REGELN, Z. B.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
 
-#: ui/app.slint:413
+#: ui/app.slint:445
 msgctxt "AppWindow"
 msgid "TRANSITION NOTE FOR THE SELECTED POSITION — ENTER TO SAVE"
 msgstr "ÜBERGANGSNOTIZ FÜR DIE GEWÄHLTE POSITION — ENTER ZUM SPEICHERN"
 
-#: ui/app.slint:426
+#: ui/app.slint:458
 msgctxt "AppWindow"
 msgid ""
 "Your library is empty. Use ADD MUSIC to add a folder, or import your "
@@ -60,7 +60,13 @@ msgstr ""
 "Deine Bibliothek ist leer. Füge mit MUSIK HINZUFÜGEN einen Ordner hinzu oder "
 "importiere einmalig deine rekordbox-Bibliothek."
 
-#: ui/app.slint:427
+#: ui/app.slint:460
+
+msgctxt "AppWindow"
+msgid "No audio files in this folder."
+msgstr "Keine Audiodateien in diesem Ordner."
+
+#: ui/app.slint:461
 msgctxt "AppWindow"
 msgid ""
 "No tracks here yet. Select tracks in All tracks and press + next to this "
@@ -69,29 +75,29 @@ msgstr ""
 "Hier sind noch keine Tracks. Wähle Tracks unter „Alle Tracks“ und drücke + "
 "neben dieser Liste in der Seitenleiste."
 
-#: ui/app.slint:435
+#: ui/app.slint:469
 msgctxt "AppWindow"
 msgid "ADD MUSIC FOLDER"
 msgstr "MUSIKORDNER HINZUFÜGEN"
 
-#: ui/app.slint:436
+#: ui/app.slint:470
 msgctxt "AppWindow"
 msgid "IMPORT FROM REKORDBOX"
 msgstr "AUS REKORDBOX IMPORTIEREN"
 
 #. ── Devices section ──
-#: ui/app.slint:440
+#: ui/app.slint:474
 msgctxt "AppWindow"
 msgid "USB STICKS"
 msgstr "USB-STICKS"
 
 #. ── Devices section ──
-#: ui/app.slint:440
+#: ui/app.slint:474
 msgctxt "AppWindow"
 msgid "{} REGISTERED"
 msgstr "{} REGISTRIERT"
 
-#: ui/app.slint:442
+#: ui/app.slint:476
 msgctxt "AppWindow"
 msgid ""
 "Registered sticks are kept in sync automatically while they are plugged in. "
@@ -101,84 +107,84 @@ msgstr ""
 "eingesteckt sind. Jede Änderung an Playlists, Cues oder Beatgrids ist in "
 "Sekunden auf dem Stick."
 
-#: ui/app.slint:466
+#: ui/app.slint:500
 msgctxt "AppWindow"
 msgid "STICK NAME"
 msgstr "STICK-NAME"
 
-#: ui/app.slint:469
+#: ui/app.slint:503
 msgctxt "AppWindow"
 msgid "FORMATS"
 msgstr "FORMATE"
 
-#: ui/app.slint:472
+#: ui/app.slint:506
 msgctxt "AppWindow"
 msgid "Pioneer players (export.pdb)"
 msgstr "Pioneer-Player (export.pdb)"
 
-#: ui/app.slint:473
+#: ui/app.slint:507
 msgctxt "AppWindow"
 msgid "OpenDecks"
 msgstr "OpenDecks"
 
-#: ui/app.slint:475
+#: ui/app.slint:509
 msgctxt "AppWindow"
 msgid "CONTENT — LISTS ON THIS STICK"
 msgstr "INHALT — LISTEN AUF DIESEM STICK"
 
-#: ui/app.slint:490
+#: ui/app.slint:524
 msgctxt "AppWindow"
 msgid "CHANGES MADE ON PLAYERS — REVIEW"
 msgstr "ÄNDERUNGEN AN PLAYERN — PRÜFEN"
 
-#: ui/app.slint:500
+#: ui/app.slint:534
 msgctxt "AppWindow"
 msgid "IMPORT"
 msgstr "IMPORTIEREN"
 
-#: ui/app.slint:500
+#: ui/app.slint:534
 msgctxt "AppWindow"
 msgid "TAKE STICK CUES"
 msgstr "STICK-CUES ÜBERNEHMEN"
 
-#: ui/app.slint:501
+#: ui/app.slint:535
 msgctxt "AppWindow"
 msgid "DISMISS"
 msgstr "VERWERFEN"
 
-#: ui/app.slint:501
+#: ui/app.slint:535
 msgctxt "AppWindow"
 msgid "KEEP LIBRARY"
 msgstr "BIBLIOTHEK BEHALTEN"
 
-#: ui/app.slint:505
+#: ui/app.slint:539
 msgctxt "AppWindow"
 msgid "SYNC NOW"
 msgstr "JETZT SYNCHRONISIEREN"
 
-#: ui/app.slint:506
+#: ui/app.slint:540
 msgctxt "AppWindow"
 msgid "REBUILD STICK"
 msgstr "STICK NEU SCHREIBEN"
 
-#: ui/app.slint:507
+#: ui/app.slint:541
 msgctxt "AppWindow"
 msgid "FORGET"
 msgstr "VERGESSEN"
 
 #. ── Recordings section ──
-#: ui/app.slint:513
+#: ui/app.slint:547
 msgctxt "AppWindow"
 msgid "RECORDINGS"
 msgstr "AUFNAHMEN"
 
 #. ── Recordings section ──
-#: ui/app.slint:513
+#: ui/app.slint:547
 msgctxt "AppWindow"
 msgid "{} MIXES"
 msgstr "{} MIXE"
 
-#: ui/app.slint:518
+#: ui/app.slint:552
 msgctxt "AppWindow"
 msgid ""
 "No recordings yet. Press RECORD in Perform, or the record button on your "
@@ -187,12 +193,12 @@ msgstr ""
 "Noch keine Aufnahmen. Drücke AUFNEHMEN in Perform oder die Aufnahmetaste am "
 "Controller."
 
-#: ui/app.slint:530
+#: ui/app.slint:564
 msgctxt "AppWindow"
 msgid "SHOW FILE"
 msgstr "DATEI ZEIGEN"
 
-#: ui/app.slint:531
+#: ui/app.slint:565
 msgctxt "AppWindow"
 msgid "SPLIT INTO TRACKS"
 msgstr "IN TRACKS TEILEN"
@@ -246,48 +252,53 @@ msgctxt "SetFlow"
 msgid "HEIGHT ENERGY  ·  DASHED CAUTION  ·  STRUCK CLASH"
 msgstr "HÖHE ENERGIE  ·  GESTRICHELT VORSICHT  ·  DURCHGESTRICHEN CLASH"
 
-#: ui/perform.slint:127
+#: ui/perform.slint:151
+
+msgctxt "Overview"
+msgid "LOAD SELECTED"
+msgstr "AUSWAHL LADEN"
+
+#: ui/perform.slint:204
 msgctxt "DeckPanel"
 msgid "Not loaded — double-click a track or press LOAD"
 msgstr "Nicht geladen – Track doppelklicken oder LOAD drücken"
 
-#: ui/perform.slint:138
+#: ui/perform.slint:215 ui/perform.slint:237
 msgctxt "DeckPanel"
 msgid "REMAIN"
 msgstr "REST"
 
-#: ui/perform.slint:139
+#: ui/perform.slint:216
 msgctxt "DeckPanel"
 msgid "KEY"
 msgstr "TONART"
 
-#: ui/perform.slint:163
-msgctxt "DeckPanel"
-msgid "LOAD SELECTED"
-msgstr "AUSWAHL LADEN"
+#: ui/perform.slint:250 ui/perform.slint:337
 
-#: ui/perform.slint:170
 msgctxt "DeckPanel"
-msgid "SEPARATING…"
-msgstr "TRENNE…"
+msgid "KEY LOCK"
+msgstr "KEY LOCK"
 
-#: ui/perform.slint:201
+#: ui/perform.slint:271
+
 msgctxt "DeckPanel"
-msgid "LOOP"
-msgstr "LOOP"
+msgid "JUMP"
+msgstr "SPRUNG"
 
-#: ui/perform.slint:214
+#: ui/perform.slint:280
 msgctxt "DeckPanel"
-msgid "BEAT JUMP"
-msgstr "BEAT JUMP"
+msgid "SPLIT…"
+msgstr "TRENNEN…"
 
-#: ui/perform.slint:475
-msgctxt "PerformView"
+#: ui/perform.slint:467
+
+msgctxt "MixerPanel"
 msgid "PHONES"
 msgstr "KOPFHÖRER"
 
-#: ui/perform.slint:477
-msgctxt "PerformView"
+#: ui/perform.slint:469
+
+msgctxt "MixerPanel"
 msgid "LEVEL"
 msgstr "PEGEL"
 
@@ -371,80 +382,73 @@ msgctxt "TrackPlate"
 msgid "LOCK"
 msgstr "SPERREN"
 
-#: ui/player.slint:64
+#: ui/player.slint:68
 msgctxt "PreparePlayer"
 msgid "No track selected"
 msgstr "Kein Track ausgewählt"
 
-#: ui/player.slint:72
+#: ui/player.slint:77
 msgctxt "PreparePlayer"
 msgid "KEY"
 msgstr "TONART"
 
-#: ui/player.slint:73
+#: ui/player.slint:78
 msgctxt "PreparePlayer"
 msgid "TIME"
 msgstr "ZEIT"
 
-#: ui/player.slint:84
+#: ui/player.slint:89
 msgctxt "PreparePlayer"
 msgid "POSITION"
 msgstr "POSITION"
 
-#: ui/player.slint:111
+#: ui/player.slint:122
 msgctxt "PreparePlayer"
 msgid "Select a track to prepare it"
 msgstr "Track auswählen, um ihn vorzubereiten"
 
-#: ui/player.slint:141
-msgctxt "PreparePlayer"
-msgid "HOT CUE"
-msgstr "HOT CUE"
+#: ui/player.slint:152
 
-#: ui/player.slint:143
 msgctxt "PreparePlayer"
-msgid "CLICK EMPTY = SET AT CURSOR"
-msgstr "LEER KLICKEN = AM CURSOR SETZEN"
+msgid "MEMORY"
+msgstr "MEMORY"
 
-#: ui/player.slint:158
-msgctxt "PreparePlayer"
-msgid "MEMORY CUE"
-msgstr "MEMORY CUE"
-
-#: ui/player.slint:159
-msgctxt "PreparePlayer"
-msgid "ANALYSE"
-msgstr "ANALYSIEREN"
-
-#: ui/player.slint:161
+#: ui/player.slint:163
 msgctxt "PreparePlayer"
 msgid "GRID"
 msgstr "RASTER"
 
-#: ui/player.slint:167
+#: ui/player.slint:174
 msgctxt "PreparePlayer"
 msgid "HALF"
 msgstr "HALB"
 
-#: ui/player.slint:168
+#: ui/player.slint:175
 msgctxt "PreparePlayer"
 msgid "DOUBLE"
 msgstr "DOPPELT"
 
-#: ui/player.slint:172
+#: ui/player.slint:177
 msgctxt "PreparePlayer"
 msgid "DOWNBEAT AT CURSOR"
 msgstr "DOWNBEAT AM CURSOR"
 
-#: ui/player.slint:173
-msgctxt "PreparePlayer"
-msgid "UNLOCK"
-msgstr "ENTSPERREN"
+#: ui/player.slint:178
 
-#: ui/player.slint:173
 msgctxt "PreparePlayer"
-msgid "LOCK"
-msgstr "SPERREN"
+msgid "GRID LOCKED"
+msgstr "GRID GESPERRT"
+
+#: ui/player.slint:178
+
+msgctxt "PreparePlayer"
+msgid "LOCK GRID"
+msgstr "GRID SPERREN"
+
+#: ui/player.slint:180
+msgctxt "PreparePlayer"
+msgid "ANALYSE"
+msgstr "ANALYSIEREN"
 
 #: ui/rail.slint:159
 msgctxt "Rail"
@@ -486,65 +490,83 @@ msgctxt "Rail"
 msgid "PERFORM"
 msgstr "PERFORM"
 
-#: ui/sidebar.slint:112
+#: ui/sidebar.slint:101
+msgctxt "ExplorerItem"
+msgid "Remove from Explorer"
+msgstr "Aus dem Explorer entfernen"
+
+#: ui/sidebar.slint:168
 msgctxt "Sidebar"
 msgid "COLLECTION"
 msgstr "SAMMLUNG"
 
-#: ui/sidebar.slint:121
+#: ui/sidebar.slint:177
 msgctxt "Sidebar"
 msgid "PLAYLISTS"
 msgstr "PLAYLISTS"
 
-#: ui/sidebar.slint:132
+#: ui/sidebar.slint:188
+msgctxt "Sidebar"
+msgid "EXPLORER"
+msgstr "EXPLORER"
+
+#: ui/sidebar.slint:191
+msgctxt "Sidebar"
+msgid "Add a folder with + to browse its files here."
+msgstr "Füge mit + einen Ordner hinzu, um seine Dateien hier zu durchsuchen."
+
+#: ui/sidebar.slint:201
 msgctxt "Sidebar"
 msgid "DEVICES"
 msgstr "GERÄTE"
 
-#: ui/sidebar.slint:135
+#: ui/sidebar.slint:204
 msgctxt "Sidebar"
 msgid "Plug in a USB stick to register it."
 msgstr "USB-Stick einstecken, um ihn zu registrieren."
 
-#: ui/sidebar.slint:159
+#: ui/sidebar.slint:228
 msgctxt "Sidebar"
 msgid "New stick: {}"
 msgstr "Neuer Stick: {}"
 
-#: ui/sidebar.slint:165
+#: ui/sidebar.slint:234
 msgctxt "Sidebar"
 msgid "SELECT A PLAYLIST FIRST"
 msgstr "ZUERST PLAYLIST WÄHLEN"
 
-#: ui/sidebar.slint:165
+#: ui/sidebar.slint:234
 msgctxt "Sidebar"
 msgid "REGISTER WITH {}"
 msgstr "MIT {} REGISTRIEREN"
 
-#: ui/sidebar.slint:170
+#: ui/sidebar.slint:239
 msgctxt "Sidebar"
 msgid "RECORDINGS"
 msgstr "AUFNAHMEN"
 
-#: ui/sidebar.slint:178
+#: ui/sidebar.slint:247
 msgctxt "Sidebar"
 msgid "Recordings"
 msgstr "Aufnahmen"
 
-#: ui/sidebar.slint:194
+#. New list buttons share the width (the sidebar is resizable).
+#: ui/sidebar.slint:264
 msgctxt "Sidebar"
-msgid "SET"
-msgstr "SET"
+msgid "+ SET"
+msgstr "+ SET"
 
-#: ui/sidebar.slint:195
-msgctxt "Sidebar"
-msgid "SMART"
-msgstr "SMART"
+#: ui/sidebar.slint:265
 
-#: ui/sidebar.slint:196
 msgctxt "Sidebar"
-msgid "FOLDER"
-msgstr "ORDNER"
+msgid "+ SMART"
+msgstr "+ SMART"
+
+#: ui/sidebar.slint:266
+
+msgctxt "Sidebar"
+msgid "+ FOLDER"
+msgstr "+ ORDNER"
 
 #: ui/table.slint:179
 msgctxt "TrackTable"
@@ -606,6 +628,34 @@ msgctxt "TopBar"
 msgid "RECORD"
 msgstr "AUFNEHMEN"
 
+#~ msgctxt "DeckPanel"
+#~ msgid "SEPARATING…"
+#~ msgstr "TRENNE…"
+
+#~ msgctxt "DeckPanel"
+#~ msgid "LOOP"
+#~ msgstr "LOOP"
+
+#~ msgctxt "PreparePlayer"
+#~ msgid "HOT CUE"
+#~ msgstr "HOT CUE"
+
+#~ msgctxt "PreparePlayer"
+#~ msgid "CLICK EMPTY = SET AT CURSOR"
+#~ msgstr "LEER KLICKEN = AM CURSOR SETZEN"
+
+#~ msgctxt "PreparePlayer"
+#~ msgid "UNLOCK"
+#~ msgstr "ENTSPERREN"
+
+#~ msgctxt "PreparePlayer"
+#~ msgid "LOCK"
+#~ msgstr "SPERREN"
+
+#~ msgctxt "Sidebar"
+#~ msgid "SET"
+#~ msgstr "SET"
+
 #~ msgctxt "AppWindow"
 #~ msgid "PLAYLIST"
 #~ msgstr "PLAYLIST"
@@ -630,10 +680,6 @@ msgstr "AUFNEHMEN"
 #~ msgid "SEARCH"
 #~ msgstr "SUCHEN"
 
-#~ msgctxt "AppWindow"
-#~ msgid "No tracks in this list."
-#~ msgstr "Keine Tracks in dieser Liste."
-
 #~ msgctxt "DeckPlate"
 #~ msgid "Empty — load a track"
 #~ msgstr "Leer — lade einen Track"
@@ -653,10 +699,6 @@ msgstr "AUFNEHMEN"
 #~ msgctxt "DeckPlate"
 #~ msgid "PLAY"
 #~ msgstr "PLAY"
-
-#~ msgctxt "DeckPlate"
-#~ msgid "KEYLOCK"
-#~ msgstr "KEYLOCK"
 
 #~ msgctxt "DeckPlate"
 #~ msgid "LOOP"

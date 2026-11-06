@@ -3,7 +3,7 @@
 //! UI polls the change log) plus small progress messages.
 
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use od_core::DataSource;
+use od_core::{DataSource, TrackId};
 use od_library::{Library, NewTrack};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -42,6 +42,30 @@ pub fn scan(root: &Path) -> Vec<PathBuf> {
     out
 }
 
+/// Adds one audio file to the library (probe, content hash, tags,
+/// artwork) and returns its id; an already known path returns its id.
+/// Used by ADD MUSIC and by loading a file from the Explorer.
+pub fn import_file(lib: &mut Library, path: &Path) -> anyhow::Result<TrackId> {
+    if let Some(t) = lib.track_by_path(path)? {
+        return Ok(t.id);
+    }
+    let info = od_decode::probe(path)?;
+    let hash = od_decode::content_hash(path)?;
+    Ok(lib.add_track(&NewTrack {
+        path: path.to_path_buf(),
+        content_hash: hash,
+        file_size: std::fs::metadata(path)?.len(),
+        format: info.format,
+        duration: info.duration.unwrap_or(0.0),
+        sample_rate: info.sample_rate,
+        channels: info.channels,
+        bit_rate: info.bit_rate_kbps,
+        bits_per_sample: info.bits_per_sample,
+        tags: info.tags,
+        artwork: info.artwork,
+    })?)
+}
+
 /// Adds every audio file below `roots` to the library (in a thread).
 pub fn spawn_import(library_path: PathBuf, roots: Vec<PathBuf>, events: Sender<WorkerEvent>, wake_analysis: Sender<()>) {
     std::thread::spawn(move || {
@@ -59,24 +83,7 @@ pub fn spawn_import(library_path: PathBuf, roots: Vec<PathBuf>, events: Sender<W
             if lib.track_by_path(path).ok().flatten().is_some() {
                 continue;
             }
-            let result = (|| -> anyhow::Result<()> {
-                let info = od_decode::probe(path)?;
-                let hash = od_decode::content_hash(path)?;
-                lib.add_track(&NewTrack {
-                    path: path.clone(),
-                    content_hash: hash,
-                    file_size: std::fs::metadata(path)?.len(),
-                    format: info.format,
-                    duration: info.duration.unwrap_or(0.0),
-                    sample_rate: info.sample_rate,
-                    channels: info.channels,
-                    bit_rate: info.bit_rate_kbps,
-                    bits_per_sample: info.bits_per_sample,
-                    tags: info.tags,
-                    artwork: info.artwork,
-                })?;
-                Ok(())
-            })();
+            let result = import_file(&mut lib, path).map(|_| ());
             match result {
                 Ok(()) => added += 1,
                 Err(e) => {

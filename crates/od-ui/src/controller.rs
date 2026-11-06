@@ -145,7 +145,9 @@ fn handle_action(app: &App, action: ControlAction) {
                 }
             }
             BrowseAction::Press { .. } => {
-                decks::load_selected_into_free_deck(app);
+                if !crate::explorer::load_selection(app, None) {
+                    decks::load_selected_into_free_deck(app);
+                }
                 if app.state.borrow().config.kiosk {
                     app.ui.set_browser_open(false);
                 }

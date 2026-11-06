@@ -4,7 +4,7 @@
 mod tracks;
 mod tree;
 
-pub(crate) use tracks::{default_descending, refresh_tracks};
+pub(crate) use tracks::{SortFields, default_descending, key_distance, refresh_tracks, same_row, sort_key_known, sort_rows};
 pub(crate) use tree::{refresh_tree, stick_root_id};
 
 use crate::app::{App, handler};

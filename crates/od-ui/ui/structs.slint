@@ -14,6 +14,18 @@ export struct TreeRow {
     on-device: bool,
 }
 
+// A folder in the Explorer section of the sidebar.
+export struct ExplorerRow {
+    id: int,
+    name: string,
+    path: string,
+    depth: int,
+    // A user-added root folder (can be removed).
+    root: bool,
+    has-children: bool,
+    expanded: bool,
+}
+
 export struct TrackRow {
     id: int,
     // Mini overview waveform for the PREVIEW column.

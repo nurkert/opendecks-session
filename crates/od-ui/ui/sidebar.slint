@@ -5,7 +5,7 @@ import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, Toggle, PlateButton, Glyph } from "controls.slint";
 import { TreeItem } from "rail.slint";
-import { TreeRow, DeviceRow, VolumeRow } from "structs.slint";
+import { TreeRow, DeviceRow, VolumeRow, ExplorerRow } from "structs.slint";
 
 component Heading inherits Rectangle {
     in property <string> label;
@@ -80,6 +80,56 @@ component DeviceItem inherits Rectangle {
     }
 }
 
+// A folder on disk: same rhythm as the list tree, no counts or length
+// bars. Roots carry a remove action (hover button and context menu).
+component ExplorerItem inherits Rectangle {
+    in property <ExplorerRow> item;
+    in property <bool> selected;
+    callback clicked();
+    callback toggled();
+    callback remove();
+    height: 26px;
+    background: touch.has-hover ? Theme.plate : transparent;
+    if root.selected: Rectangle {
+        x: 0; y: parent.height / 2 - 1px; width: 8px; height: 2px;
+        background: Theme.attention;
+    }
+    property <length> indent: 24px + root.item.depth * 14px;
+    menu := ContextMenuArea {
+        Menu {
+            MenuItem {
+                title: @tr("Remove from Explorer");
+                enabled: root.item.root;
+                activated => { root.remove(); }
+            }
+        }
+        touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    }
+    if root.item.has-children: Rectangle {
+        x: root.indent - 16px; y: (parent.height - 12px) / 2; width: 12px; height: 12px;
+        Glyph { x: 2px; y: 2px; width: 8px; height: 8px; kind: root.item.expanded ? "minus" : "plus"; tone: Theme.bone-3; }
+        TouchArea { clicked => { root.toggled(); } }
+    }
+    Text {
+        x: root.indent;
+        width: parent.width - root.indent - 36px;
+        height: parent.height;
+        text: root.item.name;
+        overflow: elide;
+        font-family: Theme.family;
+        font-size: 14px;
+        font-weight: root.item.root ? 600 : 400;
+        color: root.selected ? Theme.bone : Theme.bone-2;
+        vertical-alignment: center;
+    }
+    if root.item.root && touch.has-hover: Rectangle {
+        x: parent.width - 30px; y: 3px; width: 22px; height: parent.height - 6px;
+        background: rm.has-hover ? Theme.plate-raised : transparent;
+        Glyph { x: 6px; y: (parent.height - 10px) / 2; width: 10px; height: 10px; kind: "close"; tone: Theme.bone-3; }
+        rm := TouchArea { mouse-cursor: pointer; clicked => { root.remove(); } }
+    }
+}
+
 export component Sidebar inherits Rectangle {
     in property <[TreeRow]> tree;
     in property <int> selected-node;
@@ -90,6 +140,12 @@ export component Sidebar inherits Rectangle {
     in property <string> register-target;
     in property <int> device-selected;
     in property <int> recordings-count;
+    in property <[ExplorerRow]> explorer;
+    in property <int> explorer-selected: -1;
+    callback explorer-select(int);
+    callback explorer-toggle(int);
+    callback explorer-add-root();
+    callback explorer-remove-root(int);
     callback select-node(int);
     callback toggle-node(int);
     callback add-to-node(int);
@@ -128,6 +184,19 @@ export component Sidebar inherits Rectangle {
                     clicked => { root.select-node(r.id); }
                     toggled => { root.toggle-node(r.id); }
                     add => { root.add-to-node(r.id); }
+                }
+                Heading { label: @tr("EXPLORER"); action: "plus"; act => { root.explorer-add-root(); } }
+                if root.explorer.length == 0: Text {
+                    x: 12px; width: root.width - 24px;
+                    text: @tr("Add a folder with + to browse its files here.");
+                    font-family: Theme.family; font-size: 12px; color: Theme.bone-3; wrap: word-wrap;
+                }
+                for f in root.explorer: ExplorerItem {
+                    item: f;
+                    selected: root.explorer-selected == f.id && root.section == "library";
+                    clicked => { root.explorer-select(f.id); }
+                    toggled => { root.explorer-toggle(f.id); }
+                    remove => { root.explorer-remove-root(f.id); }
                 }
                 Heading { label: @tr("DEVICES"); }
                 if root.devices.length == 0 && root.volumes.length == 0: Text {

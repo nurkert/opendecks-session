@@ -27,6 +27,11 @@ pub(crate) fn sort_key(s: &str) -> Option<SortKey> {
     })
 }
 
+/// Whether `column` is a sortable column.
+pub(crate) fn sort_key_known(column: &str) -> bool {
+    sort_key(column).is_some()
+}
+
 /// Initial direction when a column is first chosen for sorting.
 pub(crate) fn default_descending(column: &str) -> bool {
     matches!(column, "date_added" | "rating" | "bpm")

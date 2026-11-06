@@ -23,6 +23,8 @@ impl App {
 
     /// Reloads the current list and every view that shows library data.
     pub(crate) fn refresh_library(&self) {
+        crate::explorer::refresh_library_data(self);
+        crate::decks::refresh_analysis(self);
         self.state.borrow_mut().load_rows();
         browser::refresh_tree(self);
         browser::refresh_tracks(self);

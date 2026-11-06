@@ -8,9 +8,9 @@ import { TrackTable } from "table.slint";
 import { DeviceLine } from "devices.slint";
 import { SetFlow } from "flow.slint";
 import { PerformView } from "perform.slint";
-import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark } from "structs.slint";
+import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow } from "structs.slint";
 
-export { Theme, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark }
+export { Theme, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow }
 
 export struct ProposalRow {
     index: int,
@@ -78,6 +78,9 @@ export component AppWindow inherits Window {
     in property <bool> read-only;
     in property <int> selection-count;
     in property <int> focus-row: -1;
+    // Explorer: folders on disk.
+    in property <[ExplorerRow]> explorer;
+    in property <int> explorer-selected: -1;
 
     // Selected track.
     in property <bool> has-track;
@@ -167,6 +170,10 @@ export component AppWindow inherits Window {
     callback row-activated(int);
     callback import-folder();
     callback import-rekordbox();
+    callback explorer-select(int);
+    callback explorer-toggle(int);
+    callback explorer-add-root();
+    callback explorer-remove-root(int);
     callback seek(float);
     callback hot-cue(int);
     callback remove-hot-cue(int);
@@ -353,6 +360,12 @@ export component AppWindow inherits Window {
                     register-target: root.register-target;
                     device-selected: root.device-selected;
                     recordings-count: root.recordings.length;
+                    explorer: root.explorer;
+                    explorer-selected: root.explorer-selected;
+                    explorer-select(i) => { root.explorer-select(i); }
+                    explorer-toggle(i) => { root.explorer-toggle(i); }
+                    explorer-add-root => { root.explorer-add-root(); }
+                    explorer-remove-root(i) => { root.explorer-remove-root(i); }
                     select-node(id) => { root.select-node(id); }
                     toggle-node(id) => { root.toggle-node(id); }
                     add-to-node(id) => { root.add-to-node(id); }
@@ -389,7 +402,7 @@ export component AppWindow inherits Window {
                         title := TextInput {
                             width: min(self.preferred-width + 8px, 360px);
                             text: root.node-title;
-                            read-only: root.node-kind == "all" || root.read-only;
+                            read-only: root.node-kind == "all" || root.node-kind == "explorer" || root.read-only;
                             font-family: Theme.family; font-size: 18px; font-weight: 600;
                             color: Theme.bone;
                             vertical-alignment: center;
@@ -400,7 +413,7 @@ export component AppWindow inherits Window {
                         Rectangle { horizontal-stretch: 1; }
                         if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; clicked => { root.find-moved-files(); } }
                         if root.node-kind == "all" && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; clicked => { root.import-folder(); } }
-                        if root.node-kind != "all" && root.node-kind != "stick" && !root.read-only && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
+                        if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && !root.read-only && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
                         Field {
                             width: 260px;
                             height: root.kiosk ? 44px : 32px;
@@ -443,6 +456,8 @@ export component AppWindow inherits Window {
                         show-position: root.node-kind == "playlist" || root.node-kind == "set";
                         empty-text: root.node-kind == "all"
                             ? @tr("Your library is empty. Use ADD MUSIC to add a folder, or import your rekordbox library once.")
+                            : root.node-kind == "explorer"
+                            ? @tr("No audio files in this folder.")
                             : @tr("No tracks here yet. Select tracks in All tracks and press + next to this list in the sidebar.");
                         sort(c) => { root.sort(c); }
                         row-clicked(i, c, s) => { root.row-clicked(i, c, s); keys.focus(); }

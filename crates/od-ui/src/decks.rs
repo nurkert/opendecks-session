@@ -60,8 +60,17 @@ struct Prepared {
     deck: usize,
     data: Arc<od_engine::TrackData>,
     play_from: Option<f64>,
-    /// Stems arrived for the track already on `deck`: swap in place.
-    swap: bool,
+    /// Replaces the data of the track already on `deck` without a gap.
+    swap: Option<Swap>,
+}
+
+/// Why a loaded track's data is swapped in place.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum Swap {
+    /// Stems were separated.
+    Stems,
+    /// Analysis (beatgrid, loudness) arrived after loading.
+    Analysis,
 }
 
 pub(crate) struct Decks {
@@ -166,7 +175,7 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
         d.loaded_from_stick = read_only;
         (d.stem_cache.clone(), d.prepared_tx.clone())
     };
-    prepare_in_background(cache, tx, deck, track, source, rate, analysis.beatgrid, play_from, false);
+    prepare_in_background(cache, tx, deck, track, source, rate, analysis.beatgrid, play_from, None);
 }
 
 /// Decodes a track (with its cached stems, if any) off the UI thread.
@@ -180,7 +189,7 @@ fn prepare_in_background(
     rate: u32,
     grid: Beatgrid,
     play_from: Option<f64>,
-    swap: bool,
+    swap: Option<Swap>,
 ) {
     std::thread::spawn(move || match od_stems::load_track_data(&cache, track, &src.path, Some(&src.hash), rate, grid, &src.cues, src.gain) {
         Ok(data) => {
@@ -195,11 +204,13 @@ pub(crate) fn receive_prepared(app: &App) {
     let prepared: Vec<Prepared> = app.decks.borrow().prepared_rx.try_iter().collect();
     for pr in prepared {
         let (deck, play_from) = (pr.deck, pr.play_from);
-        if pr.swap {
-            // Same track still on the deck: attach the stems without a gap.
+        if let Some(why) = pr.swap {
+            // Same track still on the deck: swap without a gap.
             if app.decks.borrow().loaded_id(deck) == Some(pr.data.id) {
                 engine::deck_cmd(app, deck, DeckCommand::SwapTrackData(pr.data));
-                app.status(format!("Stems ready on deck {}", deck + 1));
+                if why == Swap::Stems {
+                    app.status(format!("Stems ready on deck {}", deck + 1));
+                }
             }
             continue;
         }
@@ -251,8 +262,12 @@ pub(crate) fn free_deck(count: usize, playing: &[bool], loaded: impl Fn(usize) -
     (0..count).find(|&d| idle(d) && !loaded(d)).or_else(|| (0..count).find(|&d| idle(d))).unwrap_or(0)
 }
 
-/// LOAD on a deck: the selected track.
+/// LOAD on a deck: the selected track (an Explorer file is added to the
+/// collection first).
 pub(crate) fn load_selected(app: &App, deck: usize) {
+    if crate::explorer::load_selection(app, Some(deck)) {
+        return;
+    }
     if let Some(t) = app.state.borrow().player.current {
         load_track(app, deck, t, None);
     }
@@ -277,6 +292,47 @@ pub(crate) fn parse_autoload(spec: &str) -> Vec<(usize, TrackId)> {
         .filter_map(|(d, t)| Some((d.trim().parse::<usize>().ok()?, TrackId(t.trim().parse::<i64>().ok()?))))
         .filter(|(d, _)| (1..=DECKS).contains(d))
         .collect()
+}
+
+/// After analysis: tracks that were loaded before their analysis existed
+/// (e.g. just added from the Explorer) get their waveform, grid and phrases,
+/// and the engine gets the analysed data (beatgrid for BPM / sync, gain)
+/// swapped in without a gap.
+pub(crate) fn refresh_analysis(app: &App) {
+    let rate = app.engine.borrow().sample_rate();
+    let st = app.state.borrow();
+    let mut d = app.decks.borrow_mut();
+    if d.loaded_from_stick {
+        return;
+    }
+    let scale = app.ui.window().scale_factor();
+    let mut swaps = Vec::new();
+    for i in 0..DECKS {
+        let Some(m) = d.loaded[i].as_mut().filter(|m| m.waveform.columns.is_empty()) else { continue };
+        let a = st.lib.analysis(m.id).unwrap_or_default();
+        if a.waveform.columns.is_empty() {
+            continue;
+        }
+        let duration = st.lib.track(m.id).map(|t| t.duration).unwrap_or(0.0);
+        m.overview = render::overview(&a.waveform, &a.beatgrid, duration, (900.0 * scale) as u32, (30.0 * scale) as u32);
+        m.phrase_marks = phrase_marks(&a.phrases, &a.beatgrid, duration);
+        m.waveform = a.waveform;
+        m.grid = a.beatgrid;
+        m.phrases = a.phrases;
+        if let Some(k) = st.lib.track(m.id).ok().and_then(|t| t.key) {
+            m.key = k.format(st.config.key_notation);
+        }
+        m.source.gain = a.loudness_lufs.map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0)).unwrap_or(0.0);
+        swaps.push((i, m.id, m.source.clone(), m.grid.clone()));
+        // Rebuild the per-track view parts on the next frame.
+        d.views.lanes[i].track = None;
+    }
+    let (cache, tx) = (d.stem_cache.clone(), d.prepared_tx.clone());
+    drop(d);
+    drop(st);
+    for (deck, id, src, grid) in swaps {
+        prepare_in_background(cache.clone(), tx.clone(), deck, id, src, rate, grid, None, Some(Swap::Analysis));
+    }
 }
 
 // ── Stems ───────────────────────────────────────────────────────────────
@@ -329,7 +385,7 @@ pub(crate) fn poll_stems(app: &App) {
                     (d.prepared_tx.clone(), d.stem_cache.clone(), decks)
                 };
                 for (deck, src, grid) in decks {
-                    prepare_in_background(cache.clone(), tx.clone(), deck, track, src, rate, grid, None, true);
+                    prepare_in_background(cache.clone(), tx.clone(), deck, track, src, rate, grid, None, Some(Swap::Stems));
                 }
             }
             StemEvent::Failed { track, error } => {

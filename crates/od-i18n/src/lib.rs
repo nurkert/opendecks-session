@@ -103,6 +103,10 @@ const DE: &[(&str, &str)] = &[
     ("Stem separation failed: {}", "Stem-Trennung fehlgeschlagen: {}"),
     ("Recording saved: {} ({} tracks)", "Aufnahme gespeichert: {} ({} Tracks)"),
     ("Audio starts when you load a track", "Audio startet, sobald du einen Track lädst"),
+    ("Adding {} to the collection…", "{} wird zur Sammlung hinzugefügt…"),
+    ("Added {} to the collection — analysing", "{} zur Sammlung hinzugefügt — wird analysiert"),
+    ("Could not add {}: {}", "{} konnte nicht hinzugefügt werden: {}"),
+    ("Add a folder to the Explorer", "Ordner zum Explorer hinzufügen"),
 ];
 
 /// Translates `english` into the current language.
@@ -194,6 +198,7 @@ mod tests {
         assert_eq!(translate_message("Added 3 track(s) to Warmup"), "3 Track(s) zu Warmup hinzugefügt");
         assert_eq!(translate_message("Red synced: 1 copied, 2 updated, 0 removed"), "Red synced: 1 copied, 2 updated, 0 removed".replace("synced", "synchronisiert").replace("copied", "kopiert").replace("updated", "aktualisiert").replace("removed", "entfernt"));
         assert_eq!(translate_message("Nothing to undo"), "Nichts rückgängig zu machen");
+        assert_eq!(translate_message("Added Deeper to the collection — analysing"), "Deeper zur Sammlung hinzugefügt — wird analysiert");
         set_language(Language::English);
     }
 
