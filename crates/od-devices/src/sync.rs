@@ -62,6 +62,10 @@ pub struct SyncContext<'a> {
 pub trait FormatWriter {
     fn name(&self) -> &'static str;
     fn write(&mut self, ctx: &SyncContext) -> std::result::Result<(), String>;
+    /// Changes found on the stick that need a user decision.
+    fn proposals(&mut self) -> Vec<crate::pioneer::Proposal> {
+        Vec::new()
+    }
 }
 
 /// Progress reported during a sync.
@@ -83,6 +87,7 @@ pub struct SyncReport {
     pub skipped_missing: Vec<TrackId>,
     pub full: bool,
     pub seconds: f64,
+    pub proposals: Vec<crate::pioneer::Proposal>,
 }
 
 #[derive(Clone, Debug, Default)]
@@ -323,6 +328,7 @@ pub fn sync_device(
     for w in writers.iter_mut() {
         progress(Progress::Writing { format: w.name() });
         w.write(&ctx).map_err(|message| SyncError::Format { format: w.name(), message })?;
+        report.proposals.extend(w.proposals());
     }
     report.updated = changed.len();
     report.tracks = placed.len();

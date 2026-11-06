@@ -1,0 +1,26 @@
+[package]
+name = "od-controller"
+description = "MIDI controller layer for OpenDecks Session: mapping format, actions, LED feedback"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+
+[features]
+default = ["midi-io"]
+# Real MIDI I/O through midir (CoreMIDI on macOS, ALSA on Linux). Without it
+# the mapping, feedback, monitor and learn logic still builds and is testable.
+midi-io = ["dep:midir"]
+
+[dependencies]
+od-core.workspace = true
+serde.workspace = true
+toml.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+crossbeam-channel.workspace = true
+midir = { version = "0.11", optional = true }
+
+[[example]]
+name = "midi_monitor"
+required-features = ["midi-io"]

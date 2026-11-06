@@ -44,6 +44,8 @@ pub enum Event {
     Ejected { device: DeviceId },
     EjectFailed { device: DeviceId, error: String },
     Registered { device: DeviceId },
+    /// Changes made on the stick by players (cues, history) to review.
+    Proposals { device: DeviceId, proposals: Vec<crate::pioneer::Proposal> },
 }
 
 #[derive(Clone, Debug)]
@@ -85,6 +87,9 @@ impl ManagerConfig {
                 let mut w: Vec<Box<dyn FormatWriter + Send>> = Vec::new();
                 if f.opendecks {
                     w.push(Box::new(NativeWriter));
+                }
+                if f.pioneer {
+                    w.push(Box::new(crate::pioneer::PioneerWriter::default()));
                 }
                 w
             }),
@@ -298,7 +303,10 @@ impl Worker {
         match result {
             Ok(report) => {
                 self.errors.remove(&id);
-                tracing::info!(device = %id, ?report, "sync finished");
+                tracing::info!(device = %id, copied = report.copied, updated = report.updated, "sync finished");
+                if !report.proposals.is_empty() {
+                    self.emit(Event::Proposals { device: id, proposals: report.proposals.clone() });
+                }
                 self.emit(Event::SyncFinished { device: id, report });
                 self.set_state(id, DeviceState::InSync);
             }

@@ -10,6 +10,7 @@ od-core.workspace = true
 od-library.workspace = true
 od-decode.workspace = true
 od-format-native.workspace = true
+od-format-pioneer.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true

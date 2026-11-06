@@ -1,0 +1,1331 @@
+# OpenDecks Session controller mapping: Pioneer DJ DDJ-FLX10 (4 decks)
+#
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Authored independently for OpenDecks Session in its own schema (see
+# docs/controller-mappings.md). "Pioneer DJ" and "DDJ-FLX10" are used only to
+# name the hardware this file is compatible with.
+#
+# Sources of the MIDI message facts:
+#   [R] Message list observed in the MIDI assignment table shipped with
+#       rekordbox 7 for this controller (read as an interoperability
+#       reference only; nothing of that file is reproduced here).
+#   [M] Mixxx project mappings of the same controller family (DDJ-FLX4),
+#       for shared Pioneer conventions: offset-64 jog encoding, 14-bit LSB
+#       = MSB + 0x20, pad note blocks per pad mode.
+#   [P] Pioneer DJ "MIDI message list" PDF for the DDJ-FLX10 (pioneerdj.com
+#       support documents) — to be cross-checked; not yet retrieved.
+#
+# The unit was not connected while this file was written, so nothing here
+# has been captured live. Entries marked `verify = true` are inferred
+# (e.g. from the shared Pioneer layout) or are messages rekordbox does not
+# use itself; all others are listed in [R]. Confirm everything with:
+#   cargo run -p od-controller --example midi_monitor -- --mapping mappings/pioneer/ddj-flx10.toml
+#
+# Wire channels: decks 1–4 = 0–3; pads deck 1–4 = 7, 9, 11, 13 (shift
+# 8, 10, 12, 14); beat FX = 4; global mixer/browser = 6; indicators = 15.
+# The DECK 1/3 and DECK 2/4 buttons switch layers in hardware: the unit
+# then sends on the channel of the selected deck, so channel sets name decks
+# directly and `[layers] mode = "hardware"` only tracks the active deck (for
+# soft takeover of the tempo fader after a layer switch).
+
+schema = 1
+
+[device]
+id = "pioneer-ddj-flx10"
+name = "DDJ-FLX10"
+vendor = "Pioneer DJ"
+model = "DDJ-FLX10"
+decks = 4
+module = "pioneer-ddj"
+sources = [
+  "rekordbox 7 MIDI assignment table for DDJ-FLX10 (facts only)",
+  "Mixxx Pioneer DDJ mappings (shared conventions, facts only)",
+  "Pioneer DJ DDJ-FLX10 MIDI message list (pending cross-check)",
+]
+
+[device.match]
+port_names = ["DDJ-FLX10"]
+usb_vendor_id = 0x2B73
+usb_product_id = 0x0041
+
+[channels]
+deck = [0, 1, 2, 3]
+pad = [7, 9, 11, 13]
+pad_shift = [8, 10, 12, 14]
+
+[layers]
+mode = "hardware"
+sides = [[1, 3], [2, 4]]
+
+[options]
+soft_takeover = true
+takeover_threshold = 0.03
+jog_ticks_per_revolution = 720   # verify on hardware
+meter_interval_ms = 33
+
+# Placeholder pad colour palette (velocity value -> colour). The real
+# velocity/colour table has to be measured with `midi_monitor --leds`.
+[[palettes.pads]]
+value = 0x01
+color = "#ff0000"
+[[palettes.pads]]
+value = 0x05
+color = "#ff8000"
+[[palettes.pads]]
+value = 0x0A
+color = "#ffff00"
+[[palettes.pads]]
+value = 0x14
+color = "#00ff00"
+[[palettes.pads]]
+value = 0x1E
+color = "#00ffff"
+[[palettes.pads]]
+value = 0x28
+color = "#0000ff"
+[[palettes.pads]]
+value = 0x32
+color = "#8000ff"
+[[palettes.pads]]
+value = 0x3C
+color = "#ff00ff"
+[[palettes.pads]]
+value = 0x7F
+color = "#ffffff"
+
+# ---------------------------------------------------------------- browser
+[[input]]
+name = "Browse rotate"
+cc = 0x40
+channel = 6
+action = "browse.rotate"
+encoding = "twos_complement"
+verify = true
+
+[[input]]
+name = "Browse rotate (shift)"
+cc = 0x64
+channel = 6
+action = "browse.rotate"
+args = { shifted = true }
+encoding = "twos_complement"
+verify = true
+
+[[input]]
+name = "Browse press"
+note = 0x41
+channel = 6
+action = "browse.press"
+verify = true
+
+[[input]]
+name = "Back"
+note = 0x65
+channel = 6
+action = "browse.back"
+
+[[input]]
+name = "Back (shift)"
+note = 0x66
+channel = 6
+action = "browse.press"
+args = { shifted = true }
+
+[[input]]
+name = "Browse view"
+note = 0x7A
+channel = 6
+action = "browse.view_toggle"
+
+[[input]]
+name = "Browse view (long press)"
+note = 0x67
+channel = 6
+action = "ignore"
+
+[[input]]
+name = "Browse view (shift)"
+note = 0x68
+channel = 6
+action = "browse.related"
+
+[[input]]
+name = "Load deck 1"
+note = 0x46
+channel = 6
+deck = 1
+action = "deck.load"
+
+[[input]]
+name = "Load deck 2"
+note = 0x47
+channel = 6
+deck = 2
+action = "deck.load"
+
+[[input]]
+name = "Load deck 3"
+note = 0x48
+channel = 6
+deck = 3
+action = "deck.load"
+
+[[input]]
+name = "Load deck 4"
+note = 0x49
+channel = 6
+deck = 4
+action = "deck.load"
+
+# ---------------------------------------------------------------- deck layers
+# Deck select buttons: note 0x72 on the channel of the deck that became
+# active (deck 3/4 listed in [R]; deck 1/2 inferred).
+[[input]]
+name = "Deck select"
+note = 0x72
+channel = "deck"
+action = "deck.select"
+verify = true
+
+# ---------------------------------------------------------------- transport
+[[input]]
+name = "Play/Pause"
+note = 0x0B
+channel = "deck"
+action = "deck.play_pause"
+
+[[input]]
+name = "Play/Pause (shift)"
+note = 0x47
+channel = "deck"
+action = "deck.censor"
+
+[[input]]
+name = "Cue"
+note = 0x0C
+channel = "deck"
+action = "deck.cue"
+
+[[input]]
+name = "Cue (shift)"
+note = 0x48
+channel = "deck"
+action = "deck.jump_to_start"
+
+[[input]]
+name = "Sync"
+note = 0x58
+channel = "deck"
+action = "deck.sync"
+
+[[input]]
+name = "Sync (long press)"
+note = 0x78
+channel = "deck"
+action = "deck.sync_off"
+
+[[input]]
+name = "Sync (shift)"
+note = 0x5C
+channel = "deck"
+action = "deck.master"
+
+[[input]]
+name = "Key sync"
+note = 0x65
+channel = "deck"
+action = "deck.key_sync"
+
+[[input]]
+name = "Key sync (long press)"
+note = 0x1A
+channel = "deck"
+action = "deck.keylock"
+
+[[input]]
+name = "Key sync (shift)"
+note = 0x64
+channel = "deck"
+action = "deck.key_reset"
+
+[[input]]
+name = "Tempo reset"
+note = 0x41
+channel = "deck"
+action = "deck.tempo_reset"
+
+[[input]]
+name = "Tempo reset (shift)"
+note = 0x60
+channel = "deck"
+action = "deck.tempo_range"
+
+[[input]]
+name = "Shift"
+note = 0x3F
+channel = "deck"
+action = "deck.shift"
+
+[[input]]
+name = "Quantize"
+note = 0x35
+channel = "deck"
+action = "deck.quantize"
+
+[[input]]
+name = "Quantize (shift)"
+note = 0x68
+channel = "deck"
+action = "deck.tap_bpm"
+
+[[input]]
+name = "Slip"
+note = 0x40
+channel = "deck"
+action = "deck.slip"
+
+[[input]]
+name = "Slip (shift)"
+note = 0x17
+channel = "deck"
+action = "deck.vinyl"
+
+[[input]]
+name = "Slip reverse"
+note = 0x15
+channel = "deck"
+action = "deck.censor"
+
+[[input]]
+name = "Slip reverse (shift)"
+note = 0x38
+channel = "deck"
+action = "deck.reverse"
+
+[[input]]
+name = "Beat jump back"
+note = 0x5E
+channel = "deck"
+action = "deck.beat_jump"
+args = { beats = -4.0 }
+
+[[input]]
+name = "Beat jump forward"
+note = 0x5F
+channel = "deck"
+action = "deck.beat_jump"
+args = { beats = 4.0 }
+
+[[input]]
+name = "Beat jump back (shift)"
+note = 0x61
+channel = "deck"
+action = "deck.beat_jump"
+args = { beats = -16.0 }
+
+[[input]]
+name = "Beat jump forward (shift)"
+note = 0x62
+channel = "deck"
+action = "deck.beat_jump"
+args = { beats = 16.0 }
+
+[[input]]
+name = "Search back (long press)"
+note = 0x70
+channel = "deck"
+action = "deck.search"
+args = { forward = false }
+
+[[input]]
+name = "Search forward (long press)"
+note = 0x71
+channel = "deck"
+action = "deck.search"
+args = { forward = true }
+
+[[input]]
+name = "Memory cue call back"
+note = 0x51
+channel = "deck"
+action = "deck.memory_cue_prev"
+
+[[input]]
+name = "Memory cue call forward"
+note = 0x53
+channel = "deck"
+action = "deck.memory_cue_next"
+
+[[input]]
+name = "Memory cue call back (shift)"
+note = 0x3D
+channel = "deck"
+action = "deck.memory_cue_set"
+
+[[input]]
+name = "Memory cue call forward (shift)"
+note = 0x3E
+channel = "deck"
+action = "deck.memory_cue_delete"
+
+# Mix point and stem part buttons: no OpenDecks function in v1.
+[[input]]
+name = "Mix point / part buttons"
+note = 0x59
+channel = "deck"
+action = "ignore"
+[[input]]
+name = "Mix point / part buttons"
+note = 0x5A
+channel = "deck"
+action = "ignore"
+[[input]]
+name = "Mix point / part buttons"
+note = 0x49
+channel = "deck"
+action = "ignore"
+[[input]]
+name = "Mix point / part buttons"
+note = 0x42
+channel = "deck"
+action = "ignore"
+[[input]]
+name = "Mix point / part buttons"
+note = 0x4A
+channel = "deck"
+action = "ignore"
+[[input]]
+name = "Mix point / part buttons"
+note = 0x43
+channel = "deck"
+action = "ignore"
+[[input]]
+name = "Mix point / part buttons"
+note = 0x0D
+repeat = 3
+channel = "deck"
+action = "ignore"
+
+# ---------------------------------------------------------------- tempo / jog
+[[input]]
+name = "Tempo fader"
+cc = 0x00
+lsb = 0x20
+channel = "deck"
+action = "deck.tempo"
+invert = true   # direction to verify
+verify = true
+
+[[input]]
+name = "Tempo fader (shift)"
+cc = 0x05
+lsb = 0x25
+channel = "deck"
+action = "deck.tempo"
+invert = true
+verify = true
+
+# rekordbox drives the FLX10 jogs without these messages, so their
+# presence and resolution in MIDI mode must be confirmed.
+[[input]]
+name = "Jog touch"
+note = 0x36
+channel = "deck"
+action = "deck.jog_touch"
+verify = true
+
+[[input]]
+name = "Jog touch (shift)"
+note = 0x67
+channel = "deck"
+action = "deck.jog_touch"
+verify = true
+
+[[input]]
+name = "Jog scratch"
+cc = 0x22
+channel = "deck"
+action = "deck.jog_turn"
+args = { mode = "scratch" }
+encoding = "offset64"
+verify = true
+
+[[input]]
+name = "Jog top bend"
+cc = 0x23
+channel = "deck"
+action = "deck.jog_turn"
+args = { mode = "bend" }
+encoding = "offset64"
+verify = true
+
+[[input]]
+name = "Jog side bend"
+cc = 0x21
+channel = "deck"
+action = "deck.jog_turn"
+args = { mode = "bend" }
+encoding = "offset64"
+verify = true
+
+[[input]]
+name = "Jog search (shift)"
+cc = 0x1F
+channel = "deck"
+action = "deck.jog_turn"
+args = { mode = "search" }
+encoding = "offset64"
+verify = true
+
+# ---------------------------------------------------------------- loops
+[[input]]
+name = "Loop in"
+note = 0x10
+channel = "deck"
+action = "deck.loop_in"
+
+[[input]]
+name = "Loop in (loop active)"
+note = 0x12
+channel = "deck"
+action = "deck.loop_halve"
+verify = true
+
+[[input]]
+name = "Loop out"
+note = 0x11
+channel = "deck"
+action = "deck.loop_out"
+
+[[input]]
+name = "Loop out (loop active)"
+note = 0x13
+channel = "deck"
+action = "deck.loop_double"
+verify = true
+
+[[input]]
+name = "Loop out (shift)"
+note = 0x4D
+channel = "deck"
+action = "deck.reloop_exit"
+
+[[input]]
+name = "4 beat loop"
+note = 0x14
+channel = "deck"
+action = "deck.auto_loop"
+args = { beats = 4.0 }
+
+[[input]]
+name = "4 beat loop (shift)"
+note = 0x50
+channel = "deck"
+action = "deck.reloop_exit"
+
+# ---------------------------------------------------------------- mixer
+[[input]]
+name = "Trim"
+cc = 0x04
+lsb = 0x24
+channel = "deck"
+action = "mixer.trim"
+
+[[input]]
+name = "EQ high"
+cc = 0x07
+lsb = 0x27
+channel = "deck"
+action = "mixer.eq_high"
+
+[[input]]
+name = "EQ mid"
+cc = 0x0B
+lsb = 0x2B
+channel = "deck"
+action = "mixer.eq_mid"
+
+[[input]]
+name = "EQ low"
+cc = 0x0F
+lsb = 0x2F
+channel = "deck"
+action = "mixer.eq_low"
+
+# Part isolator variants of the EQ knobs (stems; out of scope for v1).
+[[input]]
+name = "Part isolator"
+cc = 0x08
+lsb = 0x28
+channel = "deck"
+action = "ignore"
+[[input]]
+name = "Part isolator"
+cc = 0x0C
+lsb = 0x2C
+channel = "deck"
+action = "ignore"
+[[input]]
+name = "Part isolator"
+cc = 0x10
+lsb = 0x30
+channel = "deck"
+action = "ignore"
+
+[[input]]
+name = "Channel fader"
+cc = 0x13
+lsb = 0x33
+channel = "deck"
+action = "mixer.fader"
+verify = true
+
+[[input]]
+name = "CFX knob"
+cc = 0x17
+lsb = 0x37
+channel = 6
+deck = 1
+action = "mixer.color_fx"
+
+[[input]]
+name = "CFX knob"
+cc = 0x18
+lsb = 0x38
+channel = 6
+deck = 2
+action = "mixer.color_fx"
+
+[[input]]
+name = "CFX knob"
+cc = 0x19
+lsb = 0x39
+channel = 6
+deck = 3
+action = "mixer.color_fx"
+
+[[input]]
+name = "CFX knob"
+cc = 0x1A
+lsb = 0x3A
+channel = 6
+deck = 4
+action = "mixer.color_fx"
+
+[[input]]
+name = "Crossfader"
+cc = 0x1F
+lsb = 0x3F
+channel = 6
+action = "crossfader"
+takeover = false
+verify = true
+
+[[input]]
+name = "Master level"
+cc = 0x08
+lsb = 0x28
+channel = 6
+action = "master_level"
+takeover = false
+verify = true
+
+[[input]]
+name = "Booth level"
+cc = 0x09
+lsb = 0x29
+channel = 6
+action = "booth_level"
+takeover = false
+verify = true
+
+[[input]]
+name = "Headphone mix"
+cc = 0x0C
+lsb = 0x2C
+channel = 6
+action = "headphone_mix"
+takeover = false
+verify = true
+
+[[input]]
+name = "Headphone level"
+cc = 0x0D
+lsb = 0x2D
+channel = 6
+action = "headphone_level"
+takeover = false
+verify = true
+
+[[input]]
+name = "Headphone cue"
+note = 0x54
+channel = "deck"
+action = "mixer.cue"
+
+[[input]]
+name = "Headphone cue (shift)"
+note = 0x39
+channel = "deck"
+action = "ignore"
+
+[[input]]
+name = "Master cue"
+note = 0x63
+channel = 6
+action = "master_cue"
+
+[[input]]
+name = "Master cue (shift)"
+note = 0x62
+channel = 6
+action = "ignore"
+
+[[input]]
+name = "Crossfader assign A"
+note = 0x16
+channel = "deck"
+action = "mixer.crossfader_assign"
+args = { side = "a" }
+verify = true
+
+[[input]]
+name = "Crossfader assign THRU"
+note = 0x1D
+channel = "deck"
+action = "mixer.crossfader_assign"
+args = { side = "thru" }
+verify = true
+
+[[input]]
+name = "Crossfader assign B"
+note = 0x18
+channel = "deck"
+action = "mixer.crossfader_assign"
+args = { side = "b" }
+verify = true
+
+[[input]]
+name = "Input select / fader start"
+note = 0x55
+repeat = 3
+channel = "deck"
+action = "ignore"
+
+[[input]]
+name = "Fader start (play)"
+note = 0x66
+channel = "deck"
+action = "ignore"
+
+[[input]]
+name = "Fader start (cue)"
+note = 0x52
+channel = "deck"
+action = "ignore"
+
+# Sound colour FX selection (left to right on the panel; order to verify).
+[[input]]
+name = "CFX select"
+note = 0x00
+repeat = 6
+channel = 6
+action = "color_fx.select"
+args = { effect = ["space", "dub_echo", "sweep", "noise", "crush", "filter"] }
+verify = true
+
+[[input]]
+name = "CFX select (shift)"
+note = 0x08
+repeat = 6
+channel = 6
+action = "ignore"
+
+[[input]]
+name = "FX part select"
+note = 0x1B
+repeat = 6
+channel = 6
+action = "ignore"
+
+[[input]]
+name = "Sampler volume"
+cc = 0x03
+lsb = 0x23
+channel = 6
+action = "sampler.volume"
+
+[[input]]
+name = "Sampler cue"
+note = 0x69
+channel = 6
+action = "sampler.cue"
+
+# ---------------------------------------------------------------- beat FX
+[[input]]
+name = "Beat FX beat down"
+note = 0x4A
+channel = 4
+action = "beat_fx.beat_down"
+
+[[input]]
+name = "Beat FX beat up"
+note = 0x4B
+channel = 4
+action = "beat_fx.beat_up"
+
+[[input]]
+name = "Beat FX auto beat (shift)"
+note = 0x66
+channel = 4
+action = "beat_fx.auto_beat"
+
+[[input]]
+name = "Beat FX tap (shift)"
+note = 0x6B
+channel = 4
+action = "beat_fx.tap"
+
+[[input]]
+name = "Beat FX select"
+note = 0x20
+repeat = 14
+channel = 4
+action = "beat_fx.select"
+args = { effect = [
+  "low_cut_echo", "echo", "multi_tap_delay", "spiral", "reverb", "trans", "enigma_jet",
+  "flanger", "phaser", "stretch", "slip_roll", "roll", "mobius_saw", "mobius_triangle",
+] }
+
+[[input]]
+name = "Beat FX channel"
+note = 0x10
+repeat = 4
+channel = 4
+action = "beat_fx.assign"
+args = { channel = [1, 2, 3, 4] }
+
+[[input]]
+name = "Beat FX channel master"
+note = 0x14
+channel = 4
+action = "beat_fx.assign"
+args = { channel = 0 }
+
+[[input]]
+name = "Beat FX channel mic/sampler"
+note = 0x15
+repeat = 2
+channel = 4
+action = "ignore"
+
+[[input]]
+name = "Beat FX level"
+cc = 0x02
+lsb = 0x22
+channel = 4
+action = "beat_fx.level"
+
+[[input]]
+name = "Beat FX on"
+note = 0x47
+channel = 4
+action = "beat_fx.toggle"
+verify = true
+
+[[input]]
+name = "Beat FX release (shift)"
+note = 0x43
+channel = 4
+action = "beat_fx.release"
+
+# ---------------------------------------------------------------- pad modes
+[[input]]
+name = "Pad mode hot cue"
+note = 0x1B
+channel = "deck"
+action = "deck.pad_mode"
+args = { mode = "hot_cue" }
+
+[[input]]
+name = "Pad mode keyboard (shift)"
+note = 0x69
+channel = "deck"
+action = "deck.pad_mode"
+args = { mode = "keyboard" }
+
+[[input]]
+name = "Pad mode pad FX 1"
+note = 0x1E
+channel = "deck"
+action = "deck.pad_mode"
+args = { mode = "pad_fx1" }
+
+[[input]]
+name = "Pad mode pad FX 2 (shift)"
+note = 0x6B
+channel = "deck"
+action = "deck.pad_mode"
+args = { mode = "pad_fx2" }
+
+[[input]]
+name = "Pad mode beat jump"
+note = 0x20
+channel = "deck"
+action = "deck.pad_mode"
+args = { mode = "beat_jump" }
+
+[[input]]
+name = "Pad mode beat loop (shift)"
+note = 0x6D
+channel = "deck"
+action = "deck.pad_mode"
+args = { mode = "beat_loop" }
+
+[[input]]
+name = "Pad mode sampler"
+note = 0x22
+channel = "deck"
+action = "deck.pad_mode"
+args = { mode = "sampler" }
+
+[[input]]
+name = "Pad mode key shift (shift)"
+note = 0x6F
+channel = "deck"
+action = "deck.pad_mode"
+args = { mode = "key_shift" }
+
+# Parameter page buttons left/right of the pads (0x24–0x2B left,
+# 0x2C–0x33 right, one per pad mode). Only the sampler bank pages are used.
+[[input]]
+name = "Pad page left"
+note = 0x24
+repeat = 3
+channel = "deck"
+action = "ignore"
+
+[[input]]
+name = "Pad page left"
+note = 0x28
+repeat = 4
+channel = "deck"
+action = "ignore"
+
+[[input]]
+name = "Pad page right"
+note = 0x2C
+repeat = 3
+channel = "deck"
+action = "ignore"
+
+[[input]]
+name = "Pad page right"
+note = 0x30
+repeat = 4
+channel = "deck"
+action = "ignore"
+
+[[input]]
+name = "Sampler bank down"
+note = 0x27
+channel = "deck"
+action = "sampler.bank_prev"
+
+[[input]]
+name = "Sampler bank up"
+note = 0x2F
+channel = "deck"
+action = "sampler.bank_next"
+
+# ---------------------------------------------------------------- pads
+[[input]]
+name = "Hot cue pad"
+note = 0x00
+repeat = 8
+index_arg = "slot"
+channel = "pad"
+action = "deck.hot_cue"
+
+[[input]]
+name = "Hot cue pad (shift)"
+note = 0x00
+repeat = 8
+index_arg = "slot"
+channel = "pad_shift"
+action = "deck.hot_cue_delete"
+
+[[input]]
+name = "Pad FX 1 pad"
+note = 0x10
+repeat = 8
+index_arg = "index"
+channel = "pad"
+action = "deck.pad"
+
+[[input]]
+name = "Beat jump pad"
+note = 0x20
+repeat = 8
+channel = "pad"
+action = "deck.beat_jump"
+args = { beats = [-1.0, 1.0, -2.0, 2.0, -4.0, 4.0, -8.0, 8.0] }
+
+[[input]]
+name = "Sampler pad"
+note = 0x30
+repeat = 8
+index_arg = "slot"
+channel = "pad"
+action = "sampler.pad"
+
+[[input]]
+name = "Sampler pad (shift)"
+note = 0x30
+repeat = 8
+index_arg = "slot"
+channel = "pad_shift"
+action = "sampler.stop"
+
+[[input]]
+name = "Keyboard pad"
+note = 0x40
+repeat = 8
+index_arg = "index"
+channel = "pad"
+action = "deck.pad"
+
+[[input]]
+name = "Pad FX 2 pad"
+note = 0x50
+repeat = 8
+index_arg = "index"
+channel = "pad"
+action = "deck.pad"
+
+[[input]]
+name = "Beat loop pad"
+note = 0x60
+repeat = 8
+channel = "pad"
+action = "deck.loop_roll"
+args = { beats = [0.0625, 0.125, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0] }
+
+[[input]]
+name = "Key shift pad"
+note = 0x70
+repeat = 8
+index_arg = "index"
+channel = "pad"
+action = "deck.pad"
+
+# ================================================================ outputs
+[[output]]
+target = "deck.play"
+note = 0x0B
+channel = "deck"
+
+[[output]]
+target = "deck.cue"
+note = 0x0C
+channel = "deck"
+
+[[output]]
+target = "deck.sync"
+note = 0x58
+channel = "deck"
+
+[[output]]
+target = "deck.master"
+note = 0x5C
+channel = "deck"
+
+[[output]]
+target = "deck.key_sync"
+note = 0x65
+channel = "deck"
+
+[[output]]
+target = "deck.keylock"
+note = 0x1A
+channel = "deck"
+
+[[output]]
+target = "deck.tempo_reset"
+note = 0x41
+channel = "deck"
+
+[[output]]
+target = "deck.tempo_range"
+note = 0x60
+channel = "deck"
+
+[[output]]
+target = "deck.quantize"
+note = 0x35
+channel = "deck"
+
+[[output]]
+target = "deck.slip"
+note = 0x40
+channel = "deck"
+
+[[output]]
+target = "deck.vinyl"
+note = 0x17
+channel = "deck"
+
+[[output]]
+target = "deck.censor"
+note = 0x15
+channel = "deck"
+
+[[output]]
+target = "deck.reverse"
+note = 0x38
+channel = "deck"
+
+[[output]]
+target = "deck.loop_in"
+note = 0x10
+channel = "deck"
+
+[[output]]
+target = "deck.loop_out"
+note = 0x11
+channel = "deck"
+
+[[output]]
+target = "deck.reloop"
+note = 0x4D
+channel = "deck"
+
+[[output]]
+target = "deck.loop_active"
+note = 0x14
+channel = "deck"
+
+[[output]]
+target = "deck.loop_active"
+note = 0x50
+channel = "deck"
+
+[[output]]
+target = "mixer.cue"
+note = 0x54
+channel = "deck"
+
+[[output]]
+target = "mixer.vu"
+cc = 0x02
+channel = "deck"
+
+[[output]]
+target = "deck.loaded"
+note = 0x00
+channel = 15
+deck = 1
+[[output]]
+target = "deck.loaded"
+note = 0x01
+channel = 15
+deck = 2
+[[output]]
+target = "deck.loaded"
+note = 0x02
+channel = 15
+deck = 3
+[[output]]
+target = "deck.loaded"
+note = 0x03
+channel = 15
+deck = 4
+
+[[output]]
+target = "deck.loop_active"
+note = 0x04
+channel = 15
+deck = 1
+[[output]]
+target = "deck.loop_active"
+note = 0x05
+channel = 15
+deck = 2
+[[output]]
+target = "deck.loop_active"
+note = 0x06
+channel = 15
+deck = 3
+[[output]]
+target = "deck.loop_active"
+note = 0x07
+channel = 15
+deck = 4
+
+[[output]]
+target = "deck.pad_mode"
+note = 0x1B
+channel = "deck"
+args = { mode = "hot_cue" }
+
+[[output]]
+target = "deck.pad_mode"
+note = 0x69
+channel = "deck"
+args = { mode = "keyboard" }
+
+[[output]]
+target = "deck.pad_mode"
+note = 0x1E
+channel = "deck"
+args = { mode = "pad_fx1" }
+
+[[output]]
+target = "deck.pad_mode"
+note = 0x6B
+channel = "deck"
+args = { mode = "pad_fx2" }
+
+[[output]]
+target = "deck.pad_mode"
+note = 0x20
+channel = "deck"
+args = { mode = "beat_jump" }
+
+[[output]]
+target = "deck.pad_mode"
+note = 0x6D
+channel = "deck"
+args = { mode = "beat_loop" }
+
+[[output]]
+target = "deck.pad_mode"
+note = 0x22
+channel = "deck"
+args = { mode = "sampler" }
+
+[[output]]
+target = "deck.pad_mode"
+note = 0x6F
+channel = "deck"
+args = { mode = "key_shift" }
+
+# Pads are RGB; colour is selected by the note-on value (palette above).
+[[output]]
+target = "deck.pad"
+note = 0x00
+repeat = 8
+index_arg = "index"
+channel = "pad"
+args = { mode = "hot_cue" }
+palette = "pads"
+verify = true
+
+[[output]]
+target = "deck.pad"
+note = 0x10
+repeat = 8
+index_arg = "index"
+channel = "pad"
+args = { mode = "pad_fx1" }
+
+[[output]]
+target = "deck.pad"
+note = 0x20
+repeat = 8
+index_arg = "index"
+channel = "pad"
+args = { mode = "beat_jump" }
+
+[[output]]
+target = "deck.pad"
+note = 0x30
+repeat = 8
+index_arg = "index"
+channel = "pad"
+args = { mode = "sampler" }
+palette = "pads"
+verify = true
+
+[[output]]
+target = "deck.pad"
+note = 0x40
+repeat = 8
+index_arg = "index"
+channel = "pad"
+args = { mode = "keyboard" }
+
+[[output]]
+target = "deck.pad"
+note = 0x50
+repeat = 8
+index_arg = "index"
+channel = "pad"
+args = { mode = "pad_fx2" }
+
+[[output]]
+target = "deck.pad"
+note = 0x60
+repeat = 8
+index_arg = "index"
+channel = "pad"
+args = { mode = "beat_loop" }
+
+[[output]]
+target = "deck.pad"
+note = 0x70
+repeat = 8
+index_arg = "index"
+channel = "pad"
+args = { mode = "key_shift" }
+
+[[output]]
+target = "master_cue"
+note = 0x63
+channel = 6
+
+[[output]]
+target = "color_fx"
+note = 0x00
+channel = 6
+args = { effect = "space" }
+[[output]]
+target = "color_fx"
+note = 0x01
+channel = 6
+args = { effect = "dub_echo" }
+[[output]]
+target = "color_fx"
+note = 0x02
+channel = 6
+args = { effect = "sweep" }
+[[output]]
+target = "color_fx"
+note = 0x03
+channel = 6
+args = { effect = "noise" }
+[[output]]
+target = "color_fx"
+note = 0x04
+channel = 6
+args = { effect = "crush" }
+[[output]]
+target = "color_fx"
+note = 0x05
+channel = 6
+args = { effect = "filter" }
+
+[[output]]
+target = "beat_fx.on"
+note = 0x47
+channel = 4
+
+[[output]]
+target = "beat_fx.release"
+note = 0x43
+channel = 4
+
+[[output]]
+target = "sampler.cue"
+note = 0x69
+channel = 6
