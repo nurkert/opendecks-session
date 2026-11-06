@@ -617,6 +617,14 @@ fn frame(app: &App) {
         e.collect_garbage();
         *e.state()
     }) else {
+        // Before audio starts: empty deck plates, so the layout is complete.
+        let count = app.perform.borrow().deck_count;
+        if app.ui.get_mode() == "perform" && crate::app::model_len(&app.ui.get_decks()) != count {
+            let empty: Vec<DeckView> = (0..count)
+                .map(|d| DeckView { deck: d as i32 + 1, ..Default::default() })
+                .collect();
+            app.ui.set_decks(ModelRc::new(VecModel::from(empty)));
+        }
         return;
     };
 

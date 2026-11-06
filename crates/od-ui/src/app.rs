@@ -202,6 +202,7 @@ impl App {
         ui.set_kiosk(config.kiosk);
         if config.kiosk {
             ui.set_mode("perform".into());
+            ui.window().set_fullscreen(true);
         }
         let (wtx, wrx) = unbounded();
         let analysis = Rc::new(AnalysisWorker::start(config.library_path.clone(), config.lite, wtx.clone()));
