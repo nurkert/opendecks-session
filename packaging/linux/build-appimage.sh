@@ -1,15 +1,19 @@
 #!/bin/sh
-# Builds an AppImage in target/dist using linuxdeploy.
+# Builds an AppImage in target/dist using linuxdeploy (expects a release build).
 set -eu
 cd "$(dirname "$0")/../.."
+VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
 ARCH=$(uname -m)
-cargo build --release --locked -p opendecks
+[ -x target/release/opendecks ] || cargo build --release --locked -p opendecks -p od-cli
 APPDIR=target/dist/AppDir
 rm -rf "$APPDIR" && mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/opendecks"
-cp target/release/opendecks "$APPDIR/usr/bin/"
+cp target/release/opendecks target/release/od-cli "$APPDIR/usr/bin/"
 cp -R mappings "$APPDIR/usr/share/opendecks/mappings"
-cp packaging/linux/opendecks.desktop "$APPDIR/"
-cp packaging/linux/opendecks.svg "$APPDIR/opendecks.svg"
 TOOL=target/dist/linuxdeploy-$ARCH.AppImage
 [ -x "$TOOL" ] || { curl -fsSL -o "$TOOL" "https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-$ARCH.AppImage"; chmod +x "$TOOL"; }
-cd target/dist && APPIMAGE_EXTRACT_AND_RUN=1 OUTPUT="OpenDecks-Session-$ARCH.AppImage" "./linuxdeploy-$ARCH.AppImage" --appdir AppDir --output appimage
+cd target/dist
+APPIMAGE_EXTRACT_AND_RUN=1 NO_STRIP=1 OUTPUT="OpenDecks-Session-${VERSION}-${ARCH}.AppImage" "./linuxdeploy-$ARCH.AppImage" \
+  --appdir AppDir --executable AppDir/usr/bin/opendecks \
+  --desktop-file ../../packaging/linux/opendecks.desktop --icon-file ../../packaging/linux/opendecks.svg \
+  --output appimage
+rm -rf AppDir

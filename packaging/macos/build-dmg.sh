@@ -1,35 +1,67 @@
 #!/bin/sh
-# Builds "OpenDecks Session.app" and a .dmg in target/dist.
-# Signing/notarisation: set CODESIGN_IDENTITY (and run notarytool afterwards).
+# Builds "OpenDecks Session.app" and a styled disk image in target/dist:
+#   target/dist/OpenDecks-Session-<version>-macos-<arch>.dmg
+# Requirements: Rust, Homebrew rubberband + dylibbundler, Python 3.
+# Signing: ad-hoc by default; set CODESIGN_IDENTITY for a Developer ID.
 set -eu
 cd "$(dirname "$0")/../.."
 VERSION=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-cargo build --release --locked -p opendecks
-APP="target/dist/OpenDecks Session.app"
-rm -rf "$APP" && mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp target/release/opendecks "$APP/Contents/MacOS/opendecks"
+ARCH=$(uname -m)
+cargo build --release --locked -p opendecks -p od-cli
+
+DIST=target/dist
+APP="$DIST/OpenDecks Session.app"
+rm -rf "$APP" && mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources" "$APP/Contents/Frameworks"
+cp target/release/opendecks target/release/od-cli "$APP/Contents/MacOS/"
 cp -R mappings "$APP/Contents/Resources/mappings"
+cp packaging/assets/OpenDecks.icns "$APP/Contents/Resources/OpenDecks.icns"
 cat > "$APP/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>CFBundleName</key><string>OpenDecks Session</string>
+  <key>CFBundleDisplayName</key><string>OpenDecks Session</string>
   <key>CFBundleIdentifier</key><string>org.opendecks.session</string>
   <key>CFBundleExecutable</key><string>opendecks</string>
+  <key>CFBundleIconFile</key><string>OpenDecks</string>
   <key>CFBundleShortVersionString</key><string>${VERSION}</string>
+  <key>CFBundleVersion</key><string>${VERSION}</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>LSMinimumSystemVersion</key><string>13.0</string>
+  <key>LSApplicationCategoryType</key><string>public.app-category.music</string>
   <key>NSHighResolutionCapable</key><true/>
-  <key>NSMicrophoneUsageDescription</key><string>Records the controller's audio input when you choose it as a recording source.</string>
+  <key>NSHumanReadableCopyright</key><string>GPL-3.0-or-later</string>
 </dict></plist>
 PLIST
-# Bundle Rubber Band next to the binary so the app runs without Homebrew.
-for lib in $(otool -L target/release/opendecks | awk '/rubberband/ {print $1}'); do
-  cp "$lib" "$APP/Contents/MacOS/"
-  install_name_tool -change "$lib" "@executable_path/$(basename "$lib")" "$APP/Contents/MacOS/opendecks"
-done
-if [ -n "${CODESIGN_IDENTITY:-}" ]; then
-  codesign --force --deep --options runtime --sign "$CODESIGN_IDENTITY" "$APP"
+
+# Bundle non-system libraries (Rubber Band, libsamplerate, …).
+dylibbundler -od -b -cd -ns \
+  -x "$APP/Contents/MacOS/opendecks" -x "$APP/Contents/MacOS/od-cli" \
+  -d "$APP/Contents/Frameworks/" -p @executable_path/../Frameworks/ >/dev/null
+if otool -L "$APP/Contents/MacOS/opendecks" | grep -E '/opt/homebrew|/usr/local/(opt|Cellar)'; then
+  echo "unbundled Homebrew library left in the binary" >&2
+  exit 1
 fi
-hdiutil create -volname "OpenDecks Session" -srcfolder "$APP" -ov -format UDZO "target/dist/OpenDecks-Session-${VERSION}.dmg"
-echo "target/dist/OpenDecks-Session-${VERSION}.dmg"
+
+# Sign inside-out. The hardened runtime needs matching Team IDs on every
+# library, so it is only enabled with a real Developer ID.
+if [ -n "${CODESIGN_IDENTITY:-}" ]; then
+  SIGN="--options runtime --timestamp --sign $CODESIGN_IDENTITY"
+else
+  SIGN="--sign -"
+fi
+for lib in "$APP"/Contents/Frameworks/*.dylib; do
+  codesign --force $SIGN "$lib"
+done
+codesign --force $SIGN "$APP/Contents/MacOS/od-cli"
+codesign --force $SIGN "$APP"
+codesign --verify --deep --strict "$APP"
+
+python3 -m venv "$DIST/.dmgbuild" >/dev/null
+"$DIST/.dmgbuild/bin/pip" install --quiet "dmgbuild==1.6.5"
+OUT="$DIST/OpenDecks-Session-${VERSION}-macos-${ARCH}.dmg"
+rm -f "$OUT"
+"$DIST/.dmgbuild/bin/dmgbuild" -s packaging/macos/dmg-settings.py \
+  -D app="$APP" -D background=packaging/assets/dmg-background.tiff -D icon=packaging/assets/OpenDecks.icns \
+  "OpenDecks Session" "$OUT"
+echo "$OUT"

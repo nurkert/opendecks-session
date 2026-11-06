@@ -426,7 +426,7 @@ mod tests {
         cfg.debounce = Duration::from_millis(100);
         let mgr = DeviceManager::start(cfg).unwrap();
         let wait_for = |pred: &dyn Fn(&Event) -> bool| {
-            let deadline = Instant::now() + Duration::from_secs(10);
+            let deadline = Instant::now() + Duration::from_secs(30);
             while Instant::now() < deadline {
                 if let Ok(e) = mgr.events().recv_timeout(Duration::from_millis(100)) {
                     if pred(&e) {

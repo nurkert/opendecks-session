@@ -271,15 +271,25 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         rec.start(dir.path(), "mix").unwrap();
         rec.mark_track(Some(TrackId(1)), "One", "A");
+        // Wait until the writer thread has caught up with `frames` rendered
+        // frames (CI machines can be slow; never rely on fixed sleeps).
+        let wait_for = |rec: &Recorder, frames: usize| {
+            let deadline = std::time::Instant::now() + Duration::from_secs(20);
+            while rec.elapsed() * 48_000.0 < frames as f64 && std::time::Instant::now() < deadline {
+                std::thread::sleep(Duration::from_millis(5));
+            }
+        };
         let mut master = vec![0.0; 512];
         for i in 0..400 {
             proc.process(256, &mut Outputs { master: &mut master, headphones: None });
-            if i == 200 {
-                std::thread::sleep(Duration::from_millis(40));
+            if i % 50 == 49 {
+                wait_for(&rec, (i + 1) * 256);
+            }
+            if i == 199 {
                 rec.mark_track(Some(TrackId(2)), "Two", "B");
             }
         }
-        std::thread::sleep(Duration::from_millis(60));
+        wait_for(&rec, 400 * 256);
         let r = rec.stop().unwrap();
         assert!(r.duration > 1.0, "duration {}", r.duration);
         assert_eq!(r.tracklist.len(), 2);
