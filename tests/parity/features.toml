@@ -433,10 +433,12 @@ id = "browser-duplicate-check"
 area = "browser"
 name = "Duplicate track check"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P3"
-tests = []
-note = "—"
+tests = [
+  "od-library::duplicates::tests::finds_same_file_and_same_release",
+]
+note = "`od-library::duplicates` (same file content, same artist/title/length); `od-cli duplicates`; no browser view yet"
 
 [[feature]]
 id = "browser-import-files"
@@ -491,10 +493,13 @@ id = "browser-xml-itunes-exchange"
 area = "browser"
 name = "rekordbox XML / iTunes library import-export (compatibility)"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P3"
-tests = []
-note = "—"
+tests = [
+  "od-import-rekordbox::xml::tests::export_then_import_keeps_tracks_cues_grid_and_playlists",
+  "od-import-rekordbox::xml::tests::helpers_round_trip",
+]
+note = "rekordbox-compatible XML export/import (`od-import-rekordbox::xml`, `od-cli xml-export` / `xml-import`); no menu entry yet"
 
 [[feature]]
 id = "browser-relocate"
@@ -629,11 +634,12 @@ id = "browser-explorer-import-on-load"
 area = "browser"
 name = "Explorer: loading a file adds it to the collection and analyses it in the background"
 scope = "in"
-status = "partial"
-prio = "P1"
-tests = []
+status = "done"
+tests = [
+  "od-ui::ui_tests::flows::load_from_explorer",
+]
 evidence = ["crates/od-ui/src/explorer.rs::start_import", "crates/od-ui/src/explorer.rs::poll"]
-note = "Implemented (`explorer.rs` `start_import` adds the file in the background via `workers::import_file`, `poll` wakes analysis and loads it); no automated test yet"
+note = "Loading a file from the Explorer adds it to the collection in the background (`workers::import_file`) and loads it; the flow test asserts the deck and the collection"
 spec = "SPEC §5.5"
 
 [[feature]]
@@ -664,13 +670,14 @@ id = "browser-load-gestures"
 area = "browser"
 name = "Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n"
 scope = "in"
-status = "partial"
-prio = "P1"
+status = "done"
 tests = [
   "od-ui::decks::tests::free_deck_prefers_idle_empty",
+  "od-ui::ui_tests::features::load_gestures_double_click_and_menu",
+  "od-ui::ui_tests::features::drag_row_onto_deck_loads_it",
 ]
 evidence = ["crates/od-ui/src/decks.rs::free_deck"]
-note = "Activate/double-click and controller load work; drag to deck and the context menu do not exist"
+note = "Double-click / activate loads into a free deck, drag a row onto a deck, context menu Load to deck ▸ Deck n, controller load; all driven through the window by UI tests"
 spec = "UX §2.1"
 
 [[feature]]
@@ -680,9 +687,12 @@ name = "Drag tracks from the browser (and Explorer, Finder) onto a deck or the P
 scope = "in"
 status = "partial"
 prio = "P1"
-tests = []
+tests = [
+  "od-ui::ui_tests::features::drag_row_onto_deck_loads_it",
+  "od-ui::ui_tests::flows::separate_stems",
+]
 evidence = []
-note = "Done for list and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight; verified by driving real mouse events). Missing: drop from Finder, automated UI test. Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (loads unless the deck is playing and load lock is on); Finder/Explorer files are imported on drop."
+note = "List and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight), UI-tested (drag a row onto deck 2 loads it). Missing: drop from Finder"
 spec = "SPEC §5.5"
 
 [[feature]]
@@ -690,11 +700,13 @@ id = "browser-row-context-menu"
 area = "browser"
 name = "Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …)"
 scope = "in"
-status = "partial"
-prio = "P2"
+status = "done"
 tests = [
+  "od-ui::ui_tests::features::row_context_menu_edits_the_library",
+  "od-ui::ui_tests::features::load_gestures_double_click_and_menu",
+  "od-ui::ui_tests::flows::add_to_playlist",
 ]
-note = "Context menu on rows: load to deck 1-4, add to playlist, colour, rating, analyse, show in file manager, remove from list. Missing: automated UI test"
+note = "Right-click a row: Load to deck ▸ 1-4, Add to playlist ▸, Colour ▸, Rating ▸, Analyse, Show in file manager, Remove from this list. UI tests drive the real menu (rating, colour, remove, load). Further items of the layout reference (tag list, export, play count, hot-cue tools, info) are tracked by the view test `ctx.track-row`"
 spec = "UX §1.9"
 
 [[feature]]
@@ -702,10 +714,12 @@ id = "browser-info-panel"
 area = "browser"
 name = "Info panel (track details beside the list)"
 scope = "in"
-status = "missing"
-prio = "P2"
-tests = []
+status = "done"
+tests = [
+  "od-ui::ui_tests::features::info_panel_edits_tags",
+]
 spec = "SPEC §5.5; UX §1.6"
+note = "INFO in the list title row opens the track info panel beside the list; every tag is editable in place (Return stores, undoable). File details (type, size, sample rate, bit rate) and the tabs of the layout reference are tracked by the view test `browser.info-panel`"
 
 [[feature]]
 id = "browser-sub-browser"
@@ -735,9 +749,11 @@ id = "browser-library-archive"
 area = "browser"
 name = "Export / import the whole library as one archive (database + analysis, optional audio)"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P3"
-tests = []
+tests = [
+  "od-library::archive::tests::archive_round_trip_with_audio",
+]
 spec = "SPEC §5.3"
 
 # ---- Analysis ----
@@ -801,10 +817,12 @@ id = "analysis-bpm-range"
 area = "analysis"
 name = "BPM analysis range setting"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "—"
+tests = [
+  "od-analysis::tempo::tests::half_and_double_time_fold_into_range",
+]
+note = "Preferences ▸ Analysis BPM range (`preferences.rs` `bpm_range`) feeds the tempo analysis fold range"
 
 [[feature]]
 id = "analysis-key"
@@ -1304,10 +1322,12 @@ id = "deck-search-buttons"
 area = "deck"
 name = "Search (FF/REW buttons)"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P1"
-tests = []
-note = "Mapped (`deck.search`); no engine command, dropped (controller coverage)"
+tests = [
+  "od-engine::deck_features::search_runs_the_playhead_fast_while_held",
+]
+note = "`DeckCommand::Search(rate)`; controller mapping pending"
 
 [[feature]]
 id = "deck-tap-bpm"
@@ -1448,11 +1468,12 @@ id = "deck-waveform-zoom"
 area = "deck"
 name = "Waveform zoom in Perform"
 scope = "in"
-status = "missing"
-prio = "P2"
-tests = []
+status = "done"
+tests = [
+  "od-ui::ui_tests::features::waveform_zoom_by_wheel",
+]
 evidence = ["perform.rs"]
-note = "Fixed `DETAIL_SPAN` 8 s (`perform.rs`)"
+note = "Mouse wheel over a lane zooms that deck, double-click resets (`decks::zoom_by`); zoom buttons of the zone column are tracked by the view test (`wave.zoom-*`)"
 
 [[feature]]
 id = "deck-waveform-overview-detail"
@@ -1493,6 +1514,7 @@ tests = [
   "od-ui::format::tests::deck_fields",
   "od-ui::format::tests::times",
   "od-ui::decks::tests::empty_deck_projection",
+  "od-ui::ui_tests::features::deck_header_readouts",
 ]
 evidence = ["crates/od-ui/src/format.rs"]
 note = "Artwork not shown (see `browser-artwork`)"
@@ -1514,11 +1536,12 @@ id = "deck-waveform-zone"
 area = "deck"
 name = "Full-width enlarged waveform zone, one stacked lane per deck (2 and 4 decks), centre playhead"
 scope = "in"
-status = "partial"
-prio = "P1"
-tests = []
+status = "done"
+tests = [
+  "od-ui::ui_tests::features::waveform_zone_lanes_per_deck",
+]
 evidence = ["crates/od-ui/src/decks.rs"]
-note = "Lanes per deck; zone layout and zoom column per UX §1.3 not complete"
+note = "One full-width lane per deck (2 and 4 decks), stacked, playhead at the centre. The zone column (collapse / zoom buttons / expand) is tracked by the view test"
 spec = "SPEC §10.1; UX §1.3, §4 P1.1"
 
 [[feature]]
@@ -1878,6 +1901,8 @@ prio = "P1"
 tests = [
   "od-ui::fx::tests::unit_projection",
   "od-ui::fx::tests::beat_lengths_step_and_print",
+  "od-ui::ui_tests::features::fx_panel_unit_on",
+  "od-ui::ui_tests::features::panel_toggles_show_panels",
 ]
 evidence = ["crates/od-ui/ui/fx.slint"]
 note = "FX1 | FX2 above the waveforms with effect, beat, assign, level, parameter, ON, TAP and Release FX; CFX selector in the mixer. One effect per unit (no three-slot chain)"
@@ -1982,8 +2007,10 @@ name = "Deck shows separation progress; stem controls visible (dimmed) while sep
 scope = "in"
 status = "partial"
 prio = "P2"
-tests = []
-note = "Separation state is tracked; controls are not shown dimmed per UX §4 P5.14"
+tests = [
+  "od-ui::ui_tests::flows::separate_stems",
+]
+note = "Separation is queued on load and the stem strip shows SPLIT…; the stem toggles stay in place, disabled until stems exist (flow test). No progress percentage on the deck"
 spec = "SPEC §10.3; UX §2.4"
 
 [[feature]]
@@ -2137,10 +2164,12 @@ id = "rec-flac-mp3"
 area = "recording"
 name = "FLAC / MP3 output"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
-note = "SPEC §11"
+tests = [
+  "od-recorder::tests::flac_is_lossless_and_mp3_is_written",
+]
+note = "WAV recorded, then encoded to FLAC (bit-exact) or MP3 320k when recording stops; format chosen in Preferences ▸ Recording"
 
 [[feature]]
 id = "rec-tracklist"
@@ -2184,10 +2213,12 @@ id = "rec-silence-auto"
 area = "recording"
 name = "Silence auto start/stop"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P2"
-tests = []
-note = "SPEC §11"
+tests = [
+  "od-recorder::tests::silence_detector_starts_and_stops",
+]
+note = "`od_recorder::SilenceDetector`; not yet wired to the recorder panel"
 
 [[feature]]
 id = "rec-settings"
@@ -2207,7 +2238,9 @@ name = "Recording panel: source, level, meter, elapsed time, file size, live tra
 scope = "in"
 status = "partial"
 prio = "P2"
-tests = []
+tests = [
+  "od-ui::ui_tests::flows::start_recording",
+]
 evidence = ["crates/od-ui/src/recorder.rs::frame"]
 note = "Elapsed time and REC exist; level, meter, size and live tracklist missing"
 spec = "SPEC §11; UX §2.3"
@@ -2550,7 +2583,10 @@ name = "Perform layouts: 2 / 4 decks horizontal and vertical, Browse"
 scope = "in"
 status = "partial"
 prio = "P2"
-tests = []
+tests = [
+  "od-ui::ui_tests::features::perform_two_and_four_decks",
+  "od-ui::ui_tests::views::view_completeness_desktop",
+]
 note = "2 and 4 decks; vertical layouts and Browse missing"
 spec = "SPEC §10.1; UX §1.4"
 
@@ -2569,10 +2605,13 @@ id = "shell-panel-toggles"
 area = "shell"
 name = "Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording"
 scope = "in"
-status = "missing"
+status = "partial"
 prio = "P2"
-tests = []
+tests = [
+  "od-ui::ui_tests::features::panel_toggles_show_panels",
+]
 spec = "UX §1.2, §2.8"
+note = "FX and SAMPLER toggles in the top bar (UI test); Mix Point Link, Mixer and Recording toggles missing"
 
 [[feature]]
 id = "shell-mix-point-link"
@@ -2589,13 +2628,13 @@ id = "shell-splitters"
 area = "shell"
 name = "Draggable splitters with persisted sizes, double-click reset"
 scope = "in"
-status = "partial"
-prio = "P2"
+status = "done"
 tests = [
   "od-ui::shell::tests::pane_sizes_parse",
+  "od-ui::ui_tests::features::splitters_drag_persist_reset",
 ]
 evidence = ["crates/od-ui/src/shell.rs"]
-note = "Sidebar width and upper height persist; per-layout sizes and waveform-zone collapse / expand missing"
+note = "Upper/lower and sidebar splitters: drag, persisted across restarts, double-click reset (UI test). Per-layout sizes and waveform-zone collapse / expand are not there"
 spec = "SPEC §12; UX §2.6"
 
 [[feature]]
@@ -2627,10 +2666,11 @@ id = "shell-colour-blind-contrast"
 area = "shell"
 name = "Colour-blind palette and high-contrast theme"
 scope = "in"
-status = "partial"
-prio = "P2"
-tests = []
-note = "CLI flags only (`--colorblind`, `--high-contrast`); see `prefs-display`"
+status = "done"
+tests = [
+  "od-ui::ui_tests::features::colour_blind_and_high_contrast",
+]
+note = "Preferences > View switches (and the CLI flags) set the colour-blind-safe palette and the high-contrast theme live; stored in the settings"
 spec = "SPEC §12"
 
 [[feature]]
@@ -2764,9 +2804,14 @@ id = "lighting-outputs"
 area = "lighting"
 name = "DMX outputs: FLX10 DMX port, Enttec USB-DMX, Art-Net, sACN, several universes"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P2"
-tests = []
+tests = [
+  "od-lighting::output::tests::artnet_layout",
+  "od-lighting::output::tests::sacn_layout",
+  "od-lighting::output::tests::enttec_layout",
+  "od-lighting::output::tests::artnet_reaches_a_listener",
+]
 spec = "SPEC §10.5"
 
 [[feature]]
@@ -2774,9 +2819,15 @@ id = "lighting-fixtures"
 area = "lighting"
 name = "Fixture library (OFL), patch, groups, moving heads / bars / PARs / strobes / lasers / fog"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P2"
-tests = []
+tests = [
+  "od-lighting::fixture::tests::reads_an_ofl_mode",
+  "od-lighting::fixture::tests::builtins_have_roles",
+  "od-lighting::fixture::tests::patch_rejects_overlaps_and_finds_space",
+  "od-lighting::render::tests::mover_writes_sixteen_bit_position_and_mirrors",
+  "od-lighting::render::tests::bar_pixels_spread_over_cells",
+]
 spec = "SPEC §10.5"
 
 [[feature]]
@@ -2784,9 +2835,14 @@ id = "lighting-auto"
 area = "lighting"
 name = "Automatic light show from beat, phrase, energy and the mix (crossfade-aware)"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P2"
-tests = []
+tests = [
+  "od-lighting::show::tests::auto_follows_the_phrase",
+  "od-lighting::show::tests::build_up_ends_in_a_strobe",
+  "od-lighting::show::tests::a_mix_blends_both_decks",
+  "od-lighting::show::tests::phrase_change_crossfades_over_a_bar",
+]
 spec = "SPEC §10.5"
 
 [[feature]]
@@ -2794,9 +2850,11 @@ id = "lighting-easy"
 area = "lighting"
 name = "Easy manual mode: scene pads, dimmer, strobe, blackout, tap/sync, controller pad mode"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P2"
-tests = []
+tests = [
+  "od-lighting::show::tests::manual_modes_and_master",
+]
 spec = "SPEC §10.5"
 
 [[feature]]

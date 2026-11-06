@@ -125,6 +125,7 @@ const DE: &[(&str, &str)] = &[
     ("Check for updates", "Nach Updates suchen"),
     ("Rating set", "Bewertung gesetzt"),
     ("Tags saved", "Tags gespeichert"),
+    ("Recorded as WAV, then encoded when the recording stops.", "Als WAV aufgenommen und nach dem Stopp kodiert."),
     ("Colour set", "Farbe gesetzt"),
     ("Stem separation failed: {}", "Stem-Trennung fehlgeschlagen: {}"),
     ("Recording saved: {} ({} tracks)", "Aufnahme gespeichert: {} ({} Tracks)"),

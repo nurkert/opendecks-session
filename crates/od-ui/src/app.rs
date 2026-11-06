@@ -110,7 +110,9 @@ impl App {
         player::wire(&app);
         devices::wire(&app);
         recorder::wire(&app);
-        controller::start(&app);
+        if !app.state.borrow().config.headless {
+            controller::start(&app);
+        }
         decks::wire(&app);
         mixer::wire(&app);
         fx::wire(&app);
@@ -186,7 +188,9 @@ impl App {
             }
         }
         crate::appearance::tick(self);
-        update::poll(self);
+        if !self.state.borrow().config.headless {
+            update::poll(self);
+        }
         if devices::poll(self) {
             need_refresh = true;
         }

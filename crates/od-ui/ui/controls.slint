@@ -446,6 +446,11 @@ export component Stepper inherits Rectangle {
     in property <bool> lit;
     in property <bool> enabled: true;
     in property <length> font-size: 12px;
+    // Accessible labels of the ‹ area, the value and the › area (test
+    // hooks for steppers whose parts are separate controls).
+    in property <string> a11y-prev;
+    in property <string> a11y-value;
+    in property <string> a11y-next;
     callback step(int);
     callback value-clicked();
     height: root.size;
@@ -456,6 +461,8 @@ export component Stepper inherits Rectangle {
     probe := Text { visible: false; text: root.template; font-family: Theme.family; font-size: root.font-size; font-weight: 600; letter-spacing: 1px; }
     Rectangle {
         x: 0; width: root.arrow;
+        accessible-role: button;
+        accessible-label: root.a11y-prev;
         background: prev.pressed ? Theme.plate-raised : prev.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : transparent;
         Glyph { x: (parent.width - 10px) / 2; y: (parent.height - 10px) / 2; kind: "prev"; tone: root.enabled ? Theme.bone-2 : Theme.bone-3; }
         prev := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.step(-1); } }
@@ -463,6 +470,9 @@ export component Stepper inherits Rectangle {
     VLine { x: root.arrow; height: parent.height; weight: 1px; tone: Theme.rule; }
     Rectangle {
         x: root.arrow + 1px; width: parent.width - 2 * root.arrow - 2px;
+        accessible-role: text;
+        accessible-label: root.a11y-value;
+        accessible-value: root.value;
         background: mid.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : transparent;
         Text {
             text: root.value;
@@ -476,6 +486,8 @@ export component Stepper inherits Rectangle {
     VLine { x: parent.width - root.arrow - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
     Rectangle {
         x: parent.width - root.arrow; width: root.arrow;
+        accessible-role: button;
+        accessible-label: root.a11y-next;
         background: next.pressed ? Theme.plate-raised : next.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : transparent;
         Glyph { x: (parent.width - 10px) / 2; y: (parent.height - 10px) / 2; kind: "next"; tone: root.enabled ? Theme.bone-2 : Theme.bone-3; }
         next := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.step(1); } }

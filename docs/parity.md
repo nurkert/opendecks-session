@@ -43,6 +43,36 @@ So `cargo test --workspace` stays green while the product is incomplete, but
 the tables can never silently rot: a renamed or deleted test breaks
 `features_toml_is_valid` immediately.
 
+## Headless UI suites (`od-ui`)
+
+The UI layer of SPEC §16.2–§16.4 runs in `crates/od-ui/src/ui_tests/`
+(part of `cargo test --workspace`; no display needed):
+
+| Module | What it does |
+|---|---|
+| `harness` | Temporary library (generated 120 BPM WAVs imported into the collection, a playlist, an Explorer root with a folder holding a file outside the collection, English UI, recordings in the temp dir), the real `App` window on Slint's testing backend (`i-slint-backend-testing`, one backend per test thread, mock time) with `AppConfig { null_audio, headless }`: the engine renders into a null host thread, no MIDI service, no update check, no stem model download. Elements are found by `accessible-label`; input (click, double-click, right-click, drag, wheel, keys, menu items) is dispatched at the element's centre and every action counts one step. `OPENDECKS_VOLUMES_DIR` / `OPENDECKS_DATA_DIR` point at a per-process temp dir. |
+| `views` | SPEC §16.3: for each size of `views.toml` (desktop, laptop, kiosk = the kiosk configuration at 800×480) and each view, a fresh app is opened in that view and each required element is checked: present (exactly once), visible, inside the window, no overlap within its region, order along the region axis, touch target ≥ `min_target` for interactive roles. Views the app cannot show are reported as unavailable. Writes `target/parity/views-<size>.{json,md}`. |
+| `flows` | SPEC §16.4: the six flows of `flows.toml`, driven through the window; the measured step count and whether the end state was reached go to `target/parity/flows/<id>.json`. |
+| `features` | Behaviour tests linked from `features.toml` (drag to deck, row menu, info panel, waveform zone and zoom, splitters, colour-blind / contrast, panel toggles, …). |
+
+Report-only by default: the view and flow tests assert what the app does
+(a flow's end state, a feature's behaviour) but not the parity targets;
+with `OD_PARITY_STRICT=1` every view must pass at every size and every
+flow must be achievable within its target. `parity check` reads
+`target/parity/` and adds labels present (%), views passing per size and
+the flow table; in strict mode failing views and flows are gaps.
+
+```sh
+cargo test -p od-ui --lib ui_tests -- --nocapture   # writes target/parity/
+cargo run -p od-parity --bin parity -- check
+```
+
+Context-menu items are native `MenuItem`s and cannot carry an accessible
+label; the view test maps `ctx.row.*` labels to their English titles
+(`MENU_ITEMS` in `ui_tests/views.rs`), listing only items that exist.
+Element debug info (needed by the testing backend's element search) is
+compiled into non-release builds (`crates/od-ui/build.rs`).
+
 ## Gap categories in the report
 
 - **In-scope features not done** — grouped by PARTIAL / ENGINE-ONLY / MISSING with priority.
@@ -199,7 +229,7 @@ in the normal test job. When the gap count reaches zero:
 1. Set `OD_PARITY_STRICT: "1"` in the `env` of the test job (makes
    `feature_set_complete` fail on any gap) and remove `continue-on-error`
    from the `parity` job, passing `--strict`.
-2. Add the headless view suite (`od-ui`, Slint testing backend, driven by
-   `views.toml`) and the flow UI tests; link each flow's `ui_test`.
+2. The headless view suite and the flow UI tests exist (see above); the
+   parity job runs them before the report.
 3. From then on a feature can only be marked `done` together with its tests,
    and a regression in any linked test fails CI.

@@ -109,6 +109,8 @@ export component SamplerPanel inherits Rectangle {
                 spacing: 3px;
                 Caps { text: @tr("BANK"); font-size: 9px; vertical-alignment: center; width: 34px; }
                 for b in 4: Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.bank == b;
+                    accessible-label: "sampler.bank\{b + 1}";
                     size: 26px; y: 3px; horizontal-stretch: 1;
                     label: b + 1; on: root.s.bank == b; tone: Theme.w546;
                     tooltip: @tr("Sampler bank {}", b + 1);
@@ -121,12 +123,16 @@ export component SamplerPanel inherits Rectangle {
                 spacing: 3px;
                 Rectangle { width: 34px; }
                 Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.quantize;
+                    accessible-label: "sampler.quantize";
                     size: 26px; y: 3px; horizontal-stretch: 1;
                     label: @tr("QUANT"); on: root.s.quantize; tone: Theme.attention;
                     tooltip: @tr("Quantise: pads start on the next beat of the master tempo");
                     clicked => { root.quantize(); }
                 }
                 Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.cue;
+                    accessible-label: "sampler.cue";
                     size: 26px; y: 3px; horizontal-stretch: 1;
                     label: "CUE"; on: root.s.cue; tone: Theme.attention;
                     tooltip: @tr("Sampler to the headphones");
@@ -138,6 +144,8 @@ export component SamplerPanel inherits Rectangle {
                 spacing: 3px;
                 Caps { text: "SEQ"; font-size: 9px; vertical-alignment: center; width: 34px; }
                 Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.seq-playing;
+                    accessible-label: "sampler.seq.play";
                     size: 24px; horizontal-stretch: 1;
                     label: root.s.seq-playing ? @tr("STOP") : @tr("PLAY"); on: root.s.seq-playing; tone: Theme.live;
                     tooltip: @tr("Start / stop the step sequencer (locked to the master beat)");
@@ -145,12 +153,16 @@ export component SamplerPanel inherits Rectangle {
                     clicked => { root.seq-play(); }
                 }
                 Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.seq-recording;
+                    accessible-label: "sampler.seq.rec";
                     size: 24px; horizontal-stretch: 1;
                     label: "REC"; on: root.s.seq-recording; tone: Theme.fault;
                     tooltip: @tr("Record pads into the pattern while the sequencer plays");
                     clicked => { root.seq-record(); }
                 }
                 Toggle {
+                    accessible-role: button;
+                    accessible-label: "sampler.seq.erase";
                     size: 24px; width: 30px;
                     label: "CLR";
                     tooltip: @tr("Clear the selected slot's pattern");
@@ -166,6 +178,9 @@ export component SamplerPanel inherits Rectangle {
                 height: 2 * root.row-h + root.gap;
                 property <length> w: (self.width - 7 * root.gap) / 8;
                 for p[i] in root.pads: SamplerPad {
+                    accessible-role: button;
+                    accessible-label: "sampler.slot\{p.pad}";
+                    accessible-value: p.loaded ? p.name : "";
                     x: Math.mod(i, 8) * (parent.w + root.gap);
                     y: Math.floor(i / 8) * (root.row-h + root.gap);
                     width: parent.w; height: root.row-h;
@@ -217,7 +232,10 @@ export component SamplerPanel inherits Rectangle {
                         font-family: Theme.family; font-size: 12px; font-weight: 600;
                         color: root.s.selected-loaded ? Theme.bone : Theme.bone-3; overflow: elide;
                     }
-                    Caps { text: root.s.selected-bpm == "" ? "" : root.s.selected-bpm + " BPM"; font-size: 9px; }
+                    Caps {
+                        accessible-role: text; accessible-label: "sampler.bpm"; accessible-value: root.s.selected-bpm;
+                        text: root.s.selected-bpm == "" ? "" : root.s.selected-bpm + " BPM"; font-size: 9px;
+                    }
                 }
             }
             HorizontalLayout {
@@ -229,7 +247,8 @@ export component SamplerPanel inherits Rectangle {
                     tooltip: @tr("Loop: repeats until stopped"); clicked => { root.mode(1); } }
                 Toggle { size: 26px; y: 3px; horizontal-stretch: 1; label: @tr("GATE"); on: root.s.selected-mode == 2; tone: Theme.w486; enabled: root.s.selected-loaded;
                     tooltip: @tr("Gate: plays only while the pad is held"); clicked => { root.mode(2); } }
-                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; label: "SYNC"; on: root.s.selected-sync; tone: Theme.w486; enabled: root.s.selected-loaded && root.s.selected-bpm != "";
+                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.selected-sync; accessible-label: "sampler.bpm-sync";
+                    label: "SYNC"; on: root.s.selected-sync; tone: Theme.w486; enabled: root.s.selected-loaded && root.s.selected-bpm != "";
                     tooltip: @tr("Sync the sample to the master tempo"); clicked => { root.sync(); } }
             }
             HorizontalLayout {
@@ -248,6 +267,7 @@ export component SamplerPanel inherits Rectangle {
             HorizontalLayout {
                 spacing: 8px;
                 Knob {
+                    accessible-role: slider; accessible-label: "sampler.gain"; accessible-value: root.s.selected-gain;
                     label: @tr("GAIN"); size: 26px; minimum: 0; maximum: 2; default-value: 1;
                     value: root.s.selected-gain; tone: Theme.w546;
                     tooltip: @tr("Gain of the selected slot");

@@ -27,6 +27,7 @@ mod format;
 mod fx;
 mod import;
 mod keymap;
+mod lighting;
 mod mixer;
 mod models;
 mod pads;
@@ -41,6 +42,9 @@ mod smart_text;
 mod state;
 mod update;
 mod workers;
+
+#[cfg(test)]
+mod ui_tests;
 
 pub use app::App;
 pub use settings::{Overrides, library_path};

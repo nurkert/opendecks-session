@@ -29,11 +29,17 @@ component InfoField inherits VerticalLayout {
     in property <string> label;
     in property <string> value;
     in property <bool> editable: true;
+    // Accessible label of the value (`info.<field>`).
+    in property <string> field;
     callback save(string);
     spacing: 2px;
     Caps { text: root.label; font-size: 10px; }
-    if root.editable: Field { height: 28px; text: root.value; accepted(t) => { root.save(t); } }
+    if root.editable: Field {
+        accessible-label: root.field; accessible-role: text-input; accessible-value: self.text;
+        height: 28px; text: root.value; accepted(t) => { root.save(t); }
+    }
     if !root.editable: Text {
+        accessible-label: root.field; accessible-role: text; accessible-value: root.value;
         text: root.value == "" ? "—" : root.value;
         font-family: Theme.family; font-size: 13px; color: Theme.bone-2; wrap: word-wrap;
     }
@@ -57,25 +63,25 @@ export component InfoPanel inherits Rectangle {
             padding: 14px;
             spacing: 10px;
             Caps { text: @tr("TRACK INFO"); color: Theme.bone-2; }
-            InfoField { label: @tr("TITLE"); value: root.info.title; editable: !root.info.read-only; save(v) => { root.edit("title", v); } }
-            InfoField { label: @tr("ARTIST"); value: root.info.artist; editable: !root.info.read-only; save(v) => { root.edit("artist", v); } }
-            InfoField { label: @tr("ALBUM"); value: root.info.album; editable: !root.info.read-only; save(v) => { root.edit("album", v); } }
-            InfoField { label: @tr("GENRE"); value: root.info.genre; editable: !root.info.read-only; save(v) => { root.edit("genre", v); } }
-            InfoField { label: @tr("LABEL"); value: root.info.label; editable: !root.info.read-only; save(v) => { root.edit("label", v); } }
-            InfoField { label: @tr("REMIXER"); value: root.info.remixer; editable: !root.info.read-only; save(v) => { root.edit("remixer", v); } }
-            InfoField { label: @tr("COMPOSER"); value: root.info.composer; editable: !root.info.read-only; save(v) => { root.edit("composer", v); } }
-            InfoField { label: @tr("YEAR"); value: root.info.year; editable: !root.info.read-only; save(v) => { root.edit("year", v); } }
-            InfoField { label: @tr("COMMENT"); value: root.info.comment; editable: !root.info.read-only; save(v) => { root.edit("comment", v); } }
+            InfoField { field: "info.title"; label: @tr("TITLE"); value: root.info.title; editable: !root.info.read-only; save(v) => { root.edit("title", v); } }
+            InfoField { field: "info.artist"; label: @tr("ARTIST"); value: root.info.artist; editable: !root.info.read-only; save(v) => { root.edit("artist", v); } }
+            InfoField { field: "info.album"; label: @tr("ALBUM"); value: root.info.album; editable: !root.info.read-only; save(v) => { root.edit("album", v); } }
+            InfoField { field: "info.genre"; label: @tr("GENRE"); value: root.info.genre; editable: !root.info.read-only; save(v) => { root.edit("genre", v); } }
+            InfoField { field: "info.label"; label: @tr("LABEL"); value: root.info.label; editable: !root.info.read-only; save(v) => { root.edit("label", v); } }
+            InfoField { field: "info.remixer"; label: @tr("REMIXER"); value: root.info.remixer; editable: !root.info.read-only; save(v) => { root.edit("remixer", v); } }
+            InfoField { field: "info.composer"; label: @tr("COMPOSER"); value: root.info.composer; editable: !root.info.read-only; save(v) => { root.edit("composer", v); } }
+            InfoField { field: "info.year"; label: @tr("YEAR"); value: root.info.year; editable: !root.info.read-only; save(v) => { root.edit("year", v); } }
+            InfoField { field: "info.comment"; label: @tr("COMMENT"); value: root.info.comment; editable: !root.info.read-only; save(v) => { root.edit("comment", v); } }
             HLine { tone: Theme.rule; }
             HorizontalLayout {
                 spacing: 12px;
-                InfoField { label: "BPM"; value: root.info.bpm; editable: false; }
-                InfoField { label: @tr("KEY"); value: root.info.key; editable: false; }
-                InfoField { label: @tr("TIME"); value: root.info.time; editable: false; }
+                InfoField { field: "info.bpm"; label: "BPM"; value: root.info.bpm; editable: false; }
+                InfoField { field: "info.key"; label: @tr("KEY"); value: root.info.key; editable: false; }
+                InfoField { field: "info.time"; label: @tr("TIME"); value: root.info.time; editable: false; }
             }
-            InfoField { label: @tr("ADDED"); value: root.info.added; editable: false; }
-            InfoField { label: @tr("PLAYS"); value: root.info.plays; editable: false; }
-            InfoField { label: @tr("FILE"); value: root.info.path; editable: false; }
+            InfoField { field: "info.added"; label: @tr("ADDED"); value: root.info.added; editable: false; }
+            InfoField { field: "info.play-count"; label: @tr("PLAYS"); value: root.info.plays; editable: false; }
+            InfoField { field: "info.path"; label: @tr("FILE"); value: root.info.path; editable: false; }
         }
     }
 }

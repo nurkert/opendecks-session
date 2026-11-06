@@ -34,6 +34,7 @@ od-recorder.workspace = true
 od-stems = { workspace = true, default-features = false }
 od-i18n.workspace = true
 od-update.workspace = true
+od-lighting.workspace = true
 od-import-rekordbox.workspace = true
 serde_json.workspace = true
 serde.workspace = true
@@ -43,6 +44,10 @@ symphonia.workspace = true
 
 [dev-dependencies]
 tempfile.workspace = true
+# Headless UI tests: the Slint testing backend (must match the slint version).
+i-slint-backend-testing = "=1.18.1"
+hound = "3"
+od-parity = { path = "../od-parity" }
 
 [build-dependencies]
 slint-build = "1.18"

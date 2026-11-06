@@ -46,16 +46,17 @@ pub(crate) fn arm(app: &App, on: bool) {
 /// Master level above which the automatic start fires (about −40 dBFS).
 const SOUND_THRESHOLD: f32 = 0.01;
 
-/// Whether ffmpeg is available for FLAC / MP3.
+/// FLAC and MP3 are encoded natively (od-recorder), so they are always
+/// available.
 pub(crate) fn encoder_available() -> bool {
-    std::process::Command::new("ffmpeg").arg("-version").stdout(std::process::Stdio::null()).stderr(std::process::Stdio::null()).status().is_ok_and(|s| s.success())
+    true
 }
 
-/// The ffmpeg runs for a recording format: (extension, extra arguments).
-pub(crate) fn conversions(format: &str) -> Vec<(&'static str, &'static [&'static str])> {
+/// The extra files a recording format produces after the WAV.
+pub(crate) fn conversions(format: &str) -> Vec<&'static str> {
     match format {
-        "flac" => vec![("flac", &["-c:a", "flac"])],
-        "wav+mp3" => vec![("mp3", &["-c:a", "libmp3lame", "-b:a", "320k"])],
+        "flac" => vec!["flac"],
+        "wav+mp3" => vec!["mp3"],
         _ => Vec::new(),
     }
 }
@@ -75,16 +76,11 @@ fn finish(rec: od_recorder::Recording, settings: crate::settings::RecordingSetti
                 }
             }
         }
-        for (ext, args) in conversions(&settings.format) {
+        for ext in conversions(&settings.format) {
             let out = rec.path.with_extension(ext);
-            let ok = std::process::Command::new("ffmpeg")
-                .args(["-y", "-loglevel", "error", "-i"])
-                .arg(&rec.path)
-                .args(args)
-                .arg(&out)
-                .status()
-                .is_ok_and(|s| s.success());
-            if !ok {
+            let result = if ext == "flac" { od_recorder::wav_to_flac(&rec.path, &out) } else { od_recorder::wav_to_mp3(&rec.path, &out) };
+            if let Err(e) = result {
+                tracing::warn!(error = %e, "encoding the recording failed");
                 let _ = events.send(Message("Converting the recording failed — the WAV file is kept".into()));
                 continue;
             }
@@ -232,8 +228,8 @@ mod tests {
     #[test]
     fn formats_convert_with_ffmpeg() {
         assert!(conversions("wav").is_empty());
-        assert_eq!(conversions("flac")[0].0, "flac");
-        assert_eq!(conversions("wav+mp3")[0].0, "mp3");
+        assert_eq!(conversions("flac"), vec!["flac"]);
+        assert_eq!(conversions("wav+mp3"), vec!["mp3"]);
     }
 
     #[test]

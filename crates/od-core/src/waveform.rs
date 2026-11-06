@@ -34,12 +34,14 @@ impl Waveform {
             .map(|i| {
                 let a = i * n / width;
                 let b = ((i + 1) * n / width).max(a + 1).min(n);
-                self.columns[a..b].iter().fold(WaveformColumn::default(), |acc, c| WaveformColumn {
-                    low: acc.low.max(c.low),
-                    mid: acc.mid.max(c.mid),
-                    high: acc.high.max(c.high),
-                    peak: acc.peak.max(c.peak),
-                })
+                self.columns[a..b]
+                    .iter()
+                    .fold(WaveformColumn::default(), |acc, c| WaveformColumn {
+                        low: acc.low.max(c.low),
+                        mid: acc.mid.max(c.mid),
+                        high: acc.high.max(c.high),
+                        peak: acc.peak.max(c.peak),
+                    })
             })
             .collect()
     }
@@ -54,11 +56,19 @@ mod tests {
         let w = Waveform {
             columns_per_second: 1.0,
             columns: (0..10)
-                .map(|i| WaveformColumn { low: i, mid: 0, high: 0, peak: i })
+                .map(|i| WaveformColumn {
+                    low: i,
+                    mid: 0,
+                    high: 0,
+                    peak: i,
+                })
                 .collect(),
         };
         let o = w.overview(5);
-        assert_eq!(o.iter().map(|c| c.peak).collect::<Vec<_>>(), vec![1, 3, 5, 7, 9]);
+        assert_eq!(
+            o.iter().map(|c| c.peak).collect::<Vec<_>>(),
+            vec![1, 3, 5, 7, 9]
+        );
         assert_eq!(w.overview(20).len(), 20);
     }
 }

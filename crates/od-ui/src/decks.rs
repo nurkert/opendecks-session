@@ -451,18 +451,28 @@ pub(crate) fn refresh_analysis(app: &App) {
 
 // ── Stems ───────────────────────────────────────────────────────────────
 
+#[cfg(test)]
+impl Decks {
+    /// A separation job was queued (the worker exists).
+    pub(crate) fn stems_requested(&self) -> bool {
+        self.stem_worker.is_some()
+    }
+}
+
 /// Queues stem separation of a loaded track (desktop profile only).
 #[cfg(feature = "separation")]
 fn request_stems(app: &App, track: TrackId, src: &TrackSource) {
     if app.state.borrow().config.lite {
         return;
     }
+    // Headless runs (UI tests) never download the model.
+    let fetch_model = !app.state.borrow().config.headless;
     let mut d = app.decks.borrow_mut();
     if d.stem_progress.contains_key(&track) {
         return;
     }
     let cache = d.stem_cache.clone();
-    let worker = d.stem_worker.get_or_insert_with(|| od_stems::StemWorker::spawn(cache, od_stems::StemWorkerOptions::default()));
+    let worker = d.stem_worker.get_or_insert_with(|| od_stems::StemWorker::spawn(cache, od_stems::StemWorkerOptions { fetch_model, ..Default::default() }));
     worker.enqueue(od_stems::StemJob { track, path: src.path.clone(), hash: src.hash.clone() });
     worker.prioritize(track);
     d.stem_progress.insert(track, 0.0);

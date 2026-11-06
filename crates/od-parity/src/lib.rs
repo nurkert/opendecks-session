@@ -11,6 +11,7 @@ pub mod discover;
 pub mod labels;
 pub mod matrix;
 pub mod model;
+pub mod ui_results;
 
 use std::path::{Path, PathBuf};
 
@@ -35,6 +36,8 @@ pub struct Inputs {
     pub flows: model::FlowsFile,
     pub tests: discover::TestIndex,
     pub ui_labels: std::collections::BTreeSet<String>,
+    /// Results of the headless UI suites (`od-ui`), if they have run.
+    pub ui_results: Option<ui_results::UiResults>,
 }
 
 impl Inputs {
@@ -45,10 +48,11 @@ impl Inputs {
             flows: model::load(&root.join(FLOWS))?,
             tests: discover::discover(root).map_err(|e| format!("test discovery: {e}"))?,
             ui_labels: labels::labels_in_ui_sources(root),
+            ui_results: ui_results::UiResults::load(root),
         })
     }
 
     pub fn report(&self) -> check::Report {
-        check::check(&self.features, &self.views, &self.flows, &self.tests, &self.ui_labels)
+        check::check(&self.features, &self.views, &self.flows, &self.tests, &self.ui_labels, self.ui_results.as_ref())
     }
 }

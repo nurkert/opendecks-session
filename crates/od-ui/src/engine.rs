@@ -11,6 +11,8 @@ use std::time::{Duration, Instant};
 pub(crate) struct EngineHost {
     pub engine: Option<Engine>,
     host: Option<od_audio_io::AudioHost>,
+    /// Audio rendered into nothing (headless tests, no audio device wanted).
+    null_host: Option<NullHost>,
     /// Device line or the reason audio is not running.
     pub message: String,
     timer: slint::Timer,
@@ -22,6 +24,7 @@ impl Default for EngineHost {
         Self {
             engine: None,
             host: None,
+            null_host: None,
             message: od_i18n::tr("Audio starts when you load a track").into(),
             timer: slint::Timer::default(),
             last_feedback: Instant::now(),
@@ -46,6 +49,10 @@ pub(crate) fn ensure_engine(app: &App) -> bool {
         return true;
     }
     let lite = app.state.borrow().config.lite;
+    if app.state.borrow().config.null_audio {
+        start_null(app, lite);
+        return true;
+    }
     let audio = app.state.borrow().settings.audio.clone();
     let mut cfg = audio_config(&audio, lite);
     if cfg.device.is_none() {
@@ -88,6 +95,64 @@ pub(crate) fn ensure_engine(app: &App) -> bool {
             false
         }
     }
+}
+
+/// A stand-in for the audio device: a thread that runs the engine processor
+/// in real time and discards the output. Everything else (decks, mixer,
+/// recorder tap) behaves as with a device, so the UI can be driven
+/// headlessly (UI tests, CI machines without audio).
+struct NullHost {
+    stop: std::sync::Arc<std::sync::atomic::AtomicBool>,
+    thread: Option<std::thread::JoinHandle<()>>,
+}
+
+impl Drop for NullHost {
+    fn drop(&mut self) {
+        self.stop.store(true, std::sync::atomic::Ordering::Relaxed);
+        if let Some(t) = self.thread.take() {
+            let _ = t.join();
+        }
+    }
+}
+
+const NULL_RATE: u32 = 48_000;
+const NULL_BLOCK: usize = 480;
+
+fn start_null(app: &App, lite: bool) {
+    let (mut engine, mut processor) = Engine::new(EngineConfig {
+        sample_rate: NULL_RATE,
+        max_block: 2048,
+        decks: decks::DECKS,
+        profile: if lite { Profile::Lite } else { Profile::Full },
+    });
+    if let Some(tap) = engine.take_record_tap() {
+        recorder::attach(app, tap, NULL_RATE);
+    }
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = stop.clone();
+    let thread = std::thread::Builder::new()
+        .name("od-null-audio".into())
+        .spawn(move || {
+            let mut master = vec![0.0f32; NULL_BLOCK * 2];
+            let mut phones = vec![0.0f32; NULL_BLOCK * 2];
+            let period = Duration::from_secs_f64(NULL_BLOCK as f64 / NULL_RATE as f64);
+            let mut next = Instant::now();
+            while !flag.load(std::sync::atomic::Ordering::Relaxed) {
+                processor.process(NULL_BLOCK, &mut od_engine::Outputs { master: &mut master, headphones: Some(&mut phones), booth: None });
+                next += period;
+                let now = Instant::now();
+                if next > now {
+                    std::thread::sleep(next - now);
+                } else {
+                    next = now;
+                }
+            }
+        })
+        .ok();
+    let mut h = app.engine.borrow_mut();
+    h.message = od_i18n::tr("No audio output (headless)").into();
+    h.engine = Some(engine);
+    h.null_host = Some(NullHost { stop, thread });
 }
 
 /// The audio configuration from Preferences > Audio (device `None` =

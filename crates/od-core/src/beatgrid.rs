@@ -43,7 +43,10 @@ impl Beatgrid {
             });
             i += 1;
         }
-        Self { beats, locked: false }
+        Self {
+            beats,
+            locked: false,
+        }
     }
 
     pub fn is_empty(&self) -> bool {

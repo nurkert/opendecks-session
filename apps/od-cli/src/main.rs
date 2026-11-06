@@ -20,6 +20,48 @@ struct Cli {
 }
 
 #[derive(Subcommand)]
+enum LightCmd {
+    /// Print patch, groups and outputs.
+    Show,
+    /// Patch a fixture: a built-in type (dimmer, rgb-par, rgbw-par,
+    /// moving-head, light-bar-8, strobe) or an Open Fixture Library .json.
+    Add {
+        name: String,
+        fixture: String,
+        #[arg(long)]
+        mode: Option<String>,
+        #[arg(long, default_value = "Wash")]
+        group: String,
+        #[arg(long, default_value_t = 0)]
+        universe: u16,
+        /// First DMX channel (default: next free).
+        #[arg(long)]
+        address: Option<u16>,
+        #[arg(long)]
+        invert_pan: bool,
+    },
+    /// Remove a fixture by name.
+    Remove { name: String },
+    /// Send a universe to Art-Net (address), sACN (universe) or an Enttec
+    /// DMX USB Pro (serial device).
+    Output {
+        universe: u16,
+        #[arg(long)]
+        artnet: Option<std::net::SocketAddr>,
+        #[arg(long)]
+        sacn: Option<u16>,
+        #[arg(long)]
+        enttec: Option<String>,
+    },
+    /// Run the automatic show against a simulated 128 BPM track that walks
+    /// through intro, build-up, chorus, breakdown and outro.
+    Test {
+        #[arg(long, default_value_t = 60)]
+        seconds: u32,
+    },
+}
+
+#[derive(Subcommand)]
 enum Cmd {
     /// Add all audio files below the given folders.
     Import { dirs: Vec<PathBuf> },
@@ -41,6 +83,14 @@ enum Cmd {
     XmlExport { file: PathBuf },
     /// Import a rekordbox XML library (tracks, cues, grids, playlists).
     XmlImport { file: PathBuf },
+    /// DMX lighting: edit the rig and run a test show.
+    Lighting {
+        /// Rig file (default: lighting.json in the app's data folder).
+        #[arg(long)]
+        rig: Option<PathBuf>,
+        #[command(subcommand)]
+        cmd: LightCmd,
+    },
     /// List duplicate tracks (same file, or same artist and title).
     Duplicates,
     /// Write the whole library (and with --audio the music) to one archive.
@@ -146,6 +196,10 @@ fn main() -> anyhow::Result<()> {
     if let Cmd::RekordboxSettings(a) = &cli.command {
         return rekordbox_settings_cmd(a);
     }
+    if let Cmd::Lighting { rig, cmd } = &cli.command {
+        let path = rig.clone().unwrap_or_else(|| od_library::data_dir().join("lighting.json"));
+        return lighting_cmd(&path, cmd);
+    }
     let path = cli.library.unwrap_or_else(Library::default_path);
     let mut lib = Library::open(&path).with_context(|| format!("opening {}", path.display()))?;
     match cli.command {
@@ -238,6 +292,7 @@ fn main() -> anyhow::Result<()> {
             let restored = Library::import_archive(&file, &dir)?;
             println!("restored {} tracks into {}", restored.track_count()?, dir.display());
         }
+        Cmd::Lighting { .. } => unreachable!("handled before the library opens"),
         Cmd::Duplicates => {
             let groups = lib.find_duplicates()?;
             for g in &groups {
@@ -539,6 +594,124 @@ fn rekordbox_settings_cmd(a: &RekordboxSettingsArgs) -> anyhow::Result<()> {
     if let Some(out) = &a.keymap_out {
         std::fs::write(out, s.keymap_toml()).with_context(|| format!("writing {}", out.display()))?;
         println!("\nKeymap written to {}", out.display());
+    }
+    Ok(())
+}
+
+fn lighting_cmd(path: &std::path::Path, cmd: &LightCmd) -> anyhow::Result<()> {
+    use od_lighting::{DeckMusic, FixtureDef, Lighting, OutputKind, Patched, RigConfig, Show};
+    let mut rig = RigConfig::load(path)?;
+    let save = |rig: &RigConfig| -> anyhow::Result<()> {
+        if let Some(dir) = path.parent() {
+            std::fs::create_dir_all(dir)?;
+        }
+        rig.save(path)?;
+        Ok(())
+    };
+    match cmd {
+        LightCmd::Show => {
+            println!("rig {}", path.display());
+            for f in &rig.patch.fixtures {
+                println!(
+                    "  U{} {:>3}-{:<3} {:<16} {:<12} {} {} ({})",
+                    f.universe + 1,
+                    f.address,
+                    f.address as usize + f.def.channels.len() - 1,
+                    f.name,
+                    f.group,
+                    f.def.manufacturer,
+                    f.def.model,
+                    f.def.mode
+                );
+            }
+            for (u, o) in &rig.outputs {
+                println!("  output U{} → {o:?}", u + 1);
+            }
+        }
+        LightCmd::Add { name, fixture, mode, group, universe, address, invert_pan } => {
+            let def = match FixtureDef::builtin(fixture) {
+                Some(d) => d,
+                None => {
+                    let json = std::fs::read_to_string(fixture).with_context(|| format!("reading {fixture}"))?;
+                    let maker = std::path::Path::new(fixture)
+                        .parent()
+                        .and_then(|p| p.file_name())
+                        .map(|n| n.to_string_lossy().into_owned())
+                        .unwrap_or_default();
+                    FixtureDef::from_ofl(&json, &maker, mode.as_deref())?
+                }
+            };
+            let len = def.channels.len() as u16;
+            let address = match address {
+                Some(a) => *a,
+                None => rig.patch.next_free(*universe, len).context("universe is full")?,
+            };
+            rig.patch.add(Patched {
+                name: name.clone(),
+                def,
+                universe: *universe,
+                address,
+                group: group.clone(),
+                invert_pan: *invert_pan,
+            })?;
+            save(&rig)?;
+            println!("patched {name} at U{} {address}", universe + 1);
+        }
+        LightCmd::Remove { name } => {
+            let before = rig.patch.fixtures.len();
+            rig.patch.fixtures.retain(|f| &f.name != name);
+            if rig.patch.fixtures.len() == before {
+                bail!("no fixture named {name}");
+            }
+            save(&rig)?;
+        }
+        LightCmd::Output { universe, artnet, sacn, enttec } => {
+            let kind = match (artnet, sacn, enttec) {
+                (Some(a), None, None) => OutputKind::ArtNet { target: *a, universe: *universe },
+                (None, Some(u), None) => OutputKind::Sacn { universe: *u },
+                (None, None, Some(d)) => OutputKind::EnttecPro { device: d.clone() },
+                _ => bail!("give exactly one of --artnet, --sacn, --enttec"),
+            };
+            rig.outputs.retain(|(u, _)| u != universe);
+            rig.outputs.push((*universe, kind));
+            rig.enabled = true;
+            save(&rig)?;
+        }
+        LightCmd::Test { seconds } => {
+            use od_core::PhraseKind::*;
+            // 16-bar phrases at 128 BPM.
+            let script = [Intro, Up, Chorus, Down, Up, Chorus, Outro];
+            let mut lighting = Lighting::new(rig.patch.clone(), Show::new(rig.settings.clone()));
+            for (u, kind) in &rig.outputs {
+                lighting.add_output(*u, kind.clone())?;
+            }
+            let fps = 40;
+            let started = std::time::Instant::now();
+            let mut last = None;
+            for frame in 0..seconds * fps {
+                let t = frame as f64 / fps as f64;
+                let beat = t * 128.0 / 60.0;
+                let phrase = (beat / 64.0) as usize % script.len();
+                let deck = DeckMusic {
+                    playing: true,
+                    bpm: 128.0,
+                    beat,
+                    phrase: Some(script[phrase]),
+                    phrase_progress: ((beat % 64.0) / 64.0) as f32,
+                    energy: 0.8,
+                    weight: 1.0,
+                    hue: 0.6,
+                    ..Default::default()
+                };
+                if last != Some(phrase) {
+                    println!("{:>6.1} s  {:?}", t, script[phrase]);
+                    last = Some(phrase);
+                }
+                lighting.tick(&[deck], 1.0 / fps as f32);
+                let due = started + std::time::Duration::from_secs_f64((frame + 1) as f64 / fps as f64);
+                std::thread::sleep(due.saturating_duration_since(std::time::Instant::now()));
+            }
+        }
     }
     Ok(())
 }

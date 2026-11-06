@@ -40,6 +40,17 @@ export component TreeItem inherits Rectangle {
     in property <TreeRow> item;
     in property <bool> selected;
     in property <bool> can-add;
+    // Carries the accessible label `browser.tree.node<id>` (off for the
+    // hidden copies the sidebar keeps per section).
+    in property <bool> labelled: true;
+    property <string> a11y: root.labelled ? "browser.tree.node\{root.item.id}" : "";
+    accessible-label: root.a11y;
+    accessible-role: list-item;
+    accessible-value: root.item.name;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-expandable: root.item.has-children;
+    accessible-expanded: root.item.expanded;
     callback clicked();
     callback toggled();
     callback add();
@@ -54,6 +65,8 @@ export component TreeItem inherits Rectangle {
     property <length> indent: 24px + root.item.depth * 14px;
 
     if root.item.has-children: Rectangle {
+        accessible-label: root.labelled ? root.a11y + ".expand" : ""; accessible-role: button;
+        accessible-checkable: true; accessible-checked: root.item.expanded;
         x: root.indent - 16px; y: (parent.height - 12px) / 2; width: 12px; height: 12px;
         Glyph { x: 2px; y: 2px; width: 8px; height: 8px; kind: root.item.expanded ? "minus" : "plus"; tone: Theme.bone-3; }
         TouchArea { clicked => { root.toggled(); } }
@@ -99,6 +112,7 @@ export component TreeItem inherits Rectangle {
     }
     touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
     if root.can-add && touch.has-hover && (root.item.kind == "playlist" || root.item.kind == "set"): Rectangle {
+        accessible-label: root.labelled ? root.a11y + ".add" : ""; accessible-role: button;
         x: parent.width - 30px; y: 3px; width: 26px; height: parent.height - 6px;
         background: Theme.plate-raised;
         border-width: 1px; border-color: Theme.live;

@@ -19,7 +19,8 @@ export component UpdateBar inherits Rectangle {
     height: 34px;
     background: Theme.ground-band;
     accessible-role: groupbox;
-    accessible-label: @tr("Update");
+    accessible-label: "app.update";
+    accessible-value: root.text;
 
     HLine { y: parent.height - self.height; width: parent.width; tone: Theme.rule; }
     if root.state == "installing": ProgressLine { x: 0; y: parent.height - 2px; width: parent.width; height: 2px; progress: root.progress; tone: Theme.live; }
@@ -38,14 +39,14 @@ export component UpdateBar inherits Rectangle {
             vertical-alignment: center;
             overflow: elide;
         }
-        if root.state == "available": PlateButton { compact: true; label: @tr("INSTALL NOW"); tone: Theme.attention; clicked => { root.act("install"); } }
-        if root.state == "available": PlateButton { compact: true; label: @tr("RELEASE NOTES"); clicked => { root.act("notes"); } }
-        if root.state == "available": PlateButton { compact: true; label: @tr("LATER"); clicked => { root.act("later"); } }
-        if root.state == "available": PlateButton { compact: true; label: @tr("SKIP THIS VERSION"); clicked => { root.act("skip"); } }
-        if root.state == "installing": PlateButton { compact: true; label: @tr("CANCEL"); clicked => { root.act("cancel"); } }
-        if root.state == "ready": PlateButton { compact: true; label: @tr("RESTART NOW"); tone: Theme.live; clicked => { root.act("restart"); } }
-        if root.state == "ready": PlateButton { compact: true; label: @tr("LATER"); clicked => { root.act("later"); } }
-        if root.state == "info" || root.state == "error": PlateButton { compact: true; label: @tr("RELEASE PAGE"); clicked => { root.act("page"); } }
-        if root.state == "info" || root.state == "error": PlateButton { compact: true; label: @tr("CLOSE"); clicked => { root.act("close"); } }
+        if root.state == "available": PlateButton { accessible-label: "app.update.install"; accessible-role: button; compact: true; label: @tr("INSTALL NOW"); tone: Theme.attention; clicked => { root.act("install"); } }
+        if root.state == "available": PlateButton { accessible-label: "app.update.notes"; accessible-role: button; compact: true; label: @tr("RELEASE NOTES"); clicked => { root.act("notes"); } }
+        if root.state == "available": PlateButton { accessible-label: "app.update.later"; accessible-role: button; compact: true; label: @tr("LATER"); clicked => { root.act("later"); } }
+        if root.state == "available": PlateButton { accessible-label: "app.update.skip"; accessible-role: button; compact: true; label: @tr("SKIP THIS VERSION"); clicked => { root.act("skip"); } }
+        if root.state == "installing": PlateButton { accessible-label: "app.update.cancel"; accessible-role: button; compact: true; label: @tr("CANCEL"); clicked => { root.act("cancel"); } }
+        if root.state == "ready": PlateButton { accessible-label: "app.update.restart"; accessible-role: button; compact: true; label: @tr("RESTART NOW"); tone: Theme.live; clicked => { root.act("restart"); } }
+        if root.state == "ready": PlateButton { accessible-label: "app.update.later"; accessible-role: button; compact: true; label: @tr("LATER"); clicked => { root.act("later"); } }
+        if root.state == "info" || root.state == "error": PlateButton { accessible-label: "app.update.page"; accessible-role: button; compact: true; label: @tr("RELEASE PAGE"); clicked => { root.act("page"); } }
+        if root.state == "info" || root.state == "error": PlateButton { accessible-label: "app.update.close"; accessible-role: button; compact: true; label: @tr("CLOSE"); clicked => { root.act("close"); } }
     }
 }

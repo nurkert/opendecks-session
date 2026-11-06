@@ -23,11 +23,25 @@ pub struct AppConfig {
     /// disables full screen in kiosk mode.
     pub window: Option<(u32, u32)>,
     pub overrides: Overrides,
+    /// Run the engine without an audio device (output discarded): headless
+    /// UI tests and machines without audio. Also `OPENDECKS_NULL_AUDIO=1`.
+    pub null_audio: bool,
+    /// Headless run (UI tests): no controller (MIDI) service and no
+    /// automatic update check.
+    pub headless: bool,
 }
 
 impl AppConfig {
     pub fn new(library_path: PathBuf) -> Self {
-        Self { library_path, lite: false, kiosk: false, window: None, overrides: Overrides::default() }
+        Self {
+            library_path,
+            lite: false,
+            kiosk: false,
+            window: None,
+            overrides: Overrides::default(),
+            null_audio: std::env::var_os("OPENDECKS_NULL_AUDIO").is_some_and(|v| v == "1"),
+            headless: false,
+        }
     }
 }
 

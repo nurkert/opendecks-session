@@ -18,6 +18,7 @@ od-devices.workspace = true
 od-format-native.workspace = true
 od-format-pioneer.workspace = true
 od-import-rekordbox.workspace = true
+od-lighting.workspace = true
 od-stems = { workspace = true, features = ["separation"] }
 anyhow.workspace = true
 clap.workspace = true

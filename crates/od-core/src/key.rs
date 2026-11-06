@@ -24,11 +24,16 @@ pub enum KeyNotation {
     Musical,
 }
 
-const NAMES: [&str; 12] = ["C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B"];
+const NAMES: [&str; 12] = [
+    "C", "Db", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "B",
+];
 
 impl MusicalKey {
     pub fn new(tonic: u8, mode: Mode) -> Self {
-        Self { tonic: tonic % 12, mode }
+        Self {
+            tonic: tonic % 12,
+            mode,
+        }
     }
 
     /// Camelot wheel number 1..=12 (A = minor, B = major).
@@ -165,19 +170,46 @@ mod tests {
 
     #[test]
     fn camelot_reference_points() {
-        assert_eq!(MusicalKey::new(0, Mode::Major).format(KeyNotation::Camelot), "8B");
-        assert_eq!(MusicalKey::new(9, Mode::Minor).format(KeyNotation::Camelot), "8A");
-        assert_eq!(MusicalKey::new(7, Mode::Major).format(KeyNotation::Camelot), "9B");
-        assert_eq!(MusicalKey::new(5, Mode::Major).format(KeyNotation::Camelot), "7B");
-        assert_eq!(MusicalKey::new(11, Mode::Major).format(KeyNotation::Camelot), "1B");
-        assert_eq!(MusicalKey::new(8, Mode::Minor).format(KeyNotation::Camelot), "1A");
+        assert_eq!(
+            MusicalKey::new(0, Mode::Major).format(KeyNotation::Camelot),
+            "8B"
+        );
+        assert_eq!(
+            MusicalKey::new(9, Mode::Minor).format(KeyNotation::Camelot),
+            "8A"
+        );
+        assert_eq!(
+            MusicalKey::new(7, Mode::Major).format(KeyNotation::Camelot),
+            "9B"
+        );
+        assert_eq!(
+            MusicalKey::new(5, Mode::Major).format(KeyNotation::Camelot),
+            "7B"
+        );
+        assert_eq!(
+            MusicalKey::new(11, Mode::Major).format(KeyNotation::Camelot),
+            "1B"
+        );
+        assert_eq!(
+            MusicalKey::new(8, Mode::Minor).format(KeyNotation::Camelot),
+            "1A"
+        );
     }
 
     #[test]
     fn open_key_reference_points() {
-        assert_eq!(MusicalKey::new(0, Mode::Major).format(KeyNotation::OpenKey), "1d");
-        assert_eq!(MusicalKey::new(9, Mode::Minor).format(KeyNotation::OpenKey), "1m");
-        assert_eq!(MusicalKey::new(7, Mode::Major).format(KeyNotation::OpenKey), "2d");
+        assert_eq!(
+            MusicalKey::new(0, Mode::Major).format(KeyNotation::OpenKey),
+            "1d"
+        );
+        assert_eq!(
+            MusicalKey::new(9, Mode::Minor).format(KeyNotation::OpenKey),
+            "1m"
+        );
+        assert_eq!(
+            MusicalKey::new(7, Mode::Major).format(KeyNotation::OpenKey),
+            "2d"
+        );
     }
 
     #[test]
@@ -185,12 +217,19 @@ mod tests {
         for tonic in 0..12 {
             for mode in [Mode::Major, Mode::Minor] {
                 let k = MusicalKey::new(tonic, mode);
-                for n in [KeyNotation::Camelot, KeyNotation::OpenKey, KeyNotation::Musical] {
+                for n in [
+                    KeyNotation::Camelot,
+                    KeyNotation::OpenKey,
+                    KeyNotation::Musical,
+                ] {
                     assert_eq!(MusicalKey::parse(&k.format(n)), Some(k), "{k:?} {n:?}");
                 }
             }
         }
-        assert_eq!(MusicalKey::parse("F# minor"), Some(MusicalKey::new(6, Mode::Minor)));
+        assert_eq!(
+            MusicalKey::parse("F# minor"),
+            Some(MusicalKey::new(6, Mode::Minor))
+        );
         assert_eq!(MusicalKey::parse("x"), None);
     }
 

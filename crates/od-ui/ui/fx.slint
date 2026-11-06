@@ -104,6 +104,9 @@ component FxUnit inherits Rectangle {
             spacing: 6px;
             alignment: center;
             Stepper {
+                accessible-role: combobox;
+                accessible-label: "fx.unit\{root.u.unit}.slot1.type";
+                accessible-value: self.value;
                 value: FxNames.beat[root.u.kind]; template: "VINYL BRAKE"; lit: root.u.on; tone: root.tone;
                 tooltip: @tr("Beat FX: previous / next effect — click the name for the list");
                 command: "fx" + root.u.unit + ".next";
@@ -114,6 +117,9 @@ component FxUnit inherits Rectangle {
                 spacing: 6px;
                 if !root.narrow: Caps { text: @tr("BEAT"); font-size: 9px; vertical-alignment: center; width: 30px; }
                 Stepper {
+                    a11y-prev: "fx.unit\{root.u.unit}.slot1.beats-down";
+                    a11y-value: "fx.unit\{root.u.unit}.slot1.beats";
+                    a11y-next: "fx.unit\{root.u.unit}.slot1.beats-up";
                     horizontal-stretch: 1;
                     value: root.u.beats; template: "1/16";
                     tooltip: @tr("Beat length: shorter / longer");
@@ -129,6 +135,8 @@ component FxUnit inherits Rectangle {
                 spacing: 3px;
                 if !root.narrow: Caps { text: "CH"; font-size: 9px; vertical-alignment: center; width: 22px; }
                 for c in root.channels: Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.target == c + 1;
+                    accessible-label: "fx.unit\{root.u.unit}.assign.ch\{c + 1}";
                     size: 24px; width: 26px;
                     label: c + 1;
                     on: root.u.target == c + 1;
@@ -137,6 +145,8 @@ component FxUnit inherits Rectangle {
                     clicked => { root.target(c + 1); }
                 }
                 Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.target == 0;
+                    accessible-label: "fx.unit\{root.u.unit}.assign.master";
                     size: 24px; width: 34px;
                     label: "M"; on: root.u.target == 0; tone: Theme.bone-2;
                     tooltip: @tr("Insert the effect on the master output");
@@ -159,6 +169,9 @@ component FxUnit inherits Rectangle {
             }
         }
         if !root.tiny: Knob {
+            accessible-role: slider;
+            accessible-label: "fx.unit\{root.u.unit}.slot1.depth";
+            accessible-value: root.u.level;
             label: @tr("LEVEL"); size: 28px; minimum: 0; maximum: 1; default-value: 0.5;
             value: root.u.level; tone: root.tone;
             tooltip: @tr("Level / depth of the effect");
@@ -176,12 +189,16 @@ component FxUnit inherits Rectangle {
             spacing: 6px;
             alignment: center;
             Toggle {
+                accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.on;
+                accessible-label: "fx.unit\{root.u.unit}.on";
                 size: 24px; label: "ON"; on: root.u.on; tone: root.tone;
                 tooltip: @tr("Beat FX on / off");
                 command: "fx" + root.u.unit + ".on";
                 clicked => { root.on(); }
             }
             Toggle {
+                accessible-role: button;
+                accessible-label: "fx.unit\{root.u.unit}.tap";
                 size: 24px; label: "TAP"; on: root.u.tapped; tone: Theme.w486;
                 tooltip: @tr("Tap the tempo of the effect; AUTO returns to the deck tempo");
                 command: "fx" + root.u.unit + ".tap";

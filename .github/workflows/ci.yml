@@ -44,6 +44,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
+      - run: packaging/linux/install-build-deps.sh
+      # Headless UI suites (Slint testing backend, no display): view
+      # completeness at every size and the superiority flows. Report-only
+      # unless OD_PARITY_STRICT=1; they write target/parity/ for the report.
+      - name: View completeness and flows
+        run: cargo test --locked -p od-ui --lib ui_tests -- --nocapture
       - name: Parity gap report
         run: |
           cargo run --locked -p od-parity --bin parity -- check --out parity-report.md
@@ -54,7 +60,9 @@ jobs:
         if: always()
         with:
           name: parity-report
-          path: parity-report.md
+          path: |
+            parity-report.md
+            target/parity/
           if-no-files-found: warn
 
   kiosk:

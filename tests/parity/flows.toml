@@ -26,6 +26,7 @@ opendecks_path = [
   "double-click the file (loads into the free deck, imports and analyses it in the background)",
 ]
 labels = ["browser.rail.explorer", "browser.tree.home", "browser.rows", "deck1.title"]
+ui_test = "od-ui::ui_tests::flows::load_from_explorer"
 note = "Start: Perform, 2 decks, browser on Collection, deck 1 empty; the file sits one level below the user folder."
 
 [[flow]]
@@ -49,6 +50,7 @@ opendecks_path = [
   "press Return",
 ]
 labels = ["player1.hot-cue.A", "player1.cue-list.rows", "player1.cue-list.tab.hot-cue"]
+ui_test = "od-ui::ui_tests::flows::set_and_name_hot_cue"
 note = "Start: Prepare, 1 player, track loaded and paused. Naming in other software was not observed (inferred from the cue list layout)."
 
 [[flow]]
@@ -67,6 +69,7 @@ opendecks_path = [
   "click the playlist in the menu's inline 'Add to' group (recent playlists; the rest in a submenu)",
 ]
 labels = ["browser.rows", "ctx.row.add-to-playlist"]
+ui_test = "od-ui::ui_tests::flows::add_to_playlist"
 note = "Start: browser on Collection, track selected, the playlist was used before."
 
 [[flow]]
@@ -82,6 +85,7 @@ reference_path = [
 target_steps = 0
 opendecks_path = []
 labels = ["browser.tree.devices", "status.activity"]
+ui_test = "od-ui::ui_tests::flows::sync_stick"
 note = "Start: stick registered and plugged in, a track of the playlist got a new hot cue. OpenDecks syncs automatically ~2 s after the edit (SPEC §8.2); the test asserts the stick content and the visible status without any input."
 
 [[flow]]
@@ -93,6 +97,7 @@ reference_path = ["click REC"]
 target_steps = 1
 opendecks_path = ["click REC in the recording section (or the controller's REC)"]
 labels = ["rec.toggle"]
+ui_test = "od-ui::ui_tests::flows::start_recording"
 note = "Start: Perform default layout, recording section shown."
 
 [[flow]]
@@ -105,4 +110,5 @@ reference_path = ["click VOCAL in the deck's stem strip"]
 target_steps = 1
 opendecks_path = ["click VOCAL in the deck's stem strip (separation started on load; the strip shows SEPARATING until ready)"]
 labels = ["deck1.stem.vocal"]
+ui_test = "od-ui::ui_tests::flows::separate_stems"
 note = "Start: track loaded on deck 1, never separated, model present."

@@ -12,6 +12,7 @@
 
 use crate::discover::TestIndex;
 use crate::labels;
+use crate::ui_results::UiResults;
 use crate::model::{EXCLUSIONS, FeaturesFile, FlowsFile, Scope, Status, ViewsFile};
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write as _;
@@ -40,6 +41,13 @@ pub struct Report {
     pub view_labels: usize,
     pub labels_in_ui: usize,
     pub flows: usize,
+    /// Headless UI suite results (None = not run).
+    pub ui: Option<UiResults>,
+    /// Distinct required labels found by the view test.
+    pub labels_found: usize,
+    /// Failing (view @ size) pairs and flows, from the UI suites.
+    pub views_failing: Vec<String>,
+    pub flows_failing: Vec<String>,
 }
 
 impl Report {
@@ -49,7 +57,7 @@ impl Report {
 
     /// Number of gaps that strict mode fails on.
     pub fn gap_count(&self) -> usize {
-        self.not_done.len() + self.done_without_test.len() + self.flows_without_test.len()
+        self.not_done.len() + self.done_without_test.len() + self.flows_without_test.len() + self.views_failing.len() + self.flows_failing.len()
     }
 }
 
@@ -67,6 +75,7 @@ pub fn check(
     flows: &FlowsFile,
     tests: &TestIndex,
     ui_labels: &BTreeSet<String>,
+    ui: Option<&UiResults>,
 ) -> Report {
     let mut r = Report {
         tests_known: tests.len(),
@@ -78,6 +87,13 @@ pub fn check(
     check_features(features, tests, &mut r);
     check_views(views, features, ui_labels, &mut r);
     check_flows(flows, views, tests, &mut r);
+    if let Some(ui) = ui {
+        let required: BTreeSet<&str> = views.views.iter().flat_map(|v| v.regions.iter().flat_map(|r| r.elements.iter().map(String::as_str))).collect();
+        r.labels_found = ui.labels_present().intersection(&required).count();
+        r.views_failing = ui.failing_views();
+        r.flows_failing = ui.failing_flows();
+        r.ui = Some(ui.clone());
+    }
     r
 }
 
@@ -451,6 +467,7 @@ pub fn render(r: &Report, strict: bool) -> String {
             format!(": {}", r.flows_without_test.iter().map(|f| format!("`{f}`")).collect::<Vec<_>>().join(", "))
         }
     );
+    render_ui(r, &mut s);
     if !r.warnings.is_empty() {
         let _ = writeln!(s, "\n## Warnings ({})\n", r.warnings.len());
         for w in &r.warnings {
@@ -458,4 +475,66 @@ pub fn render(r: &Report, strict: bool) -> String {
         }
     }
     s
+}
+
+/// The headless UI suite results (view completeness, flows).
+fn render_ui(r: &Report, s: &mut String) {
+    let _ = writeln!(s, "\n## Headless UI suites (SPEC §16.3, §16.4)\n");
+    let Some(ui) = &r.ui else {
+        let _ = writeln!(s, "Not run: `cargo test -p od-ui ui_tests` writes `target/parity/` (views and flows).");
+        return;
+    };
+    let _ = writeln!(
+        s,
+        "- Labels present: {} of {} required labels ({} %) found on screen by the view test.",
+        r.labels_found,
+        r.view_labels,
+        pct(r.labels_found, r.view_labels)
+    );
+    for size in &ui.sizes {
+        let pass = size.views.iter().filter(|v| v.passed).count();
+        let avail = size.views.iter().filter(|v| v.available).count();
+        let _ = writeln!(
+            s,
+            "- Views at {} ({}×{}): {} of {} pass; {} of them can be opened in the app.",
+            size.size,
+            size.width,
+            size.height,
+            pass,
+            size.views.len(),
+            avail
+        );
+    }
+    if !ui.sizes.is_empty() {
+        let _ = writeln!(s, "\n| View | {} |", ui.sizes.iter().map(|x| x.size.as_str()).collect::<Vec<_>>().join(" | "));
+        let _ = writeln!(s, "|---|{}", ui.sizes.iter().map(|_| "---|").collect::<String>());
+        let mut ids: Vec<&str> = Vec::new();
+        for size in &ui.sizes {
+            for v in &size.views {
+                if !ids.contains(&v.id.as_str()) {
+                    ids.push(&v.id);
+                }
+            }
+        }
+        for id in ids {
+            let cells: Vec<String> = ui
+                .sizes
+                .iter()
+                .map(|size| match size.views.iter().find(|v| v.id == id) {
+                    None => "—".into(),
+                    Some(v) if v.passed => "PASS".into(),
+                    Some(v) if !v.available => "n/a".into(),
+                    Some(v) => format!("{}/{} ({} issues)", v.present.len(), v.required, v.failures.len()),
+                })
+                .collect();
+            let _ = writeln!(s, "| `{id}` | {} |", cells.join(" | "));
+        }
+    }
+    if !ui.flows.is_empty() {
+        let _ = writeln!(s, "\n| Flow | Usual | Target | Measured | Result |\n|---|---:|---:|---:|---|");
+        for f in &ui.flows {
+            let res = if f.passed() { "PASS".to_string() } else if !f.achieved { format!("not achievable: {}", f.note) } else { format!("over target: {}", f.note) };
+            let _ = writeln!(s, "| `{}` | {} | {} | {} | {res} |", f.id, f.reference, f.target, f.steps);
+        }
+    }
 }

@@ -198,10 +198,9 @@ pub(crate) fn refresh(app: &App) {
         w.set_auto_split(s.recording.auto_split);
         w.set_silence_start(s.recording.silence_start);
         w.set_rec_note(
-            match (s.recording.format.as_str(), crate::recorder::encoder_available()) {
-                ("wav", _) => "",
-                (_, true) => od_i18n::tr("Recorded as WAV, then converted with ffmpeg when the recording stops."),
-                (_, false) => od_i18n::tr("Needs ffmpeg on the PATH; without it the recording stays a WAV file."),
+            match s.recording.format.as_str() {
+                "wav" => "",
+                _ => od_i18n::tr("Recorded as WAV, then encoded when the recording stops."),
             }
             .into(),
         );

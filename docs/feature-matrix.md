@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 115 DONE (56 %), 29 PARTIAL, 15 ENGINE-ONLY, 47 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 125 DONE (61 %), 24 PARTIAL, 24 ENGINE-ONLY, 33 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -60,11 +60,11 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Histories: own play history | PARTIAL | `tracks.rs::record_play` is only called while recording (`perform.rs::frame`); no history view | — | P2 |
 | Track preview (Prepare) | DONE | `perform.rs::toggle_preview` on a preview deck; Space key | — |  |
 | Loaded-on-deck indicator | DONE | `TrackRow.deck` | — |  |
-| Duplicate track check | MISSING | — | — | P3 |
+| Duplicate track check | ENGINE-ONLY | `od-library::duplicates` (same file content, same artist/title/length); `od-cli duplicates`; no browser view yet | 1 | P3 |
 | Import folder / files | DONE | `app.rs` `on_import_folder`, `od-cli import` | — |  |
 | rekordbox library + stick migration | DONE | `od-import-rekordbox`, `od-ui/src/import.rs` | 7 |  |
 | rekordbox preferences and keyboard shortcuts migration | ENGINE-ONLY | `crates/od-import-rekordbox/src/settings.rs`, `apps/od-cli/src/main.rs::rekordbox_settings_cmd`; Reader + mapping report (`od-cli rekordbox-settings`); applying to the preferences and an import-flow button wait for the persisted preferences; (SPEC §7) | 7 | P2 |
-| rekordbox XML / iTunes library import-export (compatibility) | MISSING | — | — | P3 |
+| rekordbox XML / iTunes library import-export (compatibility) | ENGINE-ONLY | rekordbox-compatible XML export/import (`od-import-rekordbox::xml`, `od-cli xml-export` / `xml-import`); no menu entry yet | 2 | P3 |
 | Missing files / relocate | DONE | `relocate.rs::check_missing/find_relocations`; `on_find_moved_files` | 1 |  |
 | Consolidate | ENGINE-ONLY | `relocate.rs::consolidate`; no UI | 1 | P3 |
 | Undo/redo with history | DONE (beyond the usual) | `journal.rs`; Cmd-Z / Shift-Cmd-Z in `app.rs::key` | 3 |  |
@@ -74,16 +74,16 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Browse from controller | PARTIAL | Rotate / press / back handled (`handle_action` `BrowseAction`); tree navigation, view toggle, shift-sort and related dropped | 1 | P2 |
 | Explorer: browse folders on disk and play directly | DONE | `crates/od-ui/src/explorer.rs::ExplorerState::rows`, `crates/od-ui/src/explorer.rs::open_folder`, `crates/od-ui/ui/sidebar.slint::ExplorerItem`; User-added roots (persisted in library meta) as a nested folder tree of any depth: sub-folders are listed lazily on expand/select, each probed one level so only expandable folders get a mark; hidden and player data folders are skipped. Selecting a folder expands it and lists its audio files; (SPEC §5.5; UX §2.2) | 5 |  |
 | Explorer: "Include subfolders" lists the files of a folder and all its sub-folders | DONE (beyond rekordbox) | `crates/od-ui/src/explorer.rs::list_files`, `crates/od-ui/src/explorer.rs::set_recursive`, `crates/od-ui/ui/app.slint`; Toggle in the folder list header (persisted as `explorer.recursive`); rekordbox lists only the folder itself. Depth-first, each folder by name, symlink loops followed once, capped at 32 levels / 20 000 files; (SPEC §5.5) | 3 |  |
-| Explorer: loading a file adds it to the collection and analyses it in the background | PARTIAL | `crates/od-ui/src/explorer.rs::start_import`, `crates/od-ui/src/explorer.rs::poll`; Implemented (`explorer.rs` `start_import` adds the file in the background via `workers::import_file`, `poll` wakes analysis and loads it); no automated test yet; (SPEC §5.5) | — | **P1** |
+| Explorer: loading a file adds it to the collection and analyses it in the background | DONE | `crates/od-ui/src/explorer.rs::start_import`, `crates/od-ui/src/explorer.rs::poll`; Loading a file from the Explorer adds it to the collection in the background (`workers::import_file`) and loads it; the flow test asserts the deck and the collection; (SPEC §5.5) | 1 |  |
 | Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings) | PARTIAL | `crates/od-ui/ui/rail.slint`; Rail with sections exists; Explorer, Histories, Related and Tag list sources missing; (UX §1.6, §4 P4.9) | — | P2 |
 | Re-orderable columns and multi-sort | MISSING | Fixed column order, one sort key (`browser/tracks.rs`); (SPEC §5.5) | — | P3 |
-| Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | PARTIAL | `crates/od-ui/src/decks.rs::free_deck`; Activate/double-click and controller load work; drag to deck and the context menu do not exist; (UX §2.1) | 1 | **P1** |
-| Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | PARTIAL | Done for list and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight; verified by driving real mouse events). Missing: drop from Finder, automated UI test. Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (loads unless the deck is playing and load lock is on); Finder/Explorer files are imported on drop.; (SPEC §5.5) | — | **P1** |
-| Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | PARTIAL | Context menu on rows: load to deck 1-4, add to playlist, colour, rating, analyse, show in file manager, remove from list. Missing: automated UI test; (UX §1.9) | — | P2 |
-| Info panel (track details beside the list) | MISSING | (SPEC §5.5; UX §1.6) | — | P2 |
+| Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | DONE | `crates/od-ui/src/decks.rs::free_deck`; Double-click / activate loads into a free deck, drag a row onto a deck, context menu Load to deck ▸ Deck n, controller load; all driven through the window by UI tests; (UX §2.1) | 3 |  |
+| Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | PARTIAL | List and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight), UI-tested (drag a row onto deck 2 loads it). Missing: drop from Finder; (SPEC §5.5) | 2 | **P1** |
+| Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | DONE | Right-click a row: Load to deck ▸ 1-4, Add to playlist ▸, Colour ▸, Rating ▸, Analyse, Show in file manager, Remove from this list. UI tests drive the real menu (rating, colour, remove, load). Further items of the layout reference (tag list, export, play count, hot-cue tools, info) are tracked by the view test `ctx.track-row`; (UX §1.9) | 3 |  |
+| Info panel (track details beside the list) | DONE | INFO in the list title row opens the track info panel beside the list; every tag is editable in place (Return stores, undoable). File details (type, size, sample rate, bit rate) and the tabs of the layout reference are tracked by the view test `browser.info-panel`; (SPEC §5.5; UX §1.6) | 1 |  |
 | Sub-browser (second tree + list for dragging between playlists) | MISSING | (UX §1.6, §4 P4.12) | — | P3 |
 | Automatic database backups (rotating) | DONE (beyond the usual) | `crates/od-library/src/backup.rs`; (SPEC §5.3) | 1 |  |
-| Export / import the whole library as one archive (database + analysis, optional audio) | MISSING | (SPEC §5.3) | — | P3 |
+| Export / import the whole library as one archive (database + analysis, optional audio) | ENGINE-ONLY | (SPEC §5.3) | 1 | P3 |
 | MCP server: full library access for preparing sets with an LLM | DONE | `apps/od-mcp/src/tools.rs`, `apps/od-mcp/src/server.rs`; Owner request 2026-11-06 (SPEC §5.6). `opendecks-mcp` (MCP 2025-06-18, stdio or loopback HTTP): 8 read and 10 write tools, track/node resources, build_set and fix_transitions prompts; each write is one undo step "MCP: …" plus change-log rows (stick sync); setup in docs/mcp.md; (SPEC §5.6) | 8 | **P1** |
 
 ## 2. Analysis
@@ -94,7 +94,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Variable-tempo grid | PARTIAL | Model supports it (`od-core/src/beatgrid.rs`); editor only rebuilds constant grids (`on_grid_scale`) | 1 | P3 |
 | Grid editor: shift, ×2/÷2, set downbeat, lock | DONE | `app.rs` `on_grid_shift/on_grid_scale/on_grid_downbeat/on_grid_lock` | 3 |  |
 | Grid editor: tap tempo, type BPM | MISSING | Required by SPEC §6 | — | **P1** |
-| BPM analysis range setting | MISSING | — | — | P3 |
+| BPM analysis range setting | DONE | Preferences ▸ Analysis BPM range (`preferences.rs` `bpm_range`) feeds the tempo analysis fold range | 1 | P3 |
 | Key detection, notation Camelot/Open Key/musical | DONE | `od-analysis/src/key.rs`; `--keys` flag, `KeyNotation` | 7 |  |
 | Phrase analysis | DONE | Analysed (`od-analysis/src/phrase.rs`), stored and exported (`PSSI` in `anlz/build.rs`). Display: see `deck-phrase-display` | 2 |  |
 | Waveform: own 3-band colour | DONE | `od-analysis/src/waveform.rs`, `render.rs` (+ colour-blind palette) | 4 |  |
@@ -145,7 +145,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Auto beat loop (1/32 … 32) | DONE | `DeckCommand::AutoLoop`; UI size stepper | 1 |  |
 | Loop roll | DONE | `DeckCommand::LoopRoll` via controller | 1 |  |
 | Needle search | DONE | `NeedleSearch`; overview click + FLX touch strip | 1 |  |
-| Search (FF/REW buttons) | MISSING | Mapped (`deck.search`); no engine command, dropped (controller coverage) | — | **P1** |
+| Search (FF/REW buttons) | ENGINE-ONLY | `DeckCommand::Search(rate)`; controller mapping pending | 1 | **P1** |
 | Tap BPM | DONE | `decks.rs::tap_bpm`; Controller TAP: three taps give a constant grid at the tapped tempo, keeping the first downbeat (saved, undoable; locked grids stay) | 2 | **P1** |
 | Pad mode: Hot Cue | DONE | `PadMode::HotCue` in `handle_action` | 1 |  |
 | Pad mode: Beat Loop | DONE | `PadMode::BeatLoop` → `AutoLoop` | 2 |  |
@@ -156,12 +156,12 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Pad mode: Key Shift | DONE | `pads.rs::press_commands`; Pads set the key shift −3 … +4 | 1 | P2 |
 | Pad mode: Slicer | DONE | `pads.rs::mode_change_commands`; `PadMode::Slicer`; domain 4 … 64 beats (‹ ›), starts and stops with the mode | 2 | P3 |
 | Pad LED feedback per mode | DONE | `controller.rs::feedback`; Pad mode LEDs and the pads of the current mode (on = engaged, dim = loaded / set) | 2 | P2 |
-| Waveform zoom in Perform | MISSING | Fixed `DETAIL_SPAN` 8 s (`perform.rs`) | — | P2 |
+| Waveform zoom in Perform | DONE | `perform.rs`; Mouse wheel over a lane zooms that deck, double-click resets (`decks::zoom_by`); zoom buttons of the zone column are tracked by the view test (`wave.zoom-*`) | 1 |  |
 | Waveform overview + scrolling detail, cue markers, beat ticks | DONE | `render.rs::overview/detail`, `ui/plate.slint` | 3 |  |
 | Phrases on the overview and enlarged waveform, with display options | PARTIAL | `crates/od-ui/src/player.rs::phrase_marks`, `crates/od-ui/src/render.rs`; Phrase strip is painted; no opt-in toggles for enlarged / overview waveform and no phrase types; (SPEC §10.1; UX §2.5) | 1 | P2 |
-| Deck header: title, artist, artwork, BPM, remaining / elapsed time | PARTIAL | `crates/od-ui/src/format.rs`; Artwork not shown (see `browser-artwork`); (SPEC §10.1; UX §1.3) | 3 | P2 |
+| Deck header: title, artist, artwork, BPM, remaining / elapsed time | PARTIAL | `crates/od-ui/src/format.rs`; Artwork not shown (see `browser-artwork`); (SPEC §10.1; UX §1.3) | 4 | P2 |
 | Jog / platter readout in the UI: position, remaining, phrase and bar counter | PARTIAL | Bar counter and phrase readout not verified in the rebuilt UI; (SPEC §10.1; UX §1.3) | — | P2 |
-| Full-width enlarged waveform zone, one stacked lane per deck (2 and 4 decks), centre playhead | PARTIAL | `crates/od-ui/src/decks.rs`; Lanes per deck; zone layout and zoom column per UX §1.3 not complete; (SPEC §10.1; UX §1.3, §4 P1.1) | — | **P1** |
+| Full-width enlarged waveform zone, one stacked lane per deck (2 and 4 decks), centre playhead | DONE | `crates/od-ui/src/decks.rs`; One full-width lane per deck (2 and 4 decks), stacked, playhead at the centre. The zone column (collapse / zoom buttons / expand) is tracked by the view test; (SPEC §10.1; UX §1.3, §4 P1.1) | 1 |  |
 | Pad mode: Stems (part mutes and stem FX on pads) | MISSING | (UX §2.4) | — | P2 |
 | Pad mode: Memory Cue | MISSING | (UX §1.3) | — | P3 |
 | Pad mode: Sequence Call | MISSING | (UX §1.3) | — | P3 |
@@ -201,7 +201,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Release FX | DONE | `fx.slint::FxUnit`; BRAKE / BACKSPIN / ECHO OUT per unit while held (panel, keyboard); controller release button = echo out | 2 | P2 |
 | Pad FX | DONE | `fx.rs::pad_fx_preset`; Two pages of eight presets (beat and release FX) on the deck pads | 3 | P2 |
 | Stem FX (FX on one part) | MISSING | — | — | P3 |
-| FX panel (FX1 \| FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row) | PARTIAL | `crates/od-ui/ui/fx.slint`; FX1 \| FX2 above the waveforms with effect, beat, assign, level, parameter, ON, TAP and Release FX; CFX selector in the mixer. One effect per unit (no three-slot chain); (SPEC §10.2; UX §1.5) | 2 | **P1** |
+| FX panel (FX1 \| FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row) | PARTIAL | `crates/od-ui/ui/fx.slint`; FX1 \| FX2 above the waveforms with effect, beat, assign, level, parameter, ON, TAP and Release FX; CFX selector in the mixer. One effect per unit (no three-slot chain); (SPEC §10.2; UX §1.5) | 4 | **P1** |
 | Colour FX: pitch, dub echo, sweep | DONE | `settings.rs::COLOR_FX`; Pitch, dub echo and sweep selectable like the others; (SPEC §10.2) | 2 | P3 |
 
 ## 7. Stems / track separation
@@ -214,7 +214,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Stem buttons on the controller | ENGINE-ONLY | `DeckAction::StemMuteToggle` exists; FLX10 part buttons mapped to `ignore` (`flx10.toml` "Mix point / part buttons") (controller coverage) | — | **P1** |
 | Separate ahead of time (Prepare, batch) | PARTIAL | `od-cli stems`; UI only separates on load | — | P2 |
 | Separation model downloaded once on demand, nothing leaves the machine | DONE | `crates/od-stems/src/model.rs`; (SPEC §10.3) | 1 |  |
-| Deck shows separation progress; stem controls visible (dimmed) while separating | PARTIAL | Separation state is tracked; controls are not shown dimmed per UX §4 P5.14; (SPEC §10.3; UX §2.4) | — | P2 |
+| Deck shows separation progress; stem controls visible (dimmed) while separating | PARTIAL | Separation is queued on load and the stem strip shows SPLIT…; the stem toggles stay in place, disabled until stems exist (flow test). No progress percentage on the deck; (SPEC §10.3; UX §2.4) | 1 | P2 |
 | Raspberry Pi plays parts separated on the desktop | PARTIAL | Cached parts attach on load; carrying the cache onto sticks not verified; (SPEC §10.3) | 1 | P2 |
 
 ## 8. Sampler
@@ -235,13 +235,13 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 |---|---|---|---|---|
 | One-button mix recording (UI + controller) | DONE | `perform.rs::toggle_recording`, `ui/topbar.slint`, `RecordingToggle` + LED | 2 |  |
 | WAV output | DONE | `od-recorder/src/lib.rs` (hound) | 1 |  |
-| FLAC / MP3 output | MISSING | SPEC §11 | — | P2 |
+| FLAC / MP3 output | DONE | WAV recorded, then encoded to FLAC (bit-exact) or MP3 320k when recording stops; format chosen in Preferences ▸ Recording | 1 | P2 |
 | Automatic tracklist (.cue + text) | DONE | `Recorder::mark_track`, `cue_sheet`, `text_tracklist` | 2 |  |
 | Split into per-track files | DONE | `od_recorder::split`, `on_split_recording` | 1 |  |
 | Recordings section in the library | DONE | `recording` table, `refresh_recordings`, rail "RECORDINGS" | 1 |  |
-| Silence auto start/stop | MISSING | SPEC §11 | — | P2 |
+| Silence auto start/stop | ENGINE-ONLY | `od_recorder::SilenceDetector`; not yet wired to the recorder panel | 1 | P2 |
 | Output folder / file name setting, recording level | MISSING | Hard-coded `~/Music/OpenDecks Recordings` | — | P3 |
-| Recording panel: source, level, meter, elapsed time, file size, live tracklist | PARTIAL | `crates/od-ui/src/recorder.rs::frame`; Elapsed time and REC exist; level, meter, size and live tracklist missing; (SPEC §11; UX §2.3) | — | P2 |
+| Recording panel: source, level, meter, elapsed time, file size, live tracklist | PARTIAL | `crates/od-ui/src/recorder.rs::frame`; Elapsed time and REC exist; level, meter, size and live tracklist missing; (SPEC §11; UX §2.3) | 1 | P2 |
 
 ## 10. Export / USB devices
 
@@ -282,14 +282,14 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 |---|---|---|---|---|
 | Edit mode (track editing / remix) | MISSING | Track edit / remix mode. SPEC §1 does not exclude it, so it counts as in scope: implement it or amend SPEC §1 with a reason | — | P3 |
 | Prepare / Perform mode switch that keeps loaded tracks | DONE | `crates/od-ui/src/shell.rs`; (SPEC §3.1) | — |  |
-| Perform layouts: 2 / 4 decks horizontal and vertical, Browse | PARTIAL | 2 and 4 decks; vertical layouts and Browse missing; (SPEC §10.1; UX §1.4) | — | P2 |
+| Perform layouts: 2 / 4 decks horizontal and vertical, Browse | PARTIAL | 2 and 4 decks; vertical layouts and Browse missing; (SPEC §10.1; UX §1.4) | 2 | P2 |
 | Prepare layouts: 1 player, 2 players, dual, simple, full browser | MISSING | (UX §1.7) | — | P2 |
-| Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording | MISSING | (UX §1.2, §2.8) | — | P2 |
+| Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording | PARTIAL | FX and SAMPLER toggles in the top bar (UI test); Mix Point Link, Mixer and Recording toggles missing; (UX §1.2, §2.8) | 1 | P2 |
 | Mix Point Link (mix in / mix out points between decks) | MISSING | (UX §1.5; SPEC §16.3) | — | P3 |
-| Draggable splitters with persisted sizes, double-click reset | PARTIAL | `crates/od-ui/src/shell.rs`; Sidebar width and upper height persist; per-layout sizes and waveform-zone collapse / expand missing; (SPEC §12; UX §2.6) | 1 | P2 |
+| Draggable splitters with persisted sizes, double-click reset | DONE | `crates/od-ui/src/shell.rs`; Upper/lower and sidebar splitters: drag, persisted across restarts, double-click reset (UI test). Per-layout sizes and waveform-zone collapse / expand are not there; (SPEC §12; UX §2.6) | 2 |  |
 | Status band: analysis / sync state, list summary (tracks, time, size) | PARTIAL | `crates/od-ui/src/shell.rs`; List summary per UX §1.6 not verified; (SPEC §12; UX §1.6) | 1 | P3 |
 | UI scaling 0.75–2.0 without clipping | MISSING | (SPEC §12, §16.4) | — | P2 |
-| Colour-blind palette and high-contrast theme | PARTIAL | CLI flags only (`--colorblind`, `--high-contrast`); see `prefs-display`; (SPEC §12) | — | P2 |
+| Colour-blind palette and high-contrast theme | DONE | Preferences > View switches (and the CLI flags) set the colour-blind-safe palette and the high-contrast theme live; stored in the settings; (SPEC §12) | 1 |  |
 | English and German UI | DONE | `crates/od-i18n`; (SPEC §2) | 2 |  |
 | Lite / Full performance profiles | DONE | (SPEC §3.2) | 2 |  |
 | Raspberry Pi kiosk (linuxkms, Perform, controller browsing) | DONE (beyond the usual) | Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); no cargo test; (SPEC §3.3) | — |  |
@@ -299,10 +299,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
-| DMX outputs: FLX10 DMX port, Enttec USB-DMX, Art-Net, sACN, several universes | MISSING | (SPEC §10.5) | — | P2 |
-| Fixture library (OFL), patch, groups, moving heads / bars / PARs / strobes / lasers / fog | MISSING | (SPEC §10.5) | — | P2 |
-| Automatic light show from beat, phrase, energy and the mix (crossfade-aware) | MISSING | (SPEC §10.5) | — | P2 |
-| Easy manual mode: scene pads, dimmer, strobe, blackout, tap/sync, controller pad mode | MISSING | (SPEC §10.5) | — | P2 |
+| DMX outputs: FLX10 DMX port, Enttec USB-DMX, Art-Net, sACN, several universes | ENGINE-ONLY | (SPEC §10.5) | 4 | P2 |
+| Fixture library (OFL), patch, groups, moving heads / bars / PARs / strobes / lasers / fog | ENGINE-ONLY | (SPEC §10.5) | 5 | P2 |
+| Automatic light show from beat, phrase, energy and the mix (crossfade-aware) | ENGINE-ONLY | (SPEC §10.5) | 4 | P2 |
+| Easy manual mode: scene pads, dimmer, strobe, blackout, tap/sync, controller pad mode | ENGINE-ONLY | (SPEC §10.5) | 1 | P2 |
 | Pro mode: programmer, effects engine, cue stacks, per-track lighting cues, MIDI mapping | MISSING | (SPEC §10.5) | — | P2 |
 | LIGHTING tab, split view in Perform, detachable window, 2D visualiser | MISSING | (SPEC §10.5) | — | P2 |
 
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 115 |
-| PARTIAL | 29 |
-| ENGINE-ONLY | 15 |
-| MISSING | 47 |
+| DONE | 125 |
+| PARTIAL | 24 |
+| ENGINE-ONLY | 24 |
+| MISSING | 33 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |

@@ -1,7 +1,8 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine, ProgressLine } from "lines.slint";
 import { UpdateBar } from "update.slint";
-import { DragGhost } from "drag.slint";
+import { DragGhost, DragState } from "drag.slint";
+export { DragState }
 import { InfoPanel, TrackInfo } from "info.slint";
 import { Caps, PlateButton, Field, LineToggle, Splitter, TooltipState } from "controls.slint";
 import { TooltipLayer } from "tooltip.slint";
@@ -515,6 +516,7 @@ export component AppWindow inherits Window {
             }
             }
             if !root.kiosk: Splitter {
+                accessible-label: "browser.upper-splitter"; accessible-role: slider;
                 horizontal: true;
                 tooltip: @tr("Drag to resize, double-click to reset");
                 dragged(d) => { root.upper-height = clamp(upper.height + d, upper.min-height, root.height - 260px); }
@@ -555,6 +557,7 @@ export component AppWindow inherits Window {
                     import-rekordbox => { root.import-rekordbox(); }
                 }
                 if !root.kiosk: Splitter {
+                    accessible-label: "browser.splitter"; accessible-role: slider;
                     horizontal: false;
                     tooltip: @tr("Drag to resize, double-click to reset");
                     dragged(d) => { root.sidebar-width = clamp(root.sidebar-width + d, 180px, 480px); }
@@ -573,10 +576,13 @@ export component AppWindow inherits Window {
                         height: root.kiosk ? 44px : 32px;
                         if root.kiosk: PlateButton {
                             horizontal-stretch: 0; compact: true; tall: true;
+                            accessible-label: "browser.decks"; accessible-role: button;
                             label: @tr("DECKS"); tone: Theme.w486; tooltip: @tr("Back to the decks");
                             clicked => { root.browser-open = false; }
                         }
                         title := TextInput {
+                            accessible-label: "browser.list-title"; accessible-role: text-input;
+                            accessible-value: self.text; accessible-read-only: self.read-only;
                             width: min(self.preferred-width + 8px, 360px);
                             text: root.node-title;
                             read-only: root.node-kind == "all" || root.node-kind == "explorer" || root.read-only;
@@ -586,18 +592,22 @@ export component AppWindow inherits Window {
                             single-line: true;
                             accepted => { root.rename-node(self.text); keys.focus(); }
                         }
-                        Caps { text: root.node-sub; vertical-alignment: center; }
+                        Caps { accessible-label: "browser.list-sub"; accessible-role: text; accessible-value: root.node-sub; text: root.node-sub; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; }
-                        if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; tooltip: @tr("Search a folder for tracks whose files have moved"); command: "browser.find.moved"; clicked => { root.find-moved-files(); } }
-                        if root.node-kind == "all" && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; tooltip: @tr("Add a music folder"); command: "browser.add.music"; clicked => { root.import-folder(); } }
+                        if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: PlateButton { accessible-label: "browser.find-moved"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; tooltip: @tr("Search a folder for tracks whose files have moved"); command: "browser.find.moved"; clicked => { root.find-moved-files(); } }
+                        if root.node-kind == "all" && !root.kiosk: PlateButton { accessible-label: "browser.add-music"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; tooltip: @tr("Add a music folder"); command: "browser.add.music"; clicked => { root.import-folder(); } }
                         if root.node-kind == "explorer": LineToggle {
+                            accessible-label: "browser.recursive"; accessible-role: checkbox;
+                            accessible-checkable: true; accessible-checked: self.checked;
                             horizontal-stretch: 0;
                             label: @tr("Include subfolders");
                             checked <=> root.explorer-recursive;
                             toggled(v) => { root.explorer-set-recursive(v); }
                         }
-                        if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && !root.read-only && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; tooltip: @tr("Delete the open list"); command: "browser.delete.list"; clicked => { root.delete-node(); } }
+                        if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && !root.read-only && !root.kiosk: PlateButton { accessible-label: "browser.delete-list"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; tooltip: @tr("Delete the open list"); command: "browser.delete.list"; clicked => { root.delete-node(); } }
                         Field {
+                            accessible-label: "browser.search"; accessible-role: text-input;
+                            accessible-value: self.text; accessible-placeholder-text: self.placeholder;
                             property <int> focus-request: root.search-focus;
                             changed focus-request => { self.focus-field(); }
                             width: 260px;
@@ -607,6 +617,8 @@ export component AppWindow inherits Window {
                             edited(t) => { root.search(t); }
                         }
                         if !root.kiosk: PlateButton {
+                            accessible-label: "browser.panel.info"; accessible-role: button;
+                            accessible-checkable: true; accessible-checked: root.info-open;
                             horizontal-stretch: 0; compact: true; label: "INFO";
                             active: root.info-open; tone: Theme.w486;
                             tooltip: @tr("Show the tags of the selected track");
@@ -616,12 +628,14 @@ export component AppWindow inherits Window {
                     if root.section == "library" && root.node-kind == "smart": VerticalLayout {
                         spacing: 4px;
                         Field {
+                            accessible-label: "browser.smart-rule"; accessible-role: text-input; accessible-value: self.text;
                             placeholder: @tr("RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d");
                             text: root.smart-rule-text;
                             tone: Theme.w436;
                             accepted(t) => { root.set-smart-rule(t); }
                         }
                         if root.smart-rule-error != "": Text {
+                            accessible-label: "browser.smart-rule-error"; accessible-role: text; accessible-value: self.text;
                             text: root.smart-rule-error;
                             font-family: Theme.family; font-size: 12px; color: Theme.fault;
                         }
@@ -633,12 +647,14 @@ export component AppWindow inherits Window {
                         select(i) => { root.flow-select(i); }
                     }
                     if root.section == "library" && root.node-kind == "set" && root.flow-selected >= 0 && root.mode == "prepare": Field {
+                        accessible-label: "browser.transition-note"; accessible-role: text-input; accessible-value: self.text;
                         placeholder: @tr("TRANSITION NOTE FOR THE SELECTED POSITION — ENTER TO SAVE");
                         text: root.transition-note;
                         tone: Theme.attention;
                         accepted(t) => { root.set-transition-note(t); }
                     }
                     if root.section == "library": TrackTable {
+                        accessible-label: "browser.list"; accessible-role: table;
                         vertical-stretch: 1;
                         rows: root.tracks;
                         sort-column: root.sort-column;
@@ -661,8 +677,8 @@ export component AppWindow inherits Window {
                     if root.section == "library" && root.node-kind == "all" && root.tracks.length == 0: HorizontalLayout {
                         alignment: center;
                         spacing: 10px;
-                        PlateButton { label: @tr("ADD MUSIC FOLDER"); tone: Theme.live; tooltip: @tr("Add a music folder"); command: "browser.add.music"; clicked => { root.import-folder(); } }
-                        PlateButton { label: @tr("IMPORT FROM REKORDBOX"); tone: Theme.w486; tooltip: @tr("Import playlists, cues and grids from rekordbox"); command: "browser.import.rekordbox"; clicked => { root.import-rekordbox(); } }
+                        PlateButton { accessible-label: "browser.empty.add-music"; accessible-role: button; label: @tr("ADD MUSIC FOLDER"); tone: Theme.live; tooltip: @tr("Add a music folder"); command: "browser.add.music"; clicked => { root.import-folder(); } }
+                        PlateButton { accessible-label: "browser.empty.import-rekordbox"; accessible-role: button; label: @tr("IMPORT FROM REKORDBOX"); tone: Theme.w486; tooltip: @tr("Import playlists, cues and grids from rekordbox"); command: "browser.import.rekordbox"; clicked => { root.import-rekordbox(); } }
                     }
 
                     // ── Devices section ──
@@ -764,6 +780,7 @@ export component AppWindow inherits Window {
                     }
                 }
                 if root.info-open && !root.kiosk && root.section == "library": InfoPanel {
+                    accessible-label: "info.panel"; accessible-role: groupbox;
                     info: root.track-info;
                     edit(f, v) => { root.info-edit(f, v); }
                 }
@@ -778,11 +795,18 @@ export component AppWindow inherits Window {
                     padding-right: 14px;
                     spacing: 16px;
                     if root.analysis-progress > 0 && root.analysis-progress < 1: ProgressLine {
+                        accessible-label: "status.progress"; accessible-role: progress-indicator;
+                        accessible-value: round(root.analysis-progress * 100) + "%";
+                        accessible-value-minimum: 0; accessible-value-maximum: 1;
                         width: 120px; y: 12px; height: 2px;
                         progress: root.analysis-progress; tone: Theme.attention;
                     }
-                    Caps { text: root.analysis-text; vertical-alignment: center; }
+                    Caps {
+                        accessible-label: "status.activity"; accessible-role: text; accessible-value: root.analysis-text;
+                        text: root.analysis-text; vertical-alignment: center;
+                    }
                     Text {
+                        accessible-label: "status.summary"; accessible-role: text; accessible-value: root.status-text;
                         horizontal-stretch: 1;
                         text: root.status-text;
                         font-family: Theme.family; font-size: 12px; color: Theme.bone-2;

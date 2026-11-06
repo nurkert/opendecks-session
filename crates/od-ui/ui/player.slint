@@ -14,6 +14,9 @@ component Tab inherits Rectangle {
     in property <string> label;
     in property <bool> current;
     callback clicked();
+    accessible-role: tab;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.current;
     min-width: t.preferred-width + 24px;
     height: 26px;
     background: root.current ? Theme.plate : touch.has-hover ? Theme.ground-band : transparent;
@@ -33,9 +36,14 @@ component Reading inherits HorizontalLayout {
     in property <string> value;
     // Widest value shown here; keeps the width fixed while digits change.
     in property <string> template;
+    // Test / screen-reader identifier of the value (empty: none).
+    in property <string> a11y-label;
     spacing: 6px;
     Caps { text: root.label; font-size: 10px; vertical-alignment: center; }
     Text {
+        accessible-role: text;
+        accessible-label: root.a11y-label;
+        accessible-value: self.text;
         min-width: probe.preferred-width;
         horizontal-alignment: right;
         text: root.value == "" ? "—" : root.value; font-family: Theme.family; font-size: 18px; font-weight: 600; color: Theme.bone; vertical-alignment: center;
@@ -93,13 +101,13 @@ export component PreparePlayer inherits Rectangle {
             alignment: center;
             HorizontalLayout {
                 spacing: 4px;
-                Toggle { horizontal-stretch: 1; label: "−2"; clicked => { root.nudge(-2.0); } }
-                Toggle { horizontal-stretch: 1; label: "+2"; clicked => { root.nudge(2.0); } }
+                Toggle { accessible-label: "player1.jump-back"; accessible-role: button; horizontal-stretch: 1; label: "−2"; clicked => { root.nudge(-2.0); } }
+                Toggle { accessible-label: "player1.jump-forward"; accessible-role: button; horizontal-stretch: 1; label: "+2"; clicked => { root.nudge(2.0); } }
             }
             Caps { text: @tr("SECONDS"); font-size: 10px; horizontal-alignment: center; }
             Rectangle { height: 6px; }
-            HorizontalLayout { alignment: center; Transport { kind: "cue"; tone: Theme.attention; size: 52px; clicked => { root.jump-start(); } } }
-            HorizontalLayout { alignment: center; Transport { kind: "play"; on: root.previewing; tone: Theme.live; size: 52px; clicked => { root.toggle-preview(); } } }
+            HorizontalLayout { alignment: center; Transport { accessible-label: "player1.cue"; accessible-role: button; kind: "cue"; tone: Theme.attention; size: 52px; clicked => { root.jump-start(); } } }
+            HorizontalLayout { alignment: center; Transport { accessible-label: "player1.play"; accessible-role: button; accessible-checkable: true; accessible-checked: root.previewing; kind: "play"; on: root.previewing; tone: Theme.live; size: 52px; clicked => { root.toggle-preview(); } } }
         }
         VLine { weight: 1px; tone: Theme.rule; }
 
@@ -112,18 +120,23 @@ export component PreparePlayer inherits Rectangle {
                 padding-left: 12px; padding-right: 12px;
                 spacing: 18px;
                 Text {
+                    accessible-role: text;
+                    accessible-label: "player1.title";
+                    accessible-value: self.text;
                     horizontal-stretch: 2;
                     text: root.has-track ? root.title : @tr("No track selected");
                     font-family: Theme.family; font-size: 16px; font-weight: 600; vertical-alignment: center;
                     color: root.has-track ? Theme.bone : Theme.bone-3; overflow: elide;
                 }
-                Text { horizontal-stretch: 1; text: root.artist; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
-                Reading { label: @tr("POS"); template: "00:00.000"; value: root.position; }
-                Reading { label: @tr("TIME"); template: "00:00"; value: root.duration; }
-                Reading { label: "BPM"; template: "000.00"; value: root.bpm; }
-                Reading { label: @tr("KEY"); template: "12A"; value: root.key; }
+                Text { accessible-role: text; accessible-label: "player1.artist"; accessible-value: self.text; horizontal-stretch: 1; text: root.artist; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
+                Reading { a11y-label: "player1.time-elapsed"; label: @tr("POS"); template: "00:00.000"; value: root.position; }
+                Reading { a11y-label: "player1.duration"; label: @tr("TIME"); template: "00:00"; value: root.duration; }
+                Reading { a11y-label: "player1.bpm"; label: "BPM"; template: "000.00"; value: root.bpm; }
+                Reading { a11y-label: "player1.key"; label: @tr("KEY"); template: "12A"; value: root.key; }
             }
             Rectangle {
+                accessible-role: slider;
+                accessible-label: "player1.overview";
                 height: 40px;
                 background: Theme.ground-band;
                 Image { width: parent.width; height: parent.height; source: root.overview; image-fit: fill; }
@@ -147,6 +160,8 @@ export component PreparePlayer inherits Rectangle {
             PhraseBar { phrases: root.has-track ? root.phrases : []; }
             HLine { tone: Theme.rule; }
             Rectangle {
+                accessible-role: image;
+                accessible-label: "player1.enlarged";
                 vertical-stretch: 1;
                 min-height: 60px;
                 background: Theme.ground-band;
@@ -175,33 +190,37 @@ export component PreparePlayer inherits Rectangle {
                 VerticalLayout {
                     alignment: center;
                     spacing: 0;
-                    Tab { label: "CUE / LOOP"; current: root.tool-tab == "cue"; clicked => { root.tool-tab = "cue"; } }
+                    Tab { accessible-label: "player1.tab.cue-loop"; label: "CUE / LOOP"; current: root.tool-tab == "cue"; clicked => { root.tool-tab = "cue"; } }
                 }
                 VerticalLayout {
                     alignment: center;
-                    Tab { label: @tr("GRID"); current: root.tool-tab == "grid"; clicked => { root.tool-tab = "grid"; } }
+                    Tab { accessible-label: "player1.tab.grid"; label: @tr("GRID"); current: root.tool-tab == "grid"; clicked => { root.tool-tab = "grid"; } }
                 }
                 Rectangle { width: 10px; }
                 if root.tool-tab == "cue": HorizontalLayout {
                     horizontal-stretch: 1;
                     spacing: 4px;
                     padding-top: 7px; padding-bottom: 7px;
-                    for c in root.hot-cues: Pad { horizontal-stretch: 1; cue: c; pressed => { root.hot-cue(c.slot); } }
+                    for c in root.hot-cues: Pad {
+                        accessible-role: button;
+                        accessible-label: "player1.hot-cue." + c.letter;
+                        accessible-value: c.set ? (c.label != "" ? c.label : c.time) : "";
+                        horizontal-stretch: 1; cue: c; pressed => { root.hot-cue(c.slot); } }
                     Rectangle { width: 8px; }
-                    PlateButton { horizontal-stretch: 0; compact: true; height: 30px; label: @tr("MEMORY"); glyph: "plus"; enabled: root.has-track && !root.read-only; clicked => { root.add-memory-cue(); } }
+                    PlateButton { accessible-role: button; accessible-label: "player1.memory.set"; horizontal-stretch: 0; compact: true; height: 30px; label: @tr("MEMORY"); glyph: "plus"; enabled: root.has-track && !root.read-only; clicked => { root.add-memory-cue(); } }
                 }
                 if root.tool-tab == "grid": HorizontalLayout {
                     horizontal-stretch: 1;
                     spacing: 4px;
                     padding-top: 9px; padding-bottom: 9px;
-                    Toggle { label: "−10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(-10); } }
-                    Toggle { label: "+10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(10); } }
-                    Toggle { label: @tr("HALF"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(0.5); } }
-                    Toggle { label: @tr("DOUBLE"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(2.0); } }
-                    Toggle { label: @tr("DOWNBEAT AT CURSOR"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-downbeat(); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.grid.shift-left"; label: "−10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(-10); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.grid.shift-right"; label: "+10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(10); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.grid.halve"; label: @tr("HALF"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(0.5); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.grid.double"; label: @tr("DOUBLE"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(2.0); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.grid.downbeat"; label: @tr("DOWNBEAT AT CURSOR"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-downbeat(); } }
                     Rectangle { horizontal-stretch: 1; }
-                    Caps { text: root.grid-source; font-size: 10px; vertical-alignment: center; }
-                    Toggle { label: root.grid-locked ? @tr("GRID LOCKED") : @tr("LOCK GRID"); on: root.grid-locked; tone: Theme.attention; enabled: !root.read-only; clicked => { root.grid-lock(); } }
+                    Caps { accessible-role: text; accessible-label: "player1.grid.source"; accessible-value: self.text; text: root.grid-source; font-size: 10px; vertical-alignment: center; }
+                    Toggle { accessible-role: checkbox; accessible-label: "player1.grid.lock"; accessible-checkable: true; accessible-checked: root.grid-locked; label: root.grid-locked ? @tr("GRID LOCKED") : @tr("LOCK GRID"); on: root.grid-locked; tone: Theme.attention; enabled: !root.read-only; clicked => { root.grid-lock(); } }
                 }
             }
         }
@@ -212,13 +231,18 @@ export component PreparePlayer inherits Rectangle {
             width: 240px;
             spacing: 0;
             Flickable {
+                accessible-role: list;
+                accessible-label: "player1.cue-list.rows";
                 vertical-stretch: 1;
                 VerticalLayout {
                     width: 240px;
                     padding: 8px;
                     spacing: 3px;
                     alignment: start;
-                    for c in root.cues: Rectangle {
+                    for c[i] in root.cues: Rectangle {
+                        accessible-role: list-item;
+                        accessible-label: "player1.cue-list.row\{i}";
+                        accessible-value: c.label;
                         property <bool> shown: root.list-tab == "memory" ? c.slot < 0 : root.list-tab == "hot" ? c.slot >= 0 : false;
                         visible: self.shown;
                         height: self.shown ? 26px : 0px;
@@ -239,7 +263,7 @@ export component PreparePlayer inherits Rectangle {
                         Reading { label: @tr("KEY"); value: root.key; }
                         Reading { label: @tr("TIME"); value: root.duration; }
                         Reading { label: @tr("GRID"); value: root.grid-source; }
-                        if !root.analysed && root.has-track: PlateButton { label: @tr("ANALYSE"); tone: Theme.attention; enabled: !root.read-only; clicked => { root.analyse(); } }
+                        if !root.analysed && root.has-track: PlateButton { accessible-role: button; accessible-label: "player1.analyse"; label: @tr("ANALYSE"); tone: Theme.attention; enabled: !root.read-only; clicked => { root.analyse(); } }
                     }
                 }
             }
@@ -247,9 +271,9 @@ export component PreparePlayer inherits Rectangle {
             HorizontalLayout {
                 padding: 8px;
                 spacing: 4px;
-                Tab { horizontal-stretch: 1; label: "MEMORY"; current: root.list-tab == "memory"; clicked => { root.list-tab = "memory"; } }
-                Tab { horizontal-stretch: 1; label: "HOT CUE"; current: root.list-tab == "hot"; clicked => { root.list-tab = "hot"; } }
-                Tab { horizontal-stretch: 1; label: "INFO"; current: root.list-tab == "info"; clicked => { root.list-tab = "info"; } }
+                Tab { accessible-label: "player1.cue-list.tab.memory"; horizontal-stretch: 1; label: "MEMORY"; current: root.list-tab == "memory"; clicked => { root.list-tab = "memory"; } }
+                Tab { accessible-label: "player1.cue-list.tab.hot-cue"; horizontal-stretch: 1; label: "HOT CUE"; current: root.list-tab == "hot"; clicked => { root.list-tab = "hot"; } }
+                Tab { accessible-label: "player1.cue-list.tab.info"; horizontal-stretch: 1; label: "INFO"; current: root.list-tab == "info"; clicked => { root.list-tab = "info"; } }
             }
         }
     }

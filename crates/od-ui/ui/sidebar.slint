@@ -12,10 +12,13 @@ component Heading inherits Rectangle {
     in property <string> action;
     in property <string> tooltip;
     in property <string> command;
+    // Accessible label of the action button (test hook).
+    in property <string> action-label;
     callback act();
     height: 30px;
     Caps { x: 12px; y: 12px; text: root.label; color: Theme.bone-2; font-weight: 600; }
     if root.action != "": Rectangle {
+        accessible-label: root.action-label; accessible-role: button;
         x: parent.width - 30px; y: 7px; width: 22px; height: 20px;
         background: t.has-hover ? Theme.plate : transparent;
         Glyph { x: 6px; y: 5px; width: 10px; height: 10px; kind: root.action; tone: Theme.bone-2; }
@@ -27,6 +30,13 @@ component Heading inherits Rectangle {
 component DeviceItem inherits Rectangle {
     in property <DeviceRow> device;
     in property <bool> selected;
+    // Model index (accessible label `browser.tree.device<index>`).
+    in property <int> index;
+    accessible-label: "browser.tree.device\{root.index}";
+    accessible-role: list-item;
+    accessible-value: root.device.name;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
     callback open();
     callback sync();
     callback eject();
@@ -67,6 +77,7 @@ component DeviceItem inherits Rectangle {
     }
     touch := TouchArea { clicked => { root.open(); } }
     if root.device.connected: Rectangle {
+        accessible-label: "browser.tree.device\{root.index}.sync"; accessible-role: button;
         x: parent.width - 56px; y: 12px; width: 22px; height: 22px;
         background: s.has-hover ? Theme.plate : transparent;
         border-width: 1px; border-color: s.has-hover ? Theme.live : transparent;
@@ -74,6 +85,7 @@ component DeviceItem inherits Rectangle {
         s := TipArea { tooltip: @tr("Sync this stick now"); command: "devices.sync"; mouse-cursor: pointer; clicked => { root.sync(); } }
     }
     if root.device.connected: Rectangle {
+        accessible-label: "browser.tree.device\{root.index}.eject"; accessible-role: button;
         x: parent.width - 30px; y: 12px; width: 22px; height: 22px;
         background: e.has-hover ? Theme.plate : transparent;
         border-width: 1px; border-color: e.has-hover ? Theme.bone-3 : transparent;
@@ -87,6 +99,17 @@ component DeviceItem inherits Rectangle {
 component ExplorerItem inherits Rectangle {
     in property <ExplorerRow> item;
     in property <bool> selected;
+    // Model index: the first row (always the first root) is
+    // `browser.tree.home`, the others `browser.tree.folder<index>`.
+    in property <int> index;
+    property <string> a11y: root.index == 0 ? "browser.tree.home" : "browser.tree.folder\{root.index}";
+    accessible-label: root.a11y;
+    accessible-role: list-item;
+    accessible-value: root.item.name;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    accessible-expandable: root.item.has-children;
+    accessible-expanded: root.item.expanded;
     callback clicked();
     callback toggled();
     callback remove();
@@ -108,6 +131,8 @@ component ExplorerItem inherits Rectangle {
         touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
     }
     if root.item.has-children: Rectangle {
+        accessible-label: root.a11y + ".expand"; accessible-role: button;
+        accessible-checkable: true; accessible-checked: root.item.expanded;
         x: root.indent - 16px; y: (parent.height - 12px) / 2; width: 12px; height: 12px;
         Glyph { x: 2px; y: 2px; width: 8px; height: 8px; kind: root.item.expanded ? "minus" : "plus"; tone: Theme.bone-3; }
         TouchArea { clicked => { root.toggled(); } }
@@ -125,6 +150,7 @@ component ExplorerItem inherits Rectangle {
         vertical-alignment: center;
     }
     if root.item.root && touch.has-hover: Rectangle {
+        accessible-label: root.a11y + ".remove"; accessible-role: button;
         x: parent.width - 30px; y: 3px; width: 22px; height: parent.height - 6px;
         background: rm.has-hover ? Theme.plate-raised : transparent;
         Glyph { x: 6px; y: (parent.height - 10px) / 2; width: 10px; height: 10px; kind: "close"; tone: Theme.bone-3; }
@@ -163,12 +189,14 @@ export component Sidebar inherits Rectangle {
 
     VerticalLayout {
         Flickable {
+            accessible-label: "browser.tree"; accessible-role: AccessibleRole.tree;
             vertical-stretch: 1;
             VerticalLayout {
                 width: root.width;
                 alignment: start;
-                Heading { label: @tr("COLLECTION"); action: "plus"; tooltip: @tr("Add a music folder"); command: "browser.add.music"; act => { root.import-folder(); } }
+                Heading { accessible-label: "browser.rail.collection"; accessible-role: text; action-label: "browser.tree.add-music"; label: @tr("COLLECTION"); action: "plus"; tooltip: @tr("Add a music folder"); command: "browser.add.music"; act => { root.import-folder(); } }
                 for r in root.tree: TreeItem {
+                    labelled: r.kind == "all";
                     visible: r.kind == "all";
                     height: r.kind == "all" ? 26px : 0px;
                     item: r;
@@ -176,8 +204,9 @@ export component Sidebar inherits Rectangle {
                     can-add: false;
                     clicked => { root.select-node(r.id); }
                 }
-                Heading { label: @tr("PLAYLISTS"); action: "plus"; tooltip: @tr("New playlist"); command: "browser.new.playlist"; act => { root.create-node("playlist"); } }
+                Heading { accessible-label: "browser.rail.playlists"; accessible-role: text; action-label: "browser.tree.add"; label: @tr("PLAYLISTS"); action: "plus"; tooltip: @tr("New playlist"); command: "browser.new.playlist"; act => { root.create-node("playlist"); } }
                 for r in root.tree: TreeItem {
+                    labelled: r.kind != "all" && r.kind != "stick" && r.id > -100;
                     visible: r.kind != "all" && r.kind != "stick" && r.id > -100;
                     height: r.kind != "all" && r.kind != "stick" && r.id > -100 ? 26px : 0px;
                     item: r;
@@ -187,26 +216,28 @@ export component Sidebar inherits Rectangle {
                     toggled => { root.toggle-node(r.id); }
                     add => { root.add-to-node(r.id); }
                 }
-                Heading { label: @tr("EXPLORER"); action: "plus"; tooltip: @tr("Add a folder to browse"); act => { root.explorer-add-root(); } }
+                Heading { accessible-label: "browser.rail.explorer"; accessible-role: text; action-label: "browser.tree.add-explorer"; label: @tr("EXPLORER"); action: "plus"; tooltip: @tr("Add a folder to browse"); act => { root.explorer-add-root(); } }
                 if root.explorer.length == 0: Text {
                     x: 12px; width: root.width - 24px;
                     text: @tr("Add a folder with + to browse its files here.");
                     font-family: Theme.family; font-size: 12px; color: Theme.bone-3; wrap: word-wrap;
                 }
-                for f in root.explorer: ExplorerItem {
+                for f[i] in root.explorer: ExplorerItem {
+                    index: i;
                     item: f;
                     selected: root.explorer-selected == f.id && root.section == "library";
                     clicked => { root.explorer-select(f.id); }
                     toggled => { root.explorer-toggle(f.id); }
                     remove => { root.explorer-remove-root(f.id); }
                 }
-                Heading { label: @tr("DEVICES"); }
+                Heading { accessible-label: "browser.rail.devices"; accessible-role: text; label: @tr("DEVICES"); }
                 if root.devices.length == 0 && root.volumes.length == 0: Text {
                     x: 12px; width: root.width - 24px;
                     text: @tr("Plug in a USB stick to register it.");
                     font-family: Theme.family; font-size: 12px; color: Theme.bone-3; wrap: word-wrap;
                 }
-                for d in root.devices: DeviceItem {
+                for d[i] in root.devices: DeviceItem {
+                    index: i;
                     device: d;
                     selected: root.section == "devices" && root.device-selected == d.id;
                     open => { root.open-device(d.id); }
@@ -215,6 +246,7 @@ export component Sidebar inherits Rectangle {
                 }
                 // Browsable stick libraries (read-only).
                 for r in root.tree: TreeItem {
+                    labelled: r.kind == "stick" || r.id <= -1000000;
                     visible: r.kind == "stick" || r.id <= -1000000;
                     height: r.kind == "stick" || r.id <= -1000000 ? 26px : 0px;
                     item: r;
@@ -222,7 +254,7 @@ export component Sidebar inherits Rectangle {
                     can-add: false;
                     clicked => { root.select-node(r.id); }
                 }
-                for v in root.volumes: Rectangle {
+                for v[i] in root.volumes: Rectangle {
                     height: 54px;
                     VLine { x: 14px; y: 8px; height: parent.height - 16px; form: "half"; tone: Theme.bone-2; }
                     Text {
@@ -231,6 +263,7 @@ export component Sidebar inherits Rectangle {
                         font-family: Theme.family; font-size: 13px; font-weight: 600; color: Theme.bone; overflow: elide;
                     }
                     PlateButton {
+                        accessible-label: "browser.tree.volume\{i}.register"; accessible-role: button;
                         x: 24px; y: 24px; compact: true;
                         enabled: root.register-target != "";
                         label: root.register-target == "" ? @tr("SELECT A PLAYLIST FIRST") : @tr("REGISTER WITH {}", root.register-target);
@@ -239,8 +272,11 @@ export component Sidebar inherits Rectangle {
                         clicked => { root.register-volume(v.index); }
                     }
                 }
-                Heading { label: @tr("RECORDINGS"); }
+                Heading { accessible-label: "browser.rail.recordings"; accessible-role: text; label: @tr("RECORDINGS"); }
                 Rectangle {
+                    accessible-label: "browser.tree.recordings"; accessible-role: list-item;
+                    accessible-value: root.recordings-count;
+                    accessible-item-selectable: true; accessible-item-selected: root.section == "recordings";
                     height: 26px;
                     background: rt.has-hover ? Theme.ground-band : transparent;
                     if root.section == "recordings": Rectangle { x: 0; y: parent.height / 2 - 1px; width: 8px; height: 2px; background: Theme.attention; }
@@ -264,9 +300,9 @@ export component Sidebar inherits Rectangle {
             padding: 8px;
             spacing: 4px;
             // New list buttons share the width (the sidebar is resizable).
-            Toggle { horizontal-stretch: 1; label: @tr("+ SET"); tooltip: @tr("New set"); command: "browser.new.set"; tone: Theme.attention; clicked => { root.create-node("set"); } }
-            Toggle { horizontal-stretch: 1; label: @tr("+ SMART"); tooltip: @tr("New smart list"); command: "browser.new.smart"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
-            Toggle { horizontal-stretch: 1; label: @tr("+ FOLDER"); tooltip: @tr("New folder"); command: "browser.new.folder"; clicked => { root.create-node("folder"); } }
+            Toggle { accessible-label: "browser.tree.new-set"; accessible-role: button; horizontal-stretch: 1; label: @tr("+ SET"); tooltip: @tr("New set"); command: "browser.new.set"; tone: Theme.attention; clicked => { root.create-node("set"); } }
+            Toggle { accessible-label: "browser.tree.new-smart"; accessible-role: button; horizontal-stretch: 1; label: @tr("+ SMART"); tooltip: @tr("New smart list"); command: "browser.new.smart"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
+            Toggle { accessible-label: "browser.tree.new-folder"; accessible-role: button; horizontal-stretch: 1; label: @tr("+ FOLDER"); tooltip: @tr("New folder"); command: "browser.new.folder"; clicked => { root.create-node("folder"); } }
         }
     }
 }

@@ -58,6 +58,8 @@ component Cell inherits Text {
 component TrackLine inherits Rectangle {
     in property <TrackRow> item;
     in property <bool> show-position;
+    // Model index (accessible label `browser.row<index>`).
+    in property <int> index;
     callback clicked(bool, bool);
     callback double-clicked();
     // Dropped on a target (DragState.target) after dragging this row.
@@ -153,6 +155,7 @@ component TrackLine inherits Rectangle {
                     border-width: 1px;
                     border-color: i < root.item.rating ? Theme.bone-2 : Theme.rule;
                     TouchArea {
+                        accessible-label: "browser.row\{root.index}.rating\{i + 1}"; accessible-role: button;
                         x: -2px; width: parent.width + 4px; y: -10px; height: parent.height + 20px;
                         mouse-cursor: pointer;
                         clicked => { root.rate(i + 1); }
@@ -170,7 +173,7 @@ component TrackLine inherits Rectangle {
             }
         }
     }
-    ContextMenuArea {
+    row-menu := ContextMenuArea {
         Menu {
             Menu {
                 title: @tr("Load to deck");
@@ -209,12 +212,23 @@ component TrackLine inherits Rectangle {
             MenuItem { title: @tr("Remove from this list"); activated => { root.menu("remove"); } }
         }
     touch := TouchArea {
+        accessible-label: "browser.row\{root.index}";
+        accessible-role: list-item;
+        accessible-value: root.item.title;
+        accessible-item-index: root.index;
+        accessible-item-selectable: true;
+        accessible-item-selected: root.item.selected;
         // Leaves the rating cells (and the state column) to their own clicks.
         x: 0;
         width: parent.width - Columns.rating - Columns.state - 36px;
         pointer-event(ev) => {
             if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
                 root.clicked(ev.modifiers.control || ev.modifiers.meta, ev.modifiers.shift);
+            }
+            // The touch area grabs every press, so the enclosing
+            // ContextMenuArea never sees a right-click over it: open it here.
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.right) {
+                row-menu.show({ x: self.mouse-x, y: self.mouse-y });
             }
             if (ev.kind == PointerEventKind.up && DragState.active) {
                 if (DragState.target != 0) { root.dropped(DragState.target); }
@@ -253,25 +267,30 @@ export component TrackTable inherits Rectangle {
 
     VerticalLayout {
         Rectangle {
+            accessible-label: "browser.header"; accessible-role: groupbox;
             height: 30px;
             HorizontalLayout {
                 padding-left: 16px;
                 padding-right: 12px;
                 spacing: 12px;
-                HeaderCell { width: Columns.pos; label: "#"; column: "position"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
-                HeaderCell { width: Columns.preview; label: @tr("PREVIEW"); column: "preview"; sort-column: root.sort-column; descending: root.descending; }
-                HeaderCell { min-width: 0px; preferred-width: 0px; horizontal-stretch: 3; label: @tr("TITLE"); column: "title"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
-                HeaderCell { min-width: 0px; preferred-width: 0px; horizontal-stretch: 2; label: @tr("ARTIST"); column: "artist"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
-                HeaderCell { min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; label: @tr("GENRE"); column: "genre"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
-                HeaderCell { width: Columns.bpm; label: "BPM"; column: "bpm"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
-                HeaderCell { width: Columns.key; label: @tr("KEY"); column: "key"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
-                HeaderCell { width: Columns.time; label: @tr("TIME"); column: "duration"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
-                HeaderCell { width: Columns.rating; label: @tr("RATING"); column: "rating"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { accessible-label: "browser.header.position"; accessible-role: button; width: Columns.pos; label: "#"; column: "position"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { accessible-label: "browser.header.preview"; accessible-role: button; width: Columns.preview; label: @tr("PREVIEW"); column: "preview"; sort-column: root.sort-column; descending: root.descending; }
+                HeaderCell { accessible-label: "browser.header.title"; accessible-role: button; min-width: 0px; preferred-width: 0px; horizontal-stretch: 3; label: @tr("TITLE"); column: "title"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
+                HeaderCell { accessible-label: "browser.header.artist"; accessible-role: button; min-width: 0px; preferred-width: 0px; horizontal-stretch: 2; label: @tr("ARTIST"); column: "artist"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
+                HeaderCell { accessible-label: "browser.header.genre"; accessible-role: button; min-width: 0px; preferred-width: 0px; horizontal-stretch: 1; label: @tr("GENRE"); column: "genre"; sort-column: root.sort-column; descending: root.descending; sort(c) => { root.sort(c); } }
+                HeaderCell { accessible-label: "browser.header.bpm"; accessible-role: button; width: Columns.bpm; label: "BPM"; column: "bpm"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { accessible-label: "browser.header.key"; accessible-role: button; width: Columns.key; label: @tr("KEY"); column: "key"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { accessible-label: "browser.header.time"; accessible-role: button; width: Columns.time; label: @tr("TIME"); column: "duration"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
+                HeaderCell { accessible-label: "browser.header.rating"; accessible-role: button; width: Columns.rating; label: @tr("RATING"); column: "rating"; sort-column: root.sort-column; descending: root.descending; align: right; sort(c) => { root.sort(c); } }
                 Rectangle { width: Columns.state; }
             }
             HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
         }
+        // Empty list: the same `browser.rows` area, showing the hint.
         if root.rows.length == 0: Rectangle {
+            accessible-label: "browser.rows"; accessible-role: AccessibleRole.list;
+            accessible-value: root.empty-text;
+            accessible-item-count: 0;
             vertical-stretch: 1;
             Text {
                 text: root.empty-text;
@@ -282,6 +301,8 @@ export component TrackTable inherits Rectangle {
             }
         }
         if root.rows.length > 0: list := ListView {
+            accessible-label: "browser.rows"; accessible-role: AccessibleRole.list;
+            accessible-item-count: root.rows.length;
             vertical-stretch: 1;
             property <int> target: root.focus-row;
             changed target => { self.reveal(); }
@@ -295,6 +316,7 @@ export component TrackTable inherits Rectangle {
                 }
             }
             for row[i] in root.rows: TrackLine {
+                index: i;
                 item: row;
                 show-position: root.show-position;
                 clicked(ctrl, shift) => { root.row-clicked(i, ctrl, shift); }

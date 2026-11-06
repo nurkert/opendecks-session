@@ -73,6 +73,15 @@ export component TopBar inherits Rectangle {
     height: 44px;
     background: Theme.ground;
 
+    // Test / accessibility hook: the work-mode tab group (no visuals, no
+    // input; it only spans both tabs).
+    Rectangle {
+        accessible-label: "topbar.mode"; accessible-role: tab-list;
+        accessible-value: root.mode;
+        x: prep.x; y: prep.y;
+        width: perf.x + perf.width - prep.x; height: prep.height;
+    }
+
     HorizontalLayout {
         padding-left: 16px;
         padding-right: 12px;
@@ -90,11 +99,19 @@ export component TopBar inherits Rectangle {
             }
             Caps { x: 132px; height: parent.height; text: "SESSION"; font-size: 9px; letter-spacing: 3px; vertical-alignment: center; }
         }
-        ModeTab { label: @tr("PREPARE"); tooltip: @tr("Prepare: library, beatgrids, cues and sticks"); command: "mode.prepare"; current: root.mode == "prepare"; clicked => { root.set-mode("prepare"); } }
-        ModeTab { label: @tr("PERFORM"); tooltip: @tr("Perform: decks and mixer"); command: "mode.perform"; current: root.mode == "perform"; clicked => { root.set-mode("perform"); } }
+        prep := ModeTab {
+            accessible-label: "topbar.mode.prepare"; accessible-role: tab;
+            accessible-item-selectable: true; accessible-item-selected: self.current;
+            label: @tr("PREPARE"); tooltip: @tr("Prepare: library, beatgrids, cues and sticks"); command: "mode.prepare"; current: root.mode == "prepare"; clicked => { root.set-mode("prepare"); } }
+        perf := ModeTab {
+            accessible-label: "topbar.mode.perform"; accessible-role: tab;
+            accessible-item-selectable: true; accessible-item-selected: self.current;
+            label: @tr("PERFORM"); tooltip: @tr("Perform: decks and mixer"); command: "mode.perform"; current: root.mode == "perform"; clicked => { root.set-mode("perform"); } }
         Rectangle { width: 24px; }
         Caps { text: root.status; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
         if root.show-panels: PanelToggle {
+            accessible-label: "topbar.toggle.fx"; accessible-role: button;
+            accessible-checkable: true; accessible-checked: self.on;
             label: "FX"; on: root.fx-panel;
             tooltip: root.fx-panel ? @tr("Hide the Beat FX panel") : @tr("Show the Beat FX panel");
             command: "perform.fx.panel";
@@ -102,6 +119,8 @@ export component TopBar inherits Rectangle {
         }
         if root.show-panels: Rectangle { width: 6px; }
         if root.show-panels: PanelToggle {
+            accessible-label: "topbar.toggle.sampler"; accessible-role: button;
+            accessible-checkable: true; accessible-checked: self.on;
             label: @tr("SAMPLER"); on: root.sampler-panel;
             tooltip: root.sampler-panel ? @tr("Hide the sampler panel") : @tr("Show the sampler panel");
             command: "perform.sampler.panel";
@@ -111,6 +130,7 @@ export component TopBar inherits Rectangle {
         // Appearance: moon (dark), sun (light), half disc (follow system);
         // a click moves on to the next mode.
         Rectangle {
+            accessible-label: "topbar.appearance"; accessible-role: button;
             width: 36px;
             Rectangle {
                 y: 8px; height: parent.height - 16px;
@@ -129,6 +149,7 @@ export component TopBar inherits Rectangle {
         }
         // Preferences (⌘, / Ctrl+,).
         Rectangle {
+            accessible-label: "topbar.settings"; accessible-role: button;
             width: 36px;
             Rectangle {
                 y: 8px; height: parent.height - 16px;
@@ -139,6 +160,7 @@ export component TopBar inherits Rectangle {
         }
         Rectangle { width: 4px; }
         if root.undo-label != "": Rectangle {
+            accessible-label: "topbar.undo"; accessible-role: button; accessible-value: root.undo-label;
             width: u.preferred-width + 24px;
             u := Caps { text: @tr("UNDO  {}  ⌘Z", root.undo-label); vertical-alignment: center; height: parent.height; }
             TipArea { tooltip: @tr("Undo the last change"); command: "library.undo"; mouse-cursor: pointer; clicked => { root.undo(); } }
@@ -146,6 +168,9 @@ export component TopBar inherits Rectangle {
         Rectangle { width: 8px; }
         // Recording: always one click away, as on the hardware.
         if root.show-record || root.recording: Rectangle {
+            accessible-label: "topbar.toggle.rec"; accessible-role: button;
+            accessible-checkable: true; accessible-checked: root.recording;
+            accessible-value: root.recording ? root.recording-time : "";
             width: rec.preferred-width + 44px;
             Rectangle {
                 y: 8px; height: parent.height - 16px;
