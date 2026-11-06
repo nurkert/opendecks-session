@@ -34,10 +34,43 @@ pub enum Command {
     SetMasterDeck(Option<usize>),
     /// Enables/disables the record tap (master stereo into the record ring).
     SetRecordTap(bool),
+    /// Microphone / aux input channel.
+    Input(InputCommand),
     /// Internal: attaches an additional command queue (see
     /// [`crate::Engine::new_sender`]).
     #[doc(hidden)]
     AttachSender(rtrb::Consumer<Command>),
+}
+
+/// Microphone / aux input (see [`crate::InputState`]).
+pub enum InputCommand {
+    /// Attaches a capture ring of interleaved samples with `channels`
+    /// channels at the engine sample rate (replaces a previous one).
+    Attach(rtrb::Consumer<f32>, u16),
+    Detach,
+    SetOn(bool),
+    /// Level 0..=1.5 (square law, 1 = 0 dB).
+    SetLevel(f32),
+    /// Input to the headphone cue bus.
+    SetCue(bool),
+    /// Duck the music while the input carries signal.
+    SetTalkover(bool),
+    /// Music level while ducked, dB (−40..=0).
+    SetTalkoverDepth(f32),
+}
+
+impl std::fmt::Debug for InputCommand {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            InputCommand::Attach(_, ch) => write!(f, "Attach({ch} ch)"),
+            InputCommand::Detach => write!(f, "Detach"),
+            InputCommand::SetOn(v) => write!(f, "SetOn({v})"),
+            InputCommand::SetLevel(v) => write!(f, "SetLevel({v})"),
+            InputCommand::SetCue(v) => write!(f, "SetCue({v})"),
+            InputCommand::SetTalkover(v) => write!(f, "SetTalkover({v})"),
+            InputCommand::SetTalkoverDepth(v) => write!(f, "SetTalkoverDepth({v})"),
+        }
+    }
 }
 
 /// Tempo fader range (± percent).

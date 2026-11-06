@@ -35,6 +35,7 @@ pub mod config;
 mod deck;
 pub mod dsp;
 mod engine;
+mod input;
 pub mod keylock;
 pub mod mixer;
 mod rt;

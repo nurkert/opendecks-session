@@ -176,6 +176,23 @@ pub struct SequencerState {
     pub quantize: Option<f64>,
 }
 
+/// Microphone / aux input channel.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct InputState {
+    /// A capture stream is attached.
+    pub attached: bool,
+    pub on: bool,
+    pub level: f32,
+    pub cue: bool,
+    pub talkover: bool,
+    pub talkover_db: f32,
+    /// The music is being ducked right now.
+    pub ducking: bool,
+    pub meter: MeterReading,
+    /// Blocks in which the capture ring ran short.
+    pub underruns: u64,
+}
+
 /// Audible-track information for automatic tracklists (SPEC §11).
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct AudibleState {
@@ -217,6 +234,7 @@ pub struct EngineState {
     pub sampler: [SamplerSlotState; SAMPLER_TOTAL],
     pub sequencer: SequencerState,
     pub audible: AudibleState,
+    pub input: InputState,
     pub record_tap: bool,
     /// Samples dropped because the record ring was full.
     pub record_dropped: u64,
@@ -251,6 +269,7 @@ impl Default for EngineState {
             sampler: [SamplerSlotState::default(); SAMPLER_TOTAL],
             sequencer: SequencerState::default(),
             audible: AudibleState::default(),
+            input: InputState::default(),
             record_tap: false,
             record_dropped: 0,
             garbage_leaked: 0,

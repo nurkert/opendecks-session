@@ -139,6 +139,14 @@ fn process_never_allocates() {
         },
     ));
 
+    // Mic / aux input with audio waiting in its ring.
+    let (mut mic_tx, mic_rx) = rtrb::RingBuffer::new(BLOCK * 64);
+    for i in 0..BLOCK * 64 {
+        mic_tx.push((i as f32 * 0.01).sin() * 0.2).unwrap();
+    }
+    rig.send(Command::Input(InputCommand::Attach(mic_rx, 2)));
+    rig.send(Command::Input(InputCommand::SetOn(true)));
+
     // Warm-up block outside the guard (lazy statics in std, e.g. thread ids).
     rig.block(BLOCK);
 
@@ -151,6 +159,12 @@ fn process_never_allocates() {
             Command::Deck(2, DeckCommand::SwapTrackData(swap_same)),
             Command::Deck(1, DeckCommand::SwapTrackData(swap_other)),
         ],
+        vec![
+            Command::Input(InputCommand::SetTalkover(true)),
+            Command::Input(InputCommand::SetLevel(1.2)),
+            Command::Input(InputCommand::SetCue(true)),
+        ],
+        vec![Command::Input(InputCommand::Detach)],
         vec![Command::Deck(0, DeckCommand::AutoLoop { beats: 1.0 / 8.0 })],
         vec![
             Command::Deck(0, DeckCommand::SetSlip(true)),

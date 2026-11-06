@@ -13,6 +13,7 @@ pub(crate) enum Garbage {
     Track(Arc<TrackData>),
     Sample(Arc<SampleData>),
     Commands(rtrb::Consumer<Command>),
+    Input(rtrb::Consumer<f32>),
 }
 
 pub(crate) struct RtCtx<'a> {

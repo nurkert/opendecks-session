@@ -241,6 +241,7 @@ pub struct EngineProcessor {
     beat_fx: Vec<FxUnit>,
     pad_fx: Vec<FxUnit>,
     sampler: Sampler,
+    input: crate::input::AuxInput,
     limiter: Limiter,
     limiter_on: bool,
     master_meter: Meter,
@@ -250,6 +251,7 @@ pub struct EngineProcessor {
     master_buf: Vec<f32>,
     cue_buf: Vec<f32>,
     sampler_buf: Vec<f32>,
+    input_buf: Vec<f32>,
     booth_buf: Vec<f32>,
 
     quantize: bool,
@@ -314,6 +316,7 @@ impl EngineProcessor {
                 .map(|i| FxUnit::new(sr, PAD_FX_SECONDS, FxTarget::Channel(i)))
                 .collect(),
             sampler: Sampler::new(sr),
+            input: crate::input::AuxInput::new(sr),
             limiter: Limiter::new(sr),
             limiter_on: true,
             master_meter: Meter::new(sr),
@@ -322,6 +325,7 @@ impl EngineProcessor {
             master_buf: vec![0.0; block],
             cue_buf: vec![0.0; block],
             sampler_buf: vec![0.0; block],
+            input_buf: vec![0.0; block],
             booth_buf: vec![0.0; block],
             quantize: true,
             explicit_master: None,
@@ -472,6 +476,15 @@ impl EngineProcessor {
                 self.explicit_master = m.filter(|&d| d < self.decks.len());
             }
             Command::SetRecordTap(on) => self.record_enabled = on,
+            Command::Input(c) => {
+                let mut ctx = RtCtx {
+                    quantize: self.quantize,
+                    events: &mut self.events,
+                    garbage: &mut self.garbage,
+                    leaked: &mut self.leaked,
+                };
+                self.input.handle(c, &mut ctx);
+            }
             Command::AttachSender(q) => {
                 if let Some(slot) = self.extra.iter_mut().find(|s| s.is_none()) {
                     *slot = Some(q);
@@ -630,6 +643,9 @@ impl EngineProcessor {
                 *c += *s;
             }
         }
+        // Mic / aux after the decks and sampler (talkover ducks them).
+        self.input
+            .process(&mut self.input_buf[..len], master_buf, cue_buf);
         for unit in self.beat_fx.iter_mut() {
             if unit.target() == FxTarget::Master {
                 unit.process(master_buf, &clock);
@@ -733,6 +749,7 @@ impl EngineProcessor {
         }
         s.sampler = self.sampler.state();
         s.sequencer = self.sampler.sequencer();
+        s.input = self.input.state();
         s.record_tap = self.record_enabled;
         s.record_dropped = self.record_dropped;
         s.garbage_leaked = self.leaked;
