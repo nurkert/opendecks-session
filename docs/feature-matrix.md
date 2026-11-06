@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 204 features; 196 in scope: 75 DONE (38 %), 31 PARTIAL, 25 ENGINE-ONLY, 65 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
+**Summary:** 204 features; 196 in scope: 79 DONE (40 %), 29 PARTIAL, 25 ENGINE-ONLY, 63 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
 
 The reference list is the rekordbox 7 feature set (top plan) relevant to a DJ who prepares in
 EXPORT mode and plays in PERFORMANCE mode with a DDJ-FLX10 / DDJ-FLX4, extended by the
@@ -70,7 +70,7 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Undo/redo with history | DONE (beyond rekordbox) | `journal.rs`; Cmd-Z / Shift-Cmd-Z in `app.rs::key` | 3 |  |
 | Sets with transition notes and flow view | DONE (own) | `sets.rs::set_flow`, `on_set_transition_note`, `ui/flow.slint` | 3 |  |
 | Set backup tracks / planned start | ENGINE-ONLY | `nodes.rs::set_entry_backups/set_set_meta` | — | P2 |
-| Keyboard shortcuts for Prepare | PARTIAL | `app.rs::key`: undo/redo, delete, arrows, Space, 1–8; SPEC §12 wants all Prepare actions | — | P2 |
+| Keyboard shortcuts for Prepare | DONE | `keymap.rs::registry`, `commands.rs::run`, `docs/keyboard.md`; One command registry (177 actions, rekordbox "Performance 1" defaults for decks 1/2); Preferences > Keyboard rebinds with conflict detection, reset, TOML import/export | 4 | P2 |
 | Browse from controller | PARTIAL | Rotate / press / back handled (`handle_action` `BrowseAction`); tree navigation, view toggle, shift-sort and related dropped | 1 | P2 |
 | Explorer: browse folders on disk and play directly | MISSING | `crates/od-ui/src/explorer.rs`; Module is a placeholder (`ExplorerState::load` returns nothing, `wire` is empty); (SPEC §5.5; UX §2.2) | — | **P1** |
 | Explorer: loading a file adds it to the collection and analyses it in the background | MISSING | Depends on `browser-explorer`; import and analysis paths exist (`od-ui/src/workers.rs`); (SPEC §5.5) | — | **P1** |
@@ -258,10 +258,10 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
-| Preferences window | MISSING | Settings only as CLI flags (`apps/opendecks/src/main.rs`); nothing persisted | — | **P1** |
-| Audio device, buffer size, output routing | PARTIAL | Auto-picks a DDJ/FLX device, fixed 128/256 frames (`perform.rs::ensure_engine`); no choice | 1 | **P1** |
-| Language, key notation, colour-blind, high contrast, motion | PARTIAL | `--lang`, `--keys`, `--colorblind`, `--high-contrast`, `--no-motion` only (via preferences) | 2 | **P1** |
-| Waveform options (zoom default, phrase display) | MISSING | — | — | P2 |
+| Preferences window | DONE | `ui/preferences.slint`, `preferences.rs::open`, `settings.rs::Settings`; Separate window (⌘, / Ctrl+, from the native menu and the keymap, gear in the top bar, Esc / ⌘W closes): Audio, View, Analysis, Controller, Keyboard, Recording, Advanced; stored in the library meta, CLI flags override for one run | 4 | **P1** |
+| Audio device, buffer size, output routing | DONE | `engine.rs::audio_config`, `preferences.rs::refresh`; Preferences > Audio: output device (automatic = controller interface), buffer 64–1024, sample rate, headphones auto / 3-4 / off; applies when audio next starts | 2 | **P1** |
+| Language, key notation, colour-blind, high contrast, motion | DONE | `preferences.rs::apply_live`, `shell.rs::apply_theme`; Preferences > View, applied live in both windows; UI scale (75–200 %) after restart | 3 | **P1** |
+| Waveform options (zoom default, phrase display) | PARTIAL | `settings.rs::ViewSettings`; Phrase display on/off (live, Prepare and Perform); waveform colour 3-band/blue is stored but the renderer does not read it yet; no zoom default | — | P2 |
 | Deck defaults (tempo range, quantize, sync mode, jog mode, auto cue) | MISSING | Engine defaults only | — | P2 |
 | Controller LED feedback | DONE | `perform.rs::feedback` (play, cue, sync, master, key lock, slip, loop, pads, VU) | 3 |  |
 | Soft takeover | DONE | `od-controller/src/takeover.rs` | 4 |  |
@@ -309,10 +309,10 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 
 | Status | Rows |
 |---|---|
-| DONE | 75 |
-| PARTIAL | 31 |
+| DONE | 79 |
+| PARTIAL | 29 |
 | ENGINE-ONLY | 25 |
-| MISSING | 65 |
+| MISSING | 63 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 6 |
 | **Total** | **204** |

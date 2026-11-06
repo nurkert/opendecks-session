@@ -536,11 +536,16 @@ id = "browser-keyboard-shortcuts"
 area = "browser"
 name = "Keyboard shortcuts for Prepare"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
-tests = []
-evidence = ["app.rs::key"]
-note = "`app.rs::key`: undo/redo, delete, arrows, Space, 1–8; SPEC §12 wants all Prepare actions"
+tests = [
+  "od-ui::keymap::tests::every_action_has_a_default_binding",
+  "od-ui::keymap::tests::prepare_actions_are_all_reachable",
+  "od-ui::keymap::tests::no_default_conflicts_per_platform",
+  "od-ui::keymap::tests::toml_round_trip",
+]
+evidence = ["keymap.rs::registry", "commands.rs::run", "docs/keyboard.md"]
+note = "One command registry (177 actions, rekordbox \"Performance 1\" defaults for decks 1/2); Preferences > Keyboard rebinds with conflict detection, reset, TOML import/export"
 
 [[feature]]
 id = "browser-controller-browse"
@@ -2183,47 +2188,56 @@ id = "prefs-window"
 area = "preferences"
 name = "Preferences window"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P1"
-tests = []
-evidence = ["apps/opendecks/src/main.rs"]
-note = "Settings only as CLI flags (`apps/opendecks/src/main.rs`); nothing persisted"
+tests = [
+  "od-ui::settings::tests::json_round_trip",
+  "od-ui::settings::tests::library_meta_round_trip",
+  "od-ui::settings::tests::overrides_win_without_changing_the_stored_settings",
+  "od-ui::settings::tests::global_config_round_trip",
+]
+evidence = ["ui/preferences.slint", "preferences.rs::open", "settings.rs::Settings"]
+note = "Separate window (⌘, / Ctrl+, from the native menu and the keymap, gear in the top bar, Esc / ⌘W closes): Audio, View, Analysis, Controller, Keyboard, Recording, Advanced; stored in the library meta, CLI flags override for one run"
 
 [[feature]]
 id = "prefs-audio-device"
 area = "preferences"
 name = "Audio device, buffer size, output routing"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P1"
 tests = [
   "od-audio-io::output::tests::auto_routing",
+  "od-ui::engine::tests::audio_settings_to_config",
 ]
-evidence = ["perform.rs::ensure_engine"]
-note = "Auto-picks a DDJ/FLX device, fixed 128/256 frames (`perform.rs::ensure_engine`); no choice"
+evidence = ["engine.rs::audio_config", "preferences.rs::refresh"]
+note = "Preferences > Audio: output device (automatic = controller interface), buffer 64–1024, sample rate, headphones auto / 3-4 / off; applies when audio next starts"
 
 [[feature]]
 id = "prefs-display"
 area = "preferences"
 name = "Language, key notation, colour-blind, high contrast, motion"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P1"
 tests = [
   "od-i18n::tests::translates_and_formats",
   "od-i18n::tests::placeholder_counts_match",
+  "od-ui::settings::tests::missing_and_broken_values_fall_back",
 ]
-note = "`--lang`, `--keys`, `--colorblind`, `--high-contrast`, `--no-motion` only (via preferences)"
+evidence = ["preferences.rs::apply_live", "shell.rs::apply_theme"]
+note = "Preferences > View, applied live in both windows; UI scale (75–200 %) after restart"
 
 [[feature]]
 id = "prefs-waveform-options"
 area = "preferences"
 name = "Waveform options (zoom default, phrase display)"
 scope = "in"
-status = "missing"
+status = "partial"
 prio = "P2"
 tests = []
-note = "—"
+evidence = ["settings.rs::ViewSettings"]
+note = "Phrase display on/off (live, Prepare and Perform); waveform colour 3-band/blue is stored but the renderer does not read it yet; no zoom default"
 
 [[feature]]
 id = "prefs-deck-defaults"
