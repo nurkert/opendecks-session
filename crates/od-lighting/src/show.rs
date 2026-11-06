@@ -26,6 +26,8 @@ use crate::render::Look;
 /// What one deck contributes, filled from the engine state each frame.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct DeckMusic {
+    /// Library id of the loaded track (for per-track lighting cues).
+    pub track: Option<i64>,
     pub playing: bool,
     pub bpm: f64,
     /// Fractional grid beat at the playhead.
@@ -118,6 +120,30 @@ pub struct ShowSettings {
     pub easy_program: Program,
     pub easy_color: Option<[f32; 3]>,
     pub groups: HashMap<String, GroupSettings>,
+    /// Pro mode cue stack.
+    #[serde(default)]
+    pub cues: Vec<LightCue>,
+    /// Lighting cues stored with tracks: library track id → cues by beat.
+    #[serde(default)]
+    pub track_cues: HashMap<i64, Vec<TrackCue>>,
+}
+
+/// One cue of the Pro mode stack: group settings layered over the base
+/// groups, reached with a fade.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct LightCue {
+    pub name: String,
+    pub groups: HashMap<String, GroupSettings>,
+    /// Fade into this cue, in beats of the playing deck.
+    pub fade_beats: f32,
+}
+
+/// A cue fired when the track reaches a beat.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct TrackCue {
+    pub beat: u32,
+    /// Index into [`ShowSettings::cues`].
+    pub cue: usize,
 }
 
 impl Default for ShowSettings {
@@ -129,6 +155,8 @@ impl Default for ShowSettings {
             easy_program: Program::Pulse,
             easy_color: None,
             groups: HashMap::new(),
+            cues: Vec::new(),
+            track_cues: HashMap::new(),
         }
     }
 }
@@ -145,6 +173,10 @@ pub struct Momentary {
 pub struct Show {
     pub settings: ShowSettings,
     pub momentary: Momentary,
+    /// Cue chosen by Go / Back (track cues take precedence while they apply).
+    pub manual_cue: Option<usize>,
+    /// Cue in effect last frame.
+    active_cue: Option<usize>,
     /// Program of the dominant deck and the frame it changed.
     current: Option<(Program, f32)>,
     /// Previous frame's looks and remaining crossfade (0..1).
@@ -164,6 +196,8 @@ impl Show {
         Self {
             settings,
             momentary: Momentary::default(),
+            manual_cue: None,
+            active_cue: None,
             current: None,
             previous: Vec::new(),
             fade: 0.0,
@@ -223,8 +257,22 @@ impl Show {
                     ..Default::default()
                 });
                 let groups = &self.settings.groups;
+                let cue = self
+                    .cue_for(dominant.copied())
+                    .and_then(|i| self.settings.cues.get(i));
                 rig(patch, &music, |group| {
-                    let g = groups.get(group).cloned().unwrap_or_default();
+                    let base = groups.get(group).cloned().unwrap_or_default();
+                    let g = match cue.and_then(|c| c.groups.get(group)) {
+                        Some(o) => GroupSettings {
+                            program: o.program.or(base.program),
+                            color: o.color.or(base.color),
+                            intensity: o.intensity.or(base.intensity),
+                            pan: o.pan.or(base.pan),
+                            tilt: o.tilt.or(base.tilt),
+                            speed: o.speed.or(base.speed),
+                        },
+                        None => base,
+                    };
                     (
                         g.program
                             .unwrap_or_else(|| Program::for_phrase(music.phrase)),
@@ -251,6 +299,21 @@ impl Show {
             }
             (_, Some(new)) => self.current = Some((new, 0.0)),
             _ => {}
+        }
+        // Pro cue change: fade over the cue's beats.
+        if self.settings.mode == Mode::Pro {
+            let cue = self.cue_for(dominant.copied());
+            if cue != self.active_cue {
+                let beats = cue
+                    .and_then(|i| self.settings.cues.get(i))
+                    .map_or(0.0, |c| c.fade_beats);
+                let bpm = dominant.map_or(120.0, |d| d.bpm.max(1.0)) as f32;
+                if beats > 0.0 {
+                    self.fade = 1.0;
+                    self.fade_time = beats * 60.0 / bpm;
+                }
+                self.active_cue = cue;
+            }
         }
         if self.fade > 0.0 && self.previous.len() == looks.len() {
             let t = 1.0 - self.fade;
@@ -286,6 +349,44 @@ impl Show {
             }
         }
         looks
+    }
+}
+
+impl Show {
+    /// Cue in effect: the last track cue the dominant deck has passed, else
+    /// the manually chosen one.
+    fn cue_for(&self, deck: Option<DeckMusic>) -> Option<usize> {
+        let from_track = deck.and_then(|d| {
+            let cues = self.settings.track_cues.get(&d.track?)?;
+            cues.iter()
+                .filter(|c| (c.beat as f64) <= d.beat)
+                .max_by_key(|c| c.beat)
+                .map(|c| c.cue)
+        });
+        from_track
+            .or(self.manual_cue)
+            .filter(|&i| i < self.settings.cues.len())
+    }
+
+    /// Next cue in the stack.
+    pub fn go(&mut self) {
+        let n = self.settings.cues.len();
+        if n > 0 {
+            self.manual_cue = Some(self.manual_cue.map_or(0, |i| (i + 1) % n));
+        }
+    }
+
+    /// Previous cue.
+    pub fn back(&mut self) {
+        let n = self.settings.cues.len();
+        if n > 0 {
+            self.manual_cue = Some(self.manual_cue.map_or(n - 1, |i| (i + n - 1) % n));
+        }
+    }
+
+    /// Cue in effect last frame (for the UI).
+    pub fn active_cue(&self) -> Option<usize> {
+        self.active_cue
     }
 }
 
@@ -657,6 +758,53 @@ mod tests {
         show.settings.blackout = false;
         show.momentary.strobe = true;
         assert!(show.frame(&patch, &[], 0.02).iter().all(|l| l.strobe > 0.0));
+    }
+
+    #[test]
+    fn pro_cue_stack_and_track_cues() {
+        let patch = rig_patch();
+        let red = |name: &str, color: [f32; 3]| LightCue {
+            name: name.into(),
+            groups: HashMap::from([(
+                "Wash".to_string(),
+                GroupSettings {
+                    program: Some(Program::Static),
+                    color: Some(color),
+                    ..Default::default()
+                },
+            )]),
+            fade_beats: 0.0,
+        };
+        let mut settings = ShowSettings {
+            mode: Mode::Pro,
+            ..Default::default()
+        };
+        settings.cues = vec![red("Red", [1.0, 0.0, 0.0]), red("Blue", [0.0, 0.0, 1.0])];
+        let mut show = Show::new(settings);
+        show.go();
+        assert_eq!(show.frame(&patch, &[], 0.02)[0].color, [1.0, 0.0, 0.0]);
+        show.go();
+        assert_eq!(show.frame(&patch, &[], 0.02)[0].color, [0.0, 0.0, 1.0]);
+        assert_eq!(show.active_cue(), Some(1));
+        show.back();
+        assert_eq!(show.frame(&patch, &[], 0.02)[0].color, [1.0, 0.0, 0.0]);
+
+        // A track cue at beat 32 takes over once the deck passes it.
+        show.settings
+            .track_cues
+            .insert(7, vec![TrackCue { beat: 32, cue: 1 }]);
+        let at = |beat| DeckMusic {
+            track: Some(7),
+            ..deck(PhraseKind::Verse, beat, 0.5)
+        };
+        assert_eq!(
+            show.frame(&patch, &[at(16.0)], 0.02)[0].color,
+            [1.0, 0.0, 0.0]
+        );
+        assert_eq!(
+            show.frame(&patch, &[at(33.0)], 0.02)[0].color,
+            [0.0, 0.0, 1.0]
+        );
     }
 
     #[test]
