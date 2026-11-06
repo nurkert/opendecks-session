@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 212 features; 205 in scope: 81 DONE (40 %), 30 PARTIAL, 25 ENGINE-ONLY, 69 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 81 DONE (39 %), 30 PARTIAL, 26 ENGINE-ONLY, 69 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -63,6 +63,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Duplicate track check | MISSING | — | — | P3 |
 | Import folder / files | DONE | `app.rs` `on_import_folder`, `od-cli import` | — |  |
 | rekordbox library + stick migration | DONE | `od-import-rekordbox`, `od-ui/src/import.rs` | 7 |  |
+| rekordbox preferences and keyboard shortcuts migration | ENGINE-ONLY | `crates/od-import-rekordbox/src/settings.rs`, `apps/od-cli/src/main.rs::rekordbox_settings_cmd`; Reader + mapping report (`od-cli rekordbox-settings`); applying to the preferences and an import-flow button wait for the persisted preferences; (SPEC §7) | 7 | P2 |
 | rekordbox XML / iTunes library import-export (compatibility) | MISSING | — | — | P3 |
 | Missing files / relocate | DONE | `relocate.rs::check_missing/find_relocations`; `on_find_moved_files` | 1 |  |
 | Consolidate | ENGINE-ONLY | `relocate.rs::consolidate`; no UI | 1 | P3 |
@@ -323,11 +324,11 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 |---|---|
 | DONE | 81 |
 | PARTIAL | 30 |
-| ENGINE-ONLY | 25 |
+| ENGINE-ONLY | 26 |
 | MISSING | 69 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
-| **Total** | **212** |
+| **Total** | **213** |
 
 ## P1 gaps and implementation notes
 

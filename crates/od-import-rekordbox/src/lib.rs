@@ -45,6 +45,7 @@
 mod masterdb;
 mod model;
 mod smart;
+pub mod settings;
 pub mod sqlcipher;
 mod stick;
 
