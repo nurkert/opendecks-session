@@ -51,6 +51,11 @@ export component ChoiceList inherits Rectangle {
 component FxUnit inherits Rectangle {
     in property <FxUnitView> u;
     in property <int> channels: 2;
+    // Narrow windows: no PARAM knob and no row captions.
+    in property <bool> narrow;
+    // Very narrow: also no tempo column, Release FX or level knob (they
+    // stay on the keyboard).
+    in property <bool> tiny;
     callback kind(int);
     callback kind-step(int);
     callback beats-step(int);
@@ -75,7 +80,7 @@ component FxUnit inherits Rectangle {
         padding-left: 14px; padding-right: 14px; padding-top: 8px; padding-bottom: 8px;
         spacing: 12px;
         // Unit number, lit while on; tempo it follows underneath.
-        VerticalLayout {
+        if !root.tiny: VerticalLayout {
             width: 46px;
             alignment: center;
             spacing: 2px;
@@ -95,7 +100,7 @@ component FxUnit inherits Rectangle {
             Caps { text: root.u.tapped ? @tr("TAP") : "BPM"; font-size: 9px; }
         }
         VerticalLayout {
-            width: 168px;
+            width: root.narrow ? 140px : 168px;
             spacing: 6px;
             alignment: center;
             Stepper {
@@ -107,7 +112,7 @@ component FxUnit inherits Rectangle {
             }
             HorizontalLayout {
                 spacing: 6px;
-                Caps { text: @tr("BEAT"); font-size: 9px; vertical-alignment: center; width: 30px; }
+                if !root.narrow: Caps { text: @tr("BEAT"); font-size: 9px; vertical-alignment: center; width: 30px; }
                 Stepper {
                     horizontal-stretch: 1;
                     value: root.u.beats; template: "1/16";
@@ -122,7 +127,7 @@ component FxUnit inherits Rectangle {
             alignment: center;
             HorizontalLayout {
                 spacing: 3px;
-                Caps { text: "CH"; font-size: 9px; vertical-alignment: center; width: 22px; }
+                if !root.narrow: Caps { text: "CH"; font-size: 9px; vertical-alignment: center; width: 22px; }
                 for c in root.channels: Toggle {
                     size: 24px; width: 26px;
                     label: c + 1;
@@ -138,9 +143,9 @@ component FxUnit inherits Rectangle {
                     clicked => { root.target(0); }
                 }
             }
-            HorizontalLayout {
+            if !root.tiny: HorizontalLayout {
                 spacing: 3px;
-                Caps { text: "REL"; font-size: 9px; vertical-alignment: center; width: 22px; }
+                if !root.narrow: Caps { text: "REL"; font-size: 9px; vertical-alignment: center; width: 22px; }
                 for name[k] in FxNames.release: HoldButton {
                     horizontal-stretch: 1;
                     label: name; on: root.u.release == k; tone: Theme.w656;
@@ -153,13 +158,13 @@ component FxUnit inherits Rectangle {
                 }
             }
         }
-        Knob {
+        if !root.tiny: Knob {
             label: @tr("LEVEL"); size: 28px; minimum: 0; maximum: 1; default-value: 0.5;
             value: root.u.level; tone: root.tone;
             tooltip: @tr("Level / depth of the effect");
             changed(v) => { root.level(v); }
         }
-        Knob {
+        if !root.narrow: Knob {
             label: @tr("PARAM"); size: 28px; minimum: -1; maximum: 1; default-value: 0;
             value: root.u.param; tone: Theme.w436;
             tooltip: @tr("Effect parameter (filter direction, pitch, reverb colour)");
@@ -211,6 +216,8 @@ export component FxPanel inherits Rectangle {
                 horizontal-stretch: 1;
                 u: u;
                 channels: root.channels;
+                narrow: root.width < 1320px;
+                tiny: root.width < 1000px;
                 kind(k) => { root.kind(u.unit, k); }
                 kind-step(d) => { root.kind-step(u.unit, d); }
                 beats-step(d) => { root.beats-step(u.unit, d); }

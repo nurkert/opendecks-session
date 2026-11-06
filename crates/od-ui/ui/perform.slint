@@ -428,6 +428,8 @@ export component DeckPanel inherits Rectangle {
     in property <bool> touch-size;
     // Even decks mirror the order so every deck's inner side faces the mixer.
     in property <bool> mirror;
+    // Room for KEY SYNC / key shift in the header (wide enough windows).
+    in property <bool> key-column: true;
     callback toggle-play();
     callback cue();
     callback sync();
@@ -492,8 +494,9 @@ export component DeckPanel inherits Rectangle {
             Readout { label: "BPM"; template: "000.00"; value: root.deck.bpm; size: root.compact ? 18px : 22px; tone: root.deck.master ? Theme.attention : Theme.bone; }
             Readout { label: @tr("REMAIN"); template: "-00:00.0"; value: root.deck.remaining; sub: root.compact ? "" : root.deck.elapsed; size: root.compact ? 18px : 22px; }
             Readout { label: @tr("KEY"); template: "12A"; value: root.deck.key; size: root.compact ? 18px : 22px; }
-            // Key sync and key shift (semitones; the value resets).
-            VerticalLayout {
+            // Key sync and key shift (semitones; the value resets). Narrow
+            // decks leave them to the Key Shift pad mode and the keyboard.
+            if root.key-column: VerticalLayout {
                 spacing: 3px;
                 alignment: center;
                 width: 78px;
@@ -889,6 +892,7 @@ export component PerformView inherits Rectangle {
                     deck: d;
                     compact: root.tight || root.narrow || root.decks.length > 2;
                     touch-size: root.touch-size;
+                    key-column: root.width >= 1000px;
                     toggle-play => { root.toggle-play(d.deck); }
                     cue => { root.cue(d.deck); }
                     sync => { root.sync(d.deck); }
@@ -940,6 +944,7 @@ export component PerformView inherits Rectangle {
                     mirror: true;
                     compact: root.tight || root.narrow || root.decks.length > 2;
                     touch-size: root.touch-size;
+                    key-column: root.width >= 1000px;
                     toggle-play => { root.toggle-play(d.deck); }
                     cue => { root.cue(d.deck); }
                     sync => { root.sync(d.deck); }
