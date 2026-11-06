@@ -3,6 +3,7 @@
 
 import { ListView } from "std-widgets.slint";
 import { Theme } from "tokens.slint";
+import { DragState } from "drag.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, Glyph, TipArea } from "controls.slint";
 import { TrackRow } from "structs.slint";
@@ -59,6 +60,8 @@ component TrackLine inherits Rectangle {
     in property <bool> show-position;
     callback clicked(bool, bool);
     callback double-clicked();
+    // Dropped on a target (DragState.target) after dragging this row.
+    callback dropped(int);
     height: Theme.row-height;
     background: touch.has-hover ? Theme.ground-band : transparent;
 
@@ -155,6 +158,19 @@ component TrackLine inherits Rectangle {
             if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
                 root.clicked(ev.modifiers.control || ev.modifiers.meta, ev.modifiers.shift);
             }
+            if (ev.kind == PointerEventKind.up && DragState.active) {
+                if (DragState.target != 0) { root.dropped(DragState.target); }
+                DragState.active = false;
+                DragState.target = 0;
+            }
+        }
+        moved => {
+            if (self.pressed && (DragState.active || abs(self.mouse-x - self.pressed-x) > 6px || abs(self.mouse-y - self.pressed-y) > 6px)) {
+                DragState.label = root.item.title;
+                DragState.x = self.absolute-position.x + self.mouse-x;
+                DragState.y = self.absolute-position.y + self.mouse-y;
+                DragState.active = true;
+            }
         }
         double-clicked => { root.double-clicked(); }
     }
@@ -171,6 +187,7 @@ export component TrackTable inherits Rectangle {
     callback sort(string);
     callback row-clicked(int, bool, bool);
     callback row-activated(int);
+    callback row-dropped(int, int);
 
     VerticalLayout {
         Rectangle {
@@ -220,6 +237,7 @@ export component TrackTable inherits Rectangle {
                 show-position: root.show-position;
                 clicked(ctrl, shift) => { root.row-clicked(i, ctrl, shift); }
                 double-clicked => { root.row-activated(i); }
+                dropped(t) => { root.row-dropped(i, t); }
             }
         }
     }

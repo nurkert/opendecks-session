@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 81 DONE (39 %), 30 PARTIAL, 26 ENGINE-ONLY, 69 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 82 DONE (40 %), 31 PARTIAL, 27 ENGINE-ONLY, 66 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -51,7 +51,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Track colour | ENGINE-ONLY | `TrackTags.color` (`od-core/src/track.rs`), imported and exported; no column, no editor | — | **P1** |
 | Comments | ENGINE-ONLY | `TrackTags.comment`; smart-rule field `Comment`; no column, no editor | — | **P1** |
 | Edit tags (title, artist, album, genre, label, year …) | ENGINE-ONLY | `tracks.rs::set_tags` (journalled); no track-info editor | 1 | **P1** |
-| My Tag | MISSING | Importer skips My Tag smart conditions (`od-import-rekordbox/src/tests.rs`); no model | — | P2 |
+| My Tag | ENGINE-ONLY | Model and undoable edits in `od-library` (`mytags.rs`), searchable and editable through the MCP server; no browser column or editor yet; importer skips My Tag smart conditions (`od-import-rekordbox/src/tests.rs`) | 1 | P2 |
 | Tag list / palette (holding area) | MISSING | — | — | P3 |
 | Related tracks | ENGINE-ONLY | `sets.rs::suggest_next`; FLX10 `browse.related` is mapped but dropped in `handle_action` | 1 | P2 |
 | Track suggestion / harmonic matching | PARTIAL | Key-distance column vs. selected track (`app.rs` `key_distance`), set flow fit (`sets.rs::transition`); no suggestion list | 2 | P2 |
@@ -78,13 +78,13 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings) | PARTIAL | `crates/od-ui/ui/rail.slint`; Rail with sections exists; Explorer, Histories, Related and Tag list sources missing; (UX §1.6, §4 P4.9) | — | P2 |
 | Re-orderable columns and multi-sort | MISSING | Fixed column order, one sort key (`browser/tracks.rs`); (SPEC §5.5) | — | P3 |
 | Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | PARTIAL | `crates/od-ui/src/decks.rs::free_deck`; Activate/double-click and controller load work; drag to deck and the context menu do not exist; (UX §2.1) | 1 | **P1** |
-| Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | MISSING | Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (loads unless the deck is playing and load lock is on); Finder/Explorer files are imported on drop.; (SPEC §5.5) | — | **P1** |
+| Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | PARTIAL | Done for list and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight; verified by driving real mouse events). Missing: drop from Finder, automated UI test. Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (loads unless the deck is playing and load lock is on); Finder/Explorer files are imported on drop.; (SPEC §5.5) | — | **P1** |
 | Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | MISSING | No popup menus in `crates/od-ui/ui`; (UX §1.9) | — | P2 |
 | Info panel (track details beside the list) | MISSING | (SPEC §5.5; UX §1.6) | — | P2 |
 | Sub-browser (second tree + list for dragging between playlists) | MISSING | (UX §1.6, §4 P4.12) | — | P3 |
 | Automatic database backups (rotating) | DONE (beyond the usual) | `crates/od-library/src/backup.rs`; (SPEC §5.3) | 1 |  |
 | Export / import the whole library as one archive (database + analysis, optional audio) | MISSING | (SPEC §5.3) | — | P3 |
-| MCP server: full library access for preparing sets with an LLM | MISSING | Owner request 2026-11-06 (SPEC §5.6).; (SPEC §5.6) | — | **P1** |
+| MCP server: full library access for preparing sets with an LLM | DONE | `apps/od-mcp/src/tools.rs`, `apps/od-mcp/src/server.rs`; Owner request 2026-11-06 (SPEC §5.6). `opendecks-mcp` (MCP 2025-06-18, stdio or loopback HTTP): 8 read and 10 write tools, track/node resources, build_set and fix_transitions prompts; each write is one undo step "MCP: …" plus change-log rows (stick sync); setup in docs/mcp.md; (SPEC §5.6) | 8 | **P1** |
 
 ## 2. Analysis
 
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 81 |
-| PARTIAL | 30 |
-| ENGINE-ONLY | 26 |
-| MISSING | 69 |
+| DONE | 82 |
+| PARTIAL | 31 |
+| ENGINE-ONLY | 27 |
+| MISSING | 66 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |

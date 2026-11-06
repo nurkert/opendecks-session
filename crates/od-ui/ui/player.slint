@@ -7,6 +7,7 @@ import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, PlateButton, Toggle, Transport, Splitter } from "controls.slint";
 import { Pad, PhraseBar } from "perform.slint";
+import { DropZone } from "drag.slint";
 import { CueMark, HotCueSlot, PhraseMark } from "structs.slint";
 
 component Tab inherits Rectangle {
@@ -252,5 +253,6 @@ export component PreparePlayer inherits Rectangle {
             }
         }
     }
+    DropZone { width: parent.width; height: parent.height; id: -1; }
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
 }

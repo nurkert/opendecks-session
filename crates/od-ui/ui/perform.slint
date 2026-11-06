@@ -8,6 +8,7 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, PlateButton, Glyph, Knob, Fader, Toggle, Transport, Jog } from "controls.slint";
+import { DropZone } from "drag.slint";
 import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark, LaneMotion } from "structs.slint";
 
 // Phrase bar: one labelled block per phrase.
@@ -423,6 +424,7 @@ export component DeckPanel inherits Rectangle {
     }
     // Deck line along the outer edge.
     VLine { x: root.mirror ? parent.width - 3px : 0; y: 0; height: parent.height; weight: 3px; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
+    DropZone { width: parent.width; height: parent.height; id: root.deck.deck; tone: root.tone; }
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
 }
 
@@ -643,7 +645,9 @@ export component PerformView inherits Rectangle {
             spacing: 0;
             vertical-stretch: 0;
             VerticalLayout {
+                // Both deck columns share the space equally, whatever they show.
                 horizontal-stretch: 1;
+                preferred-width: 0px;
                 spacing: 0;
                 for d in root.decks-left: DeckPanel {
                     deck: d;
@@ -682,7 +686,9 @@ export component PerformView inherits Rectangle {
             }
             if root.show-mixer: VLine { weight: 1px; tone: Theme.rule; }
             VerticalLayout {
+                // Both deck columns share the space equally, whatever they show.
                 horizontal-stretch: 1;
+                preferred-width: 0px;
                 spacing: 0;
                 for d in root.decks-right: DeckPanel {
                     deck: d;

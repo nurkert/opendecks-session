@@ -379,6 +379,27 @@ pub(crate) fn wire(app: &Rc<App>) {
             decks::load_selected_into_free_deck(&a);
         }
     }));
+    // Drag and drop: target 1..=4 = that deck, -1 = the Prepare player.
+    ui.on_row_dropped(handler!(app, |a, i: i32, target: i32| {
+        select_row(&a, i as usize, false, false);
+        if target < 0 {
+            if a.state.borrow().explorer.open.is_some() {
+                crate::explorer::activate(&a, i as usize, None);
+            } else {
+                crate::player::toggle_preview(&a);
+            }
+            return;
+        }
+        let deck = (target as usize).saturating_sub(1).min(decks::DECKS - 1);
+        if a.state.borrow().explorer.open.is_some() {
+            crate::explorer::activate(&a, i as usize, Some(deck));
+        } else {
+            let track = a.state.borrow().player.current;
+            if let Some(track) = track {
+                decks::load_track(&a, deck, track, None);
+            }
+        }
+    }));
     ui.on_import_folder(handler!(app, |a| {
         let Some(dirs) = rfd::FileDialog::new().set_title("Add music folder").pick_folders() else { return };
         let path = a.state.borrow().config.library_path.clone();

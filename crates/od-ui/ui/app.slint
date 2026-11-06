@@ -1,6 +1,7 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine, ProgressLine } from "lines.slint";
 import { UpdateBar } from "update.slint";
+import { DragGhost } from "drag.slint";
 import { Caps, PlateButton, Field, LineToggle, Splitter, TooltipState } from "controls.slint";
 import { TooltipLayer } from "tooltip.slint";
 import { Sidebar } from "sidebar.slint";
@@ -182,6 +183,7 @@ export component AppWindow inherits Window {
     callback sort(string);
     callback row-clicked(int, bool, bool);
     callback row-activated(int);
+    callback row-dropped(int, int);
     callback import-folder();
     callback import-rekordbox();
     callback explorer-select(int);
@@ -540,6 +542,7 @@ export component AppWindow inherits Window {
                         sort(c) => { root.sort(c); }
                         row-clicked(i, c, s) => { root.row-clicked(i, c, s); keys.focus(); }
                         row-activated(i) => { root.row-activated(i); }
+                        row-dropped(i, t) => { root.row-dropped(i, t); }
                     }
                     if root.section == "library" && root.node-kind == "all" && root.tracks.length == 0: HorizontalLayout {
                         alignment: center;
@@ -672,6 +675,8 @@ export component AppWindow inherits Window {
         }
     }
 
+    // The dragged track follows the pointer.
+    DragGhost { }
     // Tooltips draw above everything.
     TooltipLayer { }
 }

@@ -322,11 +322,11 @@ id = "browser-my-tag"
 area = "browser"
 name = "My Tag"
 scope = "in"
-status = "missing"
+status = "engine-only"
 prio = "P2"
-tests = []
+tests = ["od-library::mytags::tests::my_tags_are_undoable"]
 evidence = ["od-import-rekordbox/src/tests.rs"]
-note = "Importer skips My Tag smart conditions (`od-import-rekordbox/src/tests.rs`); no model"
+note = "Model and undoable edits in `od-library` (`mytags.rs`), searchable and editable through the MCP server; no browser column or editor yet; importer skips My Tag smart conditions (`od-import-rekordbox/src/tests.rs`)"
 
 [[feature]]
 id = "browser-tag-list"
@@ -670,11 +670,11 @@ id = "browser-drag-to-deck"
 area = "browser"
 name = "Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player"
 scope = "in"
-status = "missing"
+status = "partial"
 prio = "P1"
 tests = []
 evidence = []
-note = "Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (loads unless the deck is playing and load lock is on); Finder/Explorer files are imported on drop."
+note = "Done for list and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight; verified by driving real mouse events). Missing: drop from Finder, automated UI test. Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (loads unless the deck is playing and load lock is on); Finder/Explorer files are imported on drop."
 spec = "SPEC §5.5"
 
 [[feature]]
@@ -2636,11 +2636,20 @@ id = "mcp-set-preparation"
 area = "browser"
 name = "MCP server: full library access for preparing sets with an LLM"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P1"
-tests = []
-evidence = []
-note = "Owner request 2026-11-06 (SPEC §5.6)."
+tests = [
+  "od-mcp::stdio::handshake_lists_tools_resources_prompts",
+  "od-mcp::stdio::read_tools",
+  "od-mcp::stdio::every_write_is_one_undo_step",
+  "od-mcp::stdio::concurrent_app_writes",
+  "od-mcp::stdio::http_transport_initializes",
+  "od-mcp::stdio::http_refuses_non_loopback",
+  "od-library::tests::edit_with_is_atomic_and_one_step",
+  "od-library::tests::external_writes_are_detected",
+]
+evidence = ["apps/od-mcp/src/tools.rs", "apps/od-mcp/src/server.rs", "docs/mcp.md"]
+note = "Owner request 2026-11-06 (SPEC §5.6). `opendecks-mcp` (MCP 2025-06-18, stdio or loopback HTTP): 8 read and 10 write tools, track/node resources, build_set and fix_transitions prompts; each write is one undo step \"MCP: …\" plus change-log rows (stick sync); setup in docs/mcp.md"
 spec = "SPEC §5.6"
 
 [[feature]]
