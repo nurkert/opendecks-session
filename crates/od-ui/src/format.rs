@@ -40,6 +40,17 @@ pub fn bar_beat(beat: f64, beat_in_bar: u8) -> String {
     if beat_in_bar > 0 { format!("{}.{}", (beat.max(0.0) as u64) / 4 + 1, beat_in_bar) } else { String::new() }
 }
 
+/// Countdown to a target beat as "-bars.beats", e.g. "-7.4" = 7 bars and
+/// 4 beats left; empty when the target is behind the playhead.
+pub fn bar_countdown(beat: f64, target_beat: f64) -> String {
+    let left = (target_beat - beat.max(0.0).floor()).round() as i64;
+    if left <= 0 {
+        return String::new();
+    }
+    let (bars, beats) = ((left - 1) / 4, (left - 1) % 4 + 1);
+    format!("-{bars}.{beats}")
+}
+
 /// BPM with the given decimals, empty when unknown or zero.
 pub fn bpm(b: Option<f64>, decimals: usize) -> String {
     match b {
@@ -81,5 +92,13 @@ mod tests {
         assert_eq!(bpm(Some(128.0), 1), "128.0");
         assert_eq!(bpm(Some(0.0), 2), "");
         assert_eq!(bpm(None, 2), "");
+    }
+
+    #[test]
+    fn bar_countdown_counts_bars_and_beats_left() {
+        // At beat 0 with the target at beat 32: 8 bars left, shown -7.4.
+        assert_eq!(super::bar_countdown(0.0, 32.0), "-7.4");
+        assert_eq!(super::bar_countdown(31.2, 32.0), "-0.1");
+        assert_eq!(super::bar_countdown(32.0, 32.0), "");
     }
 }

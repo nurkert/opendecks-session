@@ -51,6 +51,9 @@ pub struct ViewSettings {
     /// "3band" or "blue".
     pub waveform: String,
     pub phrases: bool,
+    /// Bar counter on decks: "to-phrase" (bars left in the phrase, the
+    /// default), "to-memory-cue" (bars left to the next memory cue) or "up".
+    pub bar_counter: String,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -121,6 +124,7 @@ impl Default for ViewSettings {
             reduced_motion: false,
             waveform: "3band".into(),
             phrases: true,
+            bar_counter: "to-phrase".into(),
         }
     }
 }

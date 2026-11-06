@@ -548,6 +548,33 @@ pub(crate) struct DeckInputs<'a> {
     pub stems_busy: bool,
     /// Auto-loop size when no loop runs, in beats.
     pub loop_size: f64,
+    /// Bar counter mode (Preferences › View).
+    pub bar_counter: &'a str,
+}
+
+/// The deck's bar counter in the chosen mode (falls back to counting up).
+fn bar_counter(s: &DeckState, meta: Option<&Loaded>, mode: &str) -> String {
+    let up = || format::bar_beat(s.beat, s.beat_in_bar);
+    let Some(m) = meta.filter(|_| s.beat_in_bar > 0) else { return up() };
+    let beat = s.beat.max(0.0);
+    let target = match mode {
+        "to-phrase" => m.phrases.iter().find(|p| (p.start_beat as f64) <= beat && beat < p.end_beat as f64).map(|p| p.end_beat as f64),
+        "to-memory-cue" => {
+            let dur = s.duration.max(1e-6);
+            m.cues
+                .iter()
+                .filter(|c| c.slot < 0)
+                .map(|c| c.pos as f64 * dur)
+                .filter(|&t| t > s.position + 0.01)
+                .fold(None, |a: Option<f64>, t| Some(a.map_or(t, |a| a.min(t))))
+                .and_then(|t| m.grid.beat_index_at(t).map(|i| i as f64))
+        }
+        _ => None,
+    };
+    match target.map(|t| format::bar_countdown(beat, t)) {
+        Some(c) if !c.is_empty() => c,
+        _ => up(),
+    }
 }
 
 pub(crate) fn tempo_range_label(r: TempoRange) -> &'static str {
@@ -606,7 +633,7 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         phrase: meta.map(|m| phrase_now(&m.phrases, s.beat)).unwrap_or_default().into(),
         // 33⅓ rpm: 200° per second of audio.
         jog_angle: (s.position * 200.0).rem_euclid(360.0) as f32,
-        beat_pos: format::bar_beat(s.beat, s.beat_in_bar).into(),
+        beat_pos: bar_counter(s, i.meta, i.bar_counter).into(),
     }
 }
 
@@ -772,6 +799,7 @@ pub(crate) fn show_empty(app: &App) {
 /// Frame tick: engine state → deck rows (only what changed).
 pub(crate) fn project(app: &App, state: &EngineState) {
     let show_phrases = app.ui.get_show_phrases();
+    let bar_mode = app.state.borrow().settings.view.bar_counter.clone();
     let scale = app.ui.window().scale_factor();
     let mut guard = app.decks.borrow_mut();
     let d = &mut *guard;
@@ -821,6 +849,7 @@ pub(crate) fn project(app: &App, state: &EngineState) {
                 quantize: state.quantize,
                 stems_busy: meta.is_some_and(|m| d.stem_progress.contains_key(&m.id)),
                 loop_size: d.loop_size[i],
+                bar_counter: &bar_mode,
             },
         );
         if lane.fields.as_ref() != Some(&fields) {
@@ -965,7 +994,7 @@ mod tests {
     #[test]
     fn empty_deck_projection() {
         let s = DeckState::default();
-        let f = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5 });
+        let f = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5, bar_counter: "up" });
         assert_eq!(f.deck, 2);
         assert!(!f.loaded);
         assert_eq!(f.bpm, "");
@@ -973,7 +1002,7 @@ mod tests {
         assert_eq!(f.loop_size, "1/2");
         assert_eq!(f.elapsed, "0:00.0");
         // Unchanged state projects equal, so no row is written.
-        let g = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5 });
+        let g = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5, bar_counter: "up" });
         assert_eq!(f, g);
     }
 
