@@ -75,6 +75,44 @@ impl TempoRange {
     }
 }
 
+/// What the deck's bar/beat counter shows.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BarCounter {
+    /// Bars and beats from the track start (counting up).
+    Up,
+    /// Count down to the next memory cue.
+    ToMemoryCue,
+    /// Count down to the next phrase.
+    ToPhrase,
+}
+
+impl BarCounter {
+    /// The OpenDecks preference value.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            BarCounter::Up => "up",
+            BarCounter::ToMemoryCue => "to-memory-cue",
+            BarCounter::ToPhrase => "to-phrase",
+        }
+    }
+}
+
+/// Default time display of a deck.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TimeDisplay {
+    Elapsed,
+    Remaining,
+}
+
+impl TimeDisplay {
+    pub fn as_str(self) -> &'static str {
+        match self {
+            TimeDisplay::Elapsed => "elapsed",
+            TimeDisplay::Remaining => "remaining",
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum HotCueAutoLoad {
     Off,
@@ -131,6 +169,17 @@ pub struct RekordboxSettings {
     pub key_notation: Option<KeyDisplay>,
     pub waveform_color: Option<WaveformColor>,
     pub phrase_display: Option<bool>,
+    /// Phrases also in the overview waveform (`showPhraseFull`).
+    pub phrase_display_overview: Option<bool>,
+    /// Phrase names always visible (`showPhraseNameAlways`).
+    pub phrase_names_always: Option<bool>,
+    pub bar_counter: Option<BarCounter>,
+    /// Raw `BeatCountDisplayStyle` (bar.beat layout), undocumented.
+    pub bar_counter_style: Option<i64>,
+    pub time_display: [Option<TimeDisplay>; 4],
+    /// Raw zoom step of the zoomed waveform per deck
+    /// (`Player<n>_WaveViewRatioDJ`), encoding undocumented.
+    pub waveform_zoom: [Option<i64>; 4],
     pub quantize: Option<bool>,
     /// Quantize resolution in beats (1, 0.5, 0.25, 0.125).
     pub quantize_beats: Option<f64>,
@@ -614,6 +663,10 @@ const HANDLED: &[&str] = &[
     "AutoCueLeveldB",
     "language",
     "performaceKeyMapping",
+    "showPhraseFull",
+    "showPhraseNameAlways",
+    "BeatCountDisplayMode",
+    "BeatCountDisplayStyle",
 ];
 
 /// Maps the contents of the preference files. Pure: no file access.
@@ -659,7 +712,7 @@ pub fn parse(files: &SettingsFiles) -> (RekordboxSettings, SettingsReport) {
 }
 
 fn is_per_deck_handled(name: &str) -> bool {
-    let deck_keys = ["_Quantize", "_BeatJumpBeat", "_MasterTempo"];
+    let deck_keys = ["_Quantize", "_BeatJumpBeat", "_MasterTempo", "_TimeMode", "_WaveViewRatioDJ"];
     (name.starts_with("Player") && deck_keys.iter().any(|k| name.ends_with(k)))
         || name.starts_with("AutoCueEnableDeck")
 }
@@ -740,6 +793,82 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
     if let Some(on) = flag(v, "showPhrase") {
         b.s.phrase_display = Some(on);
         b.entry("Phrase display", &src("showPhrase"), yes(on), MapStatus::Mapped, &format!("view.phrases = {on}"), "");
+    }
+    if let Some(on) = flag(v, "showPhraseFull") {
+        b.s.phrase_display_overview = Some(on);
+        b.entry(
+            "Phrase display in the overview waveform",
+            &src("showPhraseFull"),
+            yes(on),
+            MapStatus::Unmapped,
+            "",
+            "OpenDecks shows phrases in both waveforms with view.phrases; no separate switch",
+        );
+    }
+    if let Some(on) = flag(v, "showPhraseNameAlways") {
+        b.s.phrase_names_always = Some(on);
+        b.entry("Phrase names always visible", &src("showPhraseNameAlways"), yes(on), MapStatus::Unmapped, "", "no OpenDecks option");
+    }
+    if let Some(n) = int(v, "BeatCountDisplayMode") {
+        let c = match n {
+            0 => Some(BarCounter::Up),
+            1 => Some(BarCounter::ToMemoryCue),
+            2 => Some(BarCounter::ToPhrase),
+            _ => None,
+        };
+        b.s.bar_counter = c;
+        match c {
+            Some(c) => b.entry(
+                "Bar/beat counter",
+                &src("BeatCountDisplayMode"),
+                format!("{} ({n})", c.as_str()),
+                MapStatus::Mapped,
+                &format!("view.bar_counter = {}", c.as_str()),
+                "encoding inferred: 0 = count up, 1 = countdown to the next memory cue, 2 = to the next phrase",
+            ),
+            None => b.entry("Bar/beat counter", &src("BeatCountDisplayMode"), n.to_string(), MapStatus::Unmapped, "", "unknown value"),
+        }
+    }
+    if let Some(n) = int(v, "BeatCountDisplayStyle") {
+        b.s.bar_counter_style = Some(n);
+        b.entry("Bar/beat counter style", &src("BeatCountDisplayStyle"), n.to_string(), MapStatus::Unmapped, "", "encoding not documented; OpenDecks has one counter style");
+    }
+    let tm: Vec<(usize, TimeDisplay)> = (0..4)
+        .filter_map(|d| {
+            let t = match int(v, &format!("Player{d}_TimeMode"))? {
+                0 => TimeDisplay::Elapsed,
+                1 => TimeDisplay::Remaining,
+                _ => return None,
+            };
+            Some((d, t))
+        })
+        .collect();
+    for (d, t) in &tm {
+        b.s.time_display[*d] = Some(*t);
+    }
+    if !tm.is_empty() {
+        b.entry(
+            "Time display (elapsed/remaining)",
+            &src("Player0..3_TimeMode"),
+            tm.iter().map(|(_, t)| t.as_str()).collect::<Vec<_>>().join("/"),
+            MapStatus::EngineOnly,
+            "view.time_display (no persisted preference yet)",
+            "encoding inferred: 0 = elapsed, 1 = remaining; per deck",
+        );
+    }
+    let zoom: Vec<(usize, i64)> = (0..4).filter_map(|d| int(v, &format!("Player{d}_WaveViewRatioDJ")).map(|z| (d, z))).collect();
+    for (d, z) in &zoom {
+        b.s.waveform_zoom[*d] = Some(*z);
+    }
+    if !zoom.is_empty() {
+        b.entry(
+            "Waveform zoom default",
+            &src("Player0..3_WaveViewRatioDJ"),
+            zoom.iter().map(|(_, z)| z.to_string()).collect::<Vec<_>>().join("/"),
+            MapStatus::Unmapped,
+            "",
+            "rekordbox's zoom step encoding is not documented; OpenDecks keeps its zoom in beats",
+        );
     }
 
     // Quantize: one flag per deck (Player1..4); OpenDecks quantize is global.
@@ -1253,6 +1382,13 @@ impl RekordboxSettings {
         if let Some(p) = self.phrase_display {
             put("view.phrases", p.to_string());
         }
+        if let Some(c) = self.bar_counter {
+            put("view.bar_counter", c.as_str().into());
+        }
+        // One time display for all decks: the first deck that has one.
+        if let Some(t) = self.time_display.iter().flatten().next() {
+            put("view.time_display", t.as_str().into());
+        }
         if let Some((lo, hi)) = self.analysis_bpm_range {
             put("analysis.bpm_min", lo.to_string());
             put("analysis.bpm_max", hi.to_string());
@@ -1352,6 +1488,12 @@ mod tests {
   <VALUE name="KeyStringSetting" val="1"/>
   <VALUE name="ColorType" val="1"/>
   <VALUE name="showPhrase" val="1"/>
+  <VALUE name="showPhraseFull" val="0"/>
+  <VALUE name="BeatCountDisplayMode" val="1"/>
+  <VALUE name="BeatCountDisplayStyle" val="0"/>
+  <VALUE name="Player0_TimeMode" val="1"/>
+  <VALUE name="Player1_TimeMode" val="0"/>
+  <VALUE name="Player0_WaveViewRatioDJ" val="5"/>
   <VALUE name="Player1_Quantize" val="0"/>
   <VALUE name="Player2_Quantize" val="1"/>
   <VALUE name="BeatSyncType" val="0"/>
@@ -1427,6 +1569,13 @@ mod tests {
         assert_eq!(s.key_notation, Some(KeyDisplay::Classic));
         assert_eq!(s.waveform_color, Some(WaveformColor::Blue));
         assert_eq!(s.phrase_display, Some(true));
+        assert_eq!(s.phrase_display_overview, Some(false));
+        assert_eq!(s.bar_counter, Some(BarCounter::ToMemoryCue));
+        assert_eq!(s.bar_counter_style, Some(0));
+        assert_eq!(s.time_display, [Some(TimeDisplay::Remaining), Some(TimeDisplay::Elapsed), None, None]);
+        assert_eq!(s.waveform_zoom[0], Some(5));
+        assert_eq!(entry(&r, "Bar/beat counter").target, "view.bar_counter = to-memory-cue");
+        assert!(!r.ignored_keys.iter().any(|k| k.contains("TimeMode") || k.contains("WaveViewRatioDJ")));
         assert_eq!(s.quantize, Some(true));
         assert_eq!(s.sync_mode, Some(0));
         assert_eq!(s.auto_cue, [Some(true), Some(false), None, None]);
@@ -1466,6 +1615,8 @@ mod tests {
         assert_eq!(get("deck1.beat_jump"), Some("16"));
         assert_eq!(get("mixer.eq_mode"), Some("classic"));
         assert_eq!(get("view.language"), None);
+        assert_eq!(get("view.bar_counter"), Some("to-memory-cue"));
+        assert_eq!(get("view.time_display"), Some("remaining"));
     }
 
     #[test]
