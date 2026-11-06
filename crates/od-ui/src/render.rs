@@ -22,8 +22,12 @@ static COLORBLIND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool
 pub fn set_colorblind_safe(on: bool) {
     COLORBLIND.store(on, std::sync::atomic::Ordering::Relaxed);
 }
-const BEAT: [u8; 3] = [0x3A, 0x39, 0x36];
-const DOWNBEAT: [u8; 3] = [0x8B, 0x86, 0x7B];
+/// Beatgrid: beats, bar starts and 16-bar starts, drawn behind the waveform.
+const BEAT: [u8; 3] = [0x34, 0x33, 0x30];
+const DOWNBEAT: [u8; 3] = [0x6E, 0x6A, 0x62];
+const DOWNBEAT_MARK: [u8; 3] = [0xE6, 0xE0, 0xD2];
+const PHRASE_LINE: [u8; 3] = [0x8A, 0x74, 0x2C];
+const PHRASE_MARK: [u8; 3] = [0xF5, 0xCE, 0x4A];
 /// 589 nm, dimmed: phrase ticks on the overview.
 const TICK: [u8; 3] = [0xB8, 0x9B, 0x3A];
 
@@ -163,9 +167,11 @@ pub fn detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], position: f64, 
     let secs_per_px = span / width.max(1) as f64;
     let strip = (height / 18).max(3);
     let wave_h = height - strip - 1;
+    // Waveform amplitude leaves a top band free for the grid markers.
+    let mark_h = (wave_h / 9).max(4);
     if !grid.beats.is_empty() {
         let first = grid.beat_index_at(start.max(0.0)).unwrap_or(0);
-        for b in grid.beats.iter().skip(first) {
+        for (i, b) in grid.beats.iter().enumerate().skip(first) {
             if b.time > start + span {
                 break;
             }
@@ -173,9 +179,17 @@ pub fn detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], position: f64, 
                 continue;
             }
             let x = ((b.time - start) / secs_per_px) as u32;
-            let (rgb, len) = if b.bar_position == 1 { (DOWNBEAT, wave_h / 5) } else { (BEAT, wave_h / 10) };
-            vline(&mut buf, x, 0, len, rgb);
-            vline(&mut buf, x, wave_h - len, wave_h, rgb);
+            let downbeat = b.bar_position == 1;
+            let phrase = downbeat && (i / 4) % 16 == 0;
+            let line = if phrase { PHRASE_LINE } else if downbeat { DOWNBEAT } else { BEAT };
+            vline(&mut buf, x, 0, wave_h, line);
+            if downbeat {
+                // Marker at the top: a 3 px wide block, strongest at 16 bars.
+                let mark = if phrase { PHRASE_MARK } else { DOWNBEAT_MARK };
+                for dx in 0..3u32 {
+                    vline(&mut buf, (x + dx).saturating_sub(1), 0, mark_h, mark);
+                }
+            }
         }
     }
     let x_of = |t: f64| {
@@ -204,7 +218,7 @@ pub fn detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], position: f64, 
             high: acc.high.max(c.high),
             peak: acc.peak.max(c.peak),
         });
-        let amp = (c.peak as f32 / 255.0 * (wave_h as f32 / 2.0 - 2.0)).max(1.0) as u32;
+        let amp = (c.peak as f32 / 255.0 * (wave_h as f32 / 2.0 - mark_h as f32 - 2.0)).max(1.0) as u32;
         column(&mut buf, x, mid, amp, &c, t < position);
     }
     Image::from_rgba8(buf)
@@ -263,6 +277,27 @@ mod tests {
         assert_eq!(at(1), LOW);
         assert_eq!(at(14), MID);
         assert_eq!(at(20), HIGH);
+    }
+
+    #[test]
+    fn beatgrid_lines_sit_on_the_beats() {
+        let w = Waveform { columns_per_second: 150.0, columns: vec![WaveformColumn::default(); 1500] };
+        // 120 BPM: a beat every 0.5 s; 8 s across 400 px = 25 px per beat.
+        let g = Beatgrid::constant(120.0, 0.0, 1, 10.0);
+        let img = detail(&w, &g, &[], 4.0, 8.0, 400, 90);
+        let buf = img.to_rgba8().unwrap();
+        let px = |x: u32, y: u32| { let p = buf.as_slice()[(y * 400 + x) as usize]; [p.r, p.g, p.b] };
+        // Beat 0 (bar 1, a 16-bar start) at x = 0; beat 8 (bar 3) centred at x = 200.
+        assert_eq!(px(0, 40), PHRASE_LINE);
+        assert_eq!(px(0, 2), PHRASE_MARK);
+        assert_eq!(px(200, 40), DOWNBEAT);
+        assert_eq!(px(200, 2), DOWNBEAT_MARK);
+        // Next beat (not a downbeat) 25 px later, full height.
+        assert_eq!(px(225, 40), BEAT);
+        assert_eq!(px(225, 75), BEAT);
+        // Bar start one bar (100 px) later.
+        assert_eq!(px(300, 40), DOWNBEAT);
+        assert_eq!(px(300, 2), DOWNBEAT_MARK);
     }
 
     #[test]
