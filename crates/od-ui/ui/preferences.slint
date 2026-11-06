@@ -1,0 +1,517 @@
+// Preferences: a separate window, laid out like rekordbox's (categories on
+// the left, the page on the right), drawn in OpenDecks' own language: the
+// selected category hangs from the rail by a sodium line, settings are
+// rows of bone labels with outlined plates.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, PlateButton, Field, Glyph } from "controls.slint";
+
+export struct KeyRow {
+    // Empty for group headers.
+    id: string,
+    title: string,
+    binding: string,
+    // "PREPARE", "PERFORM" or empty (everywhere).
+    scope: string,
+    custom: bool,
+    header: bool,
+}
+
+// One category on the left rail.
+component Category inherits Rectangle {
+    in property <string> label;
+    in property <bool> current;
+    callback clicked();
+    height: 34px;
+    background: touch.has-hover && !root.current ? Theme.ground-band : transparent;
+    VLine { x: 12px; y: 7px; height: parent.height - 14px; weight: 2px; tone: root.current ? Theme.attention : transparent; form: "double"; }
+    Text {
+        x: 28px; height: parent.height;
+        text: root.label;
+        font-family: Theme.family; font-size: 13px; font-weight: 600; letter-spacing: 2.2px;
+        color: root.current ? Theme.bone : Theme.bone-2;
+        vertical-alignment: center;
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
+// A section heading on a page.
+component Heading inherits VerticalLayout {
+    in property <string> text;
+    in property <string> note;
+    padding-top: 14px;
+    spacing: 4px;
+    HorizontalLayout {
+        spacing: 12px;
+        Text { text: root.text; font-family: Theme.family; font-size: Theme.rank-c; font-weight: 600; color: Theme.bone; vertical-alignment: center; }
+        if root.note != "": Caps { text: root.note; color: Theme.attention; vertical-alignment: center; }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    HLine { tone: Theme.rule; }
+}
+
+// A labelled setting row.
+component Row inherits HorizontalLayout {
+    in property <string> label;
+    spacing: 16px;
+    min-height: 32px;
+    VerticalLayout {
+        width: 190px;
+        padding-top: 5px;
+        Text {
+            text: root.label;
+            font-family: Theme.family; font-size: Theme.body; color: Theme.bone-2;
+            wrap: word-wrap;
+        }
+        Rectangle { vertical-stretch: 1; }
+    }
+    @children
+}
+
+// One of several values, as outlined plates side by side.
+component Choice inherits HorizontalLayout {
+    in property <[string]> options;
+    in property <int> selected;
+    callback picked(int);
+    spacing: 6px;
+    alignment: start;
+    for o[i] in root.options: PlateButton {
+        compact: true;
+        label: o;
+        active: i == root.selected;
+        tone: i == root.selected ? Theme.attention : Theme.bone-3;
+        clicked => { root.picked(i); }
+    }
+}
+
+// An on / off setting: a line that is solid when on, half when off.
+component Switch inherits Rectangle {
+    in property <string> label;
+    in property <bool> on;
+    callback toggled(bool);
+    height: 28px;
+    min-width: t.preferred-width + 24px;
+    VLine { x: 2px; y: 5px; height: parent.height - 10px; weight: 2px; tone: root.on ? Theme.live : Theme.rule-strong; form: root.on ? "solid" : "half"; }
+    t := Text {
+        x: 16px; height: parent.height;
+        text: root.label;
+        font-family: Theme.family; font-size: 14px;
+        color: root.on ? Theme.bone : Theme.bone-2;
+        vertical-alignment: center;
+    }
+    TouchArea { mouse-cursor: pointer; clicked => { root.toggled(!root.on); } }
+}
+
+// A choice among many (devices): one line per option.
+component RadioList inherits VerticalLayout {
+    in property <[string]> options;
+    in property <int> selected;
+    callback picked(int);
+    alignment: start;
+    for o[i] in root.options: Rectangle {
+        height: 26px;
+        background: ta.has-hover ? Theme.ground-band : transparent;
+        VLine { x: 2px; y: 5px; height: parent.height - 10px; weight: 2px; tone: i == root.selected ? Theme.attention : Theme.rule-strong; form: i == root.selected ? "double" : "half"; }
+        Text {
+            x: 16px; width: parent.width - 20px; height: parent.height;
+            text: o; overflow: elide;
+            font-family: Theme.family; font-size: 14px;
+            color: i == root.selected ? Theme.bone : Theme.bone-2;
+            vertical-alignment: center;
+        }
+        ta := TouchArea { mouse-cursor: pointer; clicked => { root.picked(i); } }
+    }
+}
+
+// A compact plate that keeps its size in a row.
+component Button inherits VerticalLayout {
+    in property <string> label;
+    in property <color> tone: Theme.bone-3;
+    callback clicked();
+    horizontal-stretch: 0;
+    alignment: center;
+    PlateButton { compact: true; label: root.label; tone: root.tone; clicked => { root.clicked(); } }
+}
+
+// Plain explanatory text.
+component Note inherits Text {
+    font-family: Theme.family; font-size: 12px; color: Theme.bone-3;
+    wrap: word-wrap;
+}
+
+export component PreferencesWindow inherits Window {
+    title: @tr("Preferences — OpenDecks Session");
+    preferred-width: 900px;
+    preferred-height: 680px;
+    min-width: 760px;
+    min-height: 520px;
+    background: Theme.ground;
+    default-font-family: Theme.family;
+    default-font-size: Theme.body;
+
+    in-out property <string> page: "audio";
+    in property <string> platform-note;
+
+    // Audio.
+    in property <[string]> audio-devices;
+    in property <int> audio-device;
+    in property <[string]> buffer-options;
+    in property <int> buffer;
+    in property <[string]> rate-options;
+    in property <int> rate;
+    in property <int> headphones;
+    in property <string> audio-status;
+    in property <bool> audio-pending;
+
+    // View.
+    in property <int> language;
+    in property <int> notation;
+    in property <[string]> scale-options;
+    in property <int> scale;
+    in property <bool> scale-pending;
+    in property <bool> colorblind;
+    in property <bool> high-contrast;
+    in property <bool> reduced-motion;
+    in property <int> waveform;
+    in property <bool> phrases;
+
+    // Analysis.
+    in property <[string]> bpm-options;
+    in property <int> bpm-range;
+    in property <bool> detect-key;
+    in property <bool> detect-phrases;
+    in property <bool> auto-analyse;
+
+    // Controller.
+    in property <[string]> controllers;
+    in property <[string]> mappings;
+    in property <string> mapping-file;
+    in property <bool> mapping-pending;
+
+    // Keyboard.
+    in property <[KeyRow]> key-rows;
+    in-out property <string> key-search;
+    in property <string> recording-id;
+    in property <string> key-message;
+    in property <bool> key-conflict;
+    in property <int> key-count;
+    // Keyboard navigation of the list: the selected action, the scroll
+    // position and the visible height.
+    in property <string> key-selected;
+    in-out property <length> key-scroll;
+    out property <length> key-view-height;
+
+    // Recording.
+    in property <int> rec-format;
+    in property <string> rec-folder;
+    in property <bool> auto-split;
+    in property <bool> silence-start;
+    in property <string> rec-note;
+
+    // Advanced.
+    in property <string> library-path;
+    in property <bool> library-pending;
+    in property <string> backups-text;
+    in property <bool> backup-on-start;
+
+    callback select-page(string);
+    // Choices by key ("audio.device", "view.language", …) and index.
+    callback choose(string, int);
+    callback flag(string, bool);
+    callback act(string);
+    callback search-keys(string);
+    callback record-key(string);
+    callback reset-key(string);
+    callback clear-key(string);
+    // Key text and modifiers as in the main window.
+    callback key-event(string, bool, bool, bool, bool) -> bool;
+
+    public function focus-keys() { keys.focus(); }
+
+    forward-focus: keys;
+    keys := FocusScope {
+        key-pressed(event) => {
+            if (root.key-event(event.text, event.modifiers.control, event.modifiers.meta, event.modifiers.alt, event.modifiers.shift)) {
+                return accept;
+            }
+            reject
+        }
+
+        HorizontalLayout {
+            // ── Categories ──
+            Rectangle {
+                width: 200px;
+                VLine { x: Theme.rail-x - 16px; y: 0; height: parent.height; tone: Theme.rule; }
+                VerticalLayout {
+                    padding-top: 18px;
+                    spacing: 2px;
+                    alignment: start;
+                    Caps { x: 28px; text: @tr("PREFERENCES"); height: 28px; vertical-alignment: center; }
+                    Category { label: @tr("AUDIO"); current: root.page == "audio"; clicked => { root.select-page("audio"); } }
+                    Category { label: @tr("VIEW"); current: root.page == "view"; clicked => { root.select-page("view"); } }
+                    Category { label: @tr("ANALYSIS"); current: root.page == "analysis"; clicked => { root.select-page("analysis"); } }
+                    Category { label: @tr("CONTROLLER"); current: root.page == "controller"; clicked => { root.select-page("controller"); } }
+                    Category { label: @tr("KEYBOARD"); current: root.page == "keyboard"; clicked => { root.select-page("keyboard"); } }
+                    Category { label: @tr("RECORDING"); current: root.page == "recording"; clicked => { root.select-page("recording"); } }
+                    Category { label: @tr("ADVANCED"); current: root.page == "advanced"; clicked => { root.select-page("advanced"); } }
+                }
+                Caps {
+                    x: 28px; y: parent.height - 58px; width: parent.width - 36px; height: 50px;
+                    vertical-alignment: bottom;
+                    text: root.platform-note; font-size: 10px; wrap: word-wrap;
+                }
+            }
+            VLine { tone: Theme.rule; }
+
+            // ── Page ──
+            VerticalLayout {
+                horizontal-stretch: 1;
+                padding-left: 24px;
+                padding-right: 20px;
+                padding-top: 14px;
+                padding-bottom: 12px;
+                spacing: 8px;
+
+                HorizontalLayout {
+                    height: 36px;
+                    Text {
+                        text: root.page == "audio" ? @tr("Audio") : root.page == "view" ? @tr("View") : root.page == "analysis" ? @tr("Analysis")
+                            : root.page == "controller" ? @tr("Controller") : root.page == "keyboard" ? @tr("Keyboard") : root.page == "recording" ? @tr("Recording") : @tr("Advanced");
+                        font-family: Theme.family; font-size: Theme.rank-b; font-weight: 600; color: Theme.bone;
+                        vertical-alignment: center;
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                    if root.page != "keyboard": VerticalLayout {
+                        horizontal-stretch: 0;
+                        alignment: center;
+                        Button { label: @tr("RESET PAGE"); clicked => { root.act("reset-page"); } }
+                    }
+                }
+
+                // ── Audio ──
+                if root.page == "audio": Flickable {
+                    vertical-stretch: 1;
+                    viewport-width: self.width;
+                    VerticalLayout {
+                        width: parent.width;
+                        alignment: start;
+                        spacing: 8px;
+                        Heading { text: @tr("Output"); note: root.audio-pending ? @tr("APPLIES AFTER RESTART") : ""; }
+                        Row { label: @tr("Output device"); RadioList { horizontal-stretch: 1; options: root.audio-devices; selected: root.audio-device; picked(i) => { root.choose("audio.device", i); } } }
+                        Row { label: @tr("Buffer size"); Choice { options: root.buffer-options; selected: root.buffer; picked(i) => { root.choose("audio.buffer", i); } } }
+                        Row { label: @tr("Sample rate"); Choice { options: root.rate-options; selected: root.rate; picked(i) => { root.choose("audio.rate", i); } } }
+                        Row {
+                            label: @tr("Headphones (cue)");
+                            Choice { options: [@tr("AUTOMATIC"), @tr("OUTPUTS 3/4"), @tr("OFF")]; selected: root.headphones; picked(i) => { root.choose("audio.headphones", i); } }
+                        }
+                        Note { text: @tr("Automatic picks the controller's audio interface (DDJ-FLX10, DDJ-FLX4) when it is connected, else the system output. Headphones play on outputs 3/4 when the device has four outputs."); }
+                        Heading { text: @tr("Now"); }
+                        Text { text: root.audio-status; font-family: Theme.family; font-size: 14px; color: Theme.bone-2; wrap: word-wrap; }
+                    }
+                }
+
+                // ── View ──
+                if root.page == "view": Flickable {
+                    vertical-stretch: 1;
+                    viewport-width: self.width;
+                    VerticalLayout {
+                        width: parent.width;
+                        alignment: start;
+                        spacing: 8px;
+                        Heading { text: @tr("Language and keys"); }
+                        Row { label: @tr("Language"); Choice { options: [@tr("SYSTEM"), "ENGLISH", "DEUTSCH"]; selected: root.language; picked(i) => { root.choose("view.language", i); } } }
+                        Row { label: @tr("Key notation"); Choice { options: [@tr("CAMELOT  8A"), @tr("OPEN KEY  1M"), @tr("MUSICAL  Am")]; selected: root.notation; picked(i) => { root.choose("view.notation", i); } } }
+                        Heading { text: @tr("Display"); note: root.scale-pending ? @tr("UI SCALE APPLIES AFTER RESTART") : ""; }
+                        Row { label: @tr("UI scale"); Choice { options: root.scale-options; selected: root.scale; picked(i) => { root.choose("view.scale", i); } } }
+                        Row { label: @tr("Waveform colour"); Choice { options: [@tr("3-BAND"), @tr("BLUE")]; selected: root.waveform; picked(i) => { root.choose("view.waveform", i); } } }
+                        Row { label: @tr("Phrases"); Switch { label: @tr("Show phrases on the waveforms"); on: root.phrases; toggled(v) => { root.flag("view.phrases", v); } } }
+                        Heading { text: @tr("Accessibility"); }
+                        Row { label: @tr("Colour"); Switch { label: @tr("Colour-blind-safe palette"); on: root.colorblind; toggled(v) => { root.flag("view.colorblind", v); } } }
+                        Row { label: @tr("Contrast"); Switch { label: @tr("High contrast (bright light)"); on: root.high-contrast; toggled(v) => { root.flag("view.contrast", v); } } }
+                        Row { label: @tr("Motion"); Switch { label: @tr("Reduce motion"); on: root.reduced-motion; toggled(v) => { root.flag("view.motion", v); } } }
+                    }
+                }
+
+                // ── Analysis ──
+                if root.page == "analysis": Flickable {
+                    vertical-stretch: 1;
+                    viewport-width: self.width;
+                    VerticalLayout {
+                        width: parent.width;
+                        alignment: start;
+                        spacing: 8px;
+                        Heading { text: @tr("Track analysis"); }
+                        Row { label: @tr("BPM range"); Choice { options: root.bpm-options; selected: root.bpm-range; picked(i) => { root.choose("analysis.bpm", i); } } }
+                        Note { text: @tr("Tempos are folded into this range: pick a lower range for hip-hop, a higher one for drum & bass."); }
+                        Row { label: @tr("Key"); Switch { label: @tr("Detect the key"); on: root.detect-key; toggled(v) => { root.flag("analysis.key", v); } } }
+                        Row { label: @tr("Phrases"); Switch { label: @tr("Detect phrases (intro, verse, chorus …)"); on: root.detect-phrases; toggled(v) => { root.flag("analysis.phrases", v); } } }
+                        Row { label: @tr("New tracks"); Switch { label: @tr("Analyse automatically when added"); on: root.auto-analyse; toggled(v) => { root.flag("analysis.auto", v); } } }
+                        Note { text: @tr("Changes apply to tracks analysed from now on. Use ANALYSE in the player to analyse a track again."); }
+                    }
+                }
+
+                // ── Controller ──
+                if root.page == "controller": Flickable {
+                    vertical-stretch: 1;
+                    viewport-width: self.width;
+                    VerticalLayout {
+                        width: parent.width;
+                        alignment: start;
+                        spacing: 8px;
+                        Heading { text: @tr("Detected"); }
+                        if root.controllers.length == 0: Note { text: @tr("No MIDI controller found. Connect a DDJ-FLX10 or DDJ-FLX4 by USB; it is picked up within a few seconds."); }
+                        for c in root.controllers: Text { text: c; font-family: Theme.family; font-size: 14px; color: Theme.bone; height: 24px; vertical-alignment: center; }
+                        Heading { text: @tr("Mappings"); note: root.mapping-pending ? @tr("APPLIES AFTER RESTART") : ""; }
+                        for m in root.mappings: Text { text: m; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; height: 22px; vertical-alignment: center; overflow: elide; }
+                        Row {
+                            label: @tr("Own mapping file");
+                            Text { horizontal-stretch: 1; text: root.mapping-file == "" ? @tr("None") : root.mapping-file; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
+                            Button { label: @tr("CHOOSE…"); clicked => { root.act("mapping.choose"); } }
+                            if root.mapping-file != "": Button { label: @tr("REMOVE"); tone: Theme.fault; clicked => { root.act("mapping.clear"); } }
+                        }
+                        Note { text: @tr("A mapping file (TOML, see docs/controller-mappings.md) is loaded in addition to the built-in mappings and wins for its device."); }
+                    }
+                }
+
+                // ── Keyboard ──
+                if root.page == "keyboard": VerticalLayout {
+                    vertical-stretch: 1;
+                    spacing: 8px;
+                    HorizontalLayout {
+                        spacing: 8px;
+                        Field {
+                            horizontal-stretch: 1;
+                            placeholder: @tr("SEARCH {} ACTIONS OR KEYS", root.key-count);
+                            text <=> root.key-search;
+                            edited(t) => { root.search-keys(t); }
+                        }
+                        Button { label: @tr("IMPORT…"); clicked => { root.act("keys.import"); } }
+                        Button { label: @tr("EXPORT…"); clicked => { root.act("keys.export"); } }
+                        Button { label: @tr("RESET ALL"); tone: Theme.fault; clicked => { root.act("keys.reset-all"); } }
+                    }
+                    if root.key-message != "": HorizontalLayout {
+                        spacing: 10px;
+                        min-height: 30px;
+                        VLine { weight: 2px; form: root.key-conflict ? "double" : "solid"; tone: root.key-conflict ? Theme.attention : Theme.live; }
+                        Text { horizontal-stretch: 1; text: root.key-message; font-family: Theme.family; font-size: 14px; color: Theme.bone; vertical-alignment: center; wrap: word-wrap; }
+                        if root.key-conflict: Button { label: @tr("REPLACE"); tone: Theme.attention; clicked => { root.act("keys.replace"); root.focus-keys(); } }
+                        if root.key-conflict: Button { label: @tr("CANCEL"); clicked => { root.act("keys.cancel"); root.focus-keys(); } }
+                    }
+                    Note { text: @tr("Click a binding (or pick one with ↑ ↓ and press Return), then press the new keys. Esc cancels, Backspace removes the binding; on a conflict Return replaces. ← → switch pages."); }
+                    Rectangle {
+                        vertical-stretch: 1;
+                        HLine { y: 0; width: parent.width; tone: Theme.rule; }
+                        Flickable {
+                            y: 1px; height: parent.height - 1px;
+                            viewport-y <=> root.key-scroll;
+                            init => { root.key-view-height = self.height; }
+                            changed height => { root.key-view-height = self.height; }
+                            VerticalLayout {
+                            alignment: start;
+                            for r in root.key-rows: Rectangle {
+                                height: r.header ? 36px : 28px;
+                                background: !r.header && (rt.has-hover || r.id == root.key-selected) ? Theme.ground-band : transparent;
+                                if !r.header && r.id == root.key-selected: VLine { x: 0; y: 6px; height: parent.height - 12px; tone: Theme.attention; }
+                                if r.header: Caps { x: 0; y: 14px; text: r.title; color: Theme.bone-2; }
+                                if !r.header: Text {
+                                    x: 12px; width: parent.width - 440px; height: parent.height;
+                                    text: r.title; overflow: elide;
+                                    font-family: Theme.family; font-size: 14px;
+                                    color: r.id == root.recording-id ? Theme.bone : Theme.bone-2;
+                                    vertical-alignment: center;
+                                }
+                                if !r.header && r.scope != "": Caps {
+                                    x: parent.width - 420px; width: 76px; height: parent.height;
+                                    text: r.scope; vertical-alignment: center; horizontal-alignment: right;
+                                }
+                                rt := TouchArea {
+                                    enabled: !r.header;
+                                    width: parent.width - 340px;
+                                }
+                                if !r.header: Rectangle {
+                                    x: parent.width - 334px; y: 3px; width: 200px; height: parent.height - 6px;
+                                    background: bt.has-hover ? Theme.plate-raised : Theme.plate;
+                                    if r.id == root.recording-id: Rectangle {
+                                        HLine { x: 0; y: 0; width: parent.width; tone: Theme.attention; form: "dashed"; }
+                                        HLine { x: 0; y: parent.height - self.height; width: parent.width; tone: Theme.attention; form: "dashed"; }
+                                        VLine { x: 0; y: 0; height: parent.height; tone: Theme.attention; form: "dashed"; }
+                                        VLine { x: parent.width - self.width; y: 0; height: parent.height; tone: Theme.attention; form: "dashed"; }
+                                    }
+                                    VLine { x: 8px; y: 5px; height: parent.height - 10px; tone: r.custom ? Theme.w436 : Theme.rule-strong; form: r.binding == "" ? "half" : "solid"; }
+                                    Text {
+                                        x: 18px; width: parent.width - 24px; height: parent.height;
+                                        text: r.id == root.recording-id ? @tr("PRESS KEYS…") : r.binding == "" ? @tr("NOT SET") : r.binding;
+                                        overflow: elide;
+                                        font-family: Theme.family; font-size: 13px; font-weight: 500; letter-spacing: 0.6px;
+                                        color: r.id == root.recording-id ? Theme.attention : r.binding == "" ? Theme.bone-3 : Theme.bone;
+                                        vertical-alignment: center;
+                                    }
+                                    bt := TouchArea { mouse-cursor: pointer; clicked => { root.record-key(r.id); root.focus-keys(); } }
+                                }
+                                if !r.header && r.custom: PlateButton { x: parent.width - 126px; y: 1px; width: 90px; compact: true; label: @tr("DEFAULT"); clicked => { root.reset-key(r.id); } }
+                                if !r.header && r.binding != "": Rectangle {
+                                    x: parent.width - 26px; y: 4px; width: 20px; height: parent.height - 8px;
+                                    background: ct.has-hover ? Theme.plate : transparent;
+                                    Glyph { kind: "close"; tone: Theme.bone-3; x: 5px; y: (parent.height - 10px) / 2; }
+                                    ct := TouchArea { mouse-cursor: pointer; clicked => { root.clear-key(r.id); } }
+                                }
+                            }
+                            }
+                        }
+                    }
+                }
+
+                // ── Recording ──
+                if root.page == "recording": Flickable {
+                    vertical-stretch: 1;
+                    viewport-width: self.width;
+                    VerticalLayout {
+                        width: parent.width;
+                        alignment: start;
+                        spacing: 8px;
+                        Heading { text: @tr("Files"); }
+                        Row { label: @tr("Format"); Choice { options: ["WAV", "FLAC", "WAV + MP3"]; selected: root.rec-format; picked(i) => { root.choose("rec.format", i); } } }
+                        if root.rec-note != "": Note { text: root.rec-note; }
+                        Row {
+                            label: @tr("Folder");
+                            Text { horizontal-stretch: 1; text: root.rec-folder; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
+                            Button { label: @tr("CHOOSE…"); clicked => { root.act("rec.folder"); } }
+                        }
+                        Heading { text: @tr("Automation"); }
+                        Row { label: @tr("Split"); Switch { label: @tr("Split into one file per track when recording stops"); on: root.auto-split; toggled(v) => { root.flag("rec.split", v); } } }
+                        Row { label: @tr("Start"); Switch { label: @tr("Start recording when sound starts"); on: root.silence-start; toggled(v) => { root.flag("rec.silence", v); } } }
+                        Note { text: @tr("With automatic start, recording begins as soon as the master is no longer silent; stopping it by hand disarms it until the next start of the app."); }
+                    }
+                }
+
+                // ── Advanced ──
+                if root.page == "advanced": Flickable {
+                    vertical-stretch: 1;
+                    viewport-width: self.width;
+                    VerticalLayout {
+                        width: parent.width;
+                        alignment: start;
+                        spacing: 8px;
+                        Heading { text: @tr("Library"); note: root.library-pending ? @tr("APPLIES AFTER RESTART") : ""; }
+                        Row {
+                            label: @tr("Location");
+                            Text { horizontal-stretch: 1; text: root.library-path; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
+                            Button { label: @tr("CHOOSE…"); clicked => { root.act("library.choose"); } }
+                            Button { label: @tr("SHOW"); clicked => { root.act("library.show"); } }
+                        }
+                        Note { text: @tr("Choose the library file (library.sqlite) to open from the next start. The command-line option --library still wins."); }
+                        Heading { text: @tr("Backups"); }
+                        Row { label: @tr("At start"); Switch { label: @tr("Back up the library every time the app starts"); on: root.backup-on-start; toggled(v) => { root.flag("adv.backup", v); } } }
+                        Row {
+                            label: @tr("Backups");
+                            Text { horizontal-stretch: 1; text: root.backups-text; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; }
+                            Button { label: @tr("BACK UP NOW"); tone: Theme.live; clicked => { root.act("backup.now"); } }
+                            Button { label: @tr("SHOW"); clicked => { root.act("backup.show"); } }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

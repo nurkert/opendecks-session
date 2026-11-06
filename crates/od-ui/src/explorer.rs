@@ -382,7 +382,7 @@ pub(crate) fn refresh_files(app: &App) {
         let d = app.decks.borrow();
         if d.source_is_stick() { Vec::new() } else { d.loaded_decks() }
     };
-    let rows = file_rows(&ex.files, sel, current_key, st.config.key_notation, &loaded);
+    let rows = file_rows(&ex.files, sel, current_key, st.settings.key_notation(), &loaded);
     app.browser.tracks.sync(rows, browser::same_row);
     let total: f64 = ex.files.iter().map(|f| f.duration).sum();
     let ui = &app.ui;

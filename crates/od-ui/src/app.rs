@@ -48,6 +48,10 @@ pub struct App {
     pub(crate) device_manager: DeviceManager,
     pub(crate) analysis: AnalysisWorker,
     pub(crate) worker_tx: Sender<WorkerEvent>,
+    /// The Preferences window, created when first opened.
+    pub(crate) prefs: RefCell<preferences::Prefs>,
+    /// Held keyboard actions (pitch bend): (action, deck).
+    pub(crate) held: RefCell<Vec<(String, usize)>>,
     worker_events: Receiver<WorkerEvent>,
     tick_timer: slint::Timer,
 }
@@ -55,19 +59,28 @@ pub struct App {
 impl App {
     pub fn new(config: AppConfig) -> anyhow::Result<Rc<Self>> {
         let lib = Library::open(&config.library_path)?;
-        if lib.backups().map(|b| b.is_empty()).unwrap_or(true) || lib.track_count()? > 0 {
-            if let Err(e) = lib.backup_now("start") {
+        let state = AppState::new(lib, config);
+        if state.settings.advanced.backup_on_start && (state.lib.backups().map(|b| b.is_empty()).unwrap_or(true) || state.lib.track_count()? > 0) {
+            if let Err(e) = state.lib.backup_now("start") {
                 tracing::warn!(error = %e, "start-up backup failed");
             }
         }
+        // UI scale (Preferences > View); read by Slint when the window is created.
+        let scale = state.settings.view.scale;
+        if std::env::var_os("SLINT_SCALE_FACTOR").is_none() && (scale - 1.0).abs() > 0.01 {
+            // SAFETY: no other thread has been started yet.
+            unsafe { std::env::set_var("SLINT_SCALE_FACTOR", scale.to_string()) };
+        }
         let ui = AppWindow::new()?;
-        shell::setup_window(&ui, &config);
+        shell::setup_window(&ui, &state.config, &state.settings);
         let (wtx, wrx) = unbounded();
-        let analysis = AnalysisWorker::start(config.library_path.clone(), config.lite, wtx.clone());
-        let device_manager = DeviceManager::start(ManagerConfig::new(config.library_path.clone()))?;
+        let analysis = AnalysisWorker::start(state.config.library_path.clone(), preferences::analysis_control(&state.settings, state.config.lite), wtx.clone());
+        let device_manager = DeviceManager::start(ManagerConfig::new(state.config.library_path.clone()))?;
         let app = Rc::new(App {
             ui,
-            state: RefCell::new(AppState::new(lib, config)),
+            state: RefCell::new(state),
+            prefs: RefCell::new(preferences::Prefs::default()),
+            held: RefCell::new(Vec::new()),
             engine: RefCell::new(engine::EngineHost::default()),
             decks: RefCell::new(decks::Decks::default()),
             mixer: mixer::MixerView::default(),

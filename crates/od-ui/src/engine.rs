@@ -46,10 +46,13 @@ pub(crate) fn ensure_engine(app: &App) -> bool {
         return true;
     }
     let lite = app.state.borrow().config.lite;
-    let device = od_audio_io::list_devices(od_audio_io::Backend::Default)
-        .ok()
-        .and_then(|devs| devs.into_iter().find(|d| d.name.contains("DDJ") || d.name.contains("FLX")).map(|d| d.name));
-    let mut cfg = od_audio_io::AudioConfig { device: device.clone(), buffer_frames: Some(if lite { 256 } else { 128 }), ..Default::default() };
+    let audio = app.state.borrow().settings.audio.clone();
+    let mut cfg = audio_config(&audio, lite);
+    if cfg.device.is_none() {
+        cfg.device = od_audio_io::list_devices(od_audio_io::Backend::Default)
+            .ok()
+            .and_then(|devs| devs.into_iter().find(|d| d.name.contains("DDJ") || d.name.contains("FLX")).map(|d| d.name));
+    }
     let negotiated = match od_audio_io::AudioHost::negotiate(&cfg) {
         Ok(n) => n,
         Err(e) => {
@@ -84,6 +87,23 @@ pub(crate) fn ensure_engine(app: &App) -> bool {
             app.engine.borrow_mut().message = format!("Audio could not start: {e}");
             false
         }
+    }
+}
+
+/// The audio configuration from Preferences > Audio (device `None` =
+/// automatic).
+pub(crate) fn audio_config(a: &crate::settings::AudioSettings, lite: bool) -> od_audio_io::AudioConfig {
+    let routing = match a.headphones.as_str() {
+        "34" => Some(od_audio_io::OutputRouting { master: [0, 1], headphones: Some([2, 3]) }),
+        "off" => Some(od_audio_io::OutputRouting { master: [0, 1], headphones: None }),
+        _ => None,
+    };
+    od_audio_io::AudioConfig {
+        device: (!a.device.is_empty()).then(|| a.device.clone()),
+        buffer_frames: Some(if a.buffer > 0 { a.buffer } else if lite { 256 } else { 128 }),
+        sample_rate: (a.sample_rate > 0).then_some(a.sample_rate),
+        routing,
+        ..Default::default()
     }
 }
 
@@ -158,4 +178,26 @@ pub(crate) fn start(app: &Rc<App>) {
         }
     });
     show_message(app);
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn audio_settings_to_config() {
+        let mut a = crate::settings::AudioSettings::default();
+        let c = audio_config(&a, false);
+        assert_eq!((c.device, c.buffer_frames, c.sample_rate, c.routing), (None, Some(128), None, None));
+        assert_eq!(audio_config(&a, true).buffer_frames, Some(256));
+        a.device = "Speakers".into();
+        a.buffer = 512;
+        a.sample_rate = 44_100;
+        a.headphones = "off".into();
+        let c = audio_config(&a, true);
+        assert_eq!(c.device.as_deref(), Some("Speakers"));
+        assert_eq!(c.buffer_frames, Some(512));
+        assert_eq!(c.sample_rate, Some(44_100));
+        assert_eq!(c.routing.unwrap().headphones, None);
+    }
 }

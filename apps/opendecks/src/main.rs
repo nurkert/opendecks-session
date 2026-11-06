@@ -1,7 +1,11 @@
 //! OpenDecks Session application entry point.
 //!
+//! Settings are made in the Preferences window (⌘, / Ctrl+,) and stored in
+//! the library; these options override them for one run.
+//!
 //! Options:
-//!   --library <path>    library database (default: platform data directory)
+//!   --library <path>    library database (default: Preferences > Advanced,
+//!                       else the platform data directory)
 //!   --profile lite|full performance profile (default: detected)
 //!   --kiosk             full-screen Perform for a Raspberry Pi
 //!   --scale <factor>    UI scale factor
@@ -25,40 +29,31 @@ fn main() -> anyhow::Result<()> {
         .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
         .init();
     let mut args = std::env::args().skip(1);
-    let mut library = od_library::Library::default_path();
-    let mut lite = detect_lite();
-    let mut kiosk = false;
-    let mut lang = std::env::var("LANG").unwrap_or_default();
-    let mut keys = KeyNotation::Camelot;
-    let mut window = None;
-    let (mut colorblind_safe, mut high_contrast, mut motion) = (false, false, true);
+    let mut library = None;
+    let mut config = od_ui::AppConfig::new(Default::default());
+    config.lite = detect_lite();
     while let Some(a) = args.next() {
         match a.as_str() {
-            "--library" => library = args.next().map(Into::into).unwrap_or(library),
-            "--profile" => lite = args.next().as_deref() == Some("lite"),
-            "--kiosk" => kiosk = true,
-            "--scale" => {
-                if let Some(s) = args.next() {
-                    // SAFETY: set before any thread is started.
-                    unsafe { std::env::set_var("SLINT_SCALE_FACTOR", s) };
-                }
-            }
-            "--lang" => lang = args.next().unwrap_or_default(),
-            "--colorblind" => colorblind_safe = true,
-            "--high-contrast" => high_contrast = true,
-            "--no-motion" => motion = false,
+            "--library" => library = args.next().map(Into::into),
+            "--profile" => config.lite = args.next().as_deref() == Some("lite"),
+            "--kiosk" => config.kiosk = true,
+            "--scale" => config.overrides.scale = args.next().and_then(|s| s.parse().ok()),
+            "--lang" => config.overrides.language = args.next(),
+            "--colorblind" => config.overrides.colorblind_safe = Some(true),
+            "--high-contrast" => config.overrides.high_contrast = Some(true),
+            "--no-motion" => config.overrides.reduced_motion = Some(true),
             "--window" => {
-                window = args.next().and_then(|v| {
+                config.window = args.next().and_then(|v| {
                     let (w, h) = v.split_once('x')?;
                     Some((w.parse().ok()?, h.parse().ok()?))
                 })
             }
             "--keys" => {
-                keys = match args.next().as_deref() {
+                config.overrides.key_notation = Some(match args.next().as_deref() {
                     Some("openkey") => KeyNotation::OpenKey,
                     Some("musical") => KeyNotation::Musical,
                     _ => KeyNotation::Camelot,
-                }
+                })
             }
             "--help" | "-h" => {
                 println!("opendecks [--library PATH] [--profile lite|full] [--kiosk] [--scale F] [--lang en|de] [--keys camelot|openkey|musical] [--colorblind] [--high-contrast] [--no-motion] [--window WxH]");
@@ -67,6 +62,7 @@ fn main() -> anyhow::Result<()> {
             other => anyhow::bail!("unknown option {other}"),
         }
     }
-    tracing::info!(library = %library.display(), lite, kiosk, "starting OpenDecks Session");
-    od_ui::run(od_ui::AppConfig { library_path: library, lite, kiosk, key_notation: keys, language: lang, window, colorblind_safe, high_contrast, motion })
+    config.library_path = od_ui::library_path(library);
+    tracing::info!(library = %config.library_path.display(), lite = config.lite, kiosk = config.kiosk, "starting OpenDecks Session");
+    od_ui::run(config)
 }

@@ -127,6 +127,16 @@ pub(crate) fn select_row(app: &App, i: usize, toggle: bool, range: bool) {
     player::refresh_detail(app);
 }
 
+/// Selects every row of the list.
+pub(crate) fn select_all(app: &App) {
+    {
+        let mut st = app.state.borrow_mut();
+        let n = st.row_count();
+        st.browser.selection = (0..n).collect();
+    }
+    refresh_tracks(app);
+}
+
 /// Arrow keys: move the selection one row.
 pub(crate) fn step_selection(app: &App, up: bool) {
     let (len, cur) = {

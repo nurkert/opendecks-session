@@ -34,8 +34,13 @@ od-stems = { workspace = true, default-features = false }
 od-i18n.workspace = true
 od-import-rekordbox.workspace = true
 serde_json.workspace = true
+serde.workspace = true
+toml.workspace = true
 rfd = "0.15"
 symphonia.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
 
 [build-dependencies]
 slint-build = "1.18"

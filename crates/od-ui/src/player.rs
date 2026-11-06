@@ -112,7 +112,7 @@ pub(crate) fn refresh_detail(app: &App) {
     ui.set_cursor((st.player.cursor / duration) as f32);
     ui.set_track_position(format::cue_time(st.player.cursor).into());
     let width = ((ui.window().size().width as f32 / scale - 680.0).max(300.0) * scale) as u32;
-    ui.set_track_detail(render::detail(&analysis.waveform, &analysis.beatgrid, &analysis.phrases, st.player.cursor, 8.0, width, (150.0 * scale) as u32));
+    ui.set_track_detail(render::detail(&analysis.waveform, &analysis.beatgrid, if st.settings.view.phrases { &analysis.phrases } else { &[] }, st.player.cursor, 8.0, width, (150.0 * scale) as u32));
 }
 
 /// Space / play button: start or pause the preview of the selected track.
@@ -203,6 +203,29 @@ fn edit_grid(app: &App, f: impl FnOnce(&mut Beatgrid, f64)) {
     }
 }
 
+/// Moves the cursor to the next (or previous) cue of the current track.
+pub(crate) fn step_cue(app: &App, forward: bool) {
+    move_cursor(app, |st| {
+        let Some(id) = st.player.current else { return };
+        let cues = st.src().cues(id).unwrap_or_default();
+        let target = next_cue(cues.iter().map(|c| c.start), st.player.cursor, forward);
+        if let Some(t) = target {
+            st.player.cursor = t;
+        }
+    });
+}
+
+/// The cue start after (or before) `cursor`, ignoring cues within 5 ms.
+pub(crate) fn next_cue(starts: impl Iterator<Item = f64>, cursor: f64, forward: bool) -> Option<f64> {
+    let starts = starts.filter(|t| (t - cursor).abs() > 0.005);
+    if forward { starts.filter(|t| *t > cursor).reduce(f64::min) } else { starts.filter(|t| *t < cursor).reduce(f64::max) }
+}
+
+/// Deletes the memory cue at the cursor (within 50 ms).
+pub(crate) fn delete_memory_cue(app: &App) {
+    edit_cues(app, "Memory cue removed", |cues, cursor| cues.retain(|c| !(c.kind == CueKind::Memory && (c.start - cursor).abs() < 0.05)));
+}
+
 /// Replaces the cues of the current track (library only).
 fn edit_cues(app: &App, label: &str, f: impl FnOnce(&mut Vec<Cue>, f64)) {
     if app.guard_read_only() {
@@ -277,6 +300,8 @@ pub(crate) fn wire(app: &Rc<App>) {
         let id = a.state.borrow().player.current;
         if let Some(id) = id {
             let _ = a.state.borrow().lib.conn().execute("UPDATE track SET analysis_version = 0 WHERE id = ?1", [id.0]);
+            // Also when automatic analysis is off (Preferences > Analysis).
+            a.analysis.control.lock().unwrap_or_else(|e| e.into_inner()).requested.push(id);
             let _ = a.analysis.wake.send(());
             a.status("Queued for analysis");
         }
@@ -302,6 +327,16 @@ mod tests {
         assert_eq!(slots.len(), 8);
         assert!(!slots[0].set && slots[1].set);
         assert_eq!(slots[7].letter, "H");
+    }
+
+    #[test]
+    fn cue_stepping() {
+        let starts = [10.0, 20.0, 30.0];
+        assert_eq!(next_cue(starts.into_iter(), 15.0, true), Some(20.0));
+        assert_eq!(next_cue(starts.into_iter(), 20.0, true), Some(30.0));
+        assert_eq!(next_cue(starts.into_iter(), 20.0, false), Some(10.0));
+        assert_eq!(next_cue(starts.into_iter(), 30.0, true), None);
+        assert_eq!(next_cue(starts.into_iter(), 5.0, false), None);
     }
 
     #[test]

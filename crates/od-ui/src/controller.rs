@@ -40,13 +40,36 @@ fn mappings_dir() -> PathBuf {
     PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../mappings"))
 }
 
+/// Names of the built-in mapping files (Preferences > Controller).
+pub(crate) fn mapping_names() -> Vec<String> {
+    let mut v: Vec<String> = od_controller::Mapping::load_dir(&mappings_dir())
+        .into_iter()
+        .map(|(path, m)| {
+            let file = path.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+            match m {
+                Ok(m) => format!("{} — {file}", m.file.device.name),
+                Err(e) => format!("{file} — {e}"),
+            }
+        })
+        .collect();
+    v.sort();
+    v
+}
+
 /// Starts the controller layer (MIDI) once.
 pub(crate) fn start(app: &Rc<App>) {
     let mut c = app.controller.borrow_mut();
     if c.manager.is_some() {
         return;
     }
-    let mappings: Vec<Arc<od_controller::Mapping>> = od_controller::Mapping::load_dir(&mappings_dir())
+    let own = app.state.borrow().settings.controller.mapping_file.clone();
+    let mut files = od_controller::Mapping::load_dir(&mappings_dir());
+    if !own.is_empty() {
+        // The user's file first, so it wins for its device.
+        let p = PathBuf::from(&own);
+        files.insert(0, (p.clone(), od_controller::Mapping::load(&p)));
+    }
+    let mappings: Vec<Arc<od_controller::Mapping>> = files
         .into_iter()
         .filter_map(|(path, m)| match m {
             Ok(m) => Some(Arc::new(m)),

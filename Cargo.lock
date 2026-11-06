@@ -4260,10 +4260,13 @@ dependencies = [
  "od-stems",
  "rayon",
  "rfd",
+ "serde",
  "serde_json",
  "slint",
  "slint-build",
  "symphonia",
+ "tempfile",
+ "toml 0.9.12+spec-1.1.0",
  "tracing",
 ]
 

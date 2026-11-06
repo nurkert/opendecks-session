@@ -278,7 +278,7 @@ pub(crate) fn refresh_tracks(app: &App) {
     }
     if let (Some(n), Some(NodeKind::Set)) = (b.node, kind) {
         if let Ok(flow) = st.src().set_flow(n) {
-            ui.set_flow(model(flow_points(&flow, st.config.key_notation)));
+            ui.set_flow(model(flow_points(&flow, st.settings.key_notation())));
             ui.set_flow_total(format::time(flow.total_duration).into());
         }
         ui.set_flow_selected(b.flow_selected.map(|i| i as i32).unwrap_or(-1));

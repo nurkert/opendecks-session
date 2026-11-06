@@ -6,32 +6,39 @@ use crate::browser::BrowserState;
 use crate::devices::DevicesState;
 use crate::explorer::ExplorerState;
 use crate::player::PlayerState;
-use od_core::KeyNotation;
+use crate::keymap::Keymap;
+use crate::settings::{Overrides, Settings};
 use od_library::{Library, TrackRecord};
 use std::path::{Path, PathBuf};
 
-/// Settings the app starts with.
+/// How the app starts. Everything the user can change lives in the
+/// persisted [`Settings`]; command-line flags override them for one run.
 #[derive(Clone, Debug)]
 pub struct AppConfig {
     pub library_path: PathBuf,
     /// Raspberry Pi / weak hardware.
     pub lite: bool,
     pub kiosk: bool,
-    pub key_notation: KeyNotation,
-    /// "de" selects German; anything else English.
-    pub language: String,
     /// Fixed window size in logical pixels (e.g. to emulate a Pi display);
     /// disables full screen in kiosk mode.
     pub window: Option<(u32, u32)>,
-    pub colorblind_safe: bool,
-    pub high_contrast: bool,
-    /// Animations; always off in the Lite profile.
-    pub motion: bool,
+    pub overrides: Overrides,
+}
+
+impl AppConfig {
+    pub fn new(library_path: PathBuf) -> Self {
+        Self { library_path, lite: false, kiosk: false, window: None, overrides: Overrides::default() }
+    }
 }
 
 pub(crate) struct AppState {
     pub lib: Library,
     pub config: AppConfig,
+    /// Settings in effect (stored settings plus command-line overrides).
+    pub settings: Settings,
+    /// Settings as stored in the library.
+    pub stored: Settings,
+    pub keymap: Keymap,
     pub browser: BrowserState,
     pub player: PlayerState,
     pub devices: DevicesState,
@@ -45,9 +52,20 @@ pub(crate) struct AppState {
 impl AppState {
     pub fn new(lib: Library, config: AppConfig) -> Self {
         let explorer = ExplorerState::load(&lib);
+        let stored = lib.meta(crate::settings::META_SETTINGS).ok().flatten().map(|j| Settings::from_json(&j)).unwrap_or_default();
+        let settings = config.overrides.apply(&stored);
+        let mut keymap = Keymap::new(crate::keymap::Platform::current());
+        if let Some(t) = lib.meta(crate::settings::META_KEYMAP).ok().flatten() {
+            if let Err(e) = keymap.import_toml(&t) {
+                tracing::warn!(error = %e, "stored keymap unreadable");
+            }
+        }
         Self {
             lib,
             config,
+            settings,
+            stored,
+            keymap,
             browser: BrowserState::default(),
             player: PlayerState::default(),
             devices: DevicesState::default(),
@@ -76,7 +94,26 @@ impl AppState {
         self.browser.stick.is_some()
     }
 
+    /// Changes a setting in effect and in storage, and stores it.
+    pub fn change_settings(&mut self, f: impl Fn(&mut Settings)) {
+        f(&mut self.settings);
+        f(&mut self.stored);
+        self.settings = self.settings.clone().sanitized();
+        self.stored = self.stored.clone().sanitized();
+        if let Err(e) = self.lib.set_meta(crate::settings::META_SETTINGS, &self.stored.to_json()) {
+            tracing::warn!(error = %e, "settings not saved");
+        }
+    }
+
+    /// Stores the keymap overrides.
+    pub fn save_keymap(&mut self) {
+        let t = self.keymap.overrides_toml();
+        if let Err(e) = self.lib.set_meta(crate::settings::META_KEYMAP, &t) {
+            tracing::warn!(error = %e, "keymap not saved");
+        }
+    }
+
     pub fn key_text(&self, t: &TrackRecord) -> String {
-        t.key.map(|k| k.format(self.config.key_notation)).unwrap_or_default()
+        t.key.map(|k| k.format(self.settings.key_notation())).unwrap_or_default()
     }
 }

@@ -320,7 +320,7 @@ pub(crate) fn refresh_analysis(app: &App) {
         m.grid = a.beatgrid;
         m.phrases = a.phrases;
         if let Some(k) = st.lib.track(m.id).ok().and_then(|t| t.key) {
-            m.key = k.format(st.config.key_notation);
+            m.key = k.format(st.settings.key_notation());
         }
         m.source.gain = a.loudness_lufs.map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0)).unwrap_or(0.0);
         swaps.push((i, m.id, m.source.clone(), m.grid.clone()));
@@ -555,6 +555,8 @@ struct Lane {
     track: Option<TrackId>,
     cues: ModelRc<CueMark>,
     phrases: ModelRc<PhraseMark>,
+    /// Phrases were shown when `phrases` was built (Preferences > View).
+    phrases_on: bool,
     overview: Image,
     wave_key: Option<WaveKey>,
     waveform: Image,
@@ -570,6 +572,7 @@ impl Default for Lane {
             track: None,
             cues: model(Vec::new()),
             phrases: model(Vec::new()),
+            phrases_on: true,
             overview: Image::default(),
             wave_key: None,
             waveform: Image::default(),
@@ -671,6 +674,7 @@ pub(crate) fn show_empty(app: &App) {
 
 /// Frame tick: engine state → deck rows (only what changed).
 pub(crate) fn project(app: &App, state: &EngineState) {
+    let show_phrases = app.ui.get_show_phrases();
     let scale = app.ui.window().scale_factor();
     let width = ((app.ui.window().size().width as f32 / scale - 120.0).max(400.0) * scale) as u32;
     let mut guard = app.decks.borrow_mut();
@@ -686,10 +690,11 @@ pub(crate) fn project(app: &App, state: &EngineState) {
         let lane = &mut d.views.lanes[i];
         let mut dirty = false;
         let tid = meta.map(|m| m.id);
-        if lane.track != tid || lane.fields.is_none() {
+        if lane.track != tid || lane.fields.is_none() || lane.phrases_on != show_phrases {
             lane.track = tid;
+            lane.phrases_on = show_phrases;
             lane.cues = model(meta.map(|m| m.cues.clone()).unwrap_or_default());
-            lane.phrases = model(meta.map(|m| m.phrase_marks.clone()).unwrap_or_default());
+            lane.phrases = model(meta.filter(|_| show_phrases).map(|m| m.phrase_marks.clone()).unwrap_or_default());
             lane.overview = meta.map(|m| m.overview.clone()).unwrap_or_default();
             lane.waveform = Image::default();
             lane.wave_key = None;
@@ -699,7 +704,7 @@ pub(crate) fn project(app: &App, state: &EngineState) {
             let span = DETAIL_SPAN * s.tempo.max(0.25);
             let key = WaveKey::new(m.id, s.position, span, width, height);
             if lane.wave_key != Some(key) {
-                lane.waveform = render::detail(&m.waveform, &m.grid, &m.phrases, s.position, span, width, height);
+                lane.waveform = render::detail(&m.waveform, &m.grid, if show_phrases { &m.phrases } else { &[] }, s.position, span, width, height);
                 lane.wave_key = Some(key);
                 dirty = true;
             }

@@ -2,8 +2,10 @@
 //! in the library meta), the status band and key bindings.
 
 use crate::app::{App, handler};
+use crate::settings::Settings;
 use crate::state::AppConfig;
-use crate::{AppWindow, browser, devices, player, recorder};
+use crate::keymap::{Chord, Context};
+use crate::{AppWindow, browser, devices, recorder};
 use slint::{ComponentHandle, SharedString};
 use std::rc::Rc;
 
@@ -19,21 +21,11 @@ const META_SIDEBAR: &str = "ui.sidebar_width";
 const META_UPPER: &str = "ui.upper_height";
 
 /// Theme, language, kiosk and window size.
-pub(crate) fn setup_window(ui: &AppWindow, config: &AppConfig) {
-    if config.language.starts_with("de") {
-        if let Err(e) = slint::select_bundled_translation("de") {
-            tracing::warn!(error = %e, "German translation unavailable");
-        }
-        od_i18n::set_language(od_i18n::Language::German);
-    }
+pub(crate) fn setup_window(ui: &AppWindow, config: &AppConfig, settings: &Settings) {
+    apply_language(&settings.language());
     ui.set_kiosk(config.kiosk);
-    {
-        let theme = ui.global::<crate::Theme>();
-        theme.set_colorblind_safe(config.colorblind_safe);
-        theme.set_high_contrast(config.high_contrast);
-        theme.set_motion(config.motion && !config.lite);
-        crate::render::set_colorblind_safe(config.colorblind_safe);
-    }
+    apply_theme(&ui.global::<crate::Theme>(), settings, config.lite);
+    ui.set_show_phrases(settings.view.phrases);
     if config.kiosk {
         ui.global::<crate::Theme>().set_row_height(44.0);
     }
@@ -58,6 +50,28 @@ pub(crate) fn setup_window(ui: &AppWindow, config: &AppConfig) {
         None if config.kiosk => ui.window().set_fullscreen(true),
         None => {}
     }
+}
+
+/// Selects the interface language ("de…" German, anything else English).
+pub(crate) fn apply_language(lang: &str) {
+    if lang.starts_with("de") {
+        if let Err(e) = slint::select_bundled_translation("de") {
+            tracing::warn!(error = %e, "German translation unavailable");
+        }
+        od_i18n::set_language(od_i18n::Language::German);
+    } else {
+        // The source strings are English.
+        let _ = slint::select_bundled_translation("en");
+        od_i18n::set_language(od_i18n::Language::English);
+    }
+}
+
+/// Palette, contrast and motion of one window's theme.
+pub(crate) fn apply_theme(theme: &crate::Theme<'_>, settings: &Settings, lite: bool) {
+    theme.set_colorblind_safe(settings.view.colorblind_safe);
+    theme.set_high_contrast(settings.view.high_contrast);
+    theme.set_motion(!settings.view.reduced_motion && !lite);
+    crate::render::set_colorblind_safe(settings.view.colorblind_safe);
 }
 
 /// Parses a stored pane size.
@@ -132,32 +146,20 @@ fn analysis_band((done, total): (usize, usize)) -> Option<(f32, (usize, usize))>
     (total > 0 && done < total).then(|| (done as f32 / total as f32, (done, total)))
 }
 
-/// Keyboard: undo / redo, delete, row navigation, preview, hot cues.
-fn key(app: &App, text: &str, cmd: bool, shift: bool) -> bool {
-    use slint::platform::Key;
-    let is = |k: Key| text == SharedString::from(k).as_str();
-    if cmd && (text == "z" || text == "Z") {
-        if shift { app.redo() } else { app.undo() }
-        return true;
+/// Keyboard: every key press goes through the keymap (Preferences >
+/// Keyboard); unbound keys are left to the focused element.
+fn key(app: &Rc<App>, text: &str, control: bool, meta: bool, alt: bool, shift: bool) -> bool {
+    let Some(chord) = Chord::from_event(text, control, meta, alt, shift, app.prefs.borrow().layout) else { return false };
+    let mode = if app.ui.get_mode() == "perform" { Context::Perform } else { Context::Prepare };
+    let id = app.state.borrow().keymap.lookup(&chord, mode).map(|a| a.id.clone());
+    match id {
+        Some(id) => {
+            tracing::debug!(%chord, id, "key");
+            crate::commands::run(app, &id);
+            true
+        }
+        None => false,
     }
-    if is(Key::Delete) || is(Key::Backspace) {
-        browser::remove_selected(app);
-        return true;
-    }
-    if is(Key::UpArrow) || is(Key::DownArrow) {
-        browser::step_selection(app, is(Key::UpArrow));
-        return true;
-    }
-    if text == " " {
-        player::toggle_preview(app);
-        return true;
-    }
-    if !cmd && ("1"..="8").contains(&text) && text.len() == 1 {
-        let slot = text.parse::<i32>().unwrap_or(1) - 1;
-        app.ui.invoke_hot_cue(slot);
-        return true;
-    }
-    false
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
@@ -177,10 +179,12 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_undo(handler!(app, |a| a.undo()));
     ui.on_redo(handler!(app, |a| a.redo()));
     let weak = Rc::downgrade(app);
-    ui.on_key_pressed(move |text, cmd, shift| {
+    ui.on_key_pressed(move |text, control, meta, alt, shift| {
         let Some(app) = weak.upgrade() else { return false };
-        key(&app, text.as_str(), cmd, shift)
+        key(&app, text.as_str(), control, meta, alt, shift)
     });
+    ui.on_key_released(handler!(app, |a, text: SharedString| crate::commands::release(&a, text.as_str())));
+    ui.on_open_preferences(handler!(app, |a| crate::preferences::open(&a)));
 }
 
 #[cfg(test)]

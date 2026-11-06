@@ -8,8 +8,10 @@ import { TrackTable } from "table.slint";
 import { DeviceLine } from "devices.slint";
 import { SetFlow } from "flow.slint";
 import { PerformView } from "perform.slint";
+import { PreferencesWindow, KeyRow } from "preferences.slint";
 import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow } from "structs.slint";
 
+export { PreferencesWindow, KeyRow }
 export { Theme, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow }
 
 export struct ProposalRow {
@@ -210,7 +212,15 @@ export component AppWindow inherits Window {
     callback deck-hot-cue(int, int);
     callback toggle-recording();
     callback set-deck-count(int);
-    callback key-pressed(string, bool, bool) -> bool;
+    // Key text and modifiers: control (⌘ on macOS), meta (Ctrl on macOS, Super on Linux), alt, shift.
+    callback key-pressed(string, bool, bool, bool, bool) -> bool;
+    // Held keys (pitch bend) end on release.
+    callback key-released(string);
+    callback open-preferences();
+    // Each change focuses the search field (keyboard: search).
+    in property <int> search-focus;
+    // Preferences > View: phrases on the waveforms.
+    in property <bool> show-phrases: true;
     callback nudge(float);
     callback jump-start();
     callback deck-master(int);
@@ -234,19 +244,42 @@ export component AppWindow inherits Window {
     callback set-headphone-mix(float);
     callback set-headphone-level(float);
 
+    // The platform menu bar (native on macOS; hidden elsewhere, where its
+    // shortcuts still work). Preferences open with ⌘, / Ctrl+, as users
+    // expect; every other shortcut goes through the configurable keymap.
+    MenuBar {
+        visible: Platform.os == OperatingSystemType.macos;
+        Menu {
+            title: @tr("File");
+            MenuItem { title: @tr("Preferences…"); shortcut: @keys(Control + ","); activated => { root.open-preferences(); } }
+            MenuItem { title: @tr("Add Music Folder…"); activated => { root.import-folder(); } }
+            MenuItem { title: @tr("Import from rekordbox…"); activated => { root.import-rekordbox(); } }
+        }
+        Menu {
+            title: @tr("View");
+            MenuItem { title: @tr("Prepare"); activated => { root.set-mode("prepare"); } }
+            MenuItem { title: @tr("Perform"); activated => { root.set-mode("perform"); } }
+        }
+    }
+
     forward-focus: keys;
     // The charcoal continuum behind everything.
     Image { width: root.width; height: root.height; source: root.ground-texture; image-fit: fill; }
     keys := FocusScope {
         key-pressed(event) => {
-            if (root.key-pressed(event.text, event.modifiers.control || event.modifiers.meta, event.modifiers.shift)) {
+            if (root.key-pressed(event.text, event.modifiers.control, event.modifiers.meta, event.modifiers.alt, event.modifiers.shift)) {
                 return accept;
             }
+            reject
+        }
+        key-released(event) => {
+            root.key-released(event.text);
             reject
         }
 
         VerticalLayout {
             TopBar {
+                open-preferences => { root.open-preferences(); }
                 mode: root.mode;
                 kiosk: root.kiosk;
                 show-record: root.mode != "perform";
@@ -266,7 +299,7 @@ export component AppWindow inherits Window {
             vertical-stretch: root.kiosk ? 1 : 0;
             preferred-height: root.upper-height > 0 ? root.upper-height : (root.mode == "prepare" ? 280px : 560px);
             if root.mode == "prepare": PreparePlayer {
-                phrases: root.track-phrases;
+                phrases: root.show-phrases ? root.track-phrases : [];
                 info-width: root.sidebar-width;
                 info-dragged(d) => { root.sidebar-width = clamp(root.sidebar-width + d, 180px, 480px); }
                 info-reset => { root.sidebar-width = 260px; }
@@ -419,6 +452,8 @@ export component AppWindow inherits Window {
                         if root.node-kind == "all" && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; clicked => { root.import-folder(); } }
                         if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && !root.read-only && !root.kiosk: PlateButton { horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; clicked => { root.delete-node(); } }
                         Field {
+                            property <int> focus-request: root.search-focus;
+                            changed focus-request => { self.focus-field(); }
                             width: 260px;
                             height: root.kiosk ? 44px : 32px;
                             placeholder: @tr("SEARCH  ⌘F");
