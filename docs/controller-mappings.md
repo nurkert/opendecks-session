@@ -173,7 +173,7 @@ release.
 | `deck.slip`, `deck.vinyl`, `deck.reverse`, `deck.load` | press | | |
 | `deck.censor` | momentary | | `Censor(bool)` |
 | `deck.shift` | momentary | | `Shift(bool)`; also drives software shift |
-| `deck.pad_mode` | press | `mode` = `hot_cue`, `beat_loop`, `beat_jump`, `sampler`, `pad_fx1`, `pad_fx2`, `keyboard`, `key_shift` | |
+| `deck.pad_mode` | press | `mode` = `hot_cue`, `beat_loop`, `beat_jump`, `sampler`, `pad_fx1`, `pad_fx2`, `keyboard`, `key_shift`, `slicer` | |
 | `deck.pad` | momentary | `index` | `Pad { index, pressed, velocity }` (generic, interpreted by pad mode) |
 | `deck.needle_search` | absolute | | `NeedleSearch(0..1)` |
 | `deck.select` | press | optional `deck` | `DeckSelect` for the bound deck, or for `deck` |
@@ -199,6 +199,16 @@ release.
 | `sampler.volume` | absolute | | |
 | `recording.toggle` | press | | |
 | `ignore` | any | | `ControlAction::Ignored` (known control without a function) |
+
+In the application (`crates/od-ui/src/controller.rs`) every action above
+reaches the engine: `deck.pad` plays the pad in the deck's current pad mode
+(the same logic as the on-screen pads, `pads.rs`), `deck.tap_bpm` sets a
+constant grid at the tapped tempo (three taps, keeps the first downbeat),
+`deck.memory_cue_set` / `_delete` edit the track's memory cues in the
+library, `beat_fx.release` engages Echo Out while held, `beat_fx.auto_beat`
+returns a tapped unit to the deck tempo, `color_fx.next` / `toggle` step
+through the Colour FX, and `sampler.pad` / `stop` address the bank shown in
+the sampler panel (`sampler.bank_*`).
 
 ## Outputs
 

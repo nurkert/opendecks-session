@@ -95,6 +95,8 @@ pub(crate) struct Decks {
     pub keyboard_cue: [usize; DECKS],
     /// Slicer domain per deck, in beats.
     pub slicer_beats: [f64; DECKS],
+    /// TAP BPM per deck (controller).
+    taps: [crate::fx::TapTempo; DECKS],
     stem_cache: od_stems::StemCache,
     #[cfg(feature = "separation")]
     stem_worker: Option<od_stems::StemWorker>,
@@ -122,6 +124,7 @@ impl Default for Decks {
             pad_mode: [PadMode::HotCue; DECKS],
             keyboard_cue: [0; DECKS],
             slicer_beats: [8.0; DECKS],
+            taps: Default::default(),
             stem_cache: od_stems::StemCache::open_default(),
             #[cfg(feature = "separation")]
             stem_worker: None,
@@ -1014,6 +1017,23 @@ fn with_pads<R>(app: &App, d: usize, f: impl FnOnce(&DeckState, &pads::PadCtx) -
     f(&s, &ctx)
 }
 
+/// The pads of deck `d` in its mode (for the controller's LEDs).
+pub(crate) fn pad_rows(app: &App, d: usize, state: &EngineState) -> Vec<PadView> {
+    let slots = app.sampler.slots.borrow();
+    let dk = app.decks.borrow();
+    let labels = dk.loaded(d).map(|m| m.labels.as_slice()).unwrap_or(&[]);
+    let ctx = pads::PadCtx {
+        deck: d,
+        mode: dk.pad_mode[d],
+        sampler_bank: app.sampler.bank.get(),
+        keyboard_cue: dk.keyboard_cue[d],
+        slicer_beats: dk.slicer_beats[d],
+        labels,
+        sampler_slots: &slots,
+    };
+    pads::pad_views(&state.decks[d], &state.channels[d], &state.sampler, &ctx)
+}
+
 /// Pad `index` (0..8) of deck `d` pressed or released, in the deck's mode.
 pub(crate) fn pad(app: &App, d: usize, index: usize, pressed: bool) {
     let cmds = with_pads(app, d, |s, ctx| pads::press_commands(s, ctx, index, pressed));
@@ -1096,6 +1116,113 @@ pub(crate) fn toggle_key_sync(app: &App, d: usize) {
     engine::ensure_engine(app);
     let on = deck_state(app, d).map(|s| s.key_sync).unwrap_or(false);
     engine::deck_cmd(app, d, DeckCommand::SetKeySync(!on));
+}
+
+// ── Cue and grid edits from the controller ──────────────────────────────
+
+/// A constant grid at `bpm` that keeps the first downbeat of `grid` (pure).
+pub(crate) fn tapped_grid(grid: &Beatgrid, bpm: f64, duration: f64) -> Beatgrid {
+    let anchor = grid.beats.iter().find(|b| b.bar_position == 1).or(grid.beats.first()).map(|b| b.time).unwrap_or(0.0);
+    let mut g = Beatgrid::constant(bpm, anchor, 1, duration.max(anchor + 1.0));
+    g.locked = grid.locked;
+    g
+}
+
+/// The cue list with a memory cue added at `pos` (none within 50 ms), or
+/// the memory cue nearest to `pos` (within 1 s) removed (pure).
+pub(crate) fn edit_memory_cue(mut cues: Vec<od_core::Cue>, pos: f64, add: bool) -> Vec<od_core::Cue> {
+    let memory = |c: &od_core::Cue| c.kind == CueKind::Memory;
+    if add {
+        if !cues.iter().any(|c| memory(c) && (c.start - pos).abs() < 0.05) {
+            cues.push(od_core::Cue::memory(pos));
+        }
+    } else if let Some(i) = cues
+        .iter()
+        .enumerate()
+        .filter(|(_, c)| memory(c) && (c.start - pos).abs() <= 1.0)
+        .min_by(|a, b| (a.1.start - pos).abs().total_cmp(&(b.1.start - pos).abs()))
+        .map(|(i, _)| i)
+    {
+        cues.remove(i);
+    }
+    cues
+}
+
+/// Gives the engine a fresh build of deck `d`'s track (new cues or grid)
+/// without a gap.
+fn reload_engine_data(app: &App, d: usize) {
+    let rate = app.engine.borrow().sample_rate();
+    let dk = app.decks.borrow();
+    let Some(m) = dk.loaded(d) else { return };
+    let (cache, tx, id, src, grid) = (dk.stem_cache.clone(), dk.prepared_tx.clone(), m.id, m.source.clone(), m.grid.clone());
+    drop(dk);
+    prepare_in_background(cache, tx, d, id, src, rate, grid, None, Some(Swap::Analysis));
+}
+
+/// Whether deck `d`'s track may be edited (not from a stick).
+fn editable(app: &App, d: usize) -> Option<TrackId> {
+    let dk = app.decks.borrow();
+    if dk.loaded_from_stick {
+        app.status("Tracks on a stick are read-only here — edit them in your library and the stick follows");
+        return None;
+    }
+    dk.loaded_id(d)
+}
+
+/// MEMORY (controller): stores a memory cue at the playhead, or deletes the
+/// one at the playhead; saved to the library like any cue edit.
+pub(crate) fn memory_cue(app: &App, d: usize, add: bool) {
+    let Some(id) = editable(app, d) else { return };
+    let Some(pos) = deck_state(app, d).map(|s| s.position) else { return };
+    let current = app.state.borrow().lib.cues(id).unwrap_or_default();
+    let next = edit_memory_cue(current.clone(), pos, add);
+    if next == current {
+        return;
+    }
+    let r = app.state.borrow_mut().lib.set_cues(id, next.clone());
+    if app.report(r).is_none() {
+        return;
+    }
+    if let Some(m) = app.decks.borrow_mut().loaded[d].as_mut() {
+        m.source.cues = next;
+    }
+    refresh_deck_cues(app, id);
+    reload_engine_data(app, d);
+    app.after_edit(if add { "Memory cue added" } else { "Memory cue deleted" });
+}
+
+/// TAP (controller): after three taps the track gets a constant grid at the
+/// tapped tempo, keeping its first downbeat.
+pub(crate) fn tap_bpm(app: &App, d: usize) {
+    let t = TAP_EPOCH.with(|e| e.elapsed().as_secs_f64());
+    let Some(bpm) = app.decks.borrow_mut().taps[d].tap(t) else { return };
+    let Some(id) = editable(app, d) else { return };
+    let bpm = (bpm as f64 * 100.0).round() / 100.0;
+    let grid = app.state.borrow().lib.beatgrid(id).ok().flatten().unwrap_or_default();
+    if grid.locked {
+        app.status("The beatgrid is locked — unlock it in Prepare to tap the tempo");
+        return;
+    }
+    let duration = deck_state(app, d).map(|s| s.duration).unwrap_or(0.0);
+    let next = tapped_grid(&grid, bpm, duration);
+    let r = app.state.borrow_mut().lib.set_beatgrid(id, next.clone());
+    if app.report(r).is_none() {
+        return;
+    }
+    {
+        let mut dk = app.decks.borrow_mut();
+        if let Some(m) = dk.loaded[d].as_mut() {
+            m.grid = next;
+        }
+        dk.scroll[d] = LaneScroll::default();
+        dk.views.lanes[d].track = None;
+    }
+    reload_engine_data(app, d);
+    app.after_edit(&format!("Tapped tempo: {bpm:.2} BPM"));
+}
+
+thread_local! {
+    static TAP_EPOCH: Instant = Instant::now();
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
@@ -1229,6 +1356,29 @@ mod tests {
         let removed = apply_hot_cue(added, 0, None);
         assert!(!removed.iter().any(|c| c.kind == CueKind::Hot(0)));
         assert_eq!(removed.len(), 2);
+    }
+
+    #[test]
+    fn memory_cue_edits() {
+        let cues = vec![od_core::Cue::hot(0, 1.0), od_core::Cue::memory(10.0)];
+        let added = edit_memory_cue(cues.clone(), 20.0, true);
+        assert_eq!(added.len(), 3);
+        // No duplicate at the same spot.
+        assert_eq!(edit_memory_cue(added.clone(), 20.01, true).len(), 3);
+        // Delete takes the nearest memory cue within a second, never a hot cue.
+        let removed = edit_memory_cue(added, 10.4, false);
+        assert!(!removed.iter().any(|c| c.kind == CueKind::Memory && c.start == 10.0));
+        assert_eq!(edit_memory_cue(removed.clone(), 1.0, false), removed);
+    }
+
+    #[test]
+    fn tapped_grid_keeps_the_downbeat() {
+        let g = Beatgrid::constant(120.0, 0.25, 3, 60.0);
+        let first_down = g.beats.iter().find(|b| b.bar_position == 1).unwrap().time;
+        let t = tapped_grid(&g, 125.0, 60.0);
+        assert!(t.beats.iter().any(|b| b.bar_position == 1 && (b.time - first_down).abs() < 1e-9));
+        assert!((t.beats[1].time - t.beats[0].time - 60.0 / 125.0).abs() < 1e-9);
+        assert!(!tapped_grid(&Beatgrid::default(), 128.0, 30.0).beats.is_empty());
     }
 
     #[test]
