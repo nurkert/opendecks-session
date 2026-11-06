@@ -11,6 +11,7 @@ mod blob;
 pub mod backup;
 pub mod devices;
 pub mod journal;
+pub mod mirror;
 pub mod nodes;
 pub mod relocate;
 pub mod sets;
@@ -19,6 +20,7 @@ pub mod tracks;
 
 pub use devices::{Device, DeviceFormats, PendingChanges};
 pub use journal::{EntityState, JournalEntry};
+pub use mirror::MirrorTrack;
 pub use nodes::{Entry, Node, NodeId, NodeKind, SetMeta};
 pub use smart::{Field, Op, Rule};
 pub use tracks::{NewTrack, SortKey, TrackRecord};
@@ -57,6 +59,17 @@ pub struct Library {
 impl Library {
     /// Opens (or creates) the library at `path`, migrating it if needed.
     pub fn open(path: &Path) -> Result<Self> {
+        Self::open_with(path, false)
+    }
+
+    /// Opens a library on removable media: rollback journal instead of WAL
+    /// and full syncs, so that pulling the stick never leaves side files
+    /// that another machine would need.
+    pub fn open_portable(path: &Path) -> Result<Self> {
+        Self::open_with(path, true)
+    }
+
+    fn open_with(path: &Path, portable: bool) -> Result<Self> {
         if let Some(dir) = path.parent() {
             std::fs::create_dir_all(dir)?;
         }
@@ -64,6 +77,9 @@ impl Library {
         let conn = Connection::open(path)?;
         let mut lib = Self { conn, path: Some(path.to_path_buf()) };
         lib.configure()?;
+        if portable {
+            lib.conn.execute_batch("PRAGMA journal_mode = DELETE; PRAGMA synchronous = FULL;")?;
+        }
         if existed && lib.schema_version()? < SCHEMA_VERSION && lib.schema_version()? > 0 {
             backup::backup_before_migration(&lib)?;
         }
