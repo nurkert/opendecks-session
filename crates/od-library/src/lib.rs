@@ -12,23 +12,28 @@ pub mod backup;
 pub mod devices;
 pub mod journal;
 pub mod mirror;
+pub mod mytags;
 pub mod nodes;
 pub mod relocate;
 pub mod sets;
 pub mod smart;
+pub mod smart_text;
 pub mod tracks;
 
 pub use devices::{Device, DeviceFormats, PendingChanges};
 pub use journal::{EntityState, JournalEntry};
 pub use mirror::MirrorTrack;
-pub use nodes::{Entry, Node, NodeId, NodeKind, SetMeta};
+pub use mytags::MyTag;
+pub use nodes::{Entry, Node, NodeId, NodeKind, SetMeta, Subtree};
 pub use smart::{Field, Op, Rule};
-pub use tracks::{NewTrack, SortKey, TrackRecord};
+pub use tracks::{HistoryPlay, NewTrack, SortKey, TrackRecord};
 
-use rusqlite::{Connection, OptionalExtension, Transaction};
+use rusqlite::{Connection, OptionalExtension, Transaction, TransactionBehavior};
+use std::cell::Cell;
 use std::path::{Path, PathBuf};
 
-pub const SCHEMA_VERSION: i64 = 1;
+/// Version 2 adds the `my_tag` table.
+pub const SCHEMA_VERSION: i64 = 2;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {
@@ -54,6 +59,8 @@ pub(crate) const NOW: &str = "strftime('%Y-%m-%dT%H:%M:%SZ','now')";
 pub struct Library {
     conn: Connection,
     path: Option<PathBuf>,
+    /// `PRAGMA data_version` at the last [`Library::external_change`] check.
+    seen_data_version: Cell<i64>,
 }
 
 impl Library {
@@ -81,19 +88,20 @@ impl Library {
         } else {
             Connection::open(path)?
         };
-        let mut lib = Self { conn, path: Some(path.to_path_buf()) };
+        let mut lib = Self { conn, path: Some(path.to_path_buf()), seen_data_version: Cell::new(0) };
         lib.configure(portable)?;
         if existed && lib.schema_version()? < SCHEMA_VERSION && lib.schema_version()? > 0 {
             backup::backup_before_migration(&lib)?;
         }
         lib.migrate()?;
+        lib.seen_data_version.set(lib.data_version()?);
         Ok(lib)
     }
 
     /// Opens a private in-memory library (tests, previews).
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
-        let mut lib = Self { conn, path: None };
+        let mut lib = Self { conn, path: None, seen_data_version: Cell::new(0) };
         lib.configure(false)?;
         lib.migrate()?;
         Ok(lib)
@@ -126,19 +134,7 @@ impl Library {
     }
 
     fn schema_version(&self) -> Result<i64> {
-        let has_meta: bool = self.conn.query_row(
-            "SELECT count(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'meta'",
-            [],
-            |r| r.get(0),
-        )?;
-        if !has_meta {
-            return Ok(0);
-        }
-        let v: Option<String> = self
-            .conn
-            .query_row("SELECT value FROM meta WHERE key = 'schema_version'", [], |r| r.get(0))
-            .optional()?;
-        Ok(v.and_then(|v| v.parse().ok()).unwrap_or(0))
+        schema_version(&self.conn)
     }
 
     fn migrate(&mut self) -> Result<()> {
@@ -146,30 +142,78 @@ impl Library {
         if version > SCHEMA_VERSION {
             return Err(LibraryError::TooNew(version));
         }
-        if version == 0 {
-            let tx = self.conn.transaction()?;
-            tx.execute_batch(include_str!("schema.sql"))?;
-            tx.execute(
-                "INSERT INTO meta (key, value) VALUES ('schema_version', ?1)",
-                [SCHEMA_VERSION.to_string()],
-            )?;
-            tx.commit()?;
+        if version == SCHEMA_VERSION {
+            return Ok(());
         }
+        let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        // Re-read inside the write lock: another process may have migrated.
+        let version = schema_version(&tx)?;
+        if version == 0 {
+            tx.execute_batch(include_str!("schema.sql"))?;
+            tx.execute("INSERT INTO meta (key, value) VALUES ('schema_version', '1')", [])?;
+        }
+        if version < 2 {
+            tx.execute_batch(
+                "CREATE TABLE IF NOT EXISTS my_tag (
+                    track_id INTEGER NOT NULL REFERENCES track (id) ON DELETE CASCADE,
+                    category TEXT    NOT NULL,
+                    value    TEXT    NOT NULL,
+                    PRIMARY KEY (track_id, category, value)
+                 );
+                 CREATE INDEX IF NOT EXISTS my_tag_value ON my_tag (category, value);",
+            )?;
+        }
+        tx.execute("UPDATE meta SET value = ?1 WHERE key = 'schema_version'", [SCHEMA_VERSION.to_string()])?;
+        tx.commit()?;
         Ok(())
     }
 
-    /// Runs `f` inside a transaction.
+    /// Runs `f` inside a write transaction. The write lock is taken up front
+    /// (`BEGIN IMMEDIATE`) so that another process writing to the same file
+    /// (the app and the MCP server) waits for the busy timeout instead of
+    /// failing on a lock upgrade.
     pub(crate) fn tx<T>(&mut self, f: impl FnOnce(&Transaction) -> Result<T>) -> Result<T> {
-        let tx = self.conn.transaction()?;
+        let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
         let out = f(&tx)?;
         tx.commit()?;
         Ok(out)
+    }
+
+    /// `PRAGMA data_version`: changes whenever *another* connection (another
+    /// process such as the MCP server, or a second window) commits to the
+    /// database. Commits on this connection do not change it.
+    pub fn data_version(&self) -> Result<i64> {
+        Ok(self.conn.query_row("PRAGMA data_version", [], |r| r.get(0))?)
+    }
+
+    /// Cheap poll for writes made by other connections since the previous
+    /// call (or since opening). One pragma read, no table access, so it can
+    /// run every UI frame or on a short timer; when it returns `true`, reload
+    /// whatever views are on screen (tree, track list, undo state).
+    pub fn external_change(&self) -> Result<bool> {
+        let v = self.data_version()?;
+        Ok(self.seen_data_version.replace(v) != v)
     }
 
     /// Current head of the change log.
     pub fn change_seq(&self) -> Result<i64> {
         Ok(self.conn.query_row("SELECT coalesce(max(seq), 0) FROM change", [], |r| r.get(0))?)
     }
+}
+
+fn schema_version(conn: &Connection) -> Result<i64> {
+    let has_meta: bool = conn.query_row(
+        "SELECT count(*) > 0 FROM sqlite_master WHERE type = 'table' AND name = 'meta'",
+        [],
+        |r| r.get(0),
+    )?;
+    if !has_meta {
+        return Ok(0);
+    }
+    let v: Option<String> = conn
+        .query_row("SELECT value FROM meta WHERE key = 'schema_version'", [], |r| r.get(0))
+        .optional()?;
+    Ok(v.and_then(|v| v.parse().ok()).unwrap_or(0))
 }
 
 pub(crate) fn record_change(
@@ -246,5 +290,55 @@ mod tests {
         }
         let lib = Library::open(&p).unwrap();
         assert_eq!(lib.change_seq().unwrap(), 0);
+    }
+
+    #[test]
+    fn migrates_version_1_to_2() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("library.sqlite");
+        {
+            let conn = Connection::open(&p).unwrap();
+            conn.execute_batch(include_str!("schema.sql")).unwrap();
+            conn.execute("INSERT INTO meta (key, value) VALUES ('schema_version', '1')", []).unwrap();
+        }
+        let lib = Library::open(&p).unwrap();
+        assert_eq!(lib.schema_version().unwrap(), 2);
+        assert!(lib.my_tag_catalog().unwrap().is_empty());
+    }
+
+    #[test]
+    fn external_writes_are_detected() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("library.sqlite");
+        let app = Library::open(&p).unwrap();
+        let mut other = Library::open(&p).unwrap();
+        assert!(!app.external_change().unwrap());
+        // Own writes do not count.
+        let _ = other.external_change().unwrap();
+        other.create_node(None, NodeKind::Playlist, "From MCP").unwrap();
+        assert!(!other.external_change().unwrap());
+        assert!(app.external_change().unwrap());
+        assert!(!app.external_change().unwrap());
+        assert_eq!(app.all_nodes().unwrap().len(), 1);
+    }
+
+    #[test]
+    fn edit_with_is_atomic_and_one_step() {
+        let mut lib = Library::open_in_memory().unwrap();
+        let a = test_util::track(&mut lib, "A", None, None);
+        let id = lib
+            .edit_with("MCP: Create set", |l| {
+                let node = l.new_node(None, NodeKind::Set, "Friday")?;
+                let id = node.id;
+                let tree = Subtree { nodes: vec![node], entries: vec![(id, vec![Entry::new(a)])], device_links: vec![] };
+                Ok((vec![EntityState::Subtree { root: id, tree: Some(tree) }], id))
+            })
+            .unwrap();
+        assert_eq!(lib.entries(id).unwrap().len(), 1);
+        assert_eq!(lib.journal(1).unwrap()[0].label, "MCP: Create set");
+        let failed: Result<()> = lib.edit_with("MCP: broken", |_| Err(LibraryError::Invalid("no".into())));
+        assert!(failed.is_err());
+        assert_eq!(lib.undo().unwrap().as_deref(), Some("MCP: Create set"));
+        assert!(lib.node(id).is_err());
     }
 }

@@ -275,6 +275,37 @@ impl Library {
         })
     }
 
+    /// A new node as it would be created as the last child of `parent`
+    /// (fresh id, sort order and timestamp), without writing it. Callers put
+    /// it into an [`EntityState::Subtree`] together with its entries so that
+    /// creating and filling a list is one undo step; call it inside
+    /// [`Library::edit_with`] so that the id stays free until the write.
+    pub fn new_node(&self, parent: Option<NodeId>, kind: NodeKind, name: &str) -> Result<Node> {
+        let conn = &self.conn;
+        if let Some(p) = parent {
+            if read_node(conn, p)?.kind != NodeKind::Folder {
+                return Err(LibraryError::Invalid("only folders can contain other nodes".into()));
+            }
+        }
+        let id = NodeId(conn.query_row("SELECT coalesce(max(id), 0) + 1 FROM node", [], |r| r.get(0))?);
+        let sort_order: i64 = conn.query_row(
+            "SELECT coalesce(max(sort_order), -1) + 1 FROM node WHERE parent_id IS ?1",
+            [parent.map(|p| p.0)],
+            |r| r.get(0),
+        )?;
+        let created: String = conn.query_row(&format!("SELECT {NOW}"), [], |r| r.get(0))?;
+        Ok(Node {
+            id,
+            parent,
+            kind,
+            name: name.to_string(),
+            sort_order,
+            smart_rule: (kind == NodeKind::Smart).then(|| Rule::All(vec![])),
+            set_meta: (kind == NodeKind::Set).then(SetMeta::default),
+            created,
+        })
+    }
+
     pub fn node(&self, id: NodeId) -> Result<Node> {
         read_node(&self.conn, id)
     }

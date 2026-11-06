@@ -49,6 +49,18 @@ pub struct TrackRecord {
     pub analysis_version: u32,
 }
 
+/// One play in a history list.
+#[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct HistoryPlay {
+    /// History list (one per performance session or imported player history).
+    pub session: String,
+    pub played_at: String,
+    /// `None` if the track was removed from the library since.
+    pub track: Option<TrackId>,
+    /// "opendecks" or "device".
+    pub source: String,
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SortKey {
     #[default]
@@ -567,6 +579,66 @@ impl Library {
             )?;
             record_change(tx, "path", Some(id), None)
         })
+    }
+
+    /// Mean analysed energy (0..=1) of every analysed track. Reads only the
+    /// energy curves, not waveforms.
+    pub fn energy_means(&self) -> Result<std::collections::HashMap<TrackId, f32>> {
+        let mut stmt = self.conn.prepare_cached("SELECT track_id, energy FROM analysis WHERE energy IS NOT NULL")?;
+        let mut out = std::collections::HashMap::new();
+        for row in stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Vec<u8>>(1)?)))? {
+            let (id, bytes) = row?;
+            let e = blob::decode_f32s(&bytes);
+            if !e.is_empty() {
+                out.insert(TrackId(id), e.iter().sum::<f32>() / e.len() as f32);
+            }
+        }
+        Ok(out)
+    }
+
+    /// History lists, newest first: (session, first play, number of plays).
+    pub fn history_sessions(&self) -> Result<Vec<(String, String, u32)>> {
+        let mut stmt = self.conn.prepare_cached(
+            "SELECT session, min(played_at), count(*) FROM history GROUP BY session ORDER BY min(played_at) DESC",
+        )?;
+        Ok(stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Plays in play order; one session or (for `None`) the most recent
+    /// `limit` plays of all sessions.
+    pub fn history(&self, session: Option<&str>, limit: usize) -> Result<Vec<HistoryPlay>> {
+        let row = |r: &Row| {
+            Ok(HistoryPlay {
+                session: r.get(0)?,
+                played_at: r.get(1)?,
+                track: r.get::<_, Option<i64>>(2)?.map(TrackId),
+                source: r.get(3)?,
+            })
+        };
+        let mut out: Vec<HistoryPlay> = match session {
+            Some(s) => self
+                .conn
+                .prepare_cached(
+                    "SELECT session, played_at, track_id, source FROM history WHERE session = ?1
+                     ORDER BY played_at, id LIMIT ?2",
+                )?
+                .query_map(params![s, limit as i64], row)?
+                .collect::<rusqlite::Result<_>>()?,
+            None => {
+                let mut v: Vec<HistoryPlay> = self
+                    .conn
+                    .prepare_cached(
+                        "SELECT session, played_at, track_id, source FROM history
+                         ORDER BY played_at DESC, id DESC LIMIT ?1",
+                    )?
+                    .query_map([limit as i64], row)?
+                    .collect::<rusqlite::Result<_>>()?;
+                v.reverse();
+                v
+            }
+        };
+        out.truncate(limit);
+        Ok(out)
     }
 
     /// Records a play from a performance or a device history.

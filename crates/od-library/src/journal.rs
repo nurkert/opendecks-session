@@ -4,6 +4,7 @@
 //! state of each entity is captured; undo re-applies the captured states and
 //! redo re-applies the edit.
 
+use crate::mytags::{self, MyTag};
 use crate::nodes::{self, Entry, Node, NodeId, Subtree};
 use crate::tracks::{read_cues, read_grid, read_key, read_tags, write_cues, write_grid, write_key};
 use crate::{Library, NOW, Result, record_change};
@@ -28,6 +29,8 @@ pub enum EntityState {
     Entries { node: NodeId, entries: Vec<Entry> },
     /// A node with all descendants and their entries; `None` = absent.
     Subtree { root: NodeId, tree: Option<Subtree> },
+    /// The My Tag values of a track.
+    MyTags { track: TrackId, tags: Vec<MyTag> },
 }
 
 impl EntityState {
@@ -44,6 +47,9 @@ impl EntityState {
             }
             EntityState::Subtree { root, .. } => {
                 EntityState::Subtree { root: *root, tree: nodes::capture_subtree(conn, *root)? }
+            }
+            EntityState::MyTags { track, .. } => {
+                EntityState::MyTags { track: *track, tags: mytags::read(conn, *track)? }
             }
         })
     }
@@ -90,6 +96,10 @@ impl EntityState {
                 }
                 record_change(conn, "node", None, Some(*root))
             }
+            EntityState::MyTags { track, tags } => {
+                mytags::write(conn, *track, tags)?;
+                record_change(conn, "tags", Some(*track), None)
+            }
         }
     }
 }
@@ -107,6 +117,36 @@ impl Library {
     /// Applies a user edit and records it for undo.
     pub fn edit(&mut self, label: &str, after: Vec<EntityState>) -> Result<()> {
         self.tx(|tx| apply_edit(tx, label, after))
+    }
+
+    /// Applies a user edit whose new states are computed from the current
+    /// ones, atomically: `f` reads the library and returns the states to
+    /// apply plus a result, all under one write lock, so that a concurrent
+    /// writer (the app and the MCP server share the file) cannot slip in
+    /// between the read and the write. The edit becomes one undo step named
+    /// `label`. Nothing is written if `f` fails or returns no states.
+    pub fn edit_with<T>(
+        &mut self,
+        label: &str,
+        f: impl FnOnce(&Library) -> Result<(Vec<EntityState>, T)>,
+    ) -> Result<T> {
+        self.conn.execute_batch("BEGIN IMMEDIATE")?;
+        let out = f(self).and_then(|(states, out)| {
+            if !states.is_empty() {
+                apply_edit(&self.conn, label, states)?;
+            }
+            Ok(out)
+        });
+        match out {
+            Ok(v) => {
+                self.conn.execute_batch("COMMIT")?;
+                Ok(v)
+            }
+            Err(e) => {
+                let _ = self.conn.execute_batch("ROLLBACK");
+                Err(e)
+            }
+        }
     }
 
     /// Undoes the most recent edit. Returns its label, or `None` if there is
