@@ -43,6 +43,14 @@ enum Cmd {
     XmlImport { file: PathBuf },
     /// List duplicate tracks (same file, or same artist and title).
     Duplicates,
+    /// Write the whole library (and with --audio the music) to one archive.
+    Archive {
+        file: PathBuf,
+        #[arg(long)]
+        audio: bool,
+    },
+    /// Restore a library archive into a folder.
+    Restore { file: PathBuf, dir: PathBuf },
     /// Create a playlist (or set) with tracks matching a search.
     Playlist {
         name: String,
@@ -221,6 +229,14 @@ fn main() -> anyhow::Result<()> {
             for m in &r.missing {
                 println!("missing file: {}", m.display());
             }
+        }
+        Cmd::Archive { file, audio } => {
+            let n = lib.export_archive(&file, audio, |_, _| {})?;
+            println!("wrote {} (audio files: {n})", file.display());
+        }
+        Cmd::Restore { file, dir } => {
+            let restored = Library::import_archive(&file, &dir)?;
+            println!("restored {} tracks into {}", restored.track_count()?, dir.display());
         }
         Cmd::Duplicates => {
             let groups = lib.find_duplicates()?;

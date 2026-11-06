@@ -8,6 +8,7 @@
 //! whether a stick is out of date.
 
 mod blob;
+pub mod archive;
 pub mod backup;
 pub mod devices;
 pub mod duplicates;

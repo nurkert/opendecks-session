@@ -4483,9 +4483,11 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "tar",
  "tempfile",
  "thiserror 2.0.21",
  "tracing",
+ "zstd",
 ]
 
 [[package]]
