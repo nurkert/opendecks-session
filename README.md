@@ -1,3 +1,5 @@
+<p align="center"><img src="docs/assets/banner.png" alt="OpenDecks Session" width="100%"></p>
+
 # OpenDecks Session
 
 Open-source DJ software in Rust for macOS, Linux and the Raspberry Pi.

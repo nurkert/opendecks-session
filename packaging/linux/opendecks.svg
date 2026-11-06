@@ -1,17 +1,11 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <!-- macOS icon grid: 824×824 body with 100 px margin. -->
+  <title>OpenDecks Session — emission rail</title>
+  <!-- 824 px macOS body; transparent 100 px exterior. Flat, original signal mark. -->
   <rect x="100" y="100" width="824" height="824" rx="184" fill="#151514"/>
-  <rect x="100" y="100" width="824" height="824" rx="184" fill="none" stroke="#33322F" stroke-width="4"/>
-  <!-- the rail -->
-  <rect x="236" y="214" width="6" height="596" fill="#4B4A46"/>
-  <circle cx="239" cy="206" r="14" fill="none" stroke="#8B867B" stroke-width="5"/>
-  <circle cx="239" cy="818" r="14" fill="none" stroke="#8B867B" stroke-width="5"/>
-  <!-- deck lines: 486 nm, 615 nm -->
-  <rect x="352" y="300" width="22" height="424" fill="#4FB8F0"/>
-  <rect x="708" y="360" width="22" height="304" fill="#F39047"/>
-  <!-- doubled sodium: now playing -->
-  <rect x="508" y="232" width="22" height="560" fill="#F5CE4A"/>
-  <rect x="548" y="232" width="22" height="560" fill="#F5CE4A"/>
-  <!-- tick on the rail -->
-  <rect x="226" y="504" width="96" height="16" fill="#F5CE4A"/>
+  <g fill="none" stroke-width="18" stroke-linejoin="miter">
+    <path d="M240 426H476L516 378H784" stroke="#4FB8F0"/>
+    <path d="M240 538H476L516 490H784" stroke="#F5CE4A"/>
+    <path d="M240 650H476L516 602H784" stroke="#7A5CFF"/>
+  </g>
+  <path d="M610 228V796" fill="none" stroke="#E6E0D2" stroke-width="34"/>
 </svg>
