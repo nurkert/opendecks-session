@@ -111,8 +111,47 @@ pub(crate) fn refresh_detail(app: &App) {
     ui.set_hot_cues(model(slots));
     ui.set_cursor((st.player.cursor / duration) as f32);
     ui.set_track_position(format::cue_time(st.player.cursor).into());
+    let phrases = if st.settings.view.phrases { analysis.phrases.clone() } else { Vec::new() };
+    DETAIL_SRC.with(|d| *d.borrow_mut() = Some(DetailSrc { track: id, waveform: analysis.waveform, grid: analysis.beatgrid, phrases, last_px: None }));
+    drop(st);
+    render_detail(app);
+}
+
+/// What the zoomed waveform is drawn from, kept so playback can scroll it
+/// every frame without touching the library.
+struct DetailSrc {
+    track: TrackId,
+    waveform: od_core::Waveform,
+    grid: Beatgrid,
+    phrases: Vec<od_core::Phrase>,
+    /// Cursor in output pixels at the last render (skip identical frames).
+    last_px: Option<i64>,
+}
+
+thread_local! {
+    static DETAIL_SRC: std::cell::RefCell<Option<DetailSrc>> = const { std::cell::RefCell::new(None) };
+}
+
+/// Renders the zoomed waveform around the cursor (only when it moved by at
+/// least one output pixel).
+fn render_detail(app: &App) {
+    let ui = &app.ui;
+    let scale = ui.window().scale_factor();
     let width = ((ui.window().size().width as f32 / scale - 680.0).max(300.0) * scale) as u32;
-    ui.set_track_detail(render::detail(&analysis.waveform, &analysis.beatgrid, if st.settings.view.phrases { &analysis.phrases } else { &[] }, st.player.cursor, 8.0, width, (150.0 * scale) as u32));
+    let (cursor, current) = {
+        let st = app.state.borrow();
+        (st.player.cursor, st.player.current)
+    };
+    DETAIL_SRC.with(|d| {
+        let mut d = d.borrow_mut();
+        let Some(src) = d.as_mut().filter(|s| Some(s.track) == current) else { return };
+        let px = (cursor / 8.0 * width as f64).round() as i64;
+        if src.last_px == Some(px) {
+            return;
+        }
+        src.last_px = Some(px);
+        ui.set_track_detail(render::detail(&src.waveform, &src.grid, &src.phrases, cursor, 8.0, width, (150.0 * scale) as u32));
+    });
 }
 
 /// Space / play button: start or pause the preview of the selected track.
@@ -168,6 +207,8 @@ pub(crate) fn follow_preview(app: &App, state: &od_engine::EngineState) {
         if d.duration > 0.0 {
             app.ui.set_cursor((d.position / d.duration) as f32);
         }
+        app.ui.set_track_position(format::cue_time(d.position).into());
+        render_detail(app);
     }
     if d.at_end {
         set_previewing(app, false);

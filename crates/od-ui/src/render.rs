@@ -23,10 +23,10 @@ pub fn set_colorblind_safe(on: bool) {
     COLORBLIND.store(on, std::sync::atomic::Ordering::Relaxed);
 }
 /// Beatgrid: beats, bar starts and 16-bar starts, drawn behind the waveform.
-const BEAT: [u8; 3] = [0x34, 0x33, 0x30];
-const DOWNBEAT: [u8; 3] = [0x6E, 0x6A, 0x62];
+const BEAT: [u8; 3] = [0x5E, 0x5B, 0x55];
+const DOWNBEAT: [u8; 3] = [0xB7, 0xB1, 0xA4];
 const DOWNBEAT_MARK: [u8; 3] = [0xE6, 0xE0, 0xD2];
-const PHRASE_LINE: [u8; 3] = [0x8A, 0x74, 0x2C];
+const PHRASE_LINE: [u8; 3] = [0xD8, 0xB0, 0x3E];
 const PHRASE_MARK: [u8; 3] = [0xF5, 0xCE, 0x4A];
 /// 589 nm, dimmed: phrase ticks on the overview.
 const TICK: [u8; 3] = [0xB8, 0x9B, 0x3A];
@@ -167,8 +167,36 @@ pub fn detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], position: f64, 
     let secs_per_px = span / width.max(1) as f64;
     let strip = (height / 18).max(3);
     let wave_h = height - strip - 1;
-    // Waveform amplitude leaves a top band free for the grid markers.
+    // Waveform amplitude leaves a band free for the grid markers.
     let mark_h = (wave_h / 9).max(4);
+    let x_of = |t: f64| {
+        let x = (t - start) / secs_per_px;
+        Some(x.clamp(0.0, width as f64) as u32)
+    };
+    phrase_strip(&mut buf, phrases, grid, x_of, strip);
+    let mid = wave_h / 2;
+    let rate = w.columns_per_second;
+    for x in 0..width {
+        let t = start + x as f64 * secs_per_px;
+        if t < 0.0 {
+            continue;
+        }
+        let a = (t * rate) as usize;
+        let b = (((t + secs_per_px) * rate) as usize).max(a + 1);
+        if a >= w.columns.len() {
+            continue;
+        }
+        let c = w.columns[a..b.min(w.columns.len())].iter().fold(WaveformColumn::default(), |acc, c| WaveformColumn {
+            low: acc.low.max(c.low),
+            mid: acc.mid.max(c.mid),
+            high: acc.high.max(c.high),
+            peak: acc.peak.max(c.peak),
+        });
+        let amp = (c.peak as f32 / 255.0 * (wave_h as f32 / 2.0 - mark_h as f32 - 2.0)).max(1.0) as u32;
+        column(&mut buf, x, mid, amp, &c, t < position);
+    }
+    // Beatgrid on top of the waveform, as thin lines DJs read at a glance:
+    // beats, bar starts with markers top and bottom, 16-bar starts in amber.
     if !grid.beats.is_empty() {
         let first = grid.beat_index_at(start.max(0.0)).unwrap_or(0);
         for (i, b) in grid.beats.iter().enumerate().skip(first) {
@@ -188,38 +216,10 @@ pub fn detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], position: f64, 
                 let mark = if phrase { PHRASE_MARK } else { DOWNBEAT_MARK };
                 for dx in 0..3u32 {
                     vline(&mut buf, (x + dx).saturating_sub(1), 0, mark_h, mark);
+                    vline(&mut buf, (x + dx).saturating_sub(1), wave_h - mark_h, wave_h, mark);
                 }
             }
         }
-    }
-    let x_of = |t: f64| {
-        let x = (t - start) / secs_per_px;
-        Some(x.clamp(0.0, width as f64) as u32)
-    };
-    phrase_strip(&mut buf, phrases, grid, x_of, strip);
-    if w.columns.is_empty() {
-        return Image::from_rgba8(buf);
-    }
-    let mid = wave_h / 2;
-    let rate = w.columns_per_second;
-    for x in 0..width {
-        let t = start + x as f64 * secs_per_px;
-        if t < 0.0 {
-            continue;
-        }
-        let a = (t * rate) as usize;
-        let b = (((t + secs_per_px) * rate) as usize).max(a + 1);
-        if a >= w.columns.len() {
-            break;
-        }
-        let c = w.columns[a..b.min(w.columns.len())].iter().fold(WaveformColumn::default(), |acc, c| WaveformColumn {
-            low: acc.low.max(c.low),
-            mid: acc.mid.max(c.mid),
-            high: acc.high.max(c.high),
-            peak: acc.peak.max(c.peak),
-        });
-        let amp = (c.peak as f32 / 255.0 * (wave_h as f32 / 2.0 - mark_h as f32 - 2.0)).max(1.0) as u32;
-        column(&mut buf, x, mid, amp, &c, t < position);
     }
     Image::from_rgba8(buf)
 }
@@ -292,6 +292,7 @@ mod tests {
         assert_eq!(px(0, 2), PHRASE_MARK);
         assert_eq!(px(200, 40), DOWNBEAT);
         assert_eq!(px(200, 2), DOWNBEAT_MARK);
+        assert_eq!(px(200, 82), DOWNBEAT_MARK);
         // Next beat (not a downbeat) 25 px later, full height.
         assert_eq!(px(225, 40), BEAT);
         assert_eq!(px(225, 75), BEAT);
