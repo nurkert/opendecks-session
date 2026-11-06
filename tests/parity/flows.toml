@@ -1,0 +1,109 @@
+# Superiority flows (SPEC §16.4 "Steps to common tasks"): per task, the
+# rekordbox step count from the UX study and our target. Ours must be ≤
+# rekordbox's and is proven by a UI test that drives the real window
+# (`ui_test`, a test id as in features.toml; empty until it exists).
+# Line numbers refer to docs/ux-study/rekordbox-layout.md as of 2026-11-06.
+
+[meta]
+step_rule = """One step = one click, one drag, one key chord, one hover that opens a submenu, or one typed text entry \
+(typing a whole name counts once). Opening a menu and choosing an item are two steps. Waiting for background work is \
+not a step. Each flow starts from the state given in `note`; both paths start from the same state."""
+
+[[flow]]
+id = "load-from-explorer"
+task = "Load a file that is not in the collection from a folder on disk into deck 1"
+rekordbox_steps = 4
+rekordbox_source = "docs/ux-study/rekordbox-layout.md:193-195 (§2.2), :186 (§2.1 drag to deck)"
+rekordbox_path = [
+  "click the Explorer icon in the source rail",
+  "expand the user folder with its disclosure triangle",
+  "click the folder name (lists its audio files)",
+  "drag the file onto deck 1",
+]
+target_steps = 3
+opendecks_path = [
+  "click Explorer in the source rail (roots list the music folders and the last opened folder)",
+  "click the folder",
+  "double-click the file (loads into the free deck, imports and analyses it in the background)",
+]
+labels = ["browser.rail.explorer", "browser.tree.home", "browser.rows", "deck1.title"]
+note = "Start: Perform, 2 decks, browser on Collection, deck 1 empty; the file sits one level below the user folder."
+
+[[flow]]
+id = "set-and-name-hot-cue"
+task = "Set hot cue A at the playhead and name it"
+rekordbox_steps = 5
+rekordbox_source = "docs/ux-study/rekordbox-layout.md:143 (§1.7 hot-cue buttons A–H), :145 (cue list with MEMORY | HOT CUE | INFO tabs)"
+inferred = true
+rekordbox_path = [
+  "click hot cue A in the player toolbar",
+  "click the HOT CUE tab of the cue list",
+  "double-click the comment field of cue A",
+  "type the name",
+  "press Return",
+]
+target_steps = 4
+opendecks_path = [
+  "click hot cue A in the player toolbar",
+  "double-click cue A in the cue list (hot and memory cues share the list)",
+  "type the name",
+  "press Return",
+]
+labels = ["player1.hot-cue.A", "player1.cue-list.rows", "player1.cue-list.tab.hot-cue"]
+note = "Start: Prepare, 1 player, track loaded and paused. Naming in rekordbox was not observed (inferred from the cue list layout)."
+
+[[flow]]
+id = "add-to-playlist"
+task = "Add the selected track to an existing playlist"
+rekordbox_steps = 3
+rekordbox_source = "docs/ux-study/rekordbox-layout.md:179 (§1.9 track row context menu: Add To Playlist ▸)"
+rekordbox_path = [
+  "right-click the row",
+  "hover Add To Playlist ▸",
+  "click the playlist",
+]
+target_steps = 2
+opendecks_path = [
+  "right-click the row",
+  "click the playlist in the menu's inline 'Add to' group (recent playlists; the rest in a submenu)",
+]
+labels = ["browser.rows", "ctx.row.add-to-playlist"]
+note = "Start: browser on Collection, track selected, the playlist was used before."
+
+[[flow]]
+id = "sync-stick"
+task = "Bring an edited playlist onto a registered USB stick"
+rekordbox_steps = 3
+rekordbox_source = "docs/ux-study/rekordbox-layout.md:177 (§1.9 Playlist menu: Export Playlist ▸), :131 (device-sync icon)"
+rekordbox_path = [
+  "open the Playlist menu",
+  "hover Export Playlist ▸",
+  "click the device",
+]
+target_steps = 0
+opendecks_path = []
+labels = ["browser.tree.devices", "status.activity"]
+note = "Start: stick registered and plugged in, a track of the playlist got a new hot cue. OpenDecks syncs automatically ~2 s after the edit (SPEC §8.2); the test asserts the stick content and the visible status without any input."
+
+[[flow]]
+id = "start-recording"
+task = "Start recording the mix"
+rekordbox_steps = 1
+rekordbox_source = "docs/ux-study/rekordbox-layout.md:198 (§2.3 REC at the right end of the global bar)"
+rekordbox_path = ["click REC"]
+target_steps = 1
+opendecks_path = ["click REC in the recording section (or the controller's REC)"]
+labels = ["rec.toggle"]
+note = "Start: Perform default layout, recording section shown."
+
+[[flow]]
+id = "separate-stems"
+task = "Separate a loaded track and mute its vocals"
+rekordbox_steps = 1
+rekordbox_source = "docs/ux-study/rekordbox-layout.md:203 (§2.4 stem strip), :207 (separation on load, inferred)"
+inferred = true
+rekordbox_path = ["click VOCAL in the deck's stem strip"]
+target_steps = 1
+opendecks_path = ["click VOCAL in the deck's stem strip (separation started on load; the strip shows SEPARATING until ready)"]
+labels = ["deck1.stem.vocal"]
+note = "Start: track loaded on deck 1, never separated, model present."

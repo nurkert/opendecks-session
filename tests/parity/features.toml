@@ -1,0 +1,2557 @@
+# Feature inventory: rekordbox 7 (top plan) vs. OpenDecks Session (SPEC §16.1).
+# Source of docs/feature-matrix.md: cargo run -p od-parity --bin parity -- matrix
+# Schema and how to add entries: docs/parity.md
+
+[meta]
+snapshot = "2026-11-06, from a read of the source tree"
+deferred_milestones = ["M6"]
+intro = '''
+The reference list is the rekordbox 7 feature set (top plan) relevant to a DJ who prepares in
+EXPORT mode and plays in PERFORMANCE mode with a DDJ-FLX10 / DDJ-FLX4, extended by the
+features SPEC §5.5, §10, §11 and §12 require. Only feature names are taken from rekordbox;
+behaviour, layout and naming in OpenDecks follow [SPEC.md](SPEC.md) and [DESIGN.md](../DESIGN.md).
+Statuses come from the 2026-11-06 read of the source tree; this file is generated from
+`tests/parity/features.toml`, see [parity.md](parity.md).
+
+Evidence written before the `od-ui` rebuild names `perform.rs` (`crates/od-ui/src/perform.rs`); that
+code now lives in `decks.rs`, `controller.rs`, `mixer.rs` and `recorder.rs`. Other short paths:
+`app.rs` = `crates/od-ui/src/app.rs`, `command.rs` = `crates/od-engine/src/command.rs`,
+`action.rs` = `crates/od-controller/src/action.rs`, `flx10.toml` = `mappings/pioneer/ddj-flx10.toml`.
+'''
+appendix = '''
+## P1 gaps and implementation notes
+
+1. **Persist cue edits made in Perform.** Hot cues (incl. loop hot cues) and
+   memory cues set or deleted on pads/controller only change engine state.
+   *`od-ui` (`perform.rs`)*: after `HotCue`/`DeleteHotCue`/memory-cue
+   actions, read the deck's cue table from `DeckState` (or mirror the
+   command), build `Vec<Cue>` and call `Library::set_cues` with a journal
+   label, unless the deck plays from a stick (`loaded_from_stick`). Wire the
+   dropped `MemoryCueSet/MemoryCueDelete` actions the same way. Sync then
+   follows automatically via the change log.
+2. **Beat FX and Colour FX selection.** Engine is complete; nothing drives it.
+   *`od-ui` (`perform.rs::handle_action`)*: translate `BeatFxAction`
+   (toggle/on, level, beat up/down, auto beat, select next/prev, assign,
+   tap) into `Command::BeatFx`, and `ColorFxAction::Select/Next` into
+   `ChannelCommand::SetColorFx` for all channels. *`ui/perform.slint`*: a
+   compact FX strip (type, beats, depth, target, on) per unit next to the
+   mixer; add FX LEDs in `feedback`. Release FX can come later.
+3. **Track metadata editing.** Rating, colour, comment and core tags are
+   stored but read-only. *`od-ui`*: inline rating click in `table.slint`,
+   colour/comment columns, a track-info panel in Prepare that calls
+   `Library::set_tags` (already journalled, already marks sticks out of
+   date). Add colour and comment as optional columns (see column choice, P2).
+4. **Playlist and set ordering, drag and drop.** *`od-ui`*: Slint drag
+   support (or move up/down + cut/paste rows as a first step) calling
+   `nodes.rs::move_entries`, `add_to_node`, `move_node`; file drop from the
+   OS into the library uses the existing import path. Sets depend on order,
+   so this is core to SPEC §5.
+5. **Complete the Prepare cue editor.** *`od-ui` (`app.rs`, `ui/player.slint`)*:
+   delete/move memory cues, store the current loop as a memory or hot-cue
+   loop (`Cue.loop_end`), edit label and colour (palette from
+   `od-format-pioneer/src/palette.rs` so players show it), and draw cue
+   colours (add a colour field to `CueMark`).
+6. **Grid editor: tap tempo and typed BPM; Tap BPM on the controller.**
+   *`od-ui` (`app.rs::edit_grid`)*: tap button averaging intervals, numeric
+   BPM entry building a constant grid from the current downbeat
+   (`Beatgrid::constant`). Wire `DeckAction::TapBpm` to the same helper for
+   the loaded track.
+7. **Controller coverage for mapped but dropped actions.** `handle_action`
+   falls through to `_ => None` for many FLX10/FLX4 inputs that the mappings
+   already decode. *`od-engine`*: add `DeckCommand::Search { forward, on }`
+   (fast scan) and a `KeySync` (shift to master key via `SetKeyShift`).
+   *`od-ui`*: wire `Search`, `KeySync`, `StemLevel`/`StemMuteToggle`
+   (and map the FLX10 part buttons and part-iso knobs in `flx10.toml`
+   instead of `ignore`), `Sampler::Volume`, `Browse::Related/ViewToggle`.
+   Each needs a line in `docs/controller-mappings.md` and a test in
+   `crates/od-controller/tests/mappings.rs`.
+8. **Preferences window with persisted settings.** *`od-ui`* (+ a small
+   settings store, e.g. a `meta` row or a TOML file in the data dir):
+   audio device, buffer size and headphone routing (`od-audio-io::list_devices`,
+   restart the host on change while not playing), language, key notation,
+   colour-blind / high contrast / motion, and the engine options that exist
+   but have no switch (EQ mode, fader and crossfader curves, default tempo
+   range). CLI flags stay as overrides.
+
+### P2 summary
+
+Column choice and filter bar; My Tag; related-tracks / suggestion panel
+(`suggest_next`); own play history with a history view; tree node reorder;
+set backups/start time UI; full Prepare keyboard shortcuts and controller
+tree navigation; phrase display (in progress); key shift + key-shift pads +
+key sync; pad FX and release FX; sampler loading, banks and volume; pad LEDs
+for all modes; waveform zoom; EQ/fader/crossfader curve settings (if not
+covered by P1-8); master cue and booth output; FLAC/MP3 recording and silence
+auto start; batch stem separation in Prepare.
+
+### P3 summary
+
+Artwork display, duplicate check, XML/iTunes exchange, consolidate UI,
+variable-tempo grid editing, BPM range setting, waveform style options,
+vocal position, hot cue banks, active loop, beat-jump size setting, keyboard
+and slicer pad modes, larger Beat FX list, stem FX, sampler sequencer, Smart
+CFX/Smart Fader, mic/aux input, auto-gain toggle, recording folder/level
+settings, `exportExt.pdb`, `MYSETTING`, MIDI learn UI, FLX10 utility settings
+UI and jog displays (M4).
+'''
+
+[[area]]
+id = "browser"
+title = "Browser / collection"
+
+[[area]]
+id = "analysis"
+title = "Analysis"
+
+[[area]]
+id = "cues"
+title = "Cues and loops"
+
+[[area]]
+id = "deck"
+title = "Deck / player"
+
+[[area]]
+id = "mixer"
+title = "Mixer"
+
+[[area]]
+id = "effects"
+title = "Effects"
+
+[[area]]
+id = "stems"
+title = "Stems / track separation"
+
+[[area]]
+id = "sampler"
+title = "Sampler"
+
+[[area]]
+id = "recording"
+title = "Recording"
+
+[[area]]
+id = "export"
+title = "Export / USB devices"
+
+[[area]]
+id = "preferences"
+title = "Preferences, audio and controllers"
+
+[[area]]
+id = "shell"
+title = "Shell, layouts and panels"
+
+[[area]]
+id = "excluded"
+title = "Video, lighting, DVS, streaming, cloud"
+
+# ---- Browser / collection ----
+
+[[feature]]
+id = "browser-collection-table"
+area = "browser"
+name = "Collection table with sortable columns"
+scope = "in"
+status = "done"
+tests = [
+  "od-ui::browser::tracks::tests::sorting",
+  "od-library::tracks::tests::add_get_search",
+]
+evidence = ["ui/table.slint", "app.rs::sort_key"]
+note = "`ui/table.slint` header cells; `app.rs::sort_key` (title, artist, genre, BPM, key, time, rating, date added)"
+
+[[feature]]
+id = "browser-column-choice"
+area = "browser"
+name = "Column choice (album, label, comment, colour, date added, play count, bitrate, My Tag, …)"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "Fixed column set in `table.slint`; `TrackRow` has `album` but no header for it"
+
+[[feature]]
+id = "browser-artwork"
+area = "browser"
+name = "Artwork in browser / deck"
+scope = "in"
+status = "partial"
+prio = "P3"
+tests = []
+evidence = ["tracks.rs::artwork", "pdb/rows.rs"]
+note = "Stored (`schema.sql` `artwork`, `tracks.rs::artwork`) and exported to sticks (`pdb/rows.rs`); not shown in the UI"
+
+[[feature]]
+id = "browser-tree-nodes"
+area = "browser"
+name = "Tree: folders, playlists, smart lists, sets"
+scope = "in"
+status = "done"
+tests = [
+  "od-library::nodes::tests::tree_and_entries",
+  "od-library::nodes::tests::delete_folder_is_undoable",
+]
+evidence = ["nodes.rs::create_node/rename_node/delete_node", "app.rs::on_create_node", "app.rs::on_rename_node", "app.rs::on_delete_node"]
+note = "`nodes.rs::create_node/rename_node/delete_node`; `app.rs` `on_create_node`, `on_rename_node`, `on_delete_node`"
+
+[[feature]]
+id = "browser-tree-reorder"
+area = "browser"
+name = "Reorder tree nodes (drag)"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = [
+  "od-library::nodes::tests::move_node_reorders_siblings",
+]
+evidence = ["nodes.rs::move_node"]
+note = "`nodes.rs::move_node`; no UI"
+
+[[feature]]
+id = "browser-add-to-playlist"
+area = "browser"
+name = "Add tracks to playlist"
+scope = "in"
+status = "done"
+tests = [
+  "od-library::nodes::tests::tree_and_entries",
+]
+evidence = ["app.rs::on_add_to_node"]
+note = "`app.rs` `on_add_to_node`"
+
+[[feature]]
+id = "browser-playlist-reorder"
+area = "browser"
+name = "Reorder playlist / set entries"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = []
+evidence = ["nodes.rs::move_entries"]
+note = "`nodes.rs::move_entries`; not called from `od-ui`"
+
+[[feature]]
+id = "browser-drag-and-drop"
+area = "browser"
+name = "Drag and drop (table → tree, Finder → library)"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+evidence = ["ui/*.slint"]
+note = "No drag/drop handlers in `ui/*.slint` (with reorder)"
+
+[[feature]]
+id = "browser-search"
+area = "browser"
+name = "Search"
+scope = "in"
+status = "done"
+tests = [
+  "od-library::tracks::tests::add_get_search",
+  "od-library::tracks::tests::tag_edit_updates_search_index",
+]
+evidence = ["tracks.rs::search", "app.rs::on_search"]
+note = "`tracks.rs::search`; `app.rs` `on_search`"
+
+[[feature]]
+id = "browser-filter"
+area = "browser"
+name = "Filter (BPM range, key, rating, My Tag, relative to master deck)"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = [
+  "od-library::smart::tests::smart_playlist_filters",
+]
+evidence = ["smart.rs::Field"]
+note = "Smart-list rules can express it (`smart.rs` `Field`/`Op`, incl. `HarmonicWith`); no quick filter bar in the browser"
+
+[[feature]]
+id = "browser-rating"
+area = "browser"
+name = "Rating (stars)"
+scope = "in"
+status = "partial"
+prio = "P1"
+tests = []
+evidence = ["tracks.rs::set_tags"]
+note = "Shown and sortable (`TrackRow.rating`); not editable (`tracks.rs::set_tags` is unused by the UI)"
+
+[[feature]]
+id = "browser-track-colour"
+area = "browser"
+name = "Track colour"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = []
+evidence = ["od-core/src/track.rs"]
+note = "`TrackTags.color` (`od-core/src/track.rs`), imported and exported; no column, no editor"
+
+[[feature]]
+id = "browser-comments"
+area = "browser"
+name = "Comments"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = []
+note = "`TrackTags.comment`; smart-rule field `Comment`; no column, no editor"
+
+[[feature]]
+id = "browser-tag-editing"
+area = "browser"
+name = "Edit tags (title, artist, album, genre, label, year …)"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = [
+  "od-library::tracks::tests::tag_edit_updates_search_index",
+]
+evidence = ["tracks.rs::set_tags"]
+note = "`tracks.rs::set_tags` (journalled); no track-info editor"
+
+[[feature]]
+id = "browser-my-tag"
+area = "browser"
+name = "My Tag"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+evidence = ["od-import-rekordbox/src/tests.rs"]
+note = "Importer skips My Tag smart conditions (`od-import-rekordbox/src/tests.rs`); no model"
+
+[[feature]]
+id = "browser-tag-list"
+area = "browser"
+name = "Tag list / palette (holding area)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "browser-related-tracks"
+area = "browser"
+name = "Related tracks"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = [
+  "od-library::sets::tests::flow_and_hints",
+]
+evidence = ["sets.rs::suggest_next", "handle_action"]
+note = "`sets.rs::suggest_next`; FLX10 `browse.related` is mapped but dropped in `handle_action`"
+
+[[feature]]
+id = "browser-track-suggestion"
+area = "browser"
+name = "Track suggestion / harmonic matching"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = [
+  "od-library::sets::tests::flow_and_hints",
+  "od-core::key::tests::distances",
+]
+evidence = ["app.rs::key_distance", "sets.rs::transition"]
+note = "Key-distance column vs. selected track (`app.rs` `key_distance`), set flow fit (`sets.rs::transition`); no suggestion list"
+
+[[feature]]
+id = "browser-smart-playlists"
+area = "browser"
+name = "Intelligent (smart) playlists"
+scope = "in"
+status = "done"
+tests = [
+  "od-library::smart::tests::smart_playlist_filters",
+  "od-library::smart::tests::civil_days",
+  "od-ui::smart_text::tests::parses_and_formats",
+  "od-devices::sync::tests::smart_playlists_become_static",
+]
+evidence = ["od-library/src/smart.rs", "od-ui/src/smart_text.rs::on_set_smart_rule"]
+note = "`od-library/src/smart.rs`, text rule editor `od-ui/src/smart_text.rs`, `on_set_smart_rule`"
+
+[[feature]]
+id = "browser-player-histories"
+area = "browser"
+name = "Histories: player histories from sticks"
+scope = "in"
+status = "done"
+tests = []
+evidence = ["od-devices/src/pioneer.rs", "app.rs::resolve_proposal"]
+note = "`od-devices/src/pioneer.rs` history proposals → `app.rs::resolve_proposal` creates a \"History\" folder"
+
+[[feature]]
+id = "browser-own-history"
+area = "browser"
+name = "Histories: own play history"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+evidence = ["tracks.rs::record_play", "perform.rs::frame"]
+note = "`tracks.rs::record_play` is only called while recording (`perform.rs::frame`); no history view"
+
+[[feature]]
+id = "browser-track-preview"
+area = "browser"
+name = "Track preview (Prepare)"
+scope = "in"
+status = "done"
+tests = []
+evidence = ["perform.rs::toggle_preview"]
+note = "`perform.rs::toggle_preview` on a preview deck; Space key"
+
+[[feature]]
+id = "browser-loaded-indicator"
+area = "browser"
+name = "Loaded-on-deck indicator"
+scope = "in"
+status = "done"
+tests = []
+note = "`TrackRow.deck`"
+
+[[feature]]
+id = "browser-duplicate-check"
+area = "browser"
+name = "Duplicate track check"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "browser-import-files"
+area = "browser"
+name = "Import folder / files"
+scope = "in"
+status = "done"
+tests = []
+evidence = ["app.rs::on_import_folder"]
+note = "`app.rs` `on_import_folder`, `od-cli import`"
+
+[[feature]]
+id = "browser-rekordbox-migration"
+area = "browser"
+name = "rekordbox library + stick migration"
+scope = "in"
+status = "done"
+tests = [
+  "od-import-rekordbox::tests::master_db_import",
+  "od-import-rekordbox::tests::encrypted_master_db",
+  "od-import-rekordbox::tests::stick_import_with_copy",
+  "od-import-rekordbox::tests::rating_and_slots",
+  "od-import-rekordbox::tests::changed_source_creates_second_folder",
+  "od-import-rekordbox::tests::cancel_stops_import",
+  "od-import-rekordbox::smart::tests::parses_attributes",
+]
+evidence = ["od-ui/src/import.rs"]
+note = "`od-import-rekordbox`, `od-ui/src/import.rs`"
+
+[[feature]]
+id = "browser-xml-itunes-exchange"
+area = "browser"
+name = "rekordbox XML / iTunes import-export"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "browser-relocate"
+area = "browser"
+name = "Missing files / relocate"
+scope = "in"
+status = "done"
+tests = [
+  "od-library::relocate::tests::relocate_by_hash",
+]
+evidence = ["relocate.rs::check_missing/find_relocations", "on_find_moved_files"]
+note = "`relocate.rs::check_missing/find_relocations`; `on_find_moved_files`"
+
+[[feature]]
+id = "browser-consolidate"
+area = "browser"
+name = "Consolidate"
+scope = "in"
+status = "engine-only"
+prio = "P3"
+tests = [
+  "od-library::relocate::tests::sanitize_names",
+]
+evidence = ["relocate.rs::consolidate"]
+note = "`relocate.rs::consolidate`; no UI"
+
+[[feature]]
+id = "browser-undo-redo"
+area = "browser"
+name = "Undo/redo with history"
+scope = "in"
+status = "done"
+qualifier = "beyond rekordbox"
+tests = [
+  "od-library::journal::tests::undo_redo_cues_and_grid",
+  "od-library::journal::tests::undo_on_empty_journal",
+  "od-library::nodes::tests::delete_folder_is_undoable",
+]
+evidence = ["journal.rs", "app.rs::key"]
+note = "`journal.rs`; Cmd-Z / Shift-Cmd-Z in `app.rs::key`"
+
+[[feature]]
+id = "browser-sets-flow"
+area = "browser"
+name = "Sets with transition notes and flow view"
+scope = "in"
+status = "done"
+qualifier = "own"
+tests = [
+  "od-library::sets::tests::flow_and_hints",
+  "od-library::sets::tests::bpm_change_handles_double_time",
+  "od-ui::browser::tracks::tests::energy_is_scaled_to_the_set",
+]
+evidence = ["sets.rs::set_flow", "on_set_transition_note", "ui/flow.slint"]
+note = "`sets.rs::set_flow`, `on_set_transition_note`, `ui/flow.slint`"
+
+[[feature]]
+id = "browser-set-backups"
+area = "browser"
+name = "Set backup tracks / planned start"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = []
+evidence = ["nodes.rs::set_entry_backups/set_set_meta"]
+note = "`nodes.rs::set_entry_backups/set_set_meta`"
+
+[[feature]]
+id = "browser-keyboard-shortcuts"
+area = "browser"
+name = "Keyboard shortcuts for Prepare"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+evidence = ["app.rs::key"]
+note = "`app.rs::key`: undo/redo, delete, arrows, Space, 1–8; SPEC §12 wants all Prepare actions"
+
+[[feature]]
+id = "browser-controller-browse"
+area = "browser"
+name = "Browse from controller"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = [
+  "od-controller::mappings::browser_and_load",
+]
+evidence = ["handle_action"]
+note = "Rotate / press / back handled (`handle_action` `BrowseAction`); tree navigation, view toggle, shift-sort and related dropped"
+
+[[feature]]
+id = "browser-explorer"
+area = "browser"
+name = "Explorer: browse folders on disk and play directly"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+evidence = ["crates/od-ui/src/explorer.rs"]
+note = "Module is a placeholder (`ExplorerState::load` returns nothing, `wire` is empty)"
+spec = "SPEC §5.5; UX §2.2"
+
+[[feature]]
+id = "browser-explorer-import-on-load"
+area = "browser"
+name = "Explorer: loading a file adds it to the collection and analyses it in the background"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+note = "Depends on `browser-explorer`; import and analysis paths exist (`od-ui/src/workers.rs`)"
+spec = "SPEC §5.5"
+
+[[feature]]
+id = "browser-source-rail"
+area = "browser"
+name = "Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings)"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+evidence = ["crates/od-ui/ui/rail.slint"]
+note = "Rail with sections exists; Explorer, Histories, Related and Tag list sources missing"
+spec = "UX §1.6, §4 P4.9"
+
+[[feature]]
+id = "browser-column-reorder-multisort"
+area = "browser"
+name = "Re-orderable columns and multi-sort"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "Fixed column order, one sort key (`browser/tracks.rs`)"
+spec = "SPEC §5.5"
+
+[[feature]]
+id = "browser-load-gestures"
+area = "browser"
+name = "Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n"
+scope = "in"
+status = "partial"
+prio = "P1"
+tests = [
+  "od-ui::decks::tests::free_deck_prefers_idle_empty",
+]
+evidence = ["crates/od-ui/src/decks.rs::free_deck"]
+note = "Activate/double-click and controller load work; drag to deck and the context menu do not exist"
+spec = "UX §2.1"
+
+[[feature]]
+id = "browser-row-context-menu"
+area = "browser"
+name = "Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …)"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "No popup menus in `crates/od-ui/ui`"
+spec = "UX §1.9"
+
+[[feature]]
+id = "browser-info-panel"
+area = "browser"
+name = "Info panel (track details beside the list)"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+spec = "SPEC §5.5; UX §1.6"
+
+[[feature]]
+id = "browser-sub-browser"
+area = "browser"
+name = "Sub-browser (second tree + list for dragging between playlists)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "UX §1.6, §4 P4.12"
+
+[[feature]]
+id = "browser-library-backups"
+area = "browser"
+name = "Automatic database backups (rotating)"
+scope = "in"
+status = "done"
+qualifier = "beyond rekordbox"
+tests = [
+  "od-library::backup::tests::backup_rotate_and_restore",
+]
+evidence = ["crates/od-library/src/backup.rs"]
+spec = "SPEC §5.3"
+
+[[feature]]
+id = "browser-library-archive"
+area = "browser"
+name = "Export / import the whole library as one archive (database + analysis, optional audio)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "SPEC §5.3"
+
+# ---- Analysis ----
+
+[[feature]]
+id = "analysis-beatgrid"
+area = "analysis"
+name = "BPM + beatgrid incl. downbeats"
+scope = "in"
+status = "done"
+tests = [
+  "od-analysis::tempo::tests::accented_downbeats_are_found",
+  "od-analysis::tempo::tests::kick_tracks_at_various_tempos",
+  "od-analysis::tempo::tests::house_pattern_with_hats_and_bass",
+  "od-analysis::tempo::tests::long_track_has_no_drift",
+  "od-analysis::tempo::tests::click_tracks_at_48k",
+  "od-analysis::tempo::tests::half_and_double_time_fold_into_range",
+]
+evidence = ["od-analysis/src/tempo.rs::detect_beatgrid", "od-ui/src/workers.rs"]
+note = "`od-analysis/src/tempo.rs::detect_beatgrid`; background worker `od-ui/src/workers.rs`"
+
+[[feature]]
+id = "analysis-variable-grid"
+area = "analysis"
+name = "Variable-tempo grid"
+scope = "in"
+status = "partial"
+prio = "P3"
+tests = [
+  "od-core::beatgrid::tests::beat_position_roundtrip",
+]
+evidence = ["od-core/src/beatgrid.rs", "on_grid_scale"]
+note = "Model supports it (`od-core/src/beatgrid.rs`); editor only rebuilds constant grids (`on_grid_scale`)"
+
+[[feature]]
+id = "analysis-grid-editor"
+area = "analysis"
+name = "Grid editor: shift, ×2/÷2, set downbeat, lock"
+scope = "in"
+status = "done"
+tests = [
+  "od-core::beatgrid::tests::set_downbeat_renumbers",
+  "od-core::beatgrid::tests::constant_grid_extends_backwards",
+  "od-library::journal::tests::undo_redo_cues_and_grid",
+]
+evidence = ["app.rs::on_grid_shift/on_grid_scale/on_grid_downbeat/on_grid_lock"]
+note = "`app.rs` `on_grid_shift/on_grid_scale/on_grid_downbeat/on_grid_lock`"
+
+[[feature]]
+id = "analysis-grid-tap-bpm"
+area = "analysis"
+name = "Grid editor: tap tempo, type BPM"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+note = "Required by SPEC §6"
+
+[[feature]]
+id = "analysis-bpm-range"
+area = "analysis"
+name = "BPM analysis range setting"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "analysis-key"
+area = "analysis"
+name = "Key detection, notation Camelot/Open Key/musical"
+scope = "in"
+status = "done"
+tests = [
+  "od-analysis::key::tests::c_major_progression",
+  "od-analysis::key::tests::a_minor_progression",
+  "od-analysis::key::tests::f_sharp_minor_progression",
+  "od-analysis::key::tests::detuned_by_a_third_of_a_semitone",
+  "od-core::key::tests::camelot_reference_points",
+  "od-core::key::tests::open_key_reference_points",
+  "od-core::key::tests::parse_all_notations_roundtrip",
+]
+evidence = ["od-analysis/src/key.rs"]
+note = "`od-analysis/src/key.rs`; `--keys` flag, `KeyNotation`"
+
+[[feature]]
+id = "analysis-phrase"
+area = "analysis"
+name = "Phrase analysis"
+scope = "in"
+status = "done"
+tests = [
+  "od-analysis::phrase::tests::edm_arrangement_is_segmented_and_labelled",
+  "od-analysis::phrase::tests::segmentation_prefers_novel_boundaries",
+]
+evidence = ["od-analysis/src/phrase.rs", "anlz/build.rs"]
+note = "Analysed (`od-analysis/src/phrase.rs`), stored and exported (`PSSI` in `anlz/build.rs`). Display: see `deck-phrase-display`"
+
+[[feature]]
+id = "analysis-waveform-3band"
+area = "analysis"
+name = "Waveform: own 3-band colour"
+scope = "in"
+status = "done"
+tests = [
+  "od-analysis::waveform::tests::low_sine_lands_in_low_band",
+  "od-analysis::waveform::tests::mid_sine_lands_in_mid_band",
+  "od-analysis::waveform::tests::high_sine_lands_in_high_band",
+  "od-ui::render::tests::three_bands_stack_by_amplitude",
+]
+evidence = ["od-analysis/src/waveform.rs", "render.rs"]
+note = "`od-analysis/src/waveform.rs`, `render.rs` (+ colour-blind palette)"
+
+[[feature]]
+id = "analysis-waveform-styles"
+area = "analysis"
+name = "Waveform style options (RGB / blue / 3-band)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+evidence = ["PWAV/PWV2–PWV7"]
+note = "One style by design; stick export still writes `PWAV/PWV2–PWV7` for players"
+
+[[feature]]
+id = "analysis-vocal-position"
+area = "analysis"
+name = "Vocal position"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "Could be derived from the vocal stem"
+
+[[feature]]
+id = "analysis-loudness-auto-gain"
+area = "analysis"
+name = "Loudness + auto gain"
+scope = "in"
+status = "done"
+tests = [
+  "od-analysis::loudness::tests::ebu_reference_997hz_minus_23",
+  "od-analysis::loudness::tests::sine_minus_20_dbfs_stereo_is_minus_20_lufs",
+  "od-analysis::loudness::tests::relative_gate_ignores_quiet_part",
+]
+evidence = ["od-analysis/src/loudness.rs", "perform.rs::load_track", "mixer.rs"]
+note = "`od-analysis/src/loudness.rs`; gain in `perform.rs::load_track`, engine default on (`mixer.rs` `auto_gain: true`); no toggle in UI"
+
+[[feature]]
+id = "analysis-reanalyse-priority"
+area = "analysis"
+name = "Re-analyse selected, never overwrite manual/imported"
+scope = "in"
+status = "done"
+tests = [
+  "od-library::tracks::tests::analysis_respects_priority",
+  "od-library::tracks::tests::imported_cues_keep_manual_hot_cues",
+  "od-analysis::tests::deterministic",
+]
+evidence = ["on_analyse_selected", "tracks.rs::store_analysis"]
+note = "`on_analyse_selected`; `DataSource` priority in `tracks.rs::store_analysis`"
+
+[[feature]]
+id = "analysis-phrase-edit"
+area = "analysis"
+name = "Phrase editing (GRID EDIT | PHRASE EDIT, cut / clear)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "UX §2.5"
+
+# ---- Cues and loops ----
+
+[[feature]]
+id = "cues-hot-cues-prepare"
+area = "cues"
+name = "8 hot cues A–H (Prepare)"
+scope = "in"
+status = "done"
+tests = [
+  "od-ui::player::tests::cue_projection",
+  "od-library::journal::tests::undo_redo_cues_and_grid",
+]
+evidence = ["app.rs::on_hot_cue/on_remove_hot_cue"]
+note = "`app.rs` `on_hot_cue/on_remove_hot_cue`; keys 1–8"
+
+[[feature]]
+id = "cues-hot-cues-perform"
+area = "cues"
+name = "8 hot cues A–H (Perform, pads/UI)"
+scope = "in"
+status = "partial"
+prio = "P1"
+tests = [
+  "od-engine::render::hot_cue_quantize_set_and_trigger",
+]
+evidence = ["DeckCommand::HotCue", "set_cues", "perform.rs"]
+note = "`DeckCommand::HotCue`; set/delete live only in the engine, **not saved to the library** (no `set_cues` call in `perform.rs`), so never reaches the stick"
+
+[[feature]]
+id = "cues-hot-cue-banks"
+area = "cues"
+name = "Hot cue banks / hot cue bank lists"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "cues-memory-add"
+area = "cues"
+name = "Memory cues: add (Prepare)"
+scope = "in"
+status = "done"
+tests = []
+evidence = ["on_add_memory_cue"]
+note = "`on_add_memory_cue`"
+
+[[feature]]
+id = "cues-memory-edit"
+area = "cues"
+name = "Memory cues: delete, move (Prepare)"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+note = "No callback"
+
+[[feature]]
+id = "cues-memory-call"
+area = "cues"
+name = "Memory cues: call prev/next (Perform)"
+scope = "in"
+status = "done"
+tests = []
+note = "`MemoryCueJump` via controller"
+
+[[feature]]
+id = "cues-memory-controller"
+area = "cues"
+name = "Memory cue set/delete from controller"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = []
+evidence = ["deck.memory_cue_set/delete", "flx10.toml", "handle_action"]
+note = "Mapped (`deck.memory_cue_set/delete` in `flx10.toml`), dropped in `handle_action`"
+
+[[feature]]
+id = "cues-saved-loops"
+area = "cues"
+name = "Saved loops (memory/hot-cue loops)"
+scope = "in"
+status = "partial"
+prio = "P1"
+tests = [
+  "od-engine::render::loop_hot_cue_activates_loop",
+]
+note = "Model, import, export and playback exist (`Cue.loop_end`); cannot be created in Prepare; loop hot cues made in Perform are not persisted"
+
+[[feature]]
+id = "cues-active-loop"
+area = "cues"
+name = "Active loop (auto-engaged saved loop)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "cues-colours"
+area = "cues"
+name = "Cue colours"
+scope = "in"
+status = "partial"
+prio = "P1"
+tests = []
+note = "`Cue.color` imported/exported; not drawn (`CueMark` has no colour), not editable"
+
+[[feature]]
+id = "cues-labels"
+area = "cues"
+name = "Cue comments / labels"
+scope = "in"
+status = "partial"
+prio = "P1"
+tests = []
+note = "Shown on pads (`HotCueSlot.label`); not editable"
+
+[[feature]]
+id = "cues-auto-cue"
+area = "cues"
+name = "Auto cue on load (first memory cue / first beat)"
+scope = "in"
+status = "done"
+tests = []
+evidence = ["DeckCommand::Load", "command.rs", "deck.rs"]
+note = "`DeckCommand::Load` behaviour (`command.rs` doc, `deck.rs`)"
+
+[[feature]]
+id = "cues-from-players"
+area = "cues"
+name = "Cues set on players → library"
+scope = "in"
+status = "done"
+qualifier = "beyond rekordbox"
+tests = [
+  "od-devices::pioneer::tests::writes_pdb_and_anlz_and_detects_player_cues",
+  "od-devices::pioneer::tests::same_cues_ignores_order_and_sub_ms",
+]
+evidence = ["od-devices/src/pioneer.rs", "on_accept_proposal"]
+note = "`od-devices/src/pioneer.rs` proposals, `on_accept_proposal`"
+
+# ---- Deck / player ----
+
+[[feature]]
+id = "deck-count-layers"
+area = "deck"
+name = "2 / 4 decks, deck layers"
+scope = "in"
+status = "done"
+tests = [
+  "od-controller::mappings::flx10_deck_3_and_4_layers",
+  "od-controller::mappings::software_deck_layers_redirect_inputs_and_outputs",
+  "od-controller::mappings::flx10_tempo_pickup_after_layer_switch",
+]
+evidence = ["on_set_deck_count", "perform.rs::frame", "od-controller/src/session.rs"]
+note = "`on_set_deck_count`, FLX10 auto 4 decks (`perform.rs::frame`), `DeckSelect` in `od-controller/src/session.rs`"
+
+[[feature]]
+id = "deck-play-cue"
+area = "deck"
+name = "Play / Cue (CDJ cue logic)"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::cdj_cue_button",
+  "od-controller::templates::tests::cue_press_and_release",
+]
+evidence = ["DeckCommand::Cue"]
+note = "`DeckCommand::Cue`; UI + controller"
+
+[[feature]]
+id = "deck-jog"
+area = "deck"
+name = "Jog: vinyl scratch, bend, search; vinyl mode toggle"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::scratch_follows_jog",
+  "od-controller::mappings::jog_relative_values",
+]
+evidence = ["DeckCommand::JogTurn/JogTouch/SetJogMode", "handle_action"]
+note = "`DeckCommand::JogTurn/JogTouch/SetJogMode`, `handle_action`"
+
+[[feature]]
+id = "deck-jog-display-hw"
+area = "deck"
+name = "Jog display (FLX10 screens)"
+scope = "in"
+status = "missing"
+milestone = "M4"
+prio = "P3"
+tests = []
+evidence = ["docs/ddj-flx10-usb-protocol.md"]
+note = "Needs the non-MIDI protocol (SPEC M4, `docs/ddj-flx10-usb-protocol.md`) (M4)"
+
+[[feature]]
+id = "deck-tempo-fader"
+area = "deck"
+name = "Tempo fader, ranges ±6/10/16/WIDE, reset"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::position_advances_at_tempo_ratios",
+  "od-ui::decks::tests::tempo_ranges",
+  "od-controller::mappings::tempo_is_inverted_bipolar_with_centre_detent",
+]
+note = "`TempoRange`; controller cycles range; UI shows it but has no range button"
+
+[[feature]]
+id = "deck-key-lock"
+area = "deck"
+name = "Master tempo / key lock (Rubber Band)"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::keylock_keeps_pitch",
+  "od-engine::render::keylock_stays_aligned_with_position",
+  "od-engine::render::keylock_lite_profile",
+  "od-engine::keylock::tests::stretches_by_ratio",
+]
+evidence = ["od-engine/src/keylock"]
+note = "`od-engine/src/keylock`, UI toggle + controller"
+
+[[feature]]
+id = "deck-key-shift"
+area = "deck"
+name = "Key shift (±semitones)"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = []
+evidence = ["DeckCommand::SetKeyShift"]
+note = "`DeckCommand::SetKeyShift`; only `KeyReset` reaches it"
+
+[[feature]]
+id = "deck-key-sync"
+area = "deck"
+name = "Key sync"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "Mapped (`deck.key_sync`); no engine command"
+
+[[feature]]
+id = "deck-beat-sync"
+area = "deck"
+name = "Beat sync + master deck"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::sync_aligns_bpm_and_phase_within_1ms",
+]
+note = "`SetSync`, `SetMasterDeck`; UI + controller"
+
+[[feature]]
+id = "deck-quantize"
+area = "deck"
+name = "Quantize"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::hot_cue_quantize_set_and_trigger",
+]
+evidence = ["Command::SetQuantize"]
+note = "`Command::SetQuantize`; UI + controller"
+
+[[feature]]
+id = "deck-slip"
+area = "deck"
+name = "Slip"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::slip_returns_to_the_right_position",
+]
+note = "`SetSlip`; UI + controller"
+
+[[feature]]
+id = "deck-reverse"
+area = "deck"
+name = "Reverse"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::slip_returns_to_the_right_position",
+  "od-engine::stems::loops_and_reverse_play_the_stem_mix",
+]
+note = "`SetReverse` via controller; no UI button"
+
+[[feature]]
+id = "deck-censor"
+area = "deck"
+name = "Censor (slip reverse)"
+scope = "in"
+status = "done"
+tests = []
+evidence = ["DeckAction::Censor", "handle_action"]
+note = "`DeckAction::Censor` in `handle_action`"
+
+[[feature]]
+id = "deck-beat-jump"
+area = "deck"
+name = "Beat jump"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::beat_jump_and_needle_search",
+]
+evidence = ["DeckCommand::BeatJump"]
+note = "`DeckCommand::BeatJump`; UI ±4, controller, pad mode"
+
+[[feature]]
+id = "deck-beat-jump-size"
+area = "deck"
+name = "Beat jump size setting"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+evidence = ["handle_action"]
+note = "Fixed ±4 in UI, pad sizes fixed in `handle_action`"
+
+[[feature]]
+id = "deck-manual-loop"
+area = "deck"
+name = "Manual loop in/out, reloop/exit, ½ / 2×"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::manual_loop_in_out_and_reloop",
+]
+evidence = ["LoopIn/LoopOut/Reloop/LoopExit/LoopHalve/LoopDouble"]
+note = "`LoopIn/LoopOut/Reloop/LoopExit/LoopHalve/LoopDouble`"
+
+[[feature]]
+id = "deck-auto-loop"
+area = "deck"
+name = "Auto beat loop (1/32 … 32)"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::loops_are_sample_accurate",
+]
+evidence = ["DeckCommand::AutoLoop"]
+note = "`DeckCommand::AutoLoop`; UI size stepper"
+
+[[feature]]
+id = "deck-loop-roll"
+area = "deck"
+name = "Loop roll"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::slip_returns_to_the_right_position",
+]
+evidence = ["DeckCommand::LoopRoll"]
+note = "`DeckCommand::LoopRoll` via controller"
+
+[[feature]]
+id = "deck-needle-search"
+area = "deck"
+name = "Needle search"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::beat_jump_and_needle_search",
+]
+note = "`NeedleSearch`; overview click + FLX touch strip"
+
+[[feature]]
+id = "deck-search-buttons"
+area = "deck"
+name = "Search (FF/REW buttons)"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+note = "Mapped (`deck.search`); no engine command, dropped (controller coverage)"
+
+[[feature]]
+id = "deck-tap-bpm"
+area = "deck"
+name = "Tap BPM"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+note = "Mapped (`deck.tap_bpm`), dropped (with grid tap)"
+
+[[feature]]
+id = "pad-mode-hot-cue"
+area = "deck"
+name = "Pad mode: Hot Cue"
+scope = "in"
+status = "done"
+tests = [
+  "od-controller::mappings::pads_per_mode",
+]
+evidence = ["PadMode::HotCue", "handle_action"]
+note = "`PadMode::HotCue` in `handle_action`"
+
+[[feature]]
+id = "pad-mode-beat-loop"
+area = "deck"
+name = "Pad mode: Beat Loop"
+scope = "in"
+status = "done"
+tests = [
+  "od-controller::mappings::pads_per_mode",
+  "od-ui::controller::tests::pads",
+]
+evidence = ["PadMode::BeatLoop"]
+note = "`PadMode::BeatLoop` → `AutoLoop`"
+
+[[feature]]
+id = "pad-mode-beat-jump"
+area = "deck"
+name = "Pad mode: Beat Jump"
+scope = "in"
+status = "done"
+tests = [
+  "od-controller::mappings::pads_per_mode",
+  "od-ui::controller::tests::pads",
+]
+evidence = ["PadMode::BeatJump"]
+note = "`PadMode::BeatJump`"
+
+[[feature]]
+id = "pad-mode-sampler"
+area = "deck"
+name = "Pad mode: Sampler"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+note = "Triggers slots, but no way to load samples (see §8)"
+
+[[feature]]
+id = "pad-mode-pad-fx"
+area = "deck"
+name = "Pad mode: Pad FX 1/2"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+evidence = ["PadMode::PadFx1/2", "action.rs"]
+note = "`PadMode::PadFx1/2` exist in `action.rs`; no effect logic"
+
+[[feature]]
+id = "pad-mode-keyboard"
+area = "deck"
+name = "Pad mode: Keyboard"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+evidence = ["PadMode::Keyboard"]
+note = "`PadMode::Keyboard` selectable; no logic (needs key shift)"
+
+[[feature]]
+id = "pad-mode-key-shift"
+area = "deck"
+name = "Pad mode: Key Shift"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = []
+evidence = ["PadMode::KeyShift"]
+note = "`PadMode::KeyShift` selectable; engine `SetKeyShift` exists; pads dropped"
+
+[[feature]]
+id = "pad-mode-slicer"
+area = "deck"
+name = "Pad mode: Slicer"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "Not in `PadMode`"
+
+[[feature]]
+id = "pad-led-feedback"
+area = "deck"
+name = "Pad LED feedback per mode"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = [
+  "od-controller::mappings::flx10_pad_colours_use_palette",
+]
+evidence = ["perform.rs::feedback"]
+note = "Only hot-cue pad LEDs (`perform.rs::feedback`)"
+
+[[feature]]
+id = "deck-waveform-zoom"
+area = "deck"
+name = "Waveform zoom in Perform"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+evidence = ["perform.rs"]
+note = "Fixed `DETAIL_SPAN` 8 s (`perform.rs`)"
+
+[[feature]]
+id = "deck-waveform-overview-detail"
+area = "deck"
+name = "Waveform overview + scrolling detail, cue markers, beat ticks"
+scope = "in"
+status = "done"
+tests = [
+  "od-ui::render::tests::renders_sizes",
+  "od-core::waveform::tests::overview_takes_maxima",
+  "od-ui::decks::tests::waveform_key_changes_per_pixel",
+]
+evidence = ["render.rs::overview/detail", "ui/plate.slint"]
+note = "`render.rs::overview/detail`, `ui/plate.slint`"
+
+[[feature]]
+id = "deck-phrase-display"
+area = "deck"
+name = "Phrases on the overview and enlarged waveform, with display options"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = [
+  "od-ui::render::tests::phrase_strip_is_painted",
+]
+evidence = ["crates/od-ui/src/player.rs::phrase_marks", "crates/od-ui/src/render.rs"]
+note = "Phrase strip is painted; no opt-in toggles for enlarged / overview waveform and no phrase types"
+spec = "SPEC §10.1; UX §2.5"
+
+[[feature]]
+id = "deck-header-readouts"
+area = "deck"
+name = "Deck header: title, artist, artwork, BPM, remaining / elapsed time"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = [
+  "od-ui::format::tests::deck_fields",
+  "od-ui::format::tests::times",
+  "od-ui::decks::tests::empty_deck_projection",
+]
+evidence = ["crates/od-ui/src/format.rs"]
+note = "Artwork not shown (see `browser-artwork`)"
+spec = "SPEC §10.1; UX §1.3"
+
+[[feature]]
+id = "deck-platter-readout"
+area = "deck"
+name = "Jog / platter readout in the UI: position, remaining, phrase and bar counter"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+note = "Bar counter and phrase readout not verified in the rebuilt UI"
+spec = "SPEC §10.1; UX §1.3"
+
+[[feature]]
+id = "deck-waveform-zone"
+area = "deck"
+name = "Full-width enlarged waveform zone, one stacked lane per deck (2 and 4 decks), centre playhead"
+scope = "in"
+status = "partial"
+prio = "P1"
+tests = []
+evidence = ["crates/od-ui/src/decks.rs"]
+note = "Lanes per deck; zone layout and zoom column per UX §1.3 not complete"
+spec = "SPEC §10.1; UX §1.3, §4 P1.1"
+
+[[feature]]
+id = "pad-mode-stems"
+area = "deck"
+name = "Pad mode: Stems (part mutes and stem FX on pads)"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+spec = "UX §2.4"
+
+[[feature]]
+id = "pad-mode-memory-cue"
+area = "deck"
+name = "Pad mode: Memory Cue"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "UX §1.3"
+
+[[feature]]
+id = "pad-mode-seq-call"
+area = "deck"
+name = "Pad mode: Sequence Call"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "UX §1.3"
+
+[[feature]]
+id = "pad-mode-active-censor"
+area = "deck"
+name = "Pad mode: Active Censor"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "UX §1.3"
+
+# ---- Mixer ----
+
+[[feature]]
+id = "mixer-trim"
+area = "mixer"
+name = "Trim"
+scope = "in"
+status = "done"
+tests = [
+  "od-ui::mixer::tests::trim_mapping_round_trips",
+  "od-ui::controller::tests::controller_trim_spans_the_knob",
+]
+evidence = ["ChannelCommand::SetTrim"]
+note = "`ChannelCommand::SetTrim`; UI knob + controller"
+
+[[feature]]
+id = "mixer-eq"
+area = "mixer"
+name = "3-band EQ (isolator)"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::eq_kill_attenuates_more_than_40db",
+  "od-engine::dsp::eq::tests::isolator_kills",
+  "od-engine::dsp::eq::tests::isolator_flat_at_unity",
+]
+evidence = ["dsp/eq.rs"]
+note = "`dsp/eq.rs` default `Isolator`; UI + controller"
+
+[[feature]]
+id = "mixer-eq-mode"
+area = "mixer"
+name = "EQ mode classic/isolator"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = []
+evidence = ["ChannelCommand::SetEqMode"]
+note = "`ChannelCommand::SetEqMode`; no setting"
+
+[[feature]]
+id = "mixer-colour-fx-knob"
+area = "mixer"
+name = "Colour FX knob (filter)"
+scope = "in"
+status = "done"
+tests = [
+  "od-controller::mappings::flx10_colour_fx_and_beat_fx",
+]
+note = "`SetColorFxAmount`; UI + controller (default kind = filter)"
+
+[[feature]]
+id = "mixer-channel-fader"
+area = "mixer"
+name = "Channel fader"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::mixer::tests::fader_curves_monotonic",
+  "od-controller::mappings::fourteen_bit_fader_needs_msb_and_lsb",
+  "od-ui::mixer::tests::channel_projection",
+]
+note = "UI + controller"
+
+[[feature]]
+id = "mixer-fader-curve"
+area = "mixer"
+name = "Channel fader curve"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = [
+  "od-engine::mixer::tests::fader_curves_monotonic",
+]
+note = "`FaderCurve` / `SetFaderCurve`; no setting"
+
+[[feature]]
+id = "mixer-crossfader"
+area = "mixer"
+name = "Crossfader"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::crossfader_assign_and_curves",
+  "od-engine::mixer::tests::crossfader_curves",
+]
+note = "UI + controller"
+
+[[feature]]
+id = "mixer-crossfader-curve"
+area = "mixer"
+name = "Crossfader curve"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = [
+  "od-engine::mixer::tests::crossfader_curves",
+]
+note = "`CrossfaderCurve`; no setting"
+
+[[feature]]
+id = "mixer-crossfader-assign"
+area = "mixer"
+name = "Crossfader assign A/THRU/B"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::crossfader_assign_and_curves",
+]
+evidence = ["MixerAction::CrossfaderAssign"]
+note = "Controller (`MixerAction::CrossfaderAssign`); no UI control"
+
+[[feature]]
+id = "mixer-headphones"
+area = "mixer"
+name = "Headphone cue, mix, level"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::headphone_cue_mix",
+  "od-audio-io::output::tests::auto_routing",
+]
+evidence = ["SetHeadphoneMix/Level"]
+note = "`SetCue`, `SetHeadphoneMix/Level`; UI + controller"
+
+[[feature]]
+id = "mixer-master-meters-limiter"
+area = "mixer"
+name = "Master level, VU meters, limiter"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::meters_and_audible_track",
+  "od-engine::dsp::limiter::tests::never_exceeds_full_scale",
+  "od-controller::mappings::meters_are_rate_limited",
+]
+note = "`SetMasterLevel`, meters in `ChannelView`, limiter on by default"
+
+[[feature]]
+id = "mixer-master-cue"
+area = "mixer"
+name = "Master cue"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+evidence = ["master_cue"]
+note = "Mapped (`master_cue`), no engine function"
+
+[[feature]]
+id = "mixer-booth"
+area = "mixer"
+name = "Booth level / booth output"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+evidence = ["booth_level"]
+note = "Mapped (`booth_level`), no engine bus"
+
+[[feature]]
+id = "mixer-smart-cfx-fader"
+area = "mixer"
+name = "Smart CFX / Smart Fader (FLX4)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "mixer-mic-aux"
+area = "mixer"
+name = "Mic / aux input"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "mixer-auto-gain-toggle"
+area = "mixer"
+name = "Auto gain toggle"
+scope = "in"
+status = "engine-only"
+prio = "P3"
+tests = []
+evidence = ["ChannelCommand::SetAutoGain"]
+note = "`ChannelCommand::SetAutoGain`; always on"
+
+[[feature]]
+id = "mixer-stem-button"
+area = "mixer"
+name = "STEM button per mixer channel"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+spec = "UX §1.3, §2.4"
+
+# ---- Effects ----
+
+[[feature]]
+id = "fx-beat-fx"
+area = "effects"
+name = "Beat FX (2 units: echo, delay, reverb, flanger, phaser, roll, filter sweep, trans)"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = [
+  "od-engine::render::sampler_and_beat_fx_run",
+  "od-engine::render::trans_gate_follows_master_beat",
+]
+evidence = ["od-engine/src/beatfx.rs::BeatFxCommand", "handle_action"]
+note = "`od-engine/src/beatfx.rs`, `BeatFxCommand`; 10 FLX10 mapping entries (`beat_fx.*`) all dropped in `handle_action`; no UI panel"
+
+[[feature]]
+id = "fx-beat-fx-controls"
+area = "effects"
+name = "Beat FX: beat select, auto beat, tap, channel assign"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = [
+  "od-controller::mappings::flx10_colour_fx_and_beat_fx",
+]
+note = "`SetBeats`, `SetTarget`; same as above"
+
+[[feature]]
+id = "fx-beat-fx-catalogue"
+area = "effects"
+name = "Larger Beat FX list (ping pong, spiral, helix, pitch, vinyl brake, triplet, shimmer …)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "8 kinds today"
+
+[[feature]]
+id = "fx-colour-fx-select"
+area = "effects"
+name = "Sound Colour FX selection (filter, noise, space, crush, echo)"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = []
+evidence = ["colorfx.rs"]
+note = "`ColorFxKind`, `colorfx.rs`; `color_fx.select` mapped and dropped; no UI"
+
+[[feature]]
+id = "fx-release-fx"
+area = "effects"
+name = "Release FX"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = []
+note = "Mapped (`beat_fx.release`), no release effect"
+
+[[feature]]
+id = "fx-pad-fx"
+area = "effects"
+name = "Pad FX"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "See pad modes"
+
+[[feature]]
+id = "fx-stem-fx"
+area = "effects"
+name = "Stem FX (FX on one part)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "fx-panel"
+area = "effects"
+name = "FX panel (FX1 | FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row)"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+evidence = ["crates/od-ui/src/fx.rs"]
+note = "Module exists, panel not built"
+spec = "SPEC §10.2; UX §1.5"
+
+[[feature]]
+id = "fx-colour-fx-extended"
+area = "effects"
+name = "Colour FX: pitch, dub echo, sweep"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "SPEC §10.2"
+
+# ---- Stems / track separation ----
+
+[[feature]]
+id = "stems-separation"
+area = "stems"
+name = "Offline separation (vocals, drums, bass, inst), cache, background"
+scope = "in"
+status = "done"
+tests = [
+  "od-stems::cache::tests::round_trip_within_16_bit",
+  "od-stems::cache::tests::rejects_garbage",
+  "od-stems::stems::worker_reports_cached_and_missing_model_without_network",
+  "od-stems::stems::load_track_data_attaches_cached_stems",
+  "od-stems::stems::separates_a_synthetic_mix_if_the_model_is_present",
+]
+evidence = ["worker.rs", "cache.rs", "perform.rs::request_stems/poll_stems"]
+note = "`od-stems` (`worker.rs`, `cache.rs`), `perform.rs::request_stems/poll_stems`"
+
+[[feature]]
+id = "stems-mute-ui"
+area = "stems"
+name = "Part mute toggles in UI"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::stems::muting_each_part_removes_it_by_more_than_40db",
+  "od-engine::stems::level_changes_are_click_free",
+]
+evidence = ["on_deck_stem"]
+note = "`on_deck_stem` → `SetStemLevel`"
+
+[[feature]]
+id = "stems-levels"
+area = "stems"
+name = "Stem levels / part isolator knobs"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = [
+  "od-engine::stems::half_level_and_bass_mute_on_silent_bass",
+  "od-engine::stems::level_changes_are_click_free",
+]
+note = "`SetStemLevel` is continuous; controller `StemLevel` dropped; FLX10 part-iso knobs mapped to `ignore` (controller coverage)"
+
+[[feature]]
+id = "stems-controller-buttons"
+area = "stems"
+name = "Stem buttons on the controller"
+scope = "in"
+status = "engine-only"
+prio = "P1"
+tests = []
+evidence = ["DeckAction::StemMuteToggle", "flx10.toml"]
+note = "`DeckAction::StemMuteToggle` exists; FLX10 part buttons mapped to `ignore` (`flx10.toml` \"Mix point / part buttons\") (controller coverage)"
+
+[[feature]]
+id = "stems-batch-prepare"
+area = "stems"
+name = "Separate ahead of time (Prepare, batch)"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+note = "`od-cli stems`; UI only separates on load"
+
+[[feature]]
+id = "stems-model-download"
+area = "stems"
+name = "Separation model downloaded once on demand, nothing leaves the machine"
+scope = "in"
+status = "done"
+tests = [
+  "od-stems::stems::worker_reports_cached_and_missing_model_without_network",
+]
+evidence = ["crates/od-stems/src/model.rs"]
+spec = "SPEC §10.3"
+
+[[feature]]
+id = "stems-status-on-deck"
+area = "stems"
+name = "Deck shows separation progress; stem controls visible (dimmed) while separating"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+note = "Separation state is tracked; controls are not shown dimmed per UX §4 P5.14"
+spec = "SPEC §10.3; UX §2.4"
+
+[[feature]]
+id = "stems-pi-playback"
+area = "stems"
+name = "Raspberry Pi plays parts separated on the desktop"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = [
+  "od-stems::stems::load_track_data_attaches_cached_stems",
+]
+note = "Cached parts attach on load; carrying the cache onto sticks not verified"
+spec = "SPEC §10.3"
+
+# ---- Sampler ----
+
+[[feature]]
+id = "sampler-slots"
+area = "sampler"
+name = "16 slots, one-shot/loop, gain, stop"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = [
+  "od-engine::render::sampler_and_beat_fx_run",
+]
+evidence = ["od-engine/src/sampler.rs", "SamplerCommand::Load"]
+note = "`od-engine/src/sampler.rs`, `SAMPLER_SLOTS = 16`; nothing sends `SamplerCommand::Load`"
+
+[[feature]]
+id = "sampler-load-library"
+area = "sampler"
+name = "Load samples / sample library"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "No UI, no store"
+
+[[feature]]
+id = "sampler-banks"
+area = "sampler"
+name = "Banks (bank next/prev)"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "Mapped (`sampler.bank_*`), dropped"
+
+[[feature]]
+id = "sampler-volume-cue"
+area = "sampler"
+name = "Sampler volume, cue"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = []
+evidence = ["MixerCommand::SetSamplerLevel"]
+note = "`MixerCommand::SetSamplerLevel`; `sampler.volume` mapped and dropped"
+
+[[feature]]
+id = "sampler-sequencer"
+area = "sampler"
+name = "Sequencer"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "—"
+
+[[feature]]
+id = "sampler-panel"
+area = "sampler"
+name = "Sampler panel (2 x 8 slots, gain, cue, BPM, bank row)"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+evidence = ["crates/od-ui/src/sampler.rs"]
+note = "Module exists, panel not built"
+spec = "SPEC §10.3a; UX §1.5"
+
+[[feature]]
+id = "sampler-modes-sync"
+area = "sampler"
+name = "Gate mode, quantised triggering, sample sync to the master tempo"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+spec = "SPEC §10.3a"
+
+# ---- Recording ----
+
+[[feature]]
+id = "rec-one-button"
+area = "recording"
+name = "One-button mix recording (UI + controller)"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::record_tap_matches_master",
+  "od-recorder::tests::records_engine_output_and_splits",
+]
+evidence = ["perform.rs::toggle_recording", "ui/topbar.slint"]
+note = "`perform.rs::toggle_recording`, `ui/topbar.slint`, `RecordingToggle` + LED"
+
+[[feature]]
+id = "rec-wav"
+area = "recording"
+name = "WAV output"
+scope = "in"
+status = "done"
+tests = [
+  "od-recorder::tests::records_engine_output_and_splits",
+]
+evidence = ["od-recorder/src/lib.rs"]
+note = "`od-recorder/src/lib.rs` (hound)"
+
+[[feature]]
+id = "rec-flac-mp3"
+area = "recording"
+name = "FLAC / MP3 output"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "SPEC §11"
+
+[[feature]]
+id = "rec-tracklist"
+area = "recording"
+name = "Automatic tracklist (.cue + text)"
+scope = "in"
+status = "done"
+tests = [
+  "od-recorder::tests::cue_and_text_format",
+  "od-engine::render::meters_and_audible_track",
+]
+evidence = ["Recorder::mark_track", "cue_sheet", "text_tracklist"]
+note = "`Recorder::mark_track`, `cue_sheet`, `text_tracklist`"
+
+[[feature]]
+id = "rec-split"
+area = "recording"
+name = "Split into per-track files"
+scope = "in"
+status = "done"
+tests = [
+  "od-recorder::tests::records_engine_output_and_splits",
+]
+evidence = ["od_recorder::split", "on_split_recording"]
+note = "`od_recorder::split`, `on_split_recording`"
+
+[[feature]]
+id = "rec-library-section"
+area = "recording"
+name = "Recordings section in the library"
+scope = "in"
+status = "done"
+tests = [
+  "od-ui::recorder::tests::names_and_details",
+]
+evidence = ["refresh_recordings"]
+note = "`recording` table, `refresh_recordings`, rail \"RECORDINGS\""
+
+[[feature]]
+id = "rec-silence-auto"
+area = "recording"
+name = "Silence auto start/stop"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "SPEC §11"
+
+[[feature]]
+id = "rec-settings"
+area = "recording"
+name = "Output folder / file name setting, recording level"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+evidence = ["~/Music/OpenDecks Recordings"]
+note = "Hard-coded `~/Music/OpenDecks Recordings`"
+
+[[feature]]
+id = "rec-panel"
+area = "recording"
+name = "Recording panel: source, level, meter, elapsed time, file size, live tracklist"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+evidence = ["crates/od-ui/src/recorder.rs::frame"]
+note = "Elapsed time and REC exist; level, meter, size and live tracklist missing"
+spec = "SPEC §11; UX §2.3"
+
+# ---- Export / USB devices ----
+
+[[feature]]
+id = "export-pioneer-legacy"
+area = "export"
+name = "Legacy Pioneer export (`export.pdb` + ANLZ DAT/EXT/2EX)"
+scope = "in"
+status = "done"
+tests = [
+  "od-format-pioneer::pdb::tests::layout_matches_rekordbox",
+  "od-format-pioneer::pdb::tests::round_trip_many_tracks",
+  "od-format-pioneer::anlz::tests::round_trip_every_tag",
+  "od-format-pioneer::anlz::tests::files_have_rekordbox_tag_order",
+  "od-format-pioneer::cross_validate::rekordcrate_reads_our_pdb",
+  "od-format-pioneer::cross_validate::rekordcrate_reads_our_anlz",
+  "od-format-pioneer::cross_validate::empty_export_matches_rekordbox",
+  "od-format-pioneer::anlz::hash::tests::matches_rekordbox_demo_export",
+  "od-devices::pioneer::tests::writes_pdb_and_anlz_and_detects_player_cues",
+]
+evidence = ["od-devices/src/pioneer.rs"]
+note = "`od-format-pioneer`, `od-devices/src/pioneer.rs`"
+
+[[feature]]
+id = "export-auto-sync"
+area = "export"
+name = "Automatic incremental sync (Sync Manager equivalent)"
+scope = "in"
+status = "done"
+qualifier = "beyond rekordbox"
+tests = [
+  "od-devices::sync::tests::full_then_incremental_sync",
+  "od-devices::sync::tests::interrupted_sync_forces_full",
+  "od-devices::manager::tests::registers_and_auto_syncs",
+  "od-library::devices::tests::cue_edit_marks_device_out_of_date",
+]
+evidence = ["od-devices/src/sync.rs", "manager.rs"]
+note = "`od-devices/src/sync.rs`, `manager.rs`; device sidebar"
+
+[[feature]]
+id = "export-device-registry"
+area = "export"
+name = "Device registry, formats, assigned content, rebuild, eject"
+scope = "in"
+status = "done"
+tests = [
+  "od-devices::manager::tests::registers_and_auto_syncs",
+  "od-library::devices::tests::device_tracks_include_folder_children",
+  "od-devices::volumes::tests::unescapes_mount_points",
+  "od-devices::placement::tests::paths_are_sanitised_and_unique",
+]
+evidence = ["app.rs", "on_register_volume/on_set_device_*/on_rebuild_device/on_eject_device"]
+note = "`app.rs` `on_register_volume/on_set_device_*/on_rebuild_device/on_eject_device`"
+
+[[feature]]
+id = "export-play-from-stick"
+area = "export"
+name = "Browse / play from a stick"
+scope = "in"
+status = "done"
+tests = [
+  "od-library::mirror::tests::mirror_roundtrip",
+]
+evidence = ["on_open_device"]
+note = "`on_open_device`, read-only library"
+
+[[feature]]
+id = "export-native-format"
+area = "export"
+name = "OpenDecks native stick format"
+scope = "in"
+status = "done"
+tests = [
+  "od-format-native::tests::marker_journal_and_library",
+  "od-format-native::tests::newer_marker_is_rejected",
+  "od-library::mirror::tests::mirror_roundtrip",
+]
+note = "`od-format-native`"
+
+[[feature]]
+id = "export-export-ext-pdb"
+area = "export"
+name = "`exportExt.pdb` (My Tag on players)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+evidence = ["pdb/mod.rs"]
+note = "`pdb/mod.rs` comment: not written"
+
+[[feature]]
+id = "export-mysetting"
+area = "export"
+name = "Player settings on stick (`MYSETTING`)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "SPEC §8.5: defaults or omitted"
+
+[[feature]]
+id = "export-onelibrary"
+area = "export"
+name = "Device Library Plus / OneLibrary"
+scope = "in"
+status = "missing"
+milestone = "M6"
+prio = "P3"
+tests = []
+note = "SPEC §8.5 / §15 M6: OneLibrary (`exportLibrary.db`) export comes later; tracked, not counted"
+
+[[feature]]
+id = "export-pro-dj-link"
+area = "export"
+name = "Pro DJ Link (network export)"
+scope = "in"
+status = "missing"
+milestone = "M6"
+prio = "P3"
+tests = []
+note = "SPEC §10.3b \"Pro DJ Link (later)\", §15 M6; tracked, not counted"
+
+# ---- Preferences, audio and controllers ----
+
+[[feature]]
+id = "prefs-window"
+area = "preferences"
+name = "Preferences window"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+evidence = ["apps/opendecks/src/main.rs"]
+note = "Settings only as CLI flags (`apps/opendecks/src/main.rs`); nothing persisted"
+
+[[feature]]
+id = "prefs-audio-device"
+area = "preferences"
+name = "Audio device, buffer size, output routing"
+scope = "in"
+status = "partial"
+prio = "P1"
+tests = [
+  "od-audio-io::output::tests::auto_routing",
+]
+evidence = ["perform.rs::ensure_engine"]
+note = "Auto-picks a DDJ/FLX device, fixed 128/256 frames (`perform.rs::ensure_engine`); no choice"
+
+[[feature]]
+id = "prefs-display"
+area = "preferences"
+name = "Language, key notation, colour-blind, high contrast, motion"
+scope = "in"
+status = "partial"
+prio = "P1"
+tests = [
+  "od-i18n::tests::translates_and_formats",
+  "od-i18n::tests::placeholder_counts_match",
+]
+note = "`--lang`, `--keys`, `--colorblind`, `--high-contrast`, `--no-motion` only (via preferences)"
+
+[[feature]]
+id = "prefs-waveform-options"
+area = "preferences"
+name = "Waveform options (zoom default, phrase display)"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "—"
+
+[[feature]]
+id = "prefs-deck-defaults"
+area = "preferences"
+name = "Deck defaults (tempo range, quantize, sync mode, jog mode, auto cue)"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+note = "Engine defaults only"
+
+[[feature]]
+id = "ctrl-led-feedback"
+area = "preferences"
+name = "Controller LED feedback"
+scope = "in"
+status = "done"
+tests = [
+  "od-controller::mappings::feedback_is_diffed",
+  "od-controller::mappings::software_blink",
+  "od-controller::mappings::flx10_pad_colours_use_palette",
+]
+evidence = ["perform.rs::feedback"]
+note = "`perform.rs::feedback` (play, cue, sync, master, key lock, slip, loop, pads, VU)"
+
+[[feature]]
+id = "ctrl-soft-takeover"
+area = "preferences"
+name = "Soft takeover"
+scope = "in"
+status = "done"
+tests = [
+  "od-controller::takeover::tests::far_value_is_held_until_crossed",
+  "od-controller::takeover::tests::external_change_drops_catch",
+  "od-controller::takeover::tests::unknown_engine_value_passes",
+  "od-controller::mappings::soft_takeover_on_knob",
+]
+evidence = ["od-controller/src/takeover.rs"]
+note = "`od-controller/src/takeover.rs`"
+
+[[feature]]
+id = "ctrl-midi-learn-monitor"
+area = "preferences"
+name = "MIDI learn / MIDI monitor"
+scope = "in"
+status = "engine-only"
+prio = "P3"
+tests = [
+  "od-controller::learn::tests::learns_note_button",
+  "od-controller::learn::tests::learns_14bit_fader",
+  "od-controller::learn::tests::learns_relative_jog",
+  "od-controller::mappings::monitor_shows_decoded_hits",
+]
+evidence = ["od-controller/src/learn.rs", "examples/midi_monitor.rs"]
+note = "`od-controller/src/learn.rs`, `examples/midi_monitor.rs`; no UI"
+
+[[feature]]
+id = "ctrl-flx10-utility"
+area = "preferences"
+name = "FLX10 utility settings (jog ring, fader start, USB input …)"
+scope = "in"
+status = "engine-only"
+prio = "P3"
+tests = [
+  "od-controller::flx10_settings::tests::vendor_defaults_encode",
+  "od-controller::flx10_settings::tests::simple_settings_match_recovered_constants",
+  "od-controller::flx10_settings::tests::usb_input_audio_matches_vendor_table",
+]
+evidence = ["od-controller/src/flx10_settings.rs"]
+note = "`od-controller/src/flx10_settings.rs`; no UI (SPEC M4)"
+
+[[feature]]
+id = "audio-coreaudio"
+area = "preferences"
+name = "Audio output on macOS (CoreAudio)"
+scope = "in"
+status = "done"
+tests = [
+  "od-audio-io::output::tests::auto_routing",
+]
+evidence = ["crates/od-audio-io/src/output.rs"]
+spec = "SPEC §10.4"
+
+[[feature]]
+id = "audio-linux-backends"
+area = "preferences"
+name = "Linux audio: PipeWire / JACK, ALSA direct on the Pi"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+evidence = ["crates/od-audio-io/src/devices.rs"]
+note = "Host selection exists; no automated test per backend"
+spec = "SPEC §10.4"
+
+[[feature]]
+id = "ctrl-flx10-mapping"
+area = "preferences"
+name = "DDJ-FLX10 mapping (4 decks, LEDs)"
+scope = "in"
+status = "done"
+tests = [
+  "od-controller::mappings::both_mapping_files_parse",
+  "od-controller::mappings::every_deck_has_core_controls",
+  "od-controller::mappings::no_address_is_bound_twice",
+]
+evidence = ["mappings/pioneer/ddj-flx10.toml"]
+spec = "SPEC §9.1"
+
+[[feature]]
+id = "ctrl-flx4-mapping"
+area = "preferences"
+name = "DDJ-FLX4 mapping (2 decks, LEDs)"
+scope = "in"
+status = "done"
+tests = [
+  "od-controller::mappings::both_mapping_files_parse",
+  "od-controller::mappings::every_deck_has_core_controls",
+]
+spec = "SPEC §9.1"
+
+[[feature]]
+id = "prefs-browser-font"
+area = "preferences"
+name = "Browser font size and line spacing"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+spec = "UX §1.8, §4 P5.17"
+
+# ---- Shell, layouts and panels ----
+
+[[feature]]
+id = "shell-edit-mode"
+area = "shell"
+name = "Edit mode (track editing / remix)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+note = "rekordbox EDIT mode. SPEC §1 does not exclude it, so it counts as in scope: implement it or amend SPEC §1 with a reason"
+
+[[feature]]
+id = "shell-mode-switch"
+area = "shell"
+name = "Prepare / Perform mode switch that keeps loaded tracks"
+scope = "in"
+status = "done"
+tests = []
+evidence = ["crates/od-ui/src/shell.rs"]
+spec = "SPEC §3.1"
+
+[[feature]]
+id = "shell-perform-layouts"
+area = "shell"
+name = "Perform layouts: 2 / 4 decks horizontal and vertical, Browse"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+note = "2 and 4 decks; vertical layouts and Browse missing"
+spec = "SPEC §10.1; UX §1.4"
+
+[[feature]]
+id = "shell-prepare-layouts"
+area = "shell"
+name = "Prepare layouts: 1 player, 2 players, dual, simple, full browser"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+spec = "UX §1.7"
+
+[[feature]]
+id = "shell-panel-toggles"
+area = "shell"
+name = "Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+spec = "UX §1.2, §2.8"
+
+[[feature]]
+id = "shell-mix-point-link"
+area = "shell"
+name = "Mix Point Link (mix in / mix out points between decks)"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "UX §1.5; SPEC §16.3"
+
+[[feature]]
+id = "shell-splitters"
+area = "shell"
+name = "Draggable splitters with persisted sizes, double-click reset"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = [
+  "od-ui::shell::tests::pane_sizes_parse",
+]
+evidence = ["crates/od-ui/src/shell.rs"]
+note = "Sidebar width and upper height persist; per-layout sizes and waveform-zone collapse / expand missing"
+spec = "SPEC §12; UX §2.6"
+
+[[feature]]
+id = "shell-status-band"
+area = "shell"
+name = "Status band: analysis / sync state, list summary (tracks, time, size)"
+scope = "in"
+status = "partial"
+prio = "P3"
+tests = [
+  "od-ui::shell::tests::analysis_band_only_while_running",
+]
+evidence = ["crates/od-ui/src/shell.rs"]
+note = "List summary per UX §1.6 not verified"
+spec = "SPEC §12; UX §1.6"
+
+[[feature]]
+id = "shell-ui-scaling"
+area = "shell"
+name = "UI scaling 0.75–2.0 without clipping"
+scope = "in"
+status = "missing"
+prio = "P2"
+tests = []
+spec = "SPEC §12, §16.4"
+
+[[feature]]
+id = "shell-colour-blind-contrast"
+area = "shell"
+name = "Colour-blind palette and high-contrast theme"
+scope = "in"
+status = "partial"
+prio = "P2"
+tests = []
+note = "CLI flags only (`--colorblind`, `--high-contrast`); see `prefs-display`"
+spec = "SPEC §12"
+
+[[feature]]
+id = "shell-i18n"
+area = "shell"
+name = "English and German UI"
+scope = "in"
+status = "done"
+tests = [
+  "od-i18n::tests::translates_and_formats",
+  "od-i18n::tests::placeholder_counts_match",
+]
+evidence = ["crates/od-i18n"]
+spec = "SPEC §2"
+
+[[feature]]
+id = "shell-performance-profiles"
+area = "shell"
+name = "Lite / Full performance profiles"
+scope = "in"
+status = "done"
+tests = [
+  "od-engine::render::keylock_lite_profile",
+  "od-analysis::tempo::tests::lite_mode_is_close",
+]
+spec = "SPEC §3.2"
+
+[[feature]]
+id = "shell-kiosk"
+area = "shell"
+name = "Raspberry Pi kiosk (linuxkms, Perform, controller browsing)"
+scope = "in"
+status = "done"
+qualifier = "beyond rekordbox"
+tests = []
+note = "Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); no cargo test"
+spec = "SPEC §3.3"
+
+[[feature]]
+id = "shell-keyboard-layouts"
+area = "shell"
+name = "Keyboard shortcuts for layouts and a View menu"
+scope = "in"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "UX §1.9, §4 P3.7"
+
+# ---- Video, lighting, DVS, streaming, cloud ----
+
+[[feature]]
+id = "out-video"
+area = "excluded"
+name = "Video / lyric"
+scope = "out"
+exclusion = "video"
+tests = []
+note = "Video and lyric display"
+
+[[feature]]
+id = "out-lighting"
+area = "excluded"
+name = "Lighting"
+scope = "out"
+exclusion = "lighting"
+tests = []
+
+[[feature]]
+id = "out-dvs"
+area = "excluded"
+name = "DVS"
+scope = "out"
+exclusion = "dvs"
+tests = []
+
+[[feature]]
+id = "out-streaming-services"
+area = "excluded"
+name = "Streaming services"
+scope = "out"
+exclusion = "streaming"
+tests = []
+note = "Beatport, Beatsource, SoundCloud, Spotify, TIDAL, Apple Music sources"
+
+[[feature]]
+id = "out-cloud-sync"
+area = "excluded"
+name = "Cloud library sync / Dropbox / mobile app sync"
+scope = "out"
+exclusion = "cloud"
+tests = []
+note = "offline-first, no accounts (SPEC §2)"
+
+[[feature]]
+id = "out-live-streaming-upload"
+area = "excluded"
+name = "Live streaming / mix upload"
+scope = "out"
+exclusion = "cloud"
+tests = []
+note = "needs online accounts; SPEC §2 offline-first"
+

@@ -34,6 +34,29 @@ jobs:
       - name: Build release
         run: cargo build --release --locked -p opendecks -p od-cli
 
+  # SPEC §16 gap report. Non-blocking until the gap count reaches zero
+  # (docs/parity.md, "Becoming the CI gate"); the always-enforced parity
+  # tests run in the test job above.
+  parity:
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Parity gap report
+        run: |
+          cargo run --locked -p od-parity --bin parity -- check --out parity-report.md
+      - name: Job summary
+        if: always()
+        run: test -f parity-report.md && cat parity-report.md >> "$GITHUB_STEP_SUMMARY" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: parity-report
+          path: parity-report.md
+          if-no-files-found: warn
+
   kiosk:
     runs-on: ubuntu-24.04-arm
     steps:
