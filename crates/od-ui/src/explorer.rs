@@ -1,4 +1,4 @@
-//! Explorer: browse folders on disk (rekordbox-style) and play directly.
+//! Explorer: browse folders on disk and play directly.
 //!
 //! Root folders are user-chosen and kept in the library meta
 //! (`explorer.roots`, a JSON list; `~/Music` until the user changes it).

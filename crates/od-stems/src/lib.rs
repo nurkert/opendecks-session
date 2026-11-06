@@ -1,7 +1,7 @@
 //! Stem separation for OpenDecks Session: splits tracks into vocals, drums
 //! and bass (the instrumental remainder is implicit: mix − the three), caches
 //! the result per track, and hands it to the engine for live part
-//! muting (rekordbox-style "track separation" / part isolator).
+//! muting (part isolator).
 //!
 //! # Model and licences
 //!

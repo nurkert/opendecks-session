@@ -868,8 +868,8 @@ fn deck_state(app: &App, d: usize) -> Option<DeckState> {
     engine::snapshot(app).map(|s| s.decks[d])
 }
 
-/// New zoom after a scroll of `delta` logical pixels (up = closer), as in
-/// rekordbox: from 1 s to 32 s across the lane.
+/// New zoom after a scroll of `delta` logical pixels (up = closer): from
+/// 1 s to 32 s across the lane.
 pub(crate) fn zoom_by(zoom: f64, delta: f64) -> f64 {
     (zoom * (-delta * 0.004).exp()).clamp(0.125, 4.0)
 }

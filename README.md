@@ -23,12 +23,10 @@
 
 Open-source DJ software in Rust for macOS, Linux and the Raspberry Pi.
 Prepare your library and sets, keep USB sticks in sync automatically, and
-perform with Pioneer DJ controllers (DDJ-FLX10, DDJ-FLX4) — on your laptop or
-as a standalone unit built from a Raspberry Pi and your controller.
-
-OpenDecks Session is an independent project and is not affiliated with
-AlphaTheta / Pioneer DJ. Product names are used only to describe
-compatibility. See [docs/SPEC.md](docs/SPEC.md) for the full specification.
+perform with compatible DJ controllers (for example the Pioneer DJ DDJ-FLX10
+and DDJ-FLX4) — on your laptop or as a standalone unit built from a Raspberry
+Pi and your controller. See [docs/SPEC.md](docs/SPEC.md) for the full
+specification.
 
 ## What it does
 
@@ -153,6 +151,17 @@ four-deck soak without dropouts and sync to FAT32/exFAT sticks) and what needs h
 - Vendor USB settings and jog displays of the DDJ-FLX10 (milestone M4) need a
   USB capture with the controller connected.
 - OneLibrary (`exportLibrary.db`) and LAN sync are planned for M5.
+
+## Trademarks and independence
+
+OpenDecks Session is an independent open-source project. It is not
+affiliated with, endorsed by or sponsored by AlphaTheta Corporation, Pioneer
+DJ or any other DJ hardware or software vendor, and it contains no code,
+assets or designs of theirs. rekordbox, Pioneer DJ, CDJ, XDJ and DDJ are
+trademarks of their respective owners and are used here only to describe
+compatibility: importing an existing rekordbox library once, writing USB
+sticks that compatible players can read, and supporting compatible
+controllers.
 
 ## License
 

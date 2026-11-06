@@ -11,7 +11,7 @@
 use std::collections::BTreeSet;
 use std::path::Path;
 
-/// Top-level label scopes: one per region kind of the UX study.
+/// Top-level label scopes: one per region kind of the layout.
 pub const SCOPES: &[(&str, &str)] = &[
     ("app", "window-level things: mode switch confirmation, dialogs"),
     ("topbar", "top bar: mode, layout, panel toggles, settings, master meter/volume, clock"),

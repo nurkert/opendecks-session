@@ -1,4 +1,4 @@
-# Feature inventory: rekordbox 7 (top plan) vs. OpenDecks Session (SPEC §16.1).
+# Feature inventory of OpenDecks Session (SPEC §16.1).
 # Source of docs/feature-matrix.md: cargo run -p od-parity --bin parity -- matrix
 # Schema and how to add entries: docs/parity.md
 
@@ -6,10 +6,9 @@
 snapshot = "2026-11-06, from a read of the source tree"
 deferred_milestones = ["M6"]
 intro = '''
-The reference list is the rekordbox 7 feature set (top plan) relevant to a DJ who prepares in
-EXPORT mode and plays in PERFORMANCE mode with a DDJ-FLX10 / DDJ-FLX4, extended by the
-features SPEC §5.5, §10, §11 and §12 require. Only feature names are taken from rekordbox;
-behaviour, layout and naming in OpenDecks follow [SPEC.md](SPEC.md) and [DESIGN.md](../DESIGN.md).
+The list covers the professional feature set a DJ expects when preparing music and performing
+with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
+layout and naming in OpenDecks follow [SPEC.md](SPEC.md) and [DESIGN.md](../DESIGN.md).
 Statuses come from the 2026-11-06 read of the source tree; this file is generated from
 `tests/parity/features.toml`, see [parity.md](parity.md).
 
@@ -462,7 +461,7 @@ note = "`od-import-rekordbox`, `od-ui/src/import.rs`"
 [[feature]]
 id = "browser-xml-itunes-exchange"
 area = "browser"
-name = "rekordbox XML / iTunes import-export"
+name = "rekordbox XML / iTunes library import-export (compatibility)"
 scope = "in"
 status = "missing"
 prio = "P3"
@@ -500,7 +499,7 @@ area = "browser"
 name = "Undo/redo with history"
 scope = "in"
 status = "done"
-qualifier = "beyond rekordbox"
+qualifier = "beyond the usual"
 tests = [
   "od-library::journal::tests::undo_redo_cues_and_grid",
   "od-library::journal::tests::undo_on_empty_journal",
@@ -549,7 +548,7 @@ tests = [
   "od-ui::keymap::tests::toml_round_trip",
 ]
 evidence = ["keymap.rs::registry", "commands.rs::run", "docs/keyboard.md"]
-note = "One command registry (177 actions, rekordbox \"Performance 1\" defaults for decks 1/2); Preferences > Keyboard rebinds with conflict detection, reset, TOML import/export"
+note = "One command registry (177 actions, conventional DJ-software defaults for decks 1/2); Preferences > Keyboard rebinds with conflict detection, reset, TOML import/export"
 
 [[feature]]
 id = "browser-controller-browse"
@@ -633,7 +632,7 @@ status = "missing"
 prio = "P1"
 tests = []
 evidence = []
-note = "Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (rekordbox behaviour: loads unless the deck is playing and load-lock is on); Finder/Explorer files are imported on drop."
+note = "Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (loads unless the deck is playing and load lock is on); Finder/Explorer files are imported on drop."
 spec = "SPEC §5.5"
 
 [[feature]]
@@ -673,7 +672,7 @@ area = "browser"
 name = "Automatic database backups (rotating)"
 scope = "in"
 status = "done"
-qualifier = "beyond rekordbox"
+qualifier = "beyond the usual"
 tests = [
   "od-library::backup::tests::backup_rotate_and_restore",
 ]
@@ -997,7 +996,7 @@ area = "cues"
 name = "Cues set on players → library"
 scope = "in"
 status = "done"
-qualifier = "beyond rekordbox"
+qualifier = "beyond the usual"
 tests = [
   "od-devices::pioneer::tests::writes_pdb_and_anlz_and_detects_player_cues",
   "od-devices::pioneer::tests::same_cues_ignores_order_and_sub_ms",
@@ -2092,7 +2091,7 @@ area = "export"
 name = "Automatic incremental sync (Sync Manager equivalent)"
 scope = "in"
 status = "done"
-qualifier = "beyond rekordbox"
+qualifier = "beyond the usual"
 tests = [
   "od-devices::sync::tests::full_then_incremental_sync",
   "od-devices::sync::tests::interrupted_sync_forces_full",
@@ -2383,7 +2382,7 @@ scope = "in"
 status = "missing"
 prio = "P3"
 tests = []
-note = "rekordbox EDIT mode. SPEC §1 does not exclude it, so it counts as in scope: implement it or amend SPEC §1 with a reason"
+note = "Track edit / remix mode. SPEC §1 does not exclude it, so it counts as in scope: implement it or amend SPEC §1 with a reason"
 
 [[feature]]
 id = "shell-mode-switch"
@@ -2516,7 +2515,7 @@ area = "shell"
 name = "Raspberry Pi kiosk (linuxkms, Perform, controller browsing)"
 scope = "in"
 status = "done"
-qualifier = "beyond rekordbox"
+qualifier = "beyond the usual"
 tests = []
 note = "Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); no cargo test"
 spec = "SPEC §3.3"
@@ -2599,7 +2598,7 @@ status = "missing"
 prio = "P1"
 tests = []
 evidence = []
-note = "Owner request 2026-11-06 (SPEC §5.6). Beyond rekordbox."
+note = "Owner request 2026-11-06 (SPEC §5.6)."
 spec = "SPEC §5.6"
 
 [[feature]]

@@ -232,7 +232,7 @@ A charcoal continuum with bone ink and seven narrow spectral lines; each wavelen
 
 ## Layout
 
-The arrangement follows the conventions rekordbox users know (owner decision 2026-11-06); only the visual language is ours. Desktop (preferred 1440x900, min 1180x640) stacks four bands:
+The arrangement follows the layout conventions DJs know from DJ hardware and software (owner decision 2026-11-06); the visual language is our own. Desktop (preferred 1440x900, min 800x480) stacks four bands:
 
 1. **Top bar** (44px): brand, PREPARE / PERFORM tabs (2px sodium underline on the current one), engine state, undo, RECORD on the right.
 2. **Player band.** Prepare: the 236px track player (title, BPM / KEY / TIME, round CUE and PLAY, position; detail waveform over the overview; HOT CUE A–D | E–H, MEMORY CUE, grid tools on the right). Perform: one enlarged waveform lane per deck (84px, 58px with four decks, 46px tight) with the deck numeral and centre playhead, then odd decks left, mixer centre, even decks right, then the PHONES / crossfader / MASTER footer (44px).

@@ -3,7 +3,7 @@
 // odd decks, the mixer and the even decks sit edge to edge, separated only by
 // shared 1px rules (no boxed panels, no gutters). Each deck: header, overview
 // with phrase bar, jog display beside its state controls and tempo fader, and
-// CUE / PLAY beside the 4×2 hot cue pads, where a rekordbox user expects them.
+// CUE / PLAY beside the hot cue pads, where DJs expect them.
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
@@ -88,7 +88,7 @@ component WaveLane inherits Rectangle {
         text: root.deck.beat-pos;
         font-family: Theme.family; font-size: 11px; font-weight: 600; color: Theme.bone-2;
     }
-    // Scroll to zoom (rekordbox convention); double-click resets.
+    // Scroll to zoom; double-click resets.
     TouchArea {
         x: root.gutter; width: root.area;
         scroll-event(e) => {

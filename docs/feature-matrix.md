@@ -1,15 +1,14 @@
 <!-- Generated from tests/parity/features.toml by `cargo run -p od-parity --bin parity -- matrix`. Do not edit by hand. -->
 
-# Feature gap matrix (rekordbox 7 workflow vs. OpenDecks Session)
+# Feature matrix (OpenDecks Session)
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
 **Summary:** 211 features; 204 in scope: 79 DONE (39 %), 29 PARTIAL, 25 ENGINE-ONLY, 71 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
-The reference list is the rekordbox 7 feature set (top plan) relevant to a DJ who prepares in
-EXPORT mode and plays in PERFORMANCE mode with a DDJ-FLX10 / DDJ-FLX4, extended by the
-features SPEC §5.5, §10, §11 and §12 require. Only feature names are taken from rekordbox;
-behaviour, layout and naming in OpenDecks follow [SPEC.md](SPEC.md) and [DESIGN.md](../DESIGN.md).
+The list covers the professional feature set a DJ expects when preparing music and performing
+with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
+layout and naming in OpenDecks follow [SPEC.md](SPEC.md) and [DESIGN.md](../DESIGN.md).
 Statuses come from the 2026-11-06 read of the source tree; this file is generated from
 `tests/parity/features.toml`, see [parity.md](parity.md).
 
@@ -30,7 +29,7 @@ code now lives in `decks.rs`, `controller.rs`, `mixer.rs` and `recorder.rs`. Oth
 
 A milestone after the status ("deferred to M6") marks an in-scope feature that SPEC §15 schedules later; it is tracked but not counted as a gap. The Tests column counts the automated tests linked in `features.toml` (SPEC §16.1).
 
-Priority (gaps only): **P1** = a rekordbox user hits it in the first session and the app feels broken or foreign without it; **P2** = expected, regular use; **P3** = niche, power-user or later.
+Priority (gaps only): **P1** = an experienced DJ hits it in the first session and the app feels broken or foreign without it; **P2** = expected, regular use; **P3** = niche, power-user or later.
 
 ---
 
@@ -64,26 +63,26 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Duplicate track check | MISSING | — | — | P3 |
 | Import folder / files | DONE | `app.rs` `on_import_folder`, `od-cli import` | — |  |
 | rekordbox library + stick migration | DONE | `od-import-rekordbox`, `od-ui/src/import.rs` | 7 |  |
-| rekordbox XML / iTunes import-export | MISSING | — | — | P3 |
+| rekordbox XML / iTunes library import-export (compatibility) | MISSING | — | — | P3 |
 | Missing files / relocate | DONE | `relocate.rs::check_missing/find_relocations`; `on_find_moved_files` | 1 |  |
 | Consolidate | ENGINE-ONLY | `relocate.rs::consolidate`; no UI | 1 | P3 |
-| Undo/redo with history | DONE (beyond rekordbox) | `journal.rs`; Cmd-Z / Shift-Cmd-Z in `app.rs::key` | 3 |  |
+| Undo/redo with history | DONE (beyond the usual) | `journal.rs`; Cmd-Z / Shift-Cmd-Z in `app.rs::key` | 3 |  |
 | Sets with transition notes and flow view | DONE (own) | `sets.rs::set_flow`, `on_set_transition_note`, `ui/flow.slint` | 3 |  |
 | Set backup tracks / planned start | ENGINE-ONLY | `nodes.rs::set_entry_backups/set_set_meta` | — | P2 |
-| Keyboard shortcuts for Prepare | DONE | `keymap.rs::registry`, `commands.rs::run`, `docs/keyboard.md`; One command registry (177 actions, rekordbox "Performance 1" defaults for decks 1/2); Preferences > Keyboard rebinds with conflict detection, reset, TOML import/export | 4 | P2 |
+| Keyboard shortcuts for Prepare | DONE | `keymap.rs::registry`, `commands.rs::run`, `docs/keyboard.md`; One command registry (177 actions, conventional DJ-software defaults for decks 1/2); Preferences > Keyboard rebinds with conflict detection, reset, TOML import/export | 4 | P2 |
 | Browse from controller | PARTIAL | Rotate / press / back handled (`handle_action` `BrowseAction`); tree navigation, view toggle, shift-sort and related dropped | 1 | P2 |
 | Explorer: browse folders on disk and play directly | MISSING | `crates/od-ui/src/explorer.rs`; Module is a placeholder (`ExplorerState::load` returns nothing, `wire` is empty); (SPEC §5.5; UX §2.2) | — | **P1** |
 | Explorer: loading a file adds it to the collection and analyses it in the background | MISSING | Depends on `browser-explorer`; import and analysis paths exist (`od-ui/src/workers.rs`); (SPEC §5.5) | — | **P1** |
 | Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings) | PARTIAL | `crates/od-ui/ui/rail.slint`; Rail with sections exists; Explorer, Histories, Related and Tag list sources missing; (UX §1.6, §4 P4.9) | — | P2 |
 | Re-orderable columns and multi-sort | MISSING | Fixed column order, one sort key (`browser/tracks.rs`); (SPEC §5.5) | — | P3 |
 | Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | PARTIAL | `crates/od-ui/src/decks.rs::free_deck`; Activate/double-click and controller load work; drag to deck and the context menu do not exist; (UX §2.1) | 1 | **P1** |
-| Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | MISSING | Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (rekordbox behaviour: loads unless the deck is playing and load-lock is on); Finder/Explorer files are imported on drop.; (SPEC §5.5) | — | **P1** |
+| Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | MISSING | Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (loads unless the deck is playing and load lock is on); Finder/Explorer files are imported on drop.; (SPEC §5.5) | — | **P1** |
 | Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | MISSING | No popup menus in `crates/od-ui/ui`; (UX §1.9) | — | P2 |
 | Info panel (track details beside the list) | MISSING | (SPEC §5.5; UX §1.6) | — | P2 |
 | Sub-browser (second tree + list for dragging between playlists) | MISSING | (UX §1.6, §4 P4.12) | — | P3 |
-| Automatic database backups (rotating) | DONE (beyond rekordbox) | `crates/od-library/src/backup.rs`; (SPEC §5.3) | 1 |  |
+| Automatic database backups (rotating) | DONE (beyond the usual) | `crates/od-library/src/backup.rs`; (SPEC §5.3) | 1 |  |
 | Export / import the whole library as one archive (database + analysis, optional audio) | MISSING | (SPEC §5.3) | — | P3 |
-| MCP server: full library access for preparing sets with an LLM | MISSING | Owner request 2026-11-06 (SPEC §5.6). Beyond rekordbox.; (SPEC §5.6) | — | **P1** |
+| MCP server: full library access for preparing sets with an LLM | MISSING | Owner request 2026-11-06 (SPEC §5.6).; (SPEC §5.6) | — | **P1** |
 
 ## 2. Analysis
 
@@ -119,7 +118,7 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Cue colours | PARTIAL | `Cue.color` imported/exported; not drawn (`CueMark` has no colour), not editable | — | **P1** |
 | Cue comments / labels | PARTIAL | Shown on pads (`HotCueSlot.label`); not editable | — | **P1** |
 | Auto cue on load (first memory cue / first beat) | DONE | `DeckCommand::Load` behaviour (`command.rs` doc, `deck.rs`) | — |  |
-| Cues set on players → library | DONE (beyond rekordbox) | `od-devices/src/pioneer.rs` proposals, `on_accept_proposal` | 2 |  |
+| Cues set on players → library | DONE (beyond the usual) | `od-devices/src/pioneer.rs` proposals, `on_accept_proposal` | 2 |  |
 
 ## 4. Deck / player
 
@@ -247,7 +246,7 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
 | Legacy Pioneer export (`export.pdb` + ANLZ DAT/EXT/2EX) | DONE | `od-format-pioneer`, `od-devices/src/pioneer.rs` | 9 |  |
-| Automatic incremental sync (Sync Manager equivalent) | DONE (beyond rekordbox) | `od-devices/src/sync.rs`, `manager.rs`; device sidebar | 4 |  |
+| Automatic incremental sync (Sync Manager equivalent) | DONE (beyond the usual) | `od-devices/src/sync.rs`, `manager.rs`; device sidebar | 4 |  |
 | Device registry, formats, assigned content, rebuild, eject | DONE | `app.rs` `on_register_volume/on_set_device_*/on_rebuild_device/on_eject_device` | 4 |  |
 | Browse / play from a stick | DONE | `on_open_device`, read-only library | 1 |  |
 | OpenDecks native stick format | DONE | `od-format-native` | 3 |  |
@@ -279,7 +278,7 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
-| Edit mode (track editing / remix) | MISSING | rekordbox EDIT mode. SPEC §1 does not exclude it, so it counts as in scope: implement it or amend SPEC §1 with a reason | — | P3 |
+| Edit mode (track editing / remix) | MISSING | Track edit / remix mode. SPEC §1 does not exclude it, so it counts as in scope: implement it or amend SPEC §1 with a reason | — | P3 |
 | Prepare / Perform mode switch that keeps loaded tracks | DONE | `crates/od-ui/src/shell.rs`; (SPEC §3.1) | — |  |
 | Perform layouts: 2 / 4 decks horizontal and vertical, Browse | PARTIAL | 2 and 4 decks; vertical layouts and Browse missing; (SPEC §10.1; UX §1.4) | — | P2 |
 | Prepare layouts: 1 player, 2 players, dual, simple, full browser | MISSING | (UX §1.7) | — | P2 |
@@ -291,7 +290,7 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Colour-blind palette and high-contrast theme | PARTIAL | CLI flags only (`--colorblind`, `--high-contrast`); see `prefs-display`; (SPEC §12) | — | P2 |
 | English and German UI | DONE | `crates/od-i18n`; (SPEC §2) | 2 |  |
 | Lite / Full performance profiles | DONE | (SPEC §3.2) | 2 |  |
-| Raspberry Pi kiosk (linuxkms, Perform, controller browsing) | DONE (beyond rekordbox) | Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); no cargo test; (SPEC §3.3) | — |  |
+| Raspberry Pi kiosk (linuxkms, Perform, controller browsing) | DONE (beyond the usual) | Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); no cargo test; (SPEC §3.3) | — |  |
 | Keyboard shortcuts for layouts and a View menu | MISSING | (UX §1.9, §4 P3.7) | — | P3 |
 
 ## 13. DMX lighting

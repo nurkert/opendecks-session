@@ -8,3 +8,5 @@
 /.impeccable/ref
 /.impeccable/review
 .claude/
+docs/ux-study/
+*.po~

@@ -4,7 +4,7 @@
 //!
 //! - **errors**: the tables are wrong (schema, duplicate ids, an exclusion
 //!   SPEC §1 does not name, a test id that does not exist, a flow whose
-//!   target is worse than rekordbox). Always enforced by
+//!   target is worse than the usual count). Always enforced by
 //!   `features_toml_is_valid`.
 //! - **gaps**: the product is not there yet (an in-scope feature not done,
 //!   a done feature without a test, a flow without its UI test). Enforced
@@ -288,18 +288,18 @@ fn check_flows(fl: &FlowsFile, v: &ViewsFile, tests: &TestIndex, r: &mut Report)
         if !is_kebab_id(&flow.id) || !ids.insert(flow.id.as_str()) {
             r.errors.push(format!("flow id `{}` is not kebab-case or not unique", flow.id));
         }
-        if flow.target_steps > flow.rekordbox_steps {
+        if flow.target_steps > flow.reference_steps {
             r.errors.push(format!(
-                "flow `{}`: target {} steps is worse than rekordbox's {}",
-                flow.id, flow.target_steps, flow.rekordbox_steps
+                "flow `{}`: target {} steps is worse than the usual {}",
+                flow.id, flow.target_steps, flow.reference_steps
             ));
         }
-        if flow.rekordbox_path.len() as u32 != flow.rekordbox_steps {
+        if flow.reference_path.len() as u32 != flow.reference_steps {
             r.errors.push(format!(
-                "flow `{}`: rekordbox_path has {} steps, rekordbox_steps says {}",
+                "flow `{}`: reference_path has {} steps, reference_steps says {}",
                 flow.id,
-                flow.rekordbox_path.len(),
-                flow.rekordbox_steps
+                flow.reference_path.len(),
+                flow.reference_steps
             ));
         }
         if flow.opendecks_path.len() as u32 != flow.target_steps {
@@ -310,8 +310,8 @@ fn check_flows(fl: &FlowsFile, v: &ViewsFile, tests: &TestIndex, r: &mut Report)
                 flow.target_steps
             ));
         }
-        if !flow.rekordbox_source.contains("docs/ux-study/") {
-            r.errors.push(format!("flow `{}`: rekordbox_source must cite the UX study", flow.id));
+        if flow.reference_note.trim().is_empty() {
+            r.errors.push(format!("flow `{}`: reference_note must say how the usual step count was established", flow.id));
         }
         for l in &flow.labels {
             if !labels.contains(l.as_str()) {

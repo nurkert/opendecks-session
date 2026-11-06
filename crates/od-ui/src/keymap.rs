@@ -13,9 +13,8 @@
 //! ⌘ to its `control` modifier on macOS, so the primary modifier is always
 //! Slint's `control`.
 //!
-//! The defaults follow rekordbox 7's "Performance 1" keyboard preset for
-//! decks 1 and 2 (AlphaTheta's default keyboard shortcut reference); see
-//! `docs/keyboard.md` for the full table and the deviations.
+//! Decks 1 and 2 use the left / right keyboard halves, a layout common in
+//! DJ software; see `docs/keyboard.md` for the full table.
 
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -450,7 +449,7 @@ fn build() -> Vec<Action> {
     b.add("player.grid.lock", "Lock / unlock the beatgrid", None, g, Prepare, &["L"]);
     b.add("player.analyse", "Analyse the track", None, g, Prepare, &["Mod+Shift+A"]);
 
-    // ── Decks 1 and 2: rekordbox "Performance 1" ──
+    // ── Decks 1 and 2: left / right keyboard halves ──
     struct Side {
         play: &'static str,
         cue: &'static str,
@@ -544,7 +543,7 @@ fn build() -> Vec<Action> {
         b.add(d("memory.prev"), "Previous memory cue", None, g, Perform, &[s.mem_prev]);
     }
 
-    // ── Decks 3 and 4: function keys (rekordbox has no 4-deck preset) ──
+    // ── Decks 3 and 4: function keys ──
     for n in [3u8, 4] {
         let prefix = if n == 3 { "" } else { "Shift+" };
         let f = |k: u8| format!("{prefix}F{k}");
@@ -562,7 +561,7 @@ fn build() -> Vec<Action> {
         b.add(d("jump.fwd"), "Beat jump forward", None, g, Perform, &[&f(11)]);
     }
 
-    // ── Sampler: rekordbox's sampler row ──
+    // ── Sampler: the bottom letter row ──
     for (i, k) in ["X", "C", "V", "B", "M", ",", ".", "/"].iter().enumerate() {
         b.add(format!("sampler.slot{}", i + 1), "Sampler slot {}", Some((i + 1).to_string()), Group::Sampler, Perform, &[k]);
     }

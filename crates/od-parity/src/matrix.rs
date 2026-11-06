@@ -114,7 +114,7 @@ pub fn summary_line(file: &FeaturesFile) -> String {
 pub fn render(file: &FeaturesFile) -> String {
     let mut s = String::new();
     let _ = writeln!(s, "{HEADER}\n");
-    let _ = writeln!(s, "# Feature gap matrix (rekordbox 7 workflow vs. OpenDecks Session)\n");
+    let _ = writeln!(s, "# Feature matrix (OpenDecks Session)\n");
     let _ = writeln!(s, "Snapshot: {}.\n", file.meta.snapshot);
     let _ = writeln!(s, "{}\n", summary_line(file));
     if !file.meta.intro.trim().is_empty() {
@@ -141,7 +141,7 @@ pub fn render(file: &FeaturesFile) -> String {
     );
     let _ = writeln!(
         s,
-        "Priority (gaps only): **P1** = a rekordbox user hits it in the first session and the app \
+        "Priority (gaps only): **P1** = an experienced DJ hits it in the first session and the app \
          feels broken or foreign without it; **P2** = expected, regular use; **P3** = niche, \
          power-user or later.\n"
     );

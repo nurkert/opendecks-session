@@ -1,9 +1,10 @@
 # OpenDecks Session — Specification
 
 Status: version 2, revised 2026-11-06 on the owner's request: the goal is a
-full-featured, open-source DJ toolkit with the feature set of rekordbox 7 at
-its highest plan (minus streaming, cloud and video; DMX lighting included since 2026-11-06), arranged the
-way rekordbox users know it, in OpenDecks' own visual language. This
+full-featured, open-source DJ toolkit with a complete professional feature
+set (no streaming, cloud or video; DMX lighting included since 2026-11-06),
+arranged by the layout conventions DJs are used to, in OpenDecks' own visual
+language. This
 document is the goal for implementation. Anything not stated here is out of
 scope until it is added to this document. `docs/feature-matrix.md` tracks
 every feature against the code.
@@ -16,16 +17,18 @@ sync **without friction**, and **perform** with Pioneer DJ controllers — on
 macOS, Linux, and as a standalone unit built from a Raspberry Pi attached to a
 controller.
 
-It is an independent product. It is interoperable with the Pioneer DJ USB
-export format and with Pioneer DJ controllers. Its **arrangement and
-workflow follow rekordbox conventions** (players on top, browser below, tree
-on the left, Export-like Prepare and Performance-like Perform modes) so a
-rekordbox user is at home immediately; its **visual language is its own**
-(DESIGN.md) and it reuses no rekordbox assets. After a one-time migration it
-never reads rekordbox directories again.
+It is an independent product, not affiliated with or endorsed by any DJ
+hardware or software vendor. It is **compatible** with the Pioneer DJ USB
+export format, with Pioneer DJ controllers and with rekordbox libraries (a
+one-time import). Its arrangement follows the **general conventions of DJ
+software** (players on top, browser below, tree on the left, a preparation
+mode and a performance mode) so DJs feel at home immediately; its **visual
+language is its own** (DESIGN.md) and it contains no third-party assets.
+After the one-time import it never reads other applications' data again.
 
-The feature set is **identical to rekordbox 7's top plan** except for the
-fixed exclusions below: library, analysis, cue and grid editing, Explorer playback
+The feature set is **complete for professional DJ work** — everything a DJ
+expects from current commercial DJ software — except for the fixed
+exclusions below: library, analysis, cue and grid editing, Explorer playback
 straight from folders, stems, all FX, sampler and sequencer, recording, USB
 export with automatic sync. Fixed exclusions: streaming services, cloud sync and
 accounts (offline-first), video, DVS.
@@ -254,7 +257,7 @@ Pioneer players" in the device view.
   rating and colour, drag and drop to playlists / decks / sticks (tracks
   dragged from the list, Explorer or Finder onto a deck load there; the
   target deck highlights while dragging; a playing deck is protected by an
-  optional load lock, as in rekordbox),
+  optional load lock),
   reordering in playlists and sets.
 - Search with filters (BPM range, key match, rating, colour, My Tag,
   genre), key and BPM matching against the master deck.
@@ -262,7 +265,7 @@ Pioneer players" in the device view.
 - Histories: every performance session is logged as a history list.
 - **Explorer:** browse folders on disk and play directly; loading a file
   from Explorer adds it to the collection and analyses it in the
-  background, like rekordbox.
+  background.
 
 ### 5.6 MCP server for set preparation with an LLM (owner requirement 2026-11-06)
 
@@ -493,8 +496,7 @@ Prepare / Perform, later also as a split view inside Perform or a separate
 window (detachable, second screen).
 
 - **Outputs:** the DDJ-FLX10's built-in DMX port (through its USB vendor
-  protocol, as rekordbox's lighting mode does — reverse-engineered for
-  interoperability, see §9.3), USB-DMX interfaces (Enttec Open DMX /
+  protocol — documented for interoperability, see §9.3), USB-DMX interfaces (Enttec Open DMX /
   DMX USB Pro and compatibles), Art-Net and sACN on the local network.
   Several universes.
 - **Fixtures:** a fixture library in the Open Fixture Library format
@@ -519,8 +521,7 @@ window (detachable, second screen).
   control (colour pickers, pan/tilt XY pad, beam), an effects engine
   (sine / saw / square / random on any attribute, phase spread across a
   group, beat-synced), cue stacks and chases, per-track or per-phrase
-  lighting cues stored with the track (like rekordbox's lighting
-  scenes), timeline preview, and full MIDI mapping.
+  lighting cues stored with the track, timeline preview, and full MIDI mapping.
 - Real-time rules: DMX output runs on its own thread at a steady frame
   rate (≥ 40 Hz), never on the audio thread; the engine publishes beat /
   phrase / level data to it lock-free.
@@ -554,15 +555,15 @@ window (detachable, second screen).
 
 ## 12. Design and UX
 
-- **Layout mirrors rekordbox closely** (owner decision 2026-11-06): the
-  same regions in the same places and proportions, the same order of
-  controls inside decks, mixer, FX and browser, the same panel toggles and
-  the same flows (load, browse, record, export). A rekordbox user must
-  recognise it instantly. `docs/ux-study/rekordbox-layout.md` is the
-  reference; deviations need a documented reason.
+- **Familiar layout** (owner decision 2026-11-06): regions, control order
+  inside decks, mixer, FX and browser, panel toggles and flows (load,
+  browse, record, export) follow the conventions DJs know from hardware
+  players, mixers and established DJ software, so an experienced DJ is at
+  home instantly. `tests/parity/views.toml` defines the required views and
+  elements; deviations need a documented reason.
 - Visual language is OpenDecks' own (DESIGN.md): charcoal ground, bone
-  legends, emission-line accents, one colour per deck; no rekordbox assets,
-  icons or colours.
+  legends, emission-line accents, one colour per deck; no third-party
+  assets, icons or trade dress.
 - One grid: flat panes separated by shared 1px rules that line up across the
   window; draggable splitters (double-click resets) whose sizes persist.
 - Every state (sync status, analysis, separation, recording) is visible at
@@ -587,7 +588,7 @@ window (detachable, second screen).
 
 - The settings window opens with the platform's native shortcut (⌘, on
   macOS, Ctrl+, on Linux) and from a gear button in the top bar; sections
-  as in rekordbox: Audio, View, Analysis, Controller, Keyboard, Recording,
+  Audio, View, Analysis, Controller, Keyboard, Recording,
   Advanced. Settings persist; CLI flags only override.
 - **The whole application is controllable by keyboard with configurable
   shortcuts.** Every user action is a command in one registry with an id,
@@ -605,7 +606,7 @@ window (detachable, second screen).
   current keyboard shortcut from the keymap, after a short hover delay.
 - **Waveform zoom:** the mouse wheel / trackpad scroll on any zoomed
   waveform changes its time span (and so the grid spacing), as in
-  rekordbox; per-deck zoom with reset; zoom keys in the keymap.
+  is common in DJ software; per-deck zoom with reset; zoom keys in the keymap.
 - **Smooth scrolling:** zoomed waveforms move at the display refresh rate
   without stutter: the playhead position is interpolated between engine
   updates and the waveform is drawn from pre-rendered tiles that are only
@@ -649,7 +650,7 @@ window (detachable, second screen).
   The check can be switched off in Preferences; it never runs in Perform
   while audio is playing and never interrupts a performance.
 - When an update exists, a non-modal notice offers **Install now**,
-  **Release notes** and **Later / skip this version**, as in rekordbox.
+  **Release notes** and **Later / skip this version**.
 - Install: download the matching asset, verify it against the release's
   `SHA256SUMS`, then replace the app and restart — macOS: the `.app`
   bundle; Linux AppImage: the AppImage file; `.deb`: download and hand to
@@ -729,15 +730,16 @@ Everything lives under `tests/parity/` and runs with
 ### 16.1 Feature completeness
 
 - `tests/parity/features.toml` is the machine-readable source of
-  `docs/feature-matrix.md`: one entry per rekordbox 7 (top plan) feature
+  `docs/feature-matrix.md`: one entry per feature of the professional
+  feature set (§1)
   with `id`, `area`, `scope` (`in` or `out` with the §1 exclusion that
   applies), `status` and `tests` (the names of the automated tests that
   prove it). The markdown matrix is generated from it.
 - The completeness test fails when an in-scope feature is not `done`, when a
   `done` feature lists no test, when a listed test does not exist or did
   not run, or when an exclusion is used that §1 does not name.
-- New rekordbox features found later are added as entries; the inventory
-  is reviewed against the official rekordbox 7 feature list each release.
+- Features found missing later are added as entries; the inventory is
+  reviewed against current DJ practice each release.
 
 ### 16.2 Functional tests per feature
 
@@ -752,16 +754,16 @@ that proves its behaviour, and one end-to-end test where a user can reach it:
 | Controller | recorded MIDI streams → expected actions and LED feedback |
 | UI | Slint testing backend: the real window is driven headlessly (clicks, drags, keys) and the resulting engine/library state is asserted |
 
-### 16.3 View completeness against rekordbox
+### 16.3 View completeness
 
-- `tests/parity/views.toml` lists every rekordbox view, layout and panel
-  from `docs/ux-study/rekordbox-layout.md` — Performance 2/4 decks
+- `tests/parity/views.toml` lists every view, layout and panel of the
+  application — Performance 2/4 decks
   (horizontal, vertical), Browse, Export 1 player / 2 players / dual /
   simple / full browser, FX panel, Sampler panel, Mix point link, Recording,
   browser sources (Collection, Playlists, Related, Explorer, Devices,
   Histories, Recordings, Tag list, Info panel, sub-browser), Preferences
   sections, context menus — each with its **required elements** (every
-  control and readout rekordbox shows there) and their **order** within
+  control and readout the view must show) and their **order** within
   the region.
 - The view test opens each view headlessly at 1440×900, 1280×800 and
   800×480 (kiosk) and asserts that every required element exists (by
@@ -775,15 +777,15 @@ that proves its behaviour, and one end-to-end test where a user can reach it:
   renderer and compared to approved images; a visual change needs an
   updated, reviewed golden.
 
-### 16.4 Superiority over rekordbox (measured)
+### 16.4 Quality goals beyond the usual (measured)
 
-OpenDecks must match rekordbox everywhere and beat it on these, each with
-an automated check:
+OpenDecks must meet the usual professional standard everywhere and go
+beyond it on these, each with an automated check:
 
 | Criterion | Target / check |
 |---|---|
-| Steps to common tasks | a flow table (`tests/parity/flows.toml`) states, per task, rekordbox's step count from the UX study and ours; ours must be ≤ and is driven by a UI test (load from Explorer, set and name a hot cue, add to playlist, sync a stick, start a recording, separate stems) |
-| Stick sync | edits reach a connected stick automatically, status always visible; no manual export step (rekordbox needs one) |
+| Steps to common tasks | a flow table (`tests/parity/flows.toml`) states, per task, the usual step count in DJ software and ours; ours must be ≤ and is driven by a UI test (load from Explorer, set and name a hot cue, add to playlist, sync a stick, start a recording, separate stems) |
+| Stick sync | edits reach a connected stick automatically, status always visible; no manual export step |
 | Undo | every library edit undoable (test per edit kind) |
 | Keyboard | 100 % of Prepare actions reachable by keyboard (generated check over the command table) |
 | Responsiveness | cold start, search, track load within §13 targets (benchmarks on CI) |

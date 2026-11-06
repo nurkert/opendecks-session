@@ -1,14 +1,14 @@
 # Parity verification harness
 
-SPEC §16 makes parity with rekordbox 7 and the superiority criteria a
+SPEC §16 makes feature completeness and the quality goals a
 binding, automated acceptance. This page explains the harness that tracks
 it: the crate `crates/od-parity` and three tables under `tests/parity/`.
 
 | File | What it holds | SPEC |
 |---|---|---|
-| `tests/parity/features.toml` | every rekordbox 7 (top plan) feature plus the SPEC §5.5/§10/§11/§12 additions, with scope, status, tests and evidence | §16.1 |
-| `tests/parity/views.toml` | every view, layout and panel from the UX study with its required elements (accessible labels), their band, region and order; sizes and layout invariants | §16.3 |
-| `tests/parity/flows.toml` | the superiority flows with rekordbox's step count (cited from the UX study) and our target | §16.4 |
+| `tests/parity/features.toml` | every feature of the professional feature set (SPEC §1, §5.5, §10, §11, §12), with scope, status, tests and evidence | §16.1 |
+| `tests/parity/views.toml` | every view, layout and panel from the layout reference (SPEC §12) with its required elements (accessible labels), their band, region and order; sizes and layout invariants | §16.3 |
+| `tests/parity/flows.toml` | the quality-goal flows with the usual step count and our target | §16.4 |
 | `docs/feature-matrix.md` | **generated** from `features.toml`; do not edit by hand | §16.1 |
 
 ## Running it
@@ -35,7 +35,7 @@ The tests in `crates/od-parity/tests/parity.rs`:
 
 | Test | Enforced | Fails when |
 |---|---|---|
-| `features_toml_is_valid` | always | schema error, duplicate id, unknown area, exclusion not named in SPEC §1, out-of-scope row without exclusion, a referenced test id that does not exist, an invalid label in `views.toml`, a flow whose target is worse than rekordbox or whose step lists do not match its counts, a flow label missing from `views.toml` |
+| `features_toml_is_valid` | always | schema error, duplicate id, unknown area, exclusion not named in SPEC §1, out-of-scope row without exclusion, a referenced test id that does not exist, an invalid label in `views.toml`, a flow whose target is worse than the usual count or whose step lists do not match its counts, a flow label missing from `views.toml` |
 | `feature_matrix_is_generated` | always | `docs/feature-matrix.md` differs from what `parity matrix` renders |
 | `feature_set_complete` | only with `OD_PARITY_STRICT=1` | an in-scope, non-deferred feature is not `done`; a `done` feature lists no test; a flow has no `ui_test`. Without the variable it prints the report and passes |
 
@@ -91,7 +91,7 @@ listed test lives in a crate that `cargo test --workspace` runs; an
    status = "done"                # done | partial | engine-only | missing
    prio = "P2"                    # optional, for gaps: P1 | P2 | P3
    milestone = "M6"               # optional; deferred if listed in meta.deferred_milestones
-   qualifier = "beyond rekordbox" # optional, shown after the status
+   qualifier = "beyond the usual" # optional, shown after the status
    tests = ["od-engine::render::echo_out_tails_after_release"]
    evidence = ["crates/od-engine/src/release_fx.rs::EchoOut::process"]
    note = "What is missing or special"
@@ -102,16 +102,16 @@ listed test lives in a crate that `cargo test --workspace` runs; an
 3. When a feature becomes `done`, link at least one test at the lowest level
    that proves the behaviour and, where a user reaches it, an end-to-end
    test (SPEC §16.2). Only something SPEC §1 excludes may be `scope = "out"`;
-   anything else rekordbox has (for example its Edit mode) stays in scope
+   any other professional feature (for example a track edit mode) stays in scope
    until SPEC §1 is amended.
 
 ## Adding a view or a flow
 
 **View** (`tests/parity/views.toml`): give it an `id` (`perform.…`,
-`prepare.…`, `panel.…`, `browser.…`, `prefs.…`, `ctx.…`, `menu.…`), the UX study
+`prepare.…`, `panel.…`, `browser.…`, `prefs.…`, `ctx.…`, `menu.…`), the layout reference (SPEC §12)
 `source`, the `sizes` it must pass (empty = all), its `bands` from top to
 bottom, and one `[[view.region]]` per group of controls with its `band`,
-`place` (as the UX study describes it), `order` and the required `elements`
+`place` (as the layout reference (SPEC §12) describes it), `order` and the required `elements`
 in that order:
 
 - `row`: left edges non-decreasing (stacked elements may share an x),
@@ -120,9 +120,9 @@ in that order:
 - `any`: presence only.
 
 **Flow** (`tests/parity/flows.toml`): state the task and start state, cite
-the UX study line(s) for rekordbox's count (`rekordbox_source`), list both
+a note on how the usual count was established (`reference_note`), list both
 paths step by step (lengths must equal the counts; the step rule is in
-`meta.step_rule`), set `inferred = true` where the rekordbox path was not
+`meta.step_rule`), set `inferred = true` where the reference path was not
 observed, list the labels the flow touches, and set `ui_test` to the id of
 the UI test that drives it once it exists.
 
@@ -143,7 +143,7 @@ UI text: they are never translated and never shown.
   (`deck1.pad.A`, `player1.hot-cue.H`).
 - The scope is one of:
 
-| Scope | Region (UX study) | Examples |
+| Scope | Region (layout reference (SPEC §12)) | Examples |
 |---|---|---|
 | `app` | window-level: mode-change confirmation, dialogs | `app.confirm.yes` |
 | `topbar` | top bar | `topbar.mode`, `topbar.layout`, `topbar.toggle.fx`, `topbar.settings`, `topbar.clock` |
@@ -172,7 +172,7 @@ Rules for the UI team:
 4. Readouts that are not interactive (`deck1.bpm`, `rec.time`) carry labels
    too, so presence, order and clipping can be checked.
 5. Hidden-by-layout is allowed only for views that do not list the element;
-   unavailable controls stay in place, dimmed (UX study §3).
+   unavailable controls stay in place, dimmed (layout reference (SPEC §12) §3).
 
 `parity check` reports how many required labels already appear literally
 in `crates/od-ui` (labels built from expressions are not counted; the view

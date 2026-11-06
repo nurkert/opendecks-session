@@ -89,7 +89,7 @@ pub struct Feature {
     /// For out-of-scope rows without an implementation: may be omitted.
     #[serde(default)]
     pub status: Option<Status>,
-    /// Shown after the status, e.g. "beyond rekordbox" or "own".
+    /// Shown after the status, e.g. "beyond the usual" or "own".
     #[serde(default)]
     pub qualifier: Option<String>,
     /// A milestone such as "M6": deferred when listed in
@@ -107,7 +107,7 @@ pub struct Feature {
     /// Free text: what is missing, why it is excluded, …
     #[serde(default)]
     pub note: String,
-    /// Where the feature is required (SPEC section, UX study section).
+    /// Where the feature is required (SPEC section, layout reference section).
     #[serde(default)]
     pub spec: Option<String>,
 }
@@ -175,12 +175,12 @@ pub struct View {
     pub title: String,
     /// prepare | perform | preferences | menu
     pub mode: String,
-    /// Line or section in the UX study.
+    /// Note on where the requirement comes from.
     pub source: String,
     /// Size ids; empty = all sizes.
     #[serde(default)]
     pub sizes: Vec<String>,
-    /// Top-level bands from top to bottom (UX study §1.1: fixed-height
+    /// Top-level bands from top to bottom (layout reference §1.1: fixed-height
     /// bands, the browser takes the rest). Every region names one.
     pub bands: Vec<String>,
     /// Ids of features this view exposes (optional cross-reference).
@@ -198,7 +198,7 @@ pub struct Region {
     pub id: String,
     /// The band (from [`View::bands`]) the region lies in.
     pub band: String,
-    /// Where in the band, as the UX study describes it ("left, 46 %",
+    /// Where in the band, as the layout reference describes it ("left, 46 %",
     /// "mirrors deck 1"). Documentation for the view test author.
     #[serde(default)]
     pub place: String,
@@ -231,11 +231,11 @@ pub struct FlowsMeta {
 pub struct Flow {
     pub id: String,
     pub task: String,
-    pub rekordbox_steps: u32,
-    /// File and line(s) of the UX study the count comes from.
-    pub rekordbox_source: String,
-    pub rekordbox_path: Vec<String>,
-    /// True when the rekordbox path was inferred, not observed.
+    pub reference_steps: u32,
+    /// How the usual step count was established.
+    pub reference_note: String,
+    pub reference_path: Vec<String>,
+    /// True when the reference path was inferred, not observed.
     #[serde(default)]
     pub inferred: bool,
     pub target_steps: u32,

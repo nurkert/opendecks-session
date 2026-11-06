@@ -44,25 +44,20 @@ everywhere; the same key can mean different things in the two modes (R is
 "previous cue" in the Prepare player and "previous memory cue" of deck 1 in
 Perform). Text fields keep the keys they type.
 
-## Defaults and their origin
+## Defaults
 
-- **Decks 1 and 2** follow rekordbox 7's default keyboard preset
-  "Performance 1" (AlphaTheta, *rekordbox 7.0.5 default keyboard shortcut
-  reference*): play Z / N, cue A / H, sync Q / Y, hot cues A–D on 1–4 /
-  6–9, loop in / out / exit D F G / K L ;, beat loops ⌘1–⌘5 / ⌘6–⌘0, beat
-  jump ⌘R ⌘T / ⌘O ⌘P, memory cues R T / O P, pitch bend W E / U I (held),
-  tempo ⇧W ⇧E / ⇧U ⇧I, load to deck ⇧← / ⇧→, record ⌘Return, new playlist
-  ⌘N, sampler slots X C V B M , . /.
-- Deviations: hot cue E is on 5 / 0 and F–H on ⇧1–⇧3 / ⇧6–⇧8 (rekordbox
-  leaves F–H unassigned; E comes from its "Performance 2" preset); key lock
-  of deck 2 is ⇧0 (the reference lists ⇧O twice); search is ⌘F as in every
-  Mac app, with rekordbox's ⌃F kept as a second binding; rekordbox's Space
-  (layout toggle) is not used.
-- **Decks 3 and 4** have no rekordbox preset; they use F1–F11 (deck 3) and
-  ⇧F1–⇧F11 (deck 4) for cue, play, sync, hot cues A–D, 4-beat loop, exit
-  and beat jump. On Mac laptops the function keys need fn unless "Use F1,
-  F2, etc. keys as standard function keys" is on.
-- **Prepare** (rekordbox documents no Export-mode keys): Space previews,
+- **Decks 1 and 2** use the left / right keyboard halves, a layout DJs
+  commonly use with DJ software: play Z / N, cue A / H, sync Q / Y, hot
+  cues A–E on 1–5 / 6–0 and F–H on ⇧1–⇧3 / ⇧6–⇧8, loop in / out / exit
+  D F G / K L ;, beat loops ⌘1–⌘5 / ⌘6–⌘0, beat jump ⌘R ⌘T / ⌘O ⌘P,
+  memory cues R T / O P, pitch bend W E / U I (held), tempo ⇧W ⇧E / ⇧U ⇧I,
+  key lock ⇧5 / ⇧0, load to deck ⇧← / ⇧→, record ⌘Return, new playlist ⌘N,
+  sampler slots X C V B M , . /. Search is ⌘F (⌃F as a second binding).
+- **Decks 3 and 4** use F1–F11 (deck 3) and ⇧F1–⇧F11 (deck 4) for cue,
+  play, sync, hot cues A–D, 4-beat loop, exit and beat jump. On Mac laptops
+  the function keys need fn unless "Use F1, F2, etc. keys as standard
+  function keys" is on.
+- **Prepare**: Space previews,
   1–8 set or jump to hot cues A–H, ⇧⌘1–8 clear them, M adds a memory cue,
   R / T step through cues, ← → move the cursor, ⌘← ⌘→ shift the grid by
   10 ms, ⌘↑ ⌘↓ double / halve it, D sets the downbeat, L locks the grid.
