@@ -574,7 +574,89 @@ Accepted when every non-out-of-scope row of the feature matrix is DONE.
 OneLibrary export, LAN sync between desktop and Pi, Pro DJ Link, DVS,
 more controllers, real-player CDJ validation if not done earlier.
 
-## 16. Open items and risks
+## 16. Verification: parity and superiority (binding acceptance)
+
+The goal of this specification is reached only when the automated suite
+below is green on CI (macOS and Linux). "Done" is never asserted by hand.
+Everything lives under `tests/parity/` and runs with
+`cargo test -p od-parity` (plus the UI suites in `od-ui`).
+
+### 16.1 Feature completeness
+
+- `tests/parity/features.toml` is the machine-readable source of
+  `docs/feature-matrix.md`: one entry per rekordbox 7 (top plan) feature
+  with `id`, `area`, `scope` (`in` or `out` with the §1 exclusion that
+  applies), `status` and `tests` (the names of the automated tests that
+  prove it). The markdown matrix is generated from it.
+- The completeness test fails when an in-scope feature is not `done`, when a
+  `done` feature lists no test, when a listed test does not exist or did
+  not run, or when an exclusion is used that §1 does not name.
+- New rekordbox features found later are added as entries; the inventory
+  is reviewed against the official rekordbox 7 feature list each release.
+
+### 16.2 Functional tests per feature
+
+Every in-scope feature has at least one automated test at the lowest level
+that proves its behaviour, and one end-to-end test where a user can reach it:
+
+| Layer | How |
+|---|---|
+| Engine | offline renders with measured assertions (timing, level, pitch, phase), allocation guard on the audio thread |
+| Library / formats / sync | golden files, round trips, three independent parsers for Pioneer exports |
+| Analysis | reference tracks with known BPM, key, phrases, loudness (tolerances stated) |
+| Controller | recorded MIDI streams → expected actions and LED feedback |
+| UI | Slint testing backend: the real window is driven headlessly (clicks, drags, keys) and the resulting engine/library state is asserted |
+
+### 16.3 View completeness against rekordbox
+
+- `tests/parity/views.toml` lists every rekordbox view, layout and panel
+  from `docs/ux-study/rekordbox-layout.md` — Performance 2/4 decks
+  (horizontal, vertical), Browse, Export 1 player / 2 players / dual /
+  simple / full browser, FX panel, Sampler panel, Mix point link, Recording,
+  browser sources (Collection, Playlists, Related, Explorer, Devices,
+  Histories, Recordings, Tag list, Info panel, sub-browser), Preferences
+  sections, context menus — each with its **required elements** (every
+  control and readout rekordbox shows there) and their **order** within
+  the region.
+- The view test opens each view headlessly at 1440×900, 1280×800 and
+  800×480 (kiosk) and asserts that every required element exists (by
+  accessible label), is visible, unclipped, not overlapping a sibling, in
+  the required order and region, and at least 24 px (44 px in kiosk)
+  for touch targets.
+- Layout invariants are checked on every view: shared rules line up
+  across panes (±1 px), no text is elided where the full text fits, text
+  contrast ≥ 4.5:1 (large ≥ 3:1), no horizontal scrolling of the window.
+- Golden screenshots per view and size are rendered with the software
+  renderer and compared to approved images; a visual change needs an
+  updated, reviewed golden.
+
+### 16.4 Superiority over rekordbox (measured)
+
+OpenDecks must match rekordbox everywhere and beat it on these, each with
+an automated check:
+
+| Criterion | Target / check |
+|---|---|
+| Steps to common tasks | a flow table (`tests/parity/flows.toml`) states, per task, rekordbox's step count from the UX study and ours; ours must be ≤ and is driven by a UI test (load from Explorer, set and name a hot cue, add to playlist, sync a stick, start a recording, separate stems) |
+| Stick sync | edits reach a connected stick automatically, status always visible; no manual export step (rekordbox needs one) |
+| Undo | every library edit undoable (test per edit kind) |
+| Keyboard | 100 % of Prepare actions reachable by keyboard (generated check over the command table) |
+| Responsiveness | cold start, search, track load within §13 targets (benchmarks on CI) |
+| Robustness | 1 h soak without dropouts; no modal dialog during performance (UI test asserts no dialog opens in Perform) |
+| Accessibility | colour-blind palette, high contrast, scaling 0.75–2.0 without clipping (view test at each scale) |
+| Openness | all data in documented open formats; no account, no network for any feature (test with network disabled) |
+| Platforms | macOS, Linux, Raspberry Pi kiosk run the same suites |
+
+### 16.5 Definition of done
+
+The goal is reached when, on CI: the completeness test reports zero
+in-scope gaps, every functional test passes, every view passes its
+completeness, invariant and golden checks at every size, every
+superiority check passes, and the hardware-only items of §15 (CDJ, FLX10 /
+FLX4, Raspberry Pi) are either verified on hardware or explicitly listed
+as awaiting hardware with their simulated tests passing.
+
+## 17. Open items and risks
 
 | Item | Plan |
 |---|---|
