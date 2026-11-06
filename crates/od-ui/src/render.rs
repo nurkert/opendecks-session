@@ -247,16 +247,32 @@ mod tests {
         let g = Beatgrid::constant(120.0, 0.0, 1, 10.0);
         let img = overview(&w, &g, 10.0, 400, 80);
         assert_eq!(img.size().width, 400);
-        let d = detail(&w, &g, 5.0, 8.0, 600, 100);
+        let d = detail(&w, &g, &[], 5.0, 8.0, 600, 100);
         assert_eq!(d.size().height, 100);
         assert_eq!(overview(&Waveform::default(), &g, 0.0, 10, 10).size().width, 10);
         assert_eq!(ground_texture().size().width, 640);
     }
 
     #[test]
-    fn band_marks_only_for_dominant_bands() {
-        assert_eq!(band_mark(&WaveformColumn { low: 200, mid: 20, high: 10, peak: 0 }), Some(LOW));
-        assert_eq!(band_mark(&WaveformColumn { low: 100, mid: 100, high: 100, peak: 0 }), None);
-        assert_eq!(band_mark(&WaveformColumn { low: 5, mid: 5, high: 5, peak: 0 }), None);
+    fn three_bands_stack_by_amplitude() {
+        let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(1, 41);
+        fill(&mut buf, GROUND);
+        column(&mut buf, 0, 20, 20, &WaveformColumn { low: 200, mid: 100, high: 50, peak: 200 }, false);
+        let at = |y: usize| { let p = buf.as_slice()[y]; [p.r, p.g, p.b] };
+        // Outermost: only the low band reaches; then mids; the centre is highs.
+        assert_eq!(at(1), LOW);
+        assert_eq!(at(14), MID);
+        assert_eq!(at(20), HIGH);
+    }
+
+    #[test]
+    fn phrase_strip_is_painted() {
+        let w = Waveform { columns_per_second: 150.0, columns: vec![WaveformColumn::default(); 1500] };
+        let g = Beatgrid::constant(120.0, 0.0, 1, 10.0);
+        let phrases = [Phrase { start_beat: 0, end_beat: 16, kind: PhraseKind::Chorus }];
+        let img = detail(&w, &g, &phrases, 4.0, 8.0, 200, 90);
+        let buf = img.to_rgba8().unwrap();
+        let p = buf.as_slice()[(89 * 200 + 150) as usize];
+        assert_eq!([p.r, p.g, p.b], phrase_rgb(PhraseKind::Chorus));
     }
 }
