@@ -489,6 +489,34 @@ Streaming services, cloud, DVS, lighting, video, Pro DJ Link (later).
 - Accessibility: scalable UI, colour-blind-safe palette, high-contrast
   option, text contrast ≥ 4.5:1.
 
+### 12.1 Beatgrid visibility (owner requirement 2026-11-06)
+
+- Every zoomed waveform (deck lanes, Prepare player) draws the beatgrid as
+  full-height lines behind the waveform: beats as thin lines, bar starts
+  (downbeats) clearly brighter with a marker at the top, phrase starts
+  (every 16 bars or the analysed phrases) strongest. The grid stays legible
+  over loud passages and in the colour-blind and high-contrast modes.
+- Overviews show bar ticks every 16 bars; the Prepare player shows the bar
+  number at each downbeat while editing the grid.
+- Checked by renderer tests (line positions within ±1 px of the grid) and
+  the view goldens (§16.3).
+
+### 12.2 Preferences and keyboard control (owner requirement 2026-11-06)
+
+- The settings window opens with the platform's native shortcut (⌘, on
+  macOS, Ctrl+, on Linux) and from a gear button in the top bar; sections
+  as in rekordbox: Audio, View, Analysis, Controller, Keyboard, Recording,
+  Advanced. Settings persist; CLI flags only override.
+- **The whole application is controllable by keyboard with configurable
+  shortcuts.** Every user action is a command in one registry with an id,
+  a default binding per platform and optional user bindings; the Keyboard
+  page lists all commands (searchable), records a new binding by key
+  press, detects conflicts, resets one or all, and imports / exports the
+  keymap as TOML.
+- Checked by tests: every registered command has a default binding, no
+  default conflicts per platform, user overrides round-trip, and the
+  Prepare command table is 100 % reachable by keyboard (§16.4).
+
 ## 13. Performance targets
 
 | Metric | Desktop (Apple Silicon) | Raspberry Pi 4 (Lite) |
