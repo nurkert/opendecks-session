@@ -107,7 +107,128 @@ const DE: &[(&str, &str)] = &[
     ("Added {} to the collection — analysing", "{} zur Sammlung hinzugefügt — wird analysiert"),
     ("Could not add {}: {}", "{} konnte nicht hinzugefügt werden: {}"),
     ("Add a folder to the Explorer", "Ordner zum Explorer hinzufügen"),
+    // Preferences and keyboard (SPEC §12.2).
+    ("Memory cue removed", "Memory Cue entfernt"),
+    ("Recording failed: {}", "Aufnahme fehlgeschlagen: {}"),
+    ("Recording could not start: {}", "Aufnahme konnte nicht starten: {}"),
+    ("Recording saved as {}", "Aufnahme gespeichert als {}"),
+    ("Converting the recording failed — the WAV file is kept", "Umwandeln der Aufnahme fehlgeschlagen — die WAV-Datei bleibt"),
+    ("Backup saved: {}", "Backup gespeichert: {}"),
+    ("Library location saved — applies after restart", "Speicherort der Bibliothek gespeichert — gilt nach Neustart"),
+    ("All keys are back to their defaults", "Alle Tasten sind wieder auf Standard"),
+    ("AUTO", "AUTO"),
+    ("Automatic", "Automatisch"),
+    ("DEVICE", "GERÄT"),
+    ("Controller mapping file", "Controller-Mapping-Datei"),
+    ("Export keymap", "Tastenbelegung exportieren"),
+    ("Import keymap", "Tastenbelegung importieren"),
+    ("Folder for recordings", "Ordner für Aufnahmen"),
+    ("Library file (library.sqlite)", "Bibliotheksdatei (library.sqlite)"),
+    ("Needs ffmpeg on the PATH; without it the recording stays a WAV file.", "Braucht ffmpeg im PATH; ohne bleibt die Aufnahme eine WAV-Datei."),
+    ("Recorded as WAV, then converted with ffmpeg when the recording stops.", "Wird als WAV aufgenommen und beim Stoppen mit ffmpeg umgewandelt."),
+    ("No backups yet", "Noch keine Backups"),
+    ("{} backups · newest {}", "{} Backups · neuestes {}"),
+    ("OPEN WITH ⌘,  ·  CLOSE WITH ESC OR ⌘W", "ÖFFNEN MIT ⌘,  ·  SCHLIESSEN MIT ESC ODER ⌘W"),
+    ("OPEN WITH CTRL+,  ·  CLOSE WITH ESC OR CTRL+W", "ÖFFNEN MIT STRG+,  ·  SCHLIESSEN MIT ESC ODER STRG+W"),
+    ("PREPARE", "PREPARE"),
+    ("PERFORM", "PERFORM"),
+    ("{} (not connected)", "{} (nicht verbunden)"),
+    ("{} — connected", "{} — verbunden"),
+    ("MIDI input: {}", "MIDI-Eingang: {}"),
+    ("{} now on {}", "{} jetzt auf {}"),
+    ("{} is already used by {}. Replace it there?", "{} ist schon belegt mit {}. Dort ersetzen?"),
+    ("{} has no key now", "{} hat jetzt keine Taste"),
+    ("{} is back to its default", "{} ist wieder auf Standard"),
+    ("Press the new keys for {}", "Drücke die neuen Tasten für {}"),
+    ("Keymap exported to {}", "Tastenbelegung exportiert nach {}"),
+    ("Imported {} bindings", "{} Belegungen importiert"),
+    (" · skipped {} unknown, {} invalid", " · {} unbekannte, {} ungültige übersprungen"),
+    ("Not a keymap file: {}", "Keine Tastenbelegungs-Datei: {}"),
+    ("Not imported: {} is used by both {} and {}", "Nicht importiert: {} ist doppelt belegt mit {} und {}"),
+    ("Deck {}: {}", "Deck {}: {}"),
+    ("Deck {}", "Deck {}"),
+    ("General", "Allgemein"),
+    ("Browser", "Browser"),
+    ("Prepare player", "Prepare-Player"),
+    ("Sampler", "Sampler"),
+    // Keyboard actions.
+    ("Open preferences", "Einstellungen öffnen"),
+    ("Undo", "Rückgängig"),
+    ("Redo", "Wiederholen"),
+    ("Switch to Prepare", "Zu Prepare wechseln"),
+    ("Switch to Perform", "Zu Perform wechseln"),
+    ("Show the library", "Bibliothek zeigen"),
+    ("Show USB sticks", "USB-Sticks zeigen"),
+    ("Show recordings", "Aufnahmen zeigen"),
+    ("Start / stop recording", "Aufnahme starten / stoppen"),
+    ("Sync USB sticks now", "USB-Sticks jetzt synchronisieren"),
+    ("Eject the selected stick", "Gewählten Stick auswerfen"),
+    ("Quantize on / off", "Quantisierung an / aus"),
+    ("Search", "Suchen"),
+    ("Previous track", "Vorheriger Track"),
+    ("Next track", "Nächster Track"),
+    ("Previous list", "Vorherige Liste"),
+    ("Next list", "Nächste Liste"),
+    ("Select all tracks", "Alle Tracks auswählen"),
+    ("Load the selected track (free deck)", "Gewählten Track laden (freies Deck)"),
+    ("Load the selected track to deck {}", "Gewählten Track auf Deck {} laden"),
+    ("Remove the selected tracks from the list", "Gewählte Tracks aus der Liste entfernen"),
+    ("New playlist", "Neue Playlist"),
+    ("New set", "Neues Set"),
+    ("New folder", "Neuer Ordner"),
+    ("New smart list", "Neue Smart-Liste"),
+    ("Delete the open list", "Offene Liste löschen"),
+    ("Add a music folder", "Musikordner hinzufügen"),
+    ("Import from rekordbox", "Aus rekordbox importieren"),
+    ("Find moved files", "Verschobene Dateien finden"),
+    ("Preview play / pause", "Vorhören Play / Pause"),
+    ("Back to the cue point", "Zurück zum Cue-Punkt"),
+    ("Hot cue {}", "Hot Cue {}"),
+    ("Clear hot cue {}", "Hot Cue {} löschen"),
+    ("Add a memory cue", "Memory Cue setzen"),
+    ("Delete the memory cue at the cursor", "Memory Cue am Cursor löschen"),
+    ("Previous cue", "Vorheriger Cue"),
+    ("Next cue", "Nächster Cue"),
+    ("Cursor back (fine)", "Cursor zurück (fein)"),
+    ("Cursor forward (fine)", "Cursor vor (fein)"),
+    ("Cursor back 2 s", "Cursor 2 s zurück"),
+    ("Cursor forward 2 s", "Cursor 2 s vor"),
+    ("Beatgrid 10 ms earlier", "Beatgrid 10 ms früher"),
+    ("Beatgrid 10 ms later", "Beatgrid 10 ms später"),
+    ("Beatgrid double tempo", "Beatgrid doppeltes Tempo"),
+    ("Beatgrid half tempo", "Beatgrid halbes Tempo"),
+    ("Set the downbeat at the cursor", "Downbeat am Cursor setzen"),
+    ("Lock / unlock the beatgrid", "Beatgrid sperren / entsperren"),
+    ("Analyse the track", "Track analysieren"),
+    ("Play / pause", "Play / Pause"),
+    ("Cue", "Cue"),
+    ("Jump to the track start", "Zum Trackanfang springen"),
+    ("Beat sync", "Beat Sync"),
+    ("Sync master", "Sync-Master"),
+    ("Master tempo (key lock)", "Master Tempo (Key Lock)"),
+    ("Pitch bend + (hold)", "Pitch Bend + (halten)"),
+    ("Pitch bend − (hold)", "Pitch Bend − (halten)"),
+    ("Tempo up", "Tempo hoch"),
+    ("Tempo down", "Tempo runter"),
+    ("Beat jump forward", "Beat Jump vor"),
+    ("Beat jump back", "Beat Jump zurück"),
+    ("Loop in", "Loop In"),
+    ("Loop out", "Loop Out"),
+    ("Exit / reloop", "Exit / Reloop"),
+    ("Auto beat loop", "Auto Beat Loop"),
+    ("Halve the loop", "Loop halbieren"),
+    ("Double the loop", "Loop verdoppeln"),
+    ("{}-beat loop", "{}-Beat-Loop"),
+    ("Next memory cue", "Nächster Memory Cue"),
+    ("Previous memory cue", "Vorheriger Memory Cue"),
+    ("Sampler slot {}", "Sampler-Slot {}"),
 ];
+
+/// Whether `english` has a German translation (independent of the
+/// current language).
+pub fn has_german(english: &str) -> bool {
+    DE.iter().any(|(e, _)| *e == english)
+}
 
 /// Translates `english` into the current language.
 pub fn tr(english: &str) -> &str {
@@ -200,6 +321,15 @@ mod tests {
         assert_eq!(translate_message("Nothing to undo"), "Nichts rückgängig zu machen");
         assert_eq!(translate_message("Added Deeper to the collection — analysing"), "Deeper zur Sammlung hinzugefügt — wird analysiert");
         set_language(Language::English);
+    }
+
+    #[test]
+    fn no_duplicate_entries() {
+        let mut seen = std::collections::HashSet::new();
+        for (e, _) in DE {
+            assert!(seen.insert(*e), "duplicate entry {e}");
+        }
+        assert!(has_german("Undo") && !has_german("no such text"));
     }
 
     #[test]
