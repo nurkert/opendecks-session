@@ -130,6 +130,8 @@ export component TrackTable inherits Rectangle {
     in property <bool> descending;
     in property <bool> show-position;
     in property <string> empty-text;
+    // Row to keep in view after keyboard or controller navigation.
+    in property <int> focus-row: -1;
     callback sort(string);
     callback row-clicked(int, bool, bool);
     callback row-activated(int);
@@ -163,8 +165,19 @@ export component TrackTable inherits Rectangle {
                 width: min(parent.width - 64px, 460px);
             }
         }
-        if root.rows.length > 0: ListView {
+        if root.rows.length > 0: list := ListView {
             vertical-stretch: 1;
+            property <int> target: root.focus-row;
+            changed target => { self.reveal(); }
+            function reveal() {
+                if (root.focus-row < 0) { return; }
+                let top = root.focus-row * Theme.row-height;
+                if (top < -self.viewport-y) {
+                    self.viewport-y = -top;
+                } else if (top + Theme.row-height > -self.viewport-y + self.visible-height) {
+                    self.viewport-y = -(top + Theme.row-height - self.visible-height);
+                }
+            }
             for row[i] in root.rows: TrackLine {
                 item: row;
                 show-position: root.show-position;

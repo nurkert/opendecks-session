@@ -76,6 +76,7 @@ export component AppWindow inherits Window {
     // Browsing a stick: no editing.
     in property <bool> read-only;
     in property <int> selection-count;
+    in property <int> focus-row: -1;
 
     // Selected track.
     in property <bool> has-track;
@@ -286,6 +287,7 @@ export component AppWindow inherits Window {
                             rows: root.tracks;
                             sort-column: root.sort-column;
                             descending: root.sort-descending;
+                            focus-row: root.focus-row;
                             show-position: root.node-kind == "playlist" || root.node-kind == "set";
                             empty-text: root.node-kind == "all"
                                 ? @tr("Your library is empty. Use ADD MUSIC to add a folder, or import your rekordbox library once.")
@@ -527,6 +529,7 @@ export component AppWindow inherits Window {
                         descending: root.sort-descending;
                         show-position: root.node-kind == "playlist" || root.node-kind == "set";
                         empty-text: @tr("No tracks in this list.");
+                        focus-row: root.focus-row;
                         sort(c) => { root.sort(c); }
                         row-clicked(i, c, s) => { root.row-clicked(i, c, s); keys.focus(); }
                         row-activated(i) => { root.row-activated(i); }

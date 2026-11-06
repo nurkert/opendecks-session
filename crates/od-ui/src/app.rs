@@ -1483,6 +1483,7 @@ impl App {
                 Some(c) => (c + 1).min(len - 1),
             };
             self.select_row(next, false, false);
+            self.ui.set_focus_row(next as i32);
             return true;
         }
         if text == " " {
