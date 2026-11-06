@@ -235,7 +235,10 @@ fn master_db_import() {
     assert!((g.beats[0].time - 0.05).abs() < 1e-3);
     assert_eq!(lib.key_with_source(one.id).unwrap(), Some((MusicalKey::parse("8A").unwrap(), DataSource::Imported)));
     let an = lib.analysis(one.id).unwrap();
-    assert_eq!(an.phrases.len(), 2);
+    // The fixture's two phrases span one bar; readers get them normalised
+    // into one section (fragments under four bars merge, see
+    // od_core::normalize_phrases).
+    assert_eq!(an.phrases.len(), 1);
     assert!(!an.waveform.columns.is_empty());
     let cues = lib.cues(one.id).unwrap();
     assert_eq!(cues.len(), 3, "{cues:?}");
