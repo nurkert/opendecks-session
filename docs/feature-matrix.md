@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 204 features; 196 in scope: 75 DONE (38 %), 31 PARTIAL, 25 ENGINE-ONLY, 65 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
+**Summary:** 205 features; 197 in scope: 75 DONE (38 %), 31 PARTIAL, 26 ENGINE-ONLY, 65 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
 
 The reference list is the rekordbox 7 feature set (top plan) relevant to a DJ who prepares in
 EXPORT mode and plays in PERFORMANCE mode with a DDJ-FLX10 / DDJ-FLX4, extended by the
@@ -64,6 +64,7 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Duplicate track check | MISSING | — | — | P3 |
 | Import folder / files | DONE | `app.rs` `on_import_folder`, `od-cli import` | — |  |
 | rekordbox library + stick migration | DONE | `od-import-rekordbox`, `od-ui/src/import.rs` | 7 |  |
+| rekordbox preferences and keyboard shortcuts migration | ENGINE-ONLY | `crates/od-import-rekordbox/src/settings.rs`, `apps/od-cli/src/main.rs::rekordbox_settings_cmd`; Reader + mapping report (`od-cli rekordbox-settings`); applying to the preferences and an import-flow button wait for the persisted preferences; (SPEC §7) | 7 | P2 |
 | rekordbox XML / iTunes import-export | MISSING | — | — | P3 |
 | Missing files / relocate | DONE | `relocate.rs::check_missing/find_relocations`; `on_find_moved_files` | 1 |  |
 | Consolidate | ENGINE-ONLY | `relocate.rs::consolidate`; no UI | 1 | P3 |
@@ -311,11 +312,11 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 |---|---|
 | DONE | 75 |
 | PARTIAL | 31 |
-| ENGINE-ONLY | 25 |
+| ENGINE-ONLY | 26 |
 | MISSING | 65 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 6 |
-| **Total** | **204** |
+| **Total** | **205** |
 
 ## P1 gaps and implementation notes
 

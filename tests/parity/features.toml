@@ -456,6 +456,26 @@ evidence = ["od-ui/src/import.rs"]
 note = "`od-import-rekordbox`, `od-ui/src/import.rs`"
 
 [[feature]]
+id = "import-rekordbox-settings"
+area = "browser"
+name = "rekordbox preferences and keyboard shortcuts migration"
+scope = "in"
+status = "engine-only"
+prio = "P2"
+tests = [
+  "od-import-rekordbox::settings::tests::xml_settings_are_mapped",
+  "od-import-rekordbox::settings::tests::rgb_and_alphanumeric",
+  "od-import-rekordbox::settings::tests::keyboard_shortcuts_translate",
+  "od-import-rekordbox::settings::tests::my_settings_files",
+  "od-import-rekordbox::settings::tests::xml_settings_win_over_my_settings",
+  "od-import-rekordbox::settings::tests::broken_my_settings_header_is_reported",
+  "od-import-rekordbox::settings::tests::loads_files_from_a_folder",
+]
+evidence = ["crates/od-import-rekordbox/src/settings.rs", "apps/od-cli/src/main.rs::rekordbox_settings_cmd"]
+note = "Reader + mapping report (`od-cli rekordbox-settings`); applying to the preferences and an import-flow button wait for the persisted preferences"
+spec = "SPEC §7"
+
+[[feature]]
 id = "browser-xml-itunes-exchange"
 area = "browser"
 name = "rekordbox XML / iTunes import-export"
