@@ -57,11 +57,15 @@ codesign --force $SIGN "$APP/Contents/MacOS/od-cli"
 codesign --force $SIGN "$APP"
 codesign --verify --deep --strict "$APP"
 
-python3 -m venv "$DIST/.dmgbuild" >/dev/null
-"$DIST/.dmgbuild/bin/pip" install --quiet "dmgbuild==1.6.5"
+# A fresh venv outside target/ (CI caches target/, a cached venv can point
+# at a Python that no longer exists).
+VENV="${TMPDIR:-/tmp}/opendecks-dmgbuild"
+rm -rf "$VENV" "$DIST/.dmgbuild"
+python3 -m venv "$VENV" >/dev/null
+"$VENV/bin/pip" install --quiet "dmgbuild==1.6.5"
 OUT="$DIST/OpenDecks-Session-${VERSION}-macos-${ARCH}.dmg"
 rm -f "$OUT"
-"$DIST/.dmgbuild/bin/dmgbuild" -s packaging/macos/dmg-settings.py \
+"$VENV/bin/dmgbuild" -s packaging/macos/dmg-settings.py \
   -D app="$APP" -D background=packaging/assets/dmg-background.tiff -D icon=packaging/assets/OpenDecks.icns \
   "OpenDecks Session" "$OUT"
 echo "$OUT"
