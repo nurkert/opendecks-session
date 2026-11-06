@@ -9,10 +9,10 @@ import { DeviceLine } from "devices.slint";
 import { SetFlow } from "flow.slint";
 import { PerformView } from "perform.slint";
 import { PreferencesWindow, KeyRow } from "preferences.slint";
-import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow } from "structs.slint";
+import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion } from "structs.slint";
 
 export { PreferencesWindow, KeyRow }
-export { Theme, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow }
+export { Theme, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion }
 
 export struct ProposalRow {
     index: int,
@@ -130,6 +130,9 @@ export component AppWindow inherits Window {
 
     // Perform.
     in property <[DeckView]> decks;
+    in property <[LaneMotion]> lane-motion;
+    callback deck-zoom(int, float);
+    callback deck-zoom-reset(int);
     in property <[DeckView]> decks-left;
     in property <[DeckView]> decks-right;
     in property <[ChannelView]> channels;
@@ -336,6 +339,9 @@ export component AppWindow inherits Window {
             if root.mode == "perform" && !(root.kiosk && root.browser-open): PerformView {
                 vertical-stretch: 1;
                 decks: root.decks;
+                lane-motion: root.lane-motion;
+                zoom(d, delta) => { root.deck-zoom(d, delta); }
+                zoom-reset(d) => { root.deck-zoom-reset(d); }
                 decks-left: root.decks-left;
                 decks-right: root.decks-right;
                 channels: root.channels;

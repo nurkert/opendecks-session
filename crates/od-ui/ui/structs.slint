@@ -108,6 +108,26 @@ export struct FlowPoint {
     change: string,
 }
 
+// Motion of one zoomed waveform lane. The UI extrapolates the playhead with
+// animation-tick() at the display rate and translates the pre-rendered
+// tiles, so scrolling is smooth without re-rendering every frame.
+export struct LaneMotion {
+    loaded: bool,
+    // Playhead in seconds when this row was written, and its speed in
+    // seconds per millisecond (0 when paused).
+    pos: float,
+    rate: float,
+    // Visible span in seconds.
+    span: float,
+    // Three consecutive tiles, each `span` seconds wide, and their starts.
+    tile0: image,
+    tile1: image,
+    tile2: image,
+    t0: float,
+    t1: float,
+    t2: float,
+}
+
 export struct DeckView {
     deck: int,
     loaded: bool,

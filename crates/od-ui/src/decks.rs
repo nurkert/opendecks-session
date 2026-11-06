@@ -3,23 +3,25 @@
 //!
 //! The deck views are persistent models: every frame the engine state is
 //! projected into plain [`DeckFields`]; a row is written only when its
-//! fields, its waveform image or its per-track models changed. The
-//! scrolling waveform is re-rendered only when the playhead moved by at
-//! least one pixel (or zoom / size changed).
+//! fields or its per-track models changed. The zoomed waveforms scroll
+//! smoothly: tiles one lane wide are rendered once and the UI translates
+//! them, extrapolating the playhead at the display rate from the position
+//! and speed published here (see [`LaneScroll`]).
 
 use crate::app::{App, handler};
 use crate::models::{Rows, model};
 use crate::player::{cue_marks, phrase_marks};
-use crate::{CueMark, DeckView, HotCueSlot, PhraseMark, engine, format, player, render};
+use crate::{CueMark, DeckView, HotCueSlot, LaneMotion, PhraseMark, engine, format, player, render};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use od_controller::PadMode;
 use od_core::{Beatgrid, CueKind, TrackId, Waveform};
 use od_engine::{Command, DeckCommand, DeckState, EngineState, TempoRange};
-use slint::{ComponentHandle, Image, ModelRc, SharedString};
+use slint::{ComponentHandle, Image, Model, ModelRc, SharedString, VecModel};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 pub(crate) const DECKS: usize = 4;
 /// The hidden deck the Prepare preview plays on.
@@ -92,6 +94,10 @@ pub(crate) struct Decks {
     /// Separation progress (0..1) of queued or running tracks.
     stem_progress: HashMap<TrackId, f32>,
     pub views: DeckViews,
+    /// Waveform zoom per deck (1 = 8 s across, smaller = closer).
+    pub zoom: [f64; DECKS],
+    scroll: [LaneScroll; DECKS],
+    motion: Rc<VecModel<LaneMotion>>,
 }
 
 impl Default for Decks {
@@ -112,7 +118,98 @@ impl Default for Decks {
             stem_worker: None,
             stem_progress: HashMap::new(),
             views: DeckViews::default(),
+            zoom: [1.0; DECKS],
+            scroll: Default::default(),
+            motion: Rc::new(VecModel::from(vec![LaneMotion::default(); DECKS])),
         }
+    }
+}
+
+/// Smooth scrolling of one zoomed waveform lane: the rendered tiles and the
+/// motion last published to the UI.
+#[derive(Default)]
+struct LaneScroll {
+    /// What the tiles were rendered for: track, span (ms), size, phrases.
+    key: Option<(TrackId, i64, u32, u32, bool)>,
+    tiles: HashMap<i64, Image>,
+    first: Option<i64>,
+    sent_pos: f64,
+    sent_rate: f64,
+    sent_at: Option<Instant>,
+    loaded: bool,
+}
+
+/// Inputs for one lane's scroll update.
+struct ScrollIn<'a> {
+    meta: Option<&'a Loaded>,
+    position: f64,
+    /// Seconds of track per real second (0 when paused or scratching).
+    speed: f64,
+    span: f64,
+    width: u32,
+    height: u32,
+    phrases: bool,
+    now: Instant,
+}
+
+impl LaneScroll {
+    /// Brings the tiles up to date and returns a new motion row when the UI
+    /// needs one (new tiles, speed change, drift, or a periodic resync).
+    fn update(&mut self, i: &ScrollIn) -> Option<LaneMotion> {
+        let Some(m) = i.meta else {
+            if !self.loaded {
+                return None;
+            }
+            *self = Self::default();
+            return Some(LaneMotion::default());
+        };
+        let key = (m.id, (i.span * 1000.0).round() as i64, i.width, i.height, i.phrases);
+        let mut force = !self.loaded;
+        if self.key != Some(key) {
+            self.key = Some(key);
+            self.tiles.clear();
+            self.first = None;
+            force = true;
+        }
+        let rate = i.speed / 1000.0;
+        let elapsed_ms = self.sent_at.map(|t| i.now.duration_since(t).as_secs_f64() * 1000.0).unwrap_or(0.0);
+        let predicted = self.sent_pos + self.sent_rate * elapsed_ms;
+        let drift = i.position - predicted;
+        // While playing steadily, glide towards the engine position instead
+        // of jumping to it: engine updates arrive in audio-block steps.
+        let pos = if rate != 0.0 && self.sent_rate == rate && drift.abs() < 0.05 { predicted + drift * 0.15 } else { i.position };
+        let first = ((pos - i.span / 2.0) / i.span).floor() as i64;
+        let tiles_moved = self.first != Some(first);
+        if tiles_moved || force {
+            self.tiles.retain(|k, _| (first..first + 3).contains(k));
+            for k in first..first + 3 {
+                self.tiles.entry(k).or_insert_with(|| {
+                    render::detail_tile(&m.waveform, &m.grid, if i.phrases { &m.phrases } else { &[] }, k as f64 * i.span, i.span, i.width, i.height)
+                });
+            }
+            self.first = Some(first);
+        }
+        let resync = elapsed_ms > 500.0;
+        if !(force || tiles_moved || rate != self.sent_rate || drift.abs() > 0.004 || resync) {
+            return None;
+        }
+        self.loaded = true;
+        self.sent_pos = pos;
+        self.sent_rate = rate;
+        self.sent_at = Some(i.now);
+        let tile = |k: i64| self.tiles.get(&k).cloned().unwrap_or_default();
+        Some(LaneMotion {
+            loaded: true,
+            pos: pos as f32,
+            rate: rate as f32,
+            span: i.span as f32,
+            tile0: tile(first),
+            tile1: tile(first + 1),
+            tile2: tile(first + 2),
+            t0: (first as f64 * i.span) as f32,
+            t1: ((first + 1) as f64 * i.span) as f32,
+            t2: ((first + 2) as f64 * i.span) as f32,
+        })
     }
 }
 
@@ -676,11 +773,13 @@ pub(crate) fn show_empty(app: &App) {
 pub(crate) fn project(app: &App, state: &EngineState) {
     let show_phrases = app.ui.get_show_phrases();
     let scale = app.ui.window().scale_factor();
-    let width = ((app.ui.window().size().width as f32 / scale - 120.0).max(400.0) * scale) as u32;
     let mut guard = app.decks.borrow_mut();
     let d = &mut *guard;
     let count = d.deck_count;
     let height = ((if count > 2 { 64.0 } else { 110.0 }) * scale) as u32;
+    // Waveform area of a lane: the window minus the numeral gutter.
+    let lane_width = ((app.ui.window().size().width as f32 / scale - 44.0).max(200.0) * scale) as u32;
+    let now = Instant::now();
     if d.views.all.len() != count {
         d.views.resize(count);
     }
@@ -700,14 +799,14 @@ pub(crate) fn project(app: &App, state: &EngineState) {
             lane.wave_key = None;
             dirty = true;
         }
-        if let Some(m) = meta {
-            let span = DETAIL_SPAN * s.tempo.max(0.25);
-            let key = WaveKey::new(m.id, s.position, span, width, height);
-            if lane.wave_key != Some(key) {
-                lane.waveform = render::detail(&m.waveform, &m.grid, if show_phrases { &m.phrases } else { &[] }, s.position, span, width, height);
-                lane.wave_key = Some(key);
-                dirty = true;
-            }
+        // Zoomed waveform: tiles + motion (span follows tempo, so beats keep
+        // their spacing; quantised to 10 ms to avoid re-rendering on every
+        // tempo-fader step).
+        let span = ((DETAIL_SPAN * d.zoom[i] * s.tempo.max(0.25)) * 100.0).round() / 100.0;
+        let speed = if s.playing && !s.scratching { s.speed } else { 0.0 };
+        let input = ScrollIn { meta, position: s.position, speed, span, width: lane_width, height, phrases: show_phrases, now };
+        if let Some(row) = d.scroll[i].update(&input) {
+            d.motion.set_row_data(i, row);
         }
         lane.pads.sync_eq(pad_slots(s, meta, 0..8));
         lane.pads_left.sync_eq(pad_slots(s, meta, 0..4));
@@ -740,8 +839,24 @@ fn deck_state(app: &App, d: usize) -> Option<DeckState> {
     engine::snapshot(app).map(|s| s.decks[d])
 }
 
+/// New zoom after a scroll of `delta` logical pixels (up = closer), as in
+/// rekordbox: from 1 s to 32 s across the lane.
+pub(crate) fn zoom_by(zoom: f64, delta: f64) -> f64 {
+    (zoom * (-delta * 0.004).exp()).clamp(0.125, 4.0)
+}
+
 pub(crate) fn wire(app: &Rc<App>) {
     let ui = &app.ui;
+    ui.set_lane_motion(ModelRc::from(app.decks.borrow().motion.clone()));
+    ui.on_deck_zoom(handler!(app, |a, d: i32, delta: f32| {
+        let i = (d as usize).saturating_sub(1).min(DECKS - 1);
+        let mut decks = a.decks.borrow_mut();
+        decks.zoom[i] = zoom_by(decks.zoom[i], delta as f64);
+    }));
+    ui.on_deck_zoom_reset(handler!(app, |a, d: i32| {
+        let i = (d as usize).saturating_sub(1).min(DECKS - 1);
+        a.decks.borrow_mut().zoom[i] = 1.0;
+    }));
     // Deck callbacks carry 1-based deck numbers.
     let idx = |d: i32| (d as usize).saturating_sub(1).min(DECKS - 1);
     ui.on_deck_toggle_play(handler!(app, |a, d: i32| engine::deck_cmd(&a, d as usize - 1, DeckCommand::TogglePlay)));

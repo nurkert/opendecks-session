@@ -161,9 +161,20 @@ pub fn preview(w: &Waveform, width: u32, height: u32) -> Image {
 /// along the bottom. Audio already played is drawn dimmed.
 #[allow(clippy::too_many_arguments)]
 pub fn detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], position: f64, span: f64, width: u32, height: u32) -> Image {
+    draw_detail(w, grid, phrases, position - span / 2.0, span, Some(position), width, height)
+}
+
+/// One tile of the scrolling waveform: `span` seconds from `start`, nothing
+/// dimmed. The UI scrolls tiles by translating them, so the CPU renders a
+/// tile only when the playhead enters a new one.
+pub fn detail_tile(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64, span: f64, width: u32, height: u32) -> Image {
+    draw_detail(w, grid, phrases, start, span, None, width, height)
+}
+
+#[allow(clippy::too_many_arguments)]
+fn draw_detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64, span: f64, dim_before: Option<f64>, width: u32, height: u32) -> Image {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width.max(1), height.max(1));
     fill(&mut buf, GROUND);
-    let start = position - span / 2.0;
     let secs_per_px = span / width.max(1) as f64;
     let strip = (height / 18).max(3);
     let wave_h = height - strip - 1;
@@ -193,7 +204,7 @@ pub fn detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], position: f64, 
             peak: acc.peak.max(c.peak),
         });
         let amp = (c.peak as f32 / 255.0 * (wave_h as f32 / 2.0 - mark_h as f32 - 2.0)).max(1.0) as u32;
-        column(&mut buf, x, mid, amp, &c, t < position);
+        column(&mut buf, x, mid, amp, &c, dim_before.is_some_and(|p| t < p));
     }
     // Beatgrid on top of the waveform, as thin lines DJs read at a glance:
     // beats, bar starts with markers top and bottom, 16-bar starts in amber.
@@ -299,6 +310,22 @@ mod tests {
         // Bar start one bar (100 px) later.
         assert_eq!(px(300, 40), DOWNBEAT);
         assert_eq!(px(300, 2), DOWNBEAT_MARK);
+    }
+
+    #[test]
+    fn tiles_join_seamlessly() {
+        let w = Waveform { columns_per_second: 150.0, columns: (0..1500).map(|i| WaveformColumn { low: (i % 200) as u8, mid: 40, high: 20, peak: (i % 200) as u8 }).collect() };
+        let g = Beatgrid::constant(120.0, 0.0, 1, 10.0);
+        // Two 4 s tiles side by side equal one 8 s detail without dimming.
+        let a = detail_tile(&w, &g, &[], 0.0, 4.0, 200, 60).to_rgba8().unwrap();
+        let b = detail_tile(&w, &g, &[], 4.0, 4.0, 200, 60).to_rgba8().unwrap();
+        let whole = detail_tile(&w, &g, &[], 0.0, 8.0, 400, 60).to_rgba8().unwrap();
+        for y in [10u32, 30, 50] {
+            for x in [0u32, 57, 199] {
+                assert_eq!(a.as_slice()[(y * 200 + x) as usize], whole.as_slice()[(y * 400 + x) as usize]);
+                assert_eq!(b.as_slice()[(y * 200 + x) as usize], whole.as_slice()[(y * 400 + 200 + x) as usize]);
+            }
+        }
     }
 
     #[test]
