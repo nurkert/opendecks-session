@@ -1,0 +1,18 @@
+[package]
+name = "od-format-pioneer"
+description = "Reader and writer for the legacy Pioneer DJ USB export format (export.pdb and ANLZ files)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+od-core.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+# Independent parser used only for cross-validation in tests (MPL-2.0, not
+# linked into the shipped crate). Pinned to a commit that understands the
+# packed row counts, menu tables and history rows.
+rekordcrate = { git = "https://github.com/holzhaus/rekordcrate", rev = "68cd702e9c78bde4b9eab477e0a7547a0cb69768", default-features = false }
+binrw = "0.15"
+fallible-iterator = "0.3"
