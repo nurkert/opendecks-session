@@ -74,12 +74,15 @@ impl Library {
             std::fs::create_dir_all(dir)?;
         }
         let existed = path.exists();
-        let conn = Connection::open(path)?;
+        let conn = if portable {
+            // FAT/exFAT do not support POSIX byte-range locks; lock with a
+            // dot-file instead.
+            Connection::open_with_flags_and_vfs(path, rusqlite::OpenFlags::default(), c"unix-dotfile")?
+        } else {
+            Connection::open(path)?
+        };
         let mut lib = Self { conn, path: Some(path.to_path_buf()) };
-        lib.configure()?;
-        if portable {
-            lib.conn.execute_batch("PRAGMA journal_mode = DELETE; PRAGMA synchronous = FULL;")?;
-        }
+        lib.configure(portable)?;
         if existed && lib.schema_version()? < SCHEMA_VERSION && lib.schema_version()? > 0 {
             backup::backup_before_migration(&lib)?;
         }
@@ -91,7 +94,7 @@ impl Library {
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
         let mut lib = Self { conn, path: None };
-        lib.configure()?;
+        lib.configure(false)?;
         lib.migrate()?;
         Ok(lib)
     }
@@ -109,13 +112,16 @@ impl Library {
         &self.conn
     }
 
-    fn configure(&mut self) -> Result<()> {
-        self.conn.execute_batch(
-            "PRAGMA journal_mode = WAL;
-             PRAGMA synchronous = NORMAL;
-             PRAGMA foreign_keys = ON;
-             PRAGMA busy_timeout = 5000;",
-        )?;
+    /// Portable (removable media): rollback journal and full syncs, never
+    /// WAL, whose shared-memory file does not work on FAT/exFAT sticks.
+    fn configure(&mut self, portable: bool) -> Result<()> {
+        let journal = if portable {
+            "PRAGMA journal_mode = DELETE; PRAGMA synchronous = FULL;"
+        } else {
+            "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;"
+        };
+        self.conn.execute_batch(journal)?;
+        self.conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;")?;
         Ok(())
     }
 
