@@ -16,7 +16,7 @@ export component SetFlow inherits Rectangle {
     property <length> column-width: root.points.length == 0 ? 0px : min(120px, (root.width - 24px) / root.points.length);
 
     Caps { x: 0; y: 0; text: @tr("SET FLOW") + "  ·  " + root.total; }
-    Caps { x: root.width - 260px; y: 0; width: 260px; horizontal-alignment: right; text: @tr("LINE HEIGHT = ENERGY   DASHED = CAUTION   STRUCK = CLASH"); font-size: 9px; }
+    Caps { x: root.width - 330px; y: 0; width: 330px; horizontal-alignment: right; text: @tr("HEIGHT ENERGY  ·  DASHED CAUTION  ·  STRUCK CLASH"); font-size: 9px; }
     HLine { y: 120px; width: parent.width; tone: Theme.rule; }
 
     for p[i] in root.points: Rectangle {

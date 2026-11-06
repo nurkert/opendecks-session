@@ -164,7 +164,15 @@ pub fn probe(path: &Path) -> Result<ProbeInfo> {
         apply_revision(rev, &mut tags, &mut artwork);
     }
     if tags.title.is_empty() {
-        tags.title = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default().to_string();
+        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default().to_string();
+        // Common file naming without tags: "Artist - Title".
+        match stem.split_once(" - ") {
+            Some((artist, title)) if tags.artist.is_empty() && !artist.trim().is_empty() && !title.trim().is_empty() => {
+                tags.artist = artist.trim().to_string();
+                tags.title = title.trim().to_string();
+            }
+            _ => tags.title = stem,
+        }
     }
     let file_len = std::fs::metadata(path)?.len();
     let bit_rate_kbps = duration
@@ -310,6 +318,10 @@ mod tests {
         assert_eq!(info.channels, 2);
         assert!((info.duration.unwrap() - 1.5).abs() < 0.01);
         assert_eq!(info.tags.title, "tone");
+        let named = dir.path().join("Some Artist - Great Track (Extended Mix).wav");
+        write_wav(&named, 8_000, 1, 0.1);
+        let t = probe(&named).unwrap().tags;
+        assert_eq!((t.artist.as_str(), t.title.as_str()), ("Some Artist", "Great Track (Extended Mix)"));
         assert_eq!(info.format, Some(AudioFormat::Wav));
 
         let mono = decode(&p, Layout::Mono).unwrap();

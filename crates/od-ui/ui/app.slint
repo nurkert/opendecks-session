@@ -50,8 +50,8 @@ export component AppWindow inherits Window {
     title: "OpenDecks Session";
     preferred-width: 1440px;
     preferred-height: 900px;
-    min-width: 960px;
-    min-height: 600px;
+    min-width: 1180px;
+    min-height: 640px;
     background: Theme.ground;
     default-font-family: Theme.family;
     default-font-size: Theme.body;
@@ -192,7 +192,7 @@ export component AppWindow inherits Window {
 
         HorizontalLayout {
             if !root.kiosk || root.mode == "prepare": Rail {
-                width: 248px;
+                width: 232px;
                 tree: root.tree;
                 selected-node: root.selected-node;
                 section: root.section;
@@ -238,12 +238,12 @@ export component AppWindow inherits Window {
                         if root.section == "library": HorizontalLayout {
                             spacing: 8px;
                             search := Field {
-                                width: 280px;
+                                min-width: 140px;
+                                horizontal-stretch: 1;
                                 placeholder: @tr("SEARCH  ⌘F");
                                 text <=> root.search-text;
                                 edited(t) => { root.search(t); }
                             }
-                            Rectangle { horizontal-stretch: 1; }
                             PlateButton { compact: true; label: @tr("ADD MUSIC"); tone: Theme.live; clicked => { root.import-folder(); } }
                             PlateButton { compact: true; label: @tr("PLAYLIST"); glyph: "+"; clicked => { root.create-node("playlist"); } }
                             PlateButton { compact: true; label: @tr("SET"); glyph: "+"; tone: Theme.attention; clicked => { root.create-node("set"); } }
@@ -393,7 +393,7 @@ export component AppWindow inherits Window {
 
                     // Right column: track plate and device board.
                     VerticalLayout {
-                        width: 372px;
+                        width: 340px;
                         padding: 20px;
                         spacing: 24px;
                         TrackPlate {

@@ -92,7 +92,7 @@ component TrackLine inherits Rectangle {
         Cell { width: Columns.time; text: root.item.time; color: Theme.bone-3; horizontal-alignment: right; }
         Rectangle {
             width: Columns.rating;
-            HorizontalLayout {
+            if root.item.rating > 0: HorizontalLayout {
                 alignment: end;
                 spacing: 4px;
                 padding-top: 10px; padding-bottom: 10px;

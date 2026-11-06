@@ -28,11 +28,12 @@ pub fn resample(input: &[f32], channels: usize, from: u32, to: u32) -> Vec<f32> 
     let cutoff = ratio.min(1.0) * 0.95;
     let half = HALF_TAPS as f64 / cutoff.min(1.0);
     let mut out = vec![0f32; frames_out * channels];
+    let mut acc = vec![0f64; channels];
     for o in 0..frames_out {
         let center = o as f64 / ratio;
         let lo = (center - half).ceil() as i64;
         let hi = (center + half).floor() as i64;
-        let mut acc = vec![0f64; channels];
+        acc.iter_mut().for_each(|a| *a = 0.0);
         let mut norm = 0.0;
         for i in lo..=hi {
             if i < 0 || i as usize >= frames_in {

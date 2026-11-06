@@ -115,9 +115,18 @@ fn macos_disk_info(mount: &Path) -> Option<MacDiskInfo> {
     let location = field("Device Location").unwrap_or_default();
     let removable = field("Removable Media").unwrap_or_default();
     let protocol = field("Protocol").unwrap_or_default();
-    let external = location.eq_ignore_ascii_case("external")
-        || removable.eq_ignore_ascii_case("removable")
-        || protocol.eq_ignore_ascii_case("usb");
+    let read_only = field("Volume Read-Only").or_else(|| field("Media Read-Only")).unwrap_or_default();
+    // Disk images, network volumes and read-only media are never sticks.
+    let excluded = protocol.eq_ignore_ascii_case("disk image")
+        || protocol.eq_ignore_ascii_case("virtual interface")
+        || read_only.to_ascii_lowercase().starts_with("yes")
+        || mount.join("Backups.backupdb").exists()
+        || mount.join(".timemachine").exists();
+    let external = !excluded
+        && (location.eq_ignore_ascii_case("external")
+            || removable.eq_ignore_ascii_case("removable")
+            || protocol.eq_ignore_ascii_case("usb")
+            || protocol.eq_ignore_ascii_case("secure digital"));
     let fs_type = field("Type (Bundle)").unwrap_or_default();
     let device = field("Device Identifier");
     cache.lock().ok()?.insert(mount.to_path_buf(), (external, fs_type.clone(), device.clone()));

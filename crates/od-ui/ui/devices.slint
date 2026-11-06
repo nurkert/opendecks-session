@@ -26,21 +26,21 @@ export component DeviceLine inherits Rectangle {
 
     VLine { x: 0; y: 8px; height: parent.height - 16px; form: root.form; tone: root.tone; }
     Text {
-        x: 18px; y: 8px; width: parent.width - 140px;
+        x: 18px; y: 8px; width: parent.width - 176px;
         text: root.device.name;
         font-family: Theme.family; font-size: 15px; font-weight: 600;
         color: root.device.connected ? Theme.bone : Theme.bone-2;
         overflow: elide;
     }
     Text {
-        x: 18px; y: 28px; width: parent.width - 140px;
+        x: 18px; y: 28px; width: parent.width - 176px;
         text: root.device.detail;
         font-family: Theme.family; font-size: 12px; letter-spacing: 0.6px;
         color: root.device.state == "error" ? Theme.fault : Theme.bone-3;
         overflow: elide;
     }
     if root.device.state == "syncing": ProgressLine {
-        x: 18px; y: 50px; width: parent.width - 140px;
+        x: 18px; y: 50px; width: parent.width - 176px;
         progress: root.device.progress;
         tone: Theme.attention;
     }
@@ -50,7 +50,7 @@ export component DeviceLine inherits Rectangle {
         font-size: 10px;
     }
     HorizontalLayout {
-        x: parent.width - 124px; y: 10px; width: 124px; height: 26px;
+        x: parent.width - 160px; y: 10px; width: 160px; height: 26px;
         spacing: 6px;
         alignment: end;
         if root.device.connected && root.device.state != "syncing": PlateButton {
@@ -63,7 +63,7 @@ export component DeviceLine inherits Rectangle {
         }
     }
     TouchArea {
-        width: parent.width - 130px;
+        width: parent.width - 166px;
         clicked => { root.open(); }
     }
 }

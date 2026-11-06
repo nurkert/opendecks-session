@@ -22,7 +22,7 @@ component StateMark inherits Rectangle {
     in property <color> tone: Theme.bone;
     width: t.preferred-width + 14px;
     height: 18px;
-    VLine { x: 0; y: 3px; height: 12px; weight: 2px; tone: root.on ? root.tone : Theme.bone-3; form: root.on ? "solid" : "struck"; }
+    VLine { x: 0; y: 3px; height: 12px; weight: 2px; tone: root.on ? root.tone : Theme.rule-strong; form: root.on ? "solid" : "half"; }
     t := Text {
         x: 8px; height: parent.height;
         text: root.label;
@@ -170,9 +170,10 @@ export component PerformView inherits Rectangle {
             }
             Caps { text: root.engine-ready ? @tr("MASTER {} BPM", root.master-bpm) : root.engine-message; vertical-alignment: center; }
             Rectangle { horizontal-stretch: 1; }
-            PlateButton { compact: true; label: @tr("2 DECKS"); active: root.decks.length == 2; clicked => { root.set-deck-count(2); } }
-            PlateButton { compact: true; label: @tr("4 DECKS"); active: root.decks.length == 4; clicked => { root.set-deck-count(4); } }
+            PlateButton { horizontal-stretch: 0; compact: true; label: @tr("2 DECKS"); active: root.decks.length == 2; clicked => { root.set-deck-count(2); } }
+            PlateButton { horizontal-stretch: 0; compact: true; label: @tr("4 DECKS"); active: root.decks.length == 4; clicked => { root.set-deck-count(4); } }
             PlateButton {
+                horizontal-stretch: 0;
                 label: root.recording ? @tr("REC {}", root.recording-time) : @tr("RECORD");
                 tone: Theme.fault;
                 active: root.recording;

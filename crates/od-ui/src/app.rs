@@ -139,7 +139,7 @@ pub struct App {
     pub(crate) state: Rc<RefCell<State>>,
     pub(crate) perform: RefCell<crate::perform::Perform>,
     devices: Rc<DeviceManager>,
-    analysis: Rc<AnalysisWorker>,
+    pub(crate) analysis: Rc<AnalysisWorker>,
     worker_events: Receiver<WorkerEvent>,
     _timer: slint::Timer,
 }
@@ -188,6 +188,7 @@ impl App {
             _timer: slint::Timer::default(),
         });
         app.wire(wtx);
+        app.restore_view();
         app.refresh_all();
         let weak = Rc::downgrade(&app);
         app._timer.start(slint::TimerMode::Repeated, Duration::from_millis(250), move || {
@@ -198,8 +199,60 @@ impl App {
         Ok(app)
     }
 
+    /// Restores the last list, track, section and mode.
+    fn restore_view(&self) {
+        let mut st = self.state.borrow_mut();
+        let get = |k: &str| st.lib.meta(k).ok().flatten();
+        let node = get("ui.node").and_then(|v| v.parse::<i64>().ok()).map(NodeId);
+        let track = get("ui.track").and_then(|v| v.parse::<i64>().ok()).map(TrackId);
+        let section = get("ui.section");
+        let mode = get("ui.mode");
+        if let Some(n) = node.filter(|n| st.lib.node(*n).is_ok()) {
+            st.node = Some(n);
+            let in_list = st.lib.node(n).is_ok_and(|n| n.kind.has_entries());
+            st.sort = if in_list { "position".into() } else { "date_added".into() };
+            st.descending = !in_list;
+            let mut p = st.lib.node(n).ok().and_then(|n| n.parent);
+            while let Some(x) = p {
+                st.expanded.insert(x);
+                p = st.lib.node(x).ok().and_then(|n| n.parent);
+            }
+        }
+        st.load_rows();
+        if let Some(t) = track {
+            if let Some(i) = st.rows.iter().position(|r| r.id == t) {
+                st.selection = [i].into_iter().collect();
+                st.anchor = Some(i);
+                st.current = Some(t);
+                if st.node_kind() == Some(NodeKind::Set) {
+                    st.flow_selected = Some(i);
+                }
+            }
+        }
+        st.device_selected = st.lib.devices().ok().and_then(|d| d.first().map(|d| d.id));
+        drop(st);
+        if let Some(s) = section {
+            self.ui.set_section(s.into());
+        }
+        if let Some(m) = mode {
+            self.ui.set_mode(m.into());
+        }
+    }
+
+    /// Remembers the view for the next start (best effort).
+    pub(crate) fn remember_view(&self) {
+        let mut st = self.state.borrow_mut();
+        let node = st.node.map(|n| n.0.to_string()).unwrap_or_else(|| "-1".into());
+        let track = st.current.map(|t| t.0.to_string()).unwrap_or_default();
+        let _ = st.lib.set_meta("ui.node", &node);
+        let _ = st.lib.set_meta("ui.track", &track);
+        let _ = st.lib.set_meta("ui.section", self.ui.get_section().as_str());
+        let _ = st.lib.set_meta("ui.mode", self.ui.get_mode().as_str());
+    }
+
     pub fn run(self: &Rc<Self>) -> anyhow::Result<()> {
         self.ui.run()?;
+        self.remember_view();
         Ok(())
     }
 
@@ -364,6 +417,14 @@ impl App {
                         }
                     })
                     .collect();
+                // Energy relative to the set, so differences are visible.
+                let mut pts = pts;
+                let (lo, hi) = pts.iter().fold((f32::MAX, f32::MIN), |(a, b), p| (a.min(p.energy), b.max(p.energy)));
+                if hi > lo {
+                    for p in &mut pts {
+                        p.energy = 0.15 + 0.85 * (p.energy - lo) / (hi - lo);
+                    }
+                }
                 self.ui.set_flow(model(pts));
                 self.ui.set_flow_total(fmt_time(flow.total_duration).into());
             }
@@ -399,7 +460,7 @@ impl App {
         );
         self.ui.set_grid_locked(grid.as_ref().is_some_and(|(g, _)| g.locked));
         let scale = self.ui.window().scale_factor();
-        self.ui.set_track_overview(render::overview(&analysis.waveform, (332.0 * scale) as u32, (92.0 * scale) as u32));
+        self.ui.set_track_overview(render::overview(&analysis.waveform, (300.0 * scale) as u32, (92.0 * scale) as u32));
         let marks: Vec<CueMark> = cues
             .iter()
             .map(|c| {

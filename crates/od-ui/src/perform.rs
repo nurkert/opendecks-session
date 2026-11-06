@@ -762,4 +762,18 @@ pub(crate) fn wire(app: &Rc<App>) {
     });
     let msg = app.perform.borrow().message.clone();
     ui.set_engine_message(msg.into());
+
+    // OPENDECKS_AUTOLOAD="1:12,2:13" loads tracks on start (standalone
+    // setups and testing).
+    if let Ok(spec) = std::env::var("OPENDECKS_AUTOLOAD") {
+        for part in spec.split(',') {
+            if let Some((d, t)) = part.split_once(':') {
+                if let (Ok(d), Ok(t)) = (d.trim().parse::<usize>(), t.trim().parse::<i64>()) {
+                    if (1..=DECKS).contains(&d) {
+                        load_track(app, d - 1, TrackId(t), None);
+                    }
+                }
+            }
+        }
+    }
 }
