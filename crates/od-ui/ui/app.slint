@@ -2,6 +2,7 @@ import { Theme } from "tokens.slint";
 import { VLine, HLine, ProgressLine } from "lines.slint";
 import { UpdateBar } from "update.slint";
 import { DragGhost } from "drag.slint";
+import { InfoPanel, TrackInfo } from "info.slint";
 import { Caps, PlateButton, Field, LineToggle, Splitter, TooltipState } from "controls.slint";
 import { TooltipLayer } from "tooltip.slint";
 import { Sidebar } from "sidebar.slint";
@@ -18,7 +19,7 @@ export { PreferencesWindow, KeyRow }
 // Perform panels (FX, sampler, pad modes).
 import { FxUnitView, SamplerPadView, SamplerView } from "structs.slint";
 export { FxUnitView, SamplerPadView, SamplerView }
-export { Theme, TooltipState, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget }
+export { Theme, TooltipState, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget, TrackInfo }
 
 export struct ProposalRow {
     index: int,
@@ -239,6 +240,10 @@ export component AppWindow inherits Window {
     callback row-rated(int, int);
     callback row-menu(int, string);
     in property <[MenuTarget]> menu-playlists;
+    // Track info panel (right of the browser).
+    in-out property <bool> info-open;
+    in property <TrackInfo> track-info;
+    callback info-edit(string, string);
     callback import-folder();
     callback import-rekordbox();
     callback explorer-select(int);
@@ -601,6 +606,12 @@ export component AppWindow inherits Window {
                             text <=> root.search-text;
                             edited(t) => { root.search(t); }
                         }
+                        if !root.kiosk: PlateButton {
+                            horizontal-stretch: 0; compact: true; label: "INFO";
+                            active: root.info-open; tone: Theme.w486;
+                            tooltip: @tr("Show the tags of the selected track");
+                            clicked => { root.info-open = !root.info-open; }
+                        }
                     }
                     if root.section == "library" && root.node-kind == "smart": VerticalLayout {
                         spacing: 4px;
@@ -751,6 +762,10 @@ export component AppWindow inherits Window {
                         }
                         Rectangle { vertical-stretch: 1; }
                     }
+                }
+                if root.info-open && !root.kiosk && root.section == "library": InfoPanel {
+                    info: root.track-info;
+                    edit(f, v) => { root.info-edit(f, v); }
                 }
             }
 

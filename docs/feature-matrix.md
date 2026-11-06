@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 111 DONE (54 %), 29 PARTIAL, 18 ENGINE-ONLY, 48 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 115 DONE (56 %), 29 PARTIAL, 15 ENGINE-ONLY, 47 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -47,10 +47,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Drag and drop (table → tree, Finder → library) | MISSING | No drag/drop handlers in `ui/*.slint` (with reorder) | — | **P1** |
 | Search | DONE | `tracks.rs::search`; `app.rs` `on_search` | 2 |  |
 | Filter (BPM range, key, rating, My Tag, relative to master deck) | PARTIAL | Smart-list rules can express it (`smart.rs` `Field`/`Op`, incl. `HarmonicWith`); no quick filter bar in the browser | 1 | P2 |
-| Rating (stars) | PARTIAL | Shown and sortable (`TrackRow.rating`); not editable (`tracks.rs::set_tags` is unused by the UI) | — | **P1** |
-| Track colour | ENGINE-ONLY | `TrackTags.color` (`od-core/src/track.rs`), imported and exported; no column, no editor | — | **P1** |
-| Comments | ENGINE-ONLY | `TrackTags.comment`; smart-rule field `Comment`; no column, no editor | — | **P1** |
-| Edit tags (title, artist, album, genre, label, year …) | ENGINE-ONLY | `tracks.rs::set_tags` (journalled); no track-info editor | 1 | **P1** |
+| Rating (stars) | DONE | `tracks.rs::set_tags`; Five cells per row, click to rate (click again clears); also in the row context menu. Verified by clicking in the running app | 1 | **P1** |
+| Track colour | DONE | `od-core/src/track.rs`; Colour tag bar per row; set via the row context menu (eight colours, none) | 1 | **P1** |
+| Comments | DONE | Edited in the track info panel (INFO), saved with Return as one undo step. Verified in the running app | 1 | **P1** |
+| Edit tags (title, artist, album, genre, label, year …) | DONE | `tracks.rs::set_tags`; Track info panel edits title, artist, album, genre, label, remixer, composer, year, comment | 2 | **P1** |
 | My Tag | ENGINE-ONLY | Model and undoable edits in `od-library` (`mytags.rs`), searchable and editable through the MCP server; no browser column or editor yet; importer skips My Tag smart conditions (`od-import-rekordbox/src/tests.rs`) | 1 | P2 |
 | Tag list / palette (holding area) | MISSING | — | — | P3 |
 | Related tracks | ENGINE-ONLY | `sets.rs::suggest_next`; FLX10 `browse.related` is mapped but dropped in `handle_action` | 1 | P2 |
@@ -79,7 +79,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Re-orderable columns and multi-sort | MISSING | Fixed column order, one sort key (`browser/tracks.rs`); (SPEC §5.5) | — | P3 |
 | Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | PARTIAL | `crates/od-ui/src/decks.rs::free_deck`; Activate/double-click and controller load work; drag to deck and the context menu do not exist; (UX §2.1) | 1 | **P1** |
 | Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | PARTIAL | Done for list and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight; verified by driving real mouse events). Missing: drop from Finder, automated UI test. Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (loads unless the deck is playing and load lock is on); Finder/Explorer files are imported on drop.; (SPEC §5.5) | — | **P1** |
-| Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | MISSING | No popup menus in `crates/od-ui/ui`; (UX §1.9) | — | P2 |
+| Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | PARTIAL | Context menu on rows: load to deck 1-4, add to playlist, colour, rating, analyse, show in file manager, remove from list. Missing: automated UI test; (UX §1.9) | — | P2 |
 | Info panel (track details beside the list) | MISSING | (SPEC §5.5; UX §1.6) | — | P2 |
 | Sub-browser (second tree + list for dragging between playlists) | MISSING | (UX §1.6, §4 P4.12) | — | P3 |
 | Automatic database backups (rotating) | DONE (beyond the usual) | `crates/od-library/src/backup.rs`; (SPEC §5.3) | 1 |  |
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 111 |
+| DONE | 115 |
 | PARTIAL | 29 |
-| ENGINE-ONLY | 18 |
-| MISSING | 48 |
+| ENGINE-ONLY | 15 |
+| MISSING | 47 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |

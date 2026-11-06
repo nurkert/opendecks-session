@@ -379,9 +379,13 @@ pub(crate) fn wire(app: &Rc<App>) {
             decks::load_selected_into_free_deck(&a);
         }
     }));
+    ui.on_info_edit(handler!(app, |a, field: SharedString, value: SharedString| {
+        let (field, value) = (field.to_string(), value.trim().to_string());
+        edit_tags(&a, |t| set_tag_field(t, &field, &value), "Tags saved");
+    }));
     ui.on_row_rated(handler!(app, |a, i: i32, n: i32| {
         select_row(&a, i as usize, false, false);
-        edit_tags(&a, |t| t.rating = n.clamp(0, 5) as u8, "Rating set");
+        edit_tags(&a, |t| t.rating = menu_rating(n as i64), "Rating set");
     }));
     ui.on_row_menu(handler!(app, |a, i: i32, action: SharedString| row_menu(&a, i as usize, action.as_str())));
     // Drag and drop: target 1..=4 = that deck, -1 = the Prepare player.
@@ -496,10 +500,10 @@ fn row_menu(app: &App, i: usize, action: &str) {
             }
         }
         "color" => {
-            let color = od_format_pioneer::TRACK_COLORS.get((n as usize).wrapping_sub(1)).map(|(_, c)| *c);
+            let color = menu_color(n);
             edit_tags(app, |t| t.color = color, "Colour set");
         }
-        "rating" => edit_tags(app, |t| t.rating = n.clamp(0, 5) as u8, "Rating set"),
+        "rating" => edit_tags(app, |t| t.rating = menu_rating(n), "Rating set"),
         "analyse" => {
             if app.guard_read_only() {
                 return;
@@ -523,5 +527,82 @@ fn row_menu(app: &App, i: usize, action: &str) {
         }
         "remove" => remove_selected(app),
         _ => {}
+    }
+}
+
+/// Track colour for menu entry `n` (1..=8 the eight colour tags, else none).
+pub(crate) fn menu_color(n: i64) -> Option<od_core::CueColor> {
+    od_format_pioneer::TRACK_COLORS.get((n as usize).wrapping_sub(1)).map(|(_, c)| *c)
+}
+
+/// Star rating for a click / menu value, 0..=5.
+pub(crate) fn menu_rating(n: i64) -> u8 {
+    n.clamp(0, 5) as u8
+}
+
+/// Sets one text tag field from the info panel ("" clears it).
+pub(crate) fn set_tag_field(t: &mut od_core::TrackTags, field: &str, value: &str) {
+    let v = value.to_string();
+    match field {
+        "title" => t.title = v,
+        "artist" => t.artist = v,
+        "album" => t.album = v,
+        "genre" => t.genre = v,
+        "label" => t.label = v,
+        "remixer" => t.remixer = v,
+        "composer" => t.composer = v,
+        "comment" => t.comment = v,
+        "year" => t.year = value.parse().ok(),
+        _ => {}
+    }
+}
+
+/// Fills the info panel from the current track.
+pub(crate) fn refresh_info(app: &App) {
+    let st = app.state.borrow();
+    let info = st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| crate::TrackInfo {
+        has_track: true,
+        read_only: st.read_only(),
+        title: t.tags.title.clone().into(),
+        artist: t.tags.artist.clone().into(),
+        album: t.tags.album.clone().into(),
+        genre: t.tags.genre.clone().into(),
+        label: t.tags.label.clone().into(),
+        remixer: t.tags.remixer.clone().into(),
+        composer: t.tags.composer.clone().into(),
+        year: t.tags.year.map(|y| y.to_string()).unwrap_or_default().into(),
+        comment: t.tags.comment.clone().into(),
+        bpm: t.bpm.map(|b| format!("{b:.2}")).unwrap_or_default().into(),
+        key: st.key_text(&t).into(),
+        time: crate::format::time(t.duration).into(),
+        path: st.resolve(&t.path).display().to_string().into(),
+        added: t.date_added.clone().into(),
+        plays: t.play_count.to_string().into(),
+    });
+    app.ui.set_track_info(info.unwrap_or_default());
+}
+
+#[cfg(test)]
+mod tag_tests {
+    use super::*;
+
+    #[test]
+    fn colour_and_rating_menu_values() {
+        assert_eq!(menu_color(1), Some(od_format_pioneer::TRACK_COLORS[0].1));
+        assert_eq!(menu_color(8), Some(od_format_pioneer::TRACK_COLORS[7].1));
+        assert_eq!(menu_color(0), None);
+        assert_eq!(menu_color(9), None);
+        assert_eq!((menu_rating(4), menu_rating(9), menu_rating(-1)), (4, 5, 0));
+    }
+
+    #[test]
+    fn info_fields_edit_the_right_tag() {
+        let mut t = od_core::TrackTags::default();
+        set_tag_field(&mut t, "comment", "warm-up opener");
+        set_tag_field(&mut t, "year", "2019");
+        set_tag_field(&mut t, "genre", "Drum & Bass");
+        assert_eq!((t.comment.as_str(), t.year, t.genre.as_str()), ("warm-up opener", Some(2019), "Drum & Bass"));
+        set_tag_field(&mut t, "year", "");
+        assert_eq!(t.year, None);
     }
 }

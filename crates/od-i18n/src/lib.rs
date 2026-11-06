@@ -124,6 +124,7 @@ const DE: &[(&str, &str)] = &[
     ("{} days ago", "vor {} Tagen"),
     ("Check for updates", "Nach Updates suchen"),
     ("Rating set", "Bewertung gesetzt"),
+    ("Tags saved", "Tags gespeichert"),
     ("Colour set", "Farbe gesetzt"),
     ("Stem separation failed: {}", "Stem-Trennung fehlgeschlagen: {}"),
     ("Recording saved: {} ({} tracks)", "Aufnahme gespeichert: {} ({} Tracks)"),

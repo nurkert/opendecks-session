@@ -1,0 +1,81 @@
+// Track info panel at the right of the browser: every tag of the selected
+// track, editable in place (Return saves one field as one undo step).
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, Field } from "controls.slint";
+
+export struct TrackInfo {
+    has-track: bool,
+    read-only: bool,
+    title: string,
+    artist: string,
+    album: string,
+    genre: string,
+    label: string,
+    remixer: string,
+    composer: string,
+    year: string,
+    comment: string,
+    bpm: string,
+    key: string,
+    time: string,
+    path: string,
+    added: string,
+    plays: string,
+}
+
+component InfoField inherits VerticalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <bool> editable: true;
+    callback save(string);
+    spacing: 2px;
+    Caps { text: root.label; font-size: 10px; }
+    if root.editable: Field { height: 28px; text: root.value; accepted(t) => { root.save(t); } }
+    if !root.editable: Text {
+        text: root.value == "" ? "—" : root.value;
+        font-family: Theme.family; font-size: 13px; color: Theme.bone-2; wrap: word-wrap;
+    }
+}
+
+export component InfoPanel inherits Rectangle {
+    in property <TrackInfo> info;
+    // field ("title", "artist", …), new value
+    callback edit(string, string);
+    background: Theme.ground;
+    width: 300px;
+    VLine { x: 0; height: parent.height; weight: 1px; tone: Theme.rule; }
+    if !root.info.has-track: Text {
+        text: @tr("Select a track to see and edit its tags.");
+        font-family: Theme.family; font-size: 13px; color: Theme.bone-3; wrap: word-wrap;
+        x: 16px; width: parent.width - 32px;
+    }
+    if root.info.has-track: Flickable {
+        x: 1px; width: parent.width - 1px;
+        VerticalLayout {
+            padding: 14px;
+            spacing: 10px;
+            Caps { text: @tr("TRACK INFO"); color: Theme.bone-2; }
+            InfoField { label: @tr("TITLE"); value: root.info.title; editable: !root.info.read-only; save(v) => { root.edit("title", v); } }
+            InfoField { label: @tr("ARTIST"); value: root.info.artist; editable: !root.info.read-only; save(v) => { root.edit("artist", v); } }
+            InfoField { label: @tr("ALBUM"); value: root.info.album; editable: !root.info.read-only; save(v) => { root.edit("album", v); } }
+            InfoField { label: @tr("GENRE"); value: root.info.genre; editable: !root.info.read-only; save(v) => { root.edit("genre", v); } }
+            InfoField { label: @tr("LABEL"); value: root.info.label; editable: !root.info.read-only; save(v) => { root.edit("label", v); } }
+            InfoField { label: @tr("REMIXER"); value: root.info.remixer; editable: !root.info.read-only; save(v) => { root.edit("remixer", v); } }
+            InfoField { label: @tr("COMPOSER"); value: root.info.composer; editable: !root.info.read-only; save(v) => { root.edit("composer", v); } }
+            InfoField { label: @tr("YEAR"); value: root.info.year; editable: !root.info.read-only; save(v) => { root.edit("year", v); } }
+            InfoField { label: @tr("COMMENT"); value: root.info.comment; editable: !root.info.read-only; save(v) => { root.edit("comment", v); } }
+            HLine { tone: Theme.rule; }
+            HorizontalLayout {
+                spacing: 12px;
+                InfoField { label: "BPM"; value: root.info.bpm; editable: false; }
+                InfoField { label: @tr("KEY"); value: root.info.key; editable: false; }
+                InfoField { label: @tr("TIME"); value: root.info.time; editable: false; }
+            }
+            InfoField { label: @tr("ADDED"); value: root.info.added; editable: false; }
+            InfoField { label: @tr("PLAYS"); value: root.info.plays; editable: false; }
+            InfoField { label: @tr("FILE"); value: root.info.path; editable: false; }
+        }
+    }
+}

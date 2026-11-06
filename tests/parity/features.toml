@@ -278,45 +278,52 @@ id = "browser-rating"
 area = "browser"
 name = "Rating (stars)"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P1"
-tests = []
+tests = [
+  "od-ui::browser::tag_tests::colour_and_rating_menu_values",
+]
 evidence = ["tracks.rs::set_tags"]
-note = "Shown and sortable (`TrackRow.rating`); not editable (`tracks.rs::set_tags` is unused by the UI)"
+note = "Five cells per row, click to rate (click again clears); also in the row context menu. Verified by clicking in the running app"
 
 [[feature]]
 id = "browser-track-colour"
 area = "browser"
 name = "Track colour"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P1"
-tests = []
+tests = [
+  "od-ui::browser::tag_tests::colour_and_rating_menu_values",
+]
 evidence = ["od-core/src/track.rs"]
-note = "`TrackTags.color` (`od-core/src/track.rs`), imported and exported; no column, no editor"
+note = "Colour tag bar per row; set via the row context menu (eight colours, none)"
 
 [[feature]]
 id = "browser-comments"
 area = "browser"
 name = "Comments"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P1"
-tests = []
-note = "`TrackTags.comment`; smart-rule field `Comment`; no column, no editor"
+tests = [
+  "od-ui::browser::tag_tests::info_fields_edit_the_right_tag",
+]
+note = "Edited in the track info panel (INFO), saved with Return as one undo step. Verified in the running app"
 
 [[feature]]
 id = "browser-tag-editing"
 area = "browser"
 name = "Edit tags (title, artist, album, genre, label, year …)"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P1"
 tests = [
   "od-library::tracks::tests::tag_edit_updates_search_index",
+  "od-ui::browser::tag_tests::info_fields_edit_the_right_tag",
 ]
 evidence = ["tracks.rs::set_tags"]
-note = "`tracks.rs::set_tags` (journalled); no track-info editor"
+note = "Track info panel edits title, artist, album, genre, label, remixer, composer, year, comment"
 
 [[feature]]
 id = "browser-my-tag"
@@ -683,10 +690,11 @@ id = "browser-row-context-menu"
 area = "browser"
 name = "Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …)"
 scope = "in"
-status = "missing"
+status = "partial"
 prio = "P2"
-tests = []
-note = "No popup menus in `crates/od-ui/ui`"
+tests = [
+]
+note = "Context menu on rows: load to deck 1-4, add to playlist, colour, rating, analyse, show in file manager, remove from list. Missing: automated UI test"
 spec = "UX §1.9"
 
 [[feature]]

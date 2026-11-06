@@ -78,6 +78,7 @@ pub(crate) fn snap_to_beat(grid: &Beatgrid, t: f64) -> f64 {
 }
 
 pub(crate) fn refresh_detail(app: &App) {
+    crate::browser::refresh_info(app);
     let st = app.state.borrow();
     let Some(id) = st.player.current else {
         app.ui.set_has_track(false);
