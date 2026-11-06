@@ -1,5 +1,24 @@
 <p align="center"><img src="docs/assets/banner.png" alt="OpenDecks Session" width="100%"></p>
 
+<p align="center">
+  <a href="https://github.com/nurkert/opendecks-session/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/nurkert/opendecks-session/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/nurkert/opendecks-session/actions/workflows/release.yml"><img alt="Release build" src="https://github.com/nurkert/opendecks-session/actions/workflows/release.yml/badge.svg"></a>
+  <a href="https://github.com/nurkert/opendecks-session/releases"><img alt="Latest release" src="https://img.shields.io/github/v/release/nurkert/opendecks-session?include_prereleases&sort=semver"></a>
+  <a href="https://github.com/nurkert/opendecks-session/releases"><img alt="Downloads" src="https://img.shields.io/github/downloads/nurkert/opendecks-session/total"></a>
+  <a href="LICENSE"><img alt="License: GPL-3.0-or-later" src="https://img.shields.io/badge/license-GPL--3.0--or--later-blue.svg"></a>
+  <img alt="Platform: macOS, Linux, Raspberry Pi" src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Raspberry%20Pi-lightgrey.svg">
+  <img alt="Rust" src="https://img.shields.io/badge/rust-stable-orange.svg">
+  <a href="https://github.com/nurkert/opendecks-session/commits/main"><img alt="Last commit" src="https://img.shields.io/github/last-commit/nurkert/opendecks-session"></a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/nurkert/opendecks-session/releases/latest">Download</a> ·
+  <a href="docs/SPEC.md">Specification</a> ·
+  <a href="docs/feature-matrix.md">Feature parity</a> ·
+  <a href="docs/keyboard.md">Keyboard shortcuts</a> ·
+  <a href="docs/parity.md">Verification</a>
+</p>
+
 # OpenDecks Session
 
 Open-source DJ software in Rust for macOS, Linux and the Raspberry Pi.
