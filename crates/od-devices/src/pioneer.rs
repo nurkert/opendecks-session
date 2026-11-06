@@ -313,7 +313,7 @@ mod tests {
     }
 
     fn sync(lib: &mut Library, dev: od_core::DeviceId, stick: &Path) -> Vec<Proposal> {
-        let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![Box::new(NativeWriter), Box::new(PioneerWriter::default())];
+        let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![Box::new(NativeWriter { stems: None }), Box::new(PioneerWriter::default())];
         sync_device(lib, dev, stick, &mut writers, &SyncOptions::default(), &AtomicBool::new(false), |_| {})
             .unwrap()
             .proposals

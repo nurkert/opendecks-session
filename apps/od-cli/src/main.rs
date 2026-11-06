@@ -255,7 +255,7 @@ fn main() -> anyhow::Result<()> {
             let Some(device) = lib.device_by_uuid(&marker.device_uuid)? else { bail!("stick not registered in this library") };
             let mut writers: Vec<Box<dyn FormatWriter + Send>> = Vec::new();
             if device.formats.opendecks {
-                writers.push(Box::new(NativeWriter));
+                writers.push(Box::new(NativeWriter::default()));
             }
             if device.formats.pioneer {
                 writers.push(Box::new(PioneerWriter::default()));

@@ -86,7 +86,7 @@ impl ManagerConfig {
             writers: Arc::new(|f: &DeviceFormats| {
                 let mut w: Vec<Box<dyn FormatWriter + Send>> = Vec::new();
                 if f.opendecks {
-                    w.push(Box::new(NativeWriter));
+                    w.push(Box::new(NativeWriter::default()));
                 }
                 if f.pioneer {
                     w.push(Box::new(crate::pioneer::PioneerWriter::default()));

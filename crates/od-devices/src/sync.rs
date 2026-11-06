@@ -340,9 +340,53 @@ pub fn sync_device(
     Ok(report)
 }
 
-/// Writes the OpenDecks native format.
-#[derive(Default)]
-pub struct NativeWriter;
+/// Writes the OpenDecks native format. Separated stems from the desktop's
+/// stem cache travel along (`/OPENDECKS/stems/<hash>.odstem`), so a
+/// Raspberry Pi without separation still plays the parts.
+pub struct NativeWriter {
+    /// The desktop's stem cache directory (`None` = don't carry stems).
+    pub stems: Option<PathBuf>,
+}
+
+impl Default for NativeWriter {
+    fn default() -> Self {
+        Self { stems: Some(od_library::data_dir().join("stems")) }
+    }
+}
+
+/// Stem file name for a content hash (as the stem cache names them).
+fn stem_file(hash: &od_core::ContentHash) -> String {
+    let name: String = hash.0.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+    format!("{name}.odstem")
+}
+
+impl NativeWriter {
+    /// Copies cached stems of the device's tracks and removes stale ones.
+    fn carry_stems(&self, ctx: &SyncContext) -> std::io::Result<()> {
+        let Some(src) = &self.stems else { return Ok(()) };
+        let dst = ctx.root.join("OPENDECKS").join("stems");
+        let wanted: HashSet<String> = ctx.tracks.iter().map(|t| stem_file(&t.record.content_hash)).collect();
+        for name in &wanted {
+            let from = src.join(name);
+            let to = dst.join(name);
+            if from.is_file() && !to.is_file() {
+                std::fs::create_dir_all(&dst)?;
+                let tmp = dst.join(format!("{name}.part"));
+                std::fs::copy(&from, &tmp)?;
+                std::fs::rename(&tmp, &to)?;
+            }
+        }
+        if let Ok(entries) = std::fs::read_dir(&dst) {
+            for e in entries.flatten() {
+                let name = e.file_name().to_string_lossy().into_owned();
+                if !wanted.contains(&name) {
+                    let _ = std::fs::remove_file(e.path());
+                }
+            }
+        }
+        Ok(())
+    }
+}
 
 impl FormatWriter for NativeWriter {
     fn name(&self) -> &'static str {
@@ -375,7 +419,8 @@ impl FormatWriter for NativeWriter {
             stick.set_meta("synced_at", &ctx.library.now()?)?;
             Ok(())
         };
-        run().map_err(|e| e.to_string())
+        run().map_err(|e| e.to_string())?;
+        self.carry_stems(ctx).map_err(|e| format!("stems: {e}"))
     }
 }
 
@@ -423,7 +468,7 @@ mod tests {
     }
 
     fn run(f: &mut Fixture, dev: DeviceId) -> SyncReport {
-        let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![Box::new(NativeWriter)];
+        let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![Box::new(NativeWriter { stems: None })];
         sync_device(&mut f.lib, dev, &f.stick.clone(), &mut writers, &SyncOptions::default(), &AtomicBool::new(false), |_| {})
             .unwrap()
     }
@@ -467,6 +512,34 @@ mod tests {
         assert_eq!(stick.library.track_count().unwrap(), 2);
         let path = stick.library.track(c).unwrap().path;
         assert!(stick.resolve(&path).exists());
+    }
+
+    #[test]
+    fn cached_stems_travel_with_the_tracks() {
+        let mut f = fixture();
+        let a = add(&mut f, "Alpha", "X");
+        let b = add(&mut f, "Beta", "Y");
+        let pl = f.lib.create_node(None, NodeKind::Playlist, "Gig").unwrap();
+        f.lib.add_to_node(pl, &[a, b], None).unwrap();
+        let dev = f.lib.register_device("uuid", "Stick", DeviceFormats::default()).unwrap();
+        f.lib.set_device_nodes(dev, &[pl]).unwrap();
+        // Only Alpha has separated stems on the desktop.
+        let stems = f.music.join("stem-cache");
+        std::fs::create_dir_all(&stems).unwrap();
+        let ha = f.lib.track(a).unwrap().content_hash;
+        std::fs::write(stems.join(stem_file(&ha)), b"stems of alpha").unwrap();
+        let sync = |f: &mut Fixture| {
+            let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![Box::new(NativeWriter { stems: Some(stems.clone()) })];
+            sync_device(&mut f.lib, dev, &f.stick.clone(), &mut writers, &SyncOptions::default(), &AtomicBool::new(false), |_| {}).unwrap();
+        };
+        sync(&mut f);
+        let on_stick = f.stick.join("OPENDECKS/stems").join(stem_file(&ha));
+        assert_eq!(std::fs::read(&on_stick).unwrap(), b"stems of alpha");
+        assert_eq!(std::fs::read_dir(f.stick.join("OPENDECKS/stems")).unwrap().count(), 1);
+        // Alpha leaves the playlist: its stems leave the stick.
+        f.lib.remove_from_node(pl, &[0]).unwrap();
+        sync(&mut f);
+        assert!(!on_stick.exists());
     }
 
     #[test]
