@@ -154,6 +154,8 @@ impl Default for AdvancedSettings {
 pub const BUFFER_SIZES: [u32; 6] = [0, 64, 128, 256, 512, 1024];
 pub const SAMPLE_RATES: [u32; 3] = [0, 44_100, 48_000];
 pub const SCALES: [f32; 6] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
+/// Bar counter modes of the decks, in the order Preferences lists them.
+pub const BAR_COUNTERS: [&str; 3] = ["to-phrase", "to-memory-cue", "up"];
 /// Appearance modes, in the order the top-bar button cycles them.
 pub const APPEARANCES: [&str; 3] = ["dark", "light", "system"];
 pub const BPM_RANGES: [(u32, u32); 5] = [(58, 115), (68, 135), (78, 155), (87, 175), (98, 195)];
@@ -180,6 +182,9 @@ impl Settings {
         }
         if !["", "en", "de"].contains(&v.language.as_str()) {
             v.language = String::new();
+        }
+        if !BAR_COUNTERS.contains(&v.bar_counter.as_str()) {
+            v.bar_counter = "to-phrase".into();
         }
         if !APPEARANCES.contains(&v.appearance.as_str()) {
             v.appearance = "dark".into();
@@ -346,6 +351,9 @@ mod tests {
         assert_eq!(s.view.scale, 1.0);
         assert_eq!(s.view.key_notation, "camelot");
         assert_eq!(s.view.appearance, "dark");
+        assert_eq!(s.view.bar_counter, "to-phrase");
+        assert_eq!(Settings::from_json(r#"{"view": {"bar_counter": "sideways"}}"#).view.bar_counter, "to-phrase");
+        assert_eq!(Settings::from_json(r#"{"view": {"bar_counter": "up"}}"#).view.bar_counter, "up");
         assert_eq!(Settings::from_json(r#"{"view": {"appearance": "sepia"}}"#).view.appearance, "dark");
         assert_eq!(Settings::from_json(r#"{"view": {"appearance": "light"}}"#).view.appearance, "light");
         assert_eq!(s.audio.buffer, 512);

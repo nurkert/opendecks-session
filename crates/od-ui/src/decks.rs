@@ -130,7 +130,7 @@ impl Default for Decks {
 #[derive(Default)]
 struct LaneScroll {
     /// What the tiles were rendered for: track, span (ms), size, phrases.
-    key: Option<(TrackId, i64, u32, u32, bool)>,
+    key: Option<(TrackId, i64, u32, u32, bool, bool)>,
     tiles: HashMap<i64, Image>,
     first: Option<i64>,
     sent_pos: f64,
@@ -163,7 +163,7 @@ impl LaneScroll {
             *self = Self::default();
             return Some(LaneMotion::default());
         };
-        let key = (m.id, (i.span * 1000.0).round() as i64, i.width, i.height, i.phrases);
+        let key = (m.id, (i.span * 1000.0).round() as i64, i.width, i.height, i.phrases, crate::appearance::is_light());
         let mut force = !self.loaded;
         if self.key != Some(key) {
             self.key = Some(key);

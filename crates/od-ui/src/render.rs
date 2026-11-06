@@ -31,12 +31,65 @@ const PHRASE_MARK: [u8; 3] = [0xF5, 0xCE, 0x4A];
 /// 589 nm, dimmed: phrase ticks on the overview.
 const TICK: [u8; 3] = [0xB8, 0x9B, 0x3A];
 
+/// Colours of one appearance (dark, or light on paper).
+struct Pal {
+    ground: [u8; 3],
+    beat: [u8; 3],
+    downbeat: [u8; 3],
+    downbeat_mark: [u8; 3],
+    phrase_line: [u8; 3],
+    phrase_mark: [u8; 3],
+    tick: [u8; 3],
+    bands: [[u8; 3]; 3],
+    bands_cb: [[u8; 3]; 3],
+}
+
+const DARK: Pal = Pal {
+    ground: GROUND,
+    beat: BEAT,
+    downbeat: DOWNBEAT,
+    downbeat_mark: DOWNBEAT_MARK,
+    phrase_line: PHRASE_LINE,
+    phrase_mark: PHRASE_MARK,
+    tick: TICK,
+    bands: [LOW, MID, HIGH],
+    bands_cb: [LOW_CB, MID_CB, HIGH_CB],
+};
+
+/// Light appearance: paper ground, darker spectral bands, ink highs.
+const LIGHT: Pal = Pal {
+    ground: [0xE9, 0xE5, 0xDA],
+    beat: [0xC2, 0xBD, 0xB0],
+    downbeat: [0x6E, 0x6A, 0x62],
+    downbeat_mark: [0x1D, 0x1C, 0x1A],
+    phrase_line: [0xA0, 0x7A, 0x10],
+    phrase_mark: [0x85, 0x63, 0x00],
+    tick: [0xB0, 0x8A, 0x2A],
+    bands: [[0x1F, 0x5F, 0xD0], [0xC2, 0x7A, 0x12], [0x4A, 0x47, 0x40]],
+    bands_cb: [[0x00, 0x72, 0xB2], [0xB3, 0x78, 0x00], [0x1D, 0x1C, 0x1A]],
+};
+
+fn pal() -> &'static Pal {
+    if crate::appearance::is_light() { &LIGHT } else { &DARK }
+}
+
 fn bands() -> [[u8; 3]; 3] {
-    if COLORBLIND.load(std::sync::atomic::Ordering::Relaxed) { [LOW_CB, MID_CB, HIGH_CB] } else { [LOW, MID, HIGH] }
+    let p = pal();
+    if COLORBLIND.load(std::sync::atomic::Ordering::Relaxed) { p.bands_cb } else { p.bands }
 }
 
 /// Colour of a phrase kind (shared by the phrase bar in the UI).
 pub fn phrase_rgb(kind: PhraseKind) -> [u8; 3] {
+    if crate::appearance::is_light() {
+        return match kind {
+            PhraseKind::Intro | PhraseKind::Outro => [0x4F, 0x56, 0xD6],
+            PhraseKind::Up => [0x2E, 0x7A, 0x1F],
+            PhraseKind::Down => [0x1A, 0x72, 0xA6],
+            PhraseKind::Chorus => [0xA5, 0x4E, 0x0E],
+            PhraseKind::Verse => [0x4A, 0x47, 0x40],
+            PhraseKind::Bridge => [0x6A, 0x4B, 0xD8],
+        };
+    }
     match kind {
         PhraseKind::Intro | PhraseKind::Outro => [0x7C, 0x83, 0xFF],
         PhraseKind::Up => [0x82, 0xD1, 0x6B],
@@ -109,7 +162,7 @@ fn phrase_strip(buf: &mut SharedPixelBuffer<Rgba8Pixel>, phrases: &[Phrase], gri
             vline(buf, x, h.saturating_sub(strip), h, rgb);
         }
         // A dark gap marks the phrase boundary.
-        vline(buf, x0, h.saturating_sub(strip), h, GROUND);
+        vline(buf, x0, h.saturating_sub(strip), h, pal().ground);
     }
 }
 
@@ -117,14 +170,14 @@ fn phrase_strip(buf: &mut SharedPixelBuffer<Rgba8Pixel>, phrases: &[Phrase], gri
 /// beatgrid ticks every 16 bars.
 pub fn overview(w: &Waveform, grid: &Beatgrid, duration: f64, width: u32, height: u32) -> Image {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width.max(1), height.max(1));
-    fill(&mut buf, GROUND);
+    fill(&mut buf, pal().ground);
     // Ticks every 16 bars sit in a margin above and below the waveform.
     let margin = (height / 10).max(3);
     if duration > 0.0 {
         for b in grid.beats.iter().step_by(64) {
             let x = (b.time / duration * width as f64) as u32;
-            vline(&mut buf, x, 0, margin - 1, TICK);
-            vline(&mut buf, x, height - margin + 1, height, TICK);
+            vline(&mut buf, x, 0, margin - 1, pal().tick);
+            vline(&mut buf, x, height - margin + 1, height, pal().tick);
         }
     }
     if w.columns.is_empty() {
@@ -174,7 +227,7 @@ pub fn detail_tile(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64
 #[allow(clippy::too_many_arguments)]
 fn draw_detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64, span: f64, dim_before: Option<f64>, width: u32, height: u32) -> Image {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width.max(1), height.max(1));
-    fill(&mut buf, GROUND);
+    fill(&mut buf, pal().ground);
     let secs_per_px = span / width.max(1) as f64;
     let strip = (height / 18).max(3);
     let wave_h = height - strip - 1;
@@ -220,11 +273,11 @@ fn draw_detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64, sp
             let x = ((b.time - start) / secs_per_px) as u32;
             let downbeat = b.bar_position == 1;
             let phrase = downbeat && (i / 4) % 16 == 0;
-            let line = if phrase { PHRASE_LINE } else if downbeat { DOWNBEAT } else { BEAT };
+            let line = if phrase { pal().phrase_line } else if downbeat { pal().downbeat } else { pal().beat };
             vline(&mut buf, x, 0, wave_h, line);
             if downbeat {
                 // Marker at the top: a 3 px wide block, strongest at 16 bars.
-                let mark = if phrase { PHRASE_MARK } else { DOWNBEAT_MARK };
+                let mark = if phrase { pal().phrase_mark } else { pal().downbeat_mark };
                 for dx in 0..3u32 {
                     vline(&mut buf, (x + dx).saturating_sub(1), 0, mark_h, mark);
                     vline(&mut buf, (x + dx).saturating_sub(1), wave_h - mark_h, wave_h, mark);

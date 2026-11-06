@@ -170,6 +170,7 @@ pub(crate) fn refresh(app: &App) {
         w.set_colorblind(s.view.colorblind_safe);
         w.set_high_contrast(s.view.high_contrast);
         w.set_reduced_motion(s.view.reduced_motion);
+        w.set_bar_counter(index_of(&crate::settings::BAR_COUNTERS, &s.view.bar_counter.as_str()));
         w.set_appearance(index_of(&crate::settings::APPEARANCES, &s.view.appearance.as_str()));
         w.set_waveform(index_of(&["3band", "blue"], &s.view.waveform.as_str()));
         w.set_phrases(s.view.phrases);
@@ -470,6 +471,7 @@ fn choose(app: &App, key: &str, i: i32) {
         "view.language" => change(app, |s| s.view.language = ["", "en", "de"].get(i).unwrap_or(&"").to_string()),
         "view.notation" => change(app, |s| s.view.key_notation = ["camelot", "openkey", "musical"].get(i).unwrap_or(&"camelot").to_string()),
         "view.scale" => change(app, |s| s.view.scale = SCALES.get(i).copied().unwrap_or(1.0)),
+        "view.bar-counter" => change(app, |s| s.view.bar_counter = crate::settings::BAR_COUNTERS.get(i).unwrap_or(&"to-phrase").to_string()),
         "view.appearance" => {
             crate::appearance::set(app, crate::settings::APPEARANCES.get(i).unwrap_or(&"dark"));
             return;
