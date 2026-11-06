@@ -1,0 +1,6608 @@
+# Views, layouts and panels with their required elements (SPEC §16.3).
+# Labels follow the convention in docs/parity.md; the UI sets them as `accessible-label`.
+
+[meta]
+source = "docs/ux-study/rekordbox-layout.md"
+label_grammar = "<scope>[n].<part>[.<part>…], parts lower-case kebab-case, last part may be a pad letter A–H"
+
+[[size]]
+id = "desktop"
+width = 1440
+height = 900
+min_target = 24
+note = "UX study reference size (1442 x 901 pt)"
+
+[[size]]
+id = "laptop"
+width = 1280
+height = 800
+min_target = 24
+note = "13\" laptop"
+
+[[size]]
+id = "kiosk"
+width = 800
+height = 480
+min_target = 44
+note = "Raspberry Pi touchscreen, Perform; touch targets ≥ 9 mm (SPEC §12)"
+
+[[invariant]]
+id = "present"
+description = "every required label exists in the view"
+
+[[invariant]]
+id = "visible"
+description = "every required element is visible (non-zero size, not hidden, opacity > 0)"
+
+[[invariant]]
+id = "unclipped"
+description = "every required element lies fully inside its parent and the window"
+
+[[invariant]]
+id = "no-overlap"
+description = "no required element overlaps a sibling"
+tolerance_px = 0
+
+[[invariant]]
+id = "order"
+description = "elements appear in the listed order along the region's axis (row: left edges, column: top edges, grid: row-major)"
+tolerance_px = 1
+
+[[invariant]]
+id = "in-region"
+description = "elements lie inside their region and the region inside its band; bands stack top to bottom in the listed order"
+tolerance_px = 1
+
+[[invariant]]
+id = "min-target"
+description = "interactive elements are at least `min_target` px on both edges at the given size"
+
+[[invariant]]
+id = "rules-align"
+description = "shared 1 px rules line up across panes"
+tolerance_px = 1
+
+[[invariant]]
+id = "no-elision"
+description = "no text is elided where the full text fits"
+
+[[invariant]]
+id = "contrast-text"
+description = "text contrast ≥ 4.5:1"
+min_ratio = 4.5
+
+[[invariant]]
+id = "contrast-large"
+description = "large text contrast ≥ 3:1"
+min_ratio = 3.0
+
+[[invariant]]
+id = "no-horizontal-scroll"
+description = "the window never scrolls horizontally"
+
+[[invariant]]
+id = "fixed-bands"
+description = "bands other than the browser keep their height when the window grows; the browser takes the rest (UX §1.1)"
+tolerance_px = 1
+
+[[invariant]]
+id = "disabled-dimmed"
+description = "unavailable controls are dimmed in place, never hidden (UX §3)"
+
+[[invariant]]
+id = "scale-range"
+description = "the view passes all invariants at UI scale 0.75, 1.0, 1.5 and 2.0 (SPEC §16.4)"
+
+[[invariant]]
+id = "no-modal-in-perform"
+description = "no modal dialog opens while a deck plays in Perform (SPEC §12, §16.4)"
+
+# ---- Perform: 2 decks horizontal (default) ----
+[[view]]
+id = "perform.2deck-horizontal"
+title = "Perform: 2 decks horizontal (default)"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.3"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "wave", "deck-row", "global", "browser", "status"]
+features = ["deck-waveform-zone", "deck-header-readouts", "mixer-trim", "mixer-eq", "mixer-headphones", "mixer-crossfader-assign", "rec-one-button"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "wave.zoom"
+band = "wave"
+place = "far left, 14 pt column"
+order = "column"
+elements = [
+  "wave.collapse",
+  "wave.zoom-in",
+  "wave.zoom-reset",
+  "wave.zoom-out",
+  "wave.expand",
+]
+note = "UX §1.3"
+
+[[view.region]]
+id = "wave.lanes"
+band = "wave"
+place = "full width, one lane per deck, playhead at the horizontal centre"
+order = "column"
+elements = [
+  "wave.lane1",
+  "wave.lane2",
+  "wave.playhead",
+]
+note = "UX §1.3; 4 decks: lane numbers at the right edge (§1.4)"
+
+[[view.region]]
+id = "deck1.header"
+band = "deck-row"
+place = "left deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck1.number",
+  "deck1.artwork",
+  "deck1.title",
+  "deck1.artist",
+  "deck1.bpm",
+  "deck1.time-remaining",
+  "deck1.time-elapsed",
+  "deck1.key-sync",
+  "deck1.key-shift",
+  "deck1.beat-sync",
+  "deck1.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck1.overview"
+band = "deck-row"
+place = "left deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck1.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck1.stems"
+band = "deck-row"
+place = "left deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck1.stem.vocal",
+  "deck1.stem.inst",
+  "deck1.stem.drums",
+  "deck1.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck1.rail"
+band = "deck-row"
+place = "left deck control area, outer edge"
+order = "column"
+elements = [
+  "deck1.view.pads",
+  "deck1.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck1.pads"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
+  "deck1.pad.A",
+  "deck1.pad.B",
+  "deck1.pad.C",
+  "deck1.pad.D",
+  "deck1.pad.E",
+  "deck1.pad.F",
+  "deck1.pad.G",
+  "deck1.pad.H",
+  "deck1.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck1.loop"
+band = "deck-row"
+place = "left deck control area, after the pads"
+order = "column"
+elements = [
+  "deck1.loop.size",
+  "deck1.loop.halve",
+  "deck1.loop.double",
+  "deck1.loop.auto",
+  "deck1.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck1.transport"
+band = "deck-row"
+place = "left deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck1.tempo-mode",
+  "deck1.cue",
+  "deck1.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck1.platter"
+band = "deck-row"
+place = "left deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck1.platter",
+  "deck1.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck1.sync"
+band = "deck-row"
+place = "left deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck1.slip",
+  "deck1.quantize",
+  "deck1.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "mixer.ch1"
+band = "deck-row"
+place = "mixer column 1 of 2"
+order = "column"
+elements = [
+  "mixer.ch1.trim",
+  "mixer.ch1.eq-high",
+  "mixer.ch1.eq-mid",
+  "mixer.ch1.eq-low",
+  "mixer.ch1.cue",
+  "mixer.ch1.fader",
+  "mixer.ch1.stem",
+]
+note = "UX §1.3 mixer; channel order 1-2"
+
+[[view.region]]
+id = "mixer.ch2"
+band = "deck-row"
+place = "mixer column 2 of 2"
+order = "column"
+elements = [
+  "mixer.ch2.trim",
+  "mixer.ch2.eq-high",
+  "mixer.ch2.eq-mid",
+  "mixer.ch2.eq-low",
+  "mixer.ch2.cue",
+  "mixer.ch2.fader",
+  "mixer.ch2.stem",
+]
+note = "UX §1.3 mixer; channel order 1-2"
+
+[[view.region]]
+id = "deck2.header"
+band = "deck-row"
+place = "right deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck2.number",
+  "deck2.artwork",
+  "deck2.title",
+  "deck2.artist",
+  "deck2.bpm",
+  "deck2.time-remaining",
+  "deck2.time-elapsed",
+  "deck2.key-sync",
+  "deck2.key-shift",
+  "deck2.beat-sync",
+  "deck2.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck2.overview"
+band = "deck-row"
+place = "right deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck2.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck2.stems"
+band = "deck-row"
+place = "right deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck2.stem.vocal",
+  "deck2.stem.inst",
+  "deck2.stem.drums",
+  "deck2.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck2.rail"
+band = "deck-row"
+place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.view.pads",
+  "deck2.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck2.pads"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.pad.A",
+  "deck2.pad.B",
+  "deck2.pad.C",
+  "deck2.pad.D",
+  "deck2.pad.E",
+  "deck2.pad.F",
+  "deck2.pad.G",
+  "deck2.pad.H",
+  "deck2.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck2.loop"
+band = "deck-row"
+place = "right deck control area, after the pads"
+order = "column"
+elements = [
+  "deck2.loop.size",
+  "deck2.loop.halve",
+  "deck2.loop.double",
+  "deck2.loop.auto",
+  "deck2.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck2.transport"
+band = "deck-row"
+place = "right deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck2.tempo-mode",
+  "deck2.cue",
+  "deck2.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck2.platter"
+band = "deck-row"
+place = "right deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck2.platter",
+  "deck2.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck2.sync"
+band = "deck-row"
+place = "right deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck2.slip",
+  "deck2.quantize",
+  "deck2.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "global.phones"
+band = "global"
+place = "left of centre"
+order = "row"
+elements = [
+  "global.phones.mix",
+  "global.phones.level",
+]
+note = "UX §1.3 global bar"
+
+[[view.region]]
+id = "global.xf-a"
+band = "global"
+place = "left of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-a.deck1",
+  "global.xf-a.deck2",
+  "global.xf-a.deck3",
+  "global.xf-a.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "global.xfader"
+band = "global"
+place = "centred under the mixer"
+order = "row"
+elements = [
+  "global.xfader",
+]
+
+[[view.region]]
+id = "global.xf-b"
+band = "global"
+place = "right of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-b.deck1",
+  "global.xf-b.deck2",
+  "global.xf-b.deck3",
+  "global.xf-b.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "rec"
+band = "global"
+place = "right end of the global bar, under deck 2"
+order = "row"
+elements = [
+  "rec.source",
+  "rec.level",
+  "rec.meter",
+  "rec.toggle",
+  "rec.time",
+]
+note = "UX §1.3, §2.3"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Perform: 4 decks horizontal ----
+[[view]]
+id = "perform.4deck-horizontal"
+title = "Perform: 4 decks horizontal"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.4"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "wave", "deck-row", "global", "browser", "status"]
+note = "Decks 2 x 2: 1 above 3 left, 2 above 4 right; mixer order 3-1-2-4"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "wave.zoom"
+band = "wave"
+place = "far left, 14 pt column"
+order = "column"
+elements = [
+  "wave.collapse",
+  "wave.zoom-in",
+  "wave.zoom-reset",
+  "wave.zoom-out",
+  "wave.expand",
+]
+note = "UX §1.3"
+
+[[view.region]]
+id = "wave.lanes"
+band = "wave"
+place = "full width, one lane per deck, playhead at the horizontal centre"
+order = "column"
+elements = [
+  "wave.lane1",
+  "wave.lane2",
+  "wave.lane3",
+  "wave.lane4",
+  "wave.playhead",
+]
+note = "UX §1.3; 4 decks: lane numbers at the right edge (§1.4)"
+
+[[view.region]]
+id = "deck1.header"
+band = "deck-row"
+place = "left deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck1.number",
+  "deck1.artwork",
+  "deck1.title",
+  "deck1.artist",
+  "deck1.bpm",
+  "deck1.time-remaining",
+  "deck1.time-elapsed",
+  "deck1.key-sync",
+  "deck1.key-shift",
+  "deck1.beat-sync",
+  "deck1.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck1.overview"
+band = "deck-row"
+place = "left deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck1.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck1.stems"
+band = "deck-row"
+place = "left deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck1.stem.vocal",
+  "deck1.stem.inst",
+  "deck1.stem.drums",
+  "deck1.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck1.rail"
+band = "deck-row"
+place = "left deck control area, outer edge"
+order = "column"
+elements = [
+  "deck1.view.pads",
+  "deck1.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck1.pads"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
+  "deck1.pad.A",
+  "deck1.pad.B",
+  "deck1.pad.C",
+  "deck1.pad.D",
+  "deck1.pad.E",
+  "deck1.pad.F",
+  "deck1.pad.G",
+  "deck1.pad.H",
+  "deck1.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck1.loop"
+band = "deck-row"
+place = "left deck control area, after the pads"
+order = "column"
+elements = [
+  "deck1.loop.size",
+  "deck1.loop.halve",
+  "deck1.loop.double",
+  "deck1.loop.auto",
+  "deck1.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck1.transport"
+band = "deck-row"
+place = "left deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck1.tempo-mode",
+  "deck1.cue",
+  "deck1.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck1.platter"
+band = "deck-row"
+place = "left deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck1.platter",
+  "deck1.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck1.sync"
+band = "deck-row"
+place = "left deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck1.slip",
+  "deck1.quantize",
+  "deck1.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "deck3.header"
+band = "deck-row"
+place = "left deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck3.number",
+  "deck3.artwork",
+  "deck3.title",
+  "deck3.artist",
+  "deck3.bpm",
+  "deck3.time-remaining",
+  "deck3.time-elapsed",
+  "deck3.key-sync",
+  "deck3.key-shift",
+  "deck3.beat-sync",
+  "deck3.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck3.overview"
+band = "deck-row"
+place = "left deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck3.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck3.stems"
+band = "deck-row"
+place = "left deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck3.stem.vocal",
+  "deck3.stem.inst",
+  "deck3.stem.drums",
+  "deck3.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck3.rail"
+band = "deck-row"
+place = "left deck control area, outer edge"
+order = "column"
+elements = [
+  "deck3.view.pads",
+  "deck3.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck3.pads"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
+  "deck3.pad.A",
+  "deck3.pad.B",
+  "deck3.pad.C",
+  "deck3.pad.D",
+  "deck3.pad.E",
+  "deck3.pad.F",
+  "deck3.pad.G",
+  "deck3.pad.H",
+  "deck3.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck3.loop"
+band = "deck-row"
+place = "left deck control area, after the pads"
+order = "column"
+elements = [
+  "deck3.loop.size",
+  "deck3.loop.halve",
+  "deck3.loop.double",
+  "deck3.loop.auto",
+  "deck3.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck3.transport"
+band = "deck-row"
+place = "left deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck3.tempo-mode",
+  "deck3.cue",
+  "deck3.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck3.platter"
+band = "deck-row"
+place = "left deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck3.platter",
+  "deck3.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck3.sync"
+band = "deck-row"
+place = "left deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck3.slip",
+  "deck3.quantize",
+  "deck3.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "mixer.ch3"
+band = "deck-row"
+place = "mixer column 1 of 4"
+order = "column"
+elements = [
+  "mixer.ch3.trim",
+  "mixer.ch3.eq-high",
+  "mixer.ch3.eq-mid",
+  "mixer.ch3.eq-low",
+  "mixer.ch3.cue",
+  "mixer.ch3.fader",
+  "mixer.ch3.stem",
+]
+note = "UX §1.3 mixer; channel order 3-1-2-4"
+
+[[view.region]]
+id = "mixer.ch1"
+band = "deck-row"
+place = "mixer column 2 of 4"
+order = "column"
+elements = [
+  "mixer.ch1.trim",
+  "mixer.ch1.eq-high",
+  "mixer.ch1.eq-mid",
+  "mixer.ch1.eq-low",
+  "mixer.ch1.cue",
+  "mixer.ch1.fader",
+  "mixer.ch1.stem",
+]
+note = "UX §1.3 mixer; channel order 3-1-2-4"
+
+[[view.region]]
+id = "mixer.ch2"
+band = "deck-row"
+place = "mixer column 3 of 4"
+order = "column"
+elements = [
+  "mixer.ch2.trim",
+  "mixer.ch2.eq-high",
+  "mixer.ch2.eq-mid",
+  "mixer.ch2.eq-low",
+  "mixer.ch2.cue",
+  "mixer.ch2.fader",
+  "mixer.ch2.stem",
+]
+note = "UX §1.3 mixer; channel order 3-1-2-4"
+
+[[view.region]]
+id = "mixer.ch4"
+band = "deck-row"
+place = "mixer column 4 of 4"
+order = "column"
+elements = [
+  "mixer.ch4.trim",
+  "mixer.ch4.eq-high",
+  "mixer.ch4.eq-mid",
+  "mixer.ch4.eq-low",
+  "mixer.ch4.cue",
+  "mixer.ch4.fader",
+  "mixer.ch4.stem",
+]
+note = "UX §1.3 mixer; channel order 3-1-2-4"
+
+[[view.region]]
+id = "deck2.header"
+band = "deck-row"
+place = "right deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck2.number",
+  "deck2.artwork",
+  "deck2.title",
+  "deck2.artist",
+  "deck2.bpm",
+  "deck2.time-remaining",
+  "deck2.time-elapsed",
+  "deck2.key-sync",
+  "deck2.key-shift",
+  "deck2.beat-sync",
+  "deck2.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck2.overview"
+band = "deck-row"
+place = "right deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck2.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck2.stems"
+band = "deck-row"
+place = "right deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck2.stem.vocal",
+  "deck2.stem.inst",
+  "deck2.stem.drums",
+  "deck2.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck2.rail"
+band = "deck-row"
+place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.view.pads",
+  "deck2.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck2.pads"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.pad.A",
+  "deck2.pad.B",
+  "deck2.pad.C",
+  "deck2.pad.D",
+  "deck2.pad.E",
+  "deck2.pad.F",
+  "deck2.pad.G",
+  "deck2.pad.H",
+  "deck2.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck2.loop"
+band = "deck-row"
+place = "right deck control area, after the pads"
+order = "column"
+elements = [
+  "deck2.loop.size",
+  "deck2.loop.halve",
+  "deck2.loop.double",
+  "deck2.loop.auto",
+  "deck2.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck2.transport"
+band = "deck-row"
+place = "right deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck2.tempo-mode",
+  "deck2.cue",
+  "deck2.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck2.platter"
+band = "deck-row"
+place = "right deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck2.platter",
+  "deck2.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck2.sync"
+band = "deck-row"
+place = "right deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck2.slip",
+  "deck2.quantize",
+  "deck2.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "deck4.header"
+band = "deck-row"
+place = "right deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck4.number",
+  "deck4.artwork",
+  "deck4.title",
+  "deck4.artist",
+  "deck4.bpm",
+  "deck4.time-remaining",
+  "deck4.time-elapsed",
+  "deck4.key-sync",
+  "deck4.key-shift",
+  "deck4.beat-sync",
+  "deck4.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck4.overview"
+band = "deck-row"
+place = "right deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck4.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck4.stems"
+band = "deck-row"
+place = "right deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck4.stem.vocal",
+  "deck4.stem.inst",
+  "deck4.stem.drums",
+  "deck4.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck4.rail"
+band = "deck-row"
+place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck4.view.pads",
+  "deck4.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck4.pads"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck4.pad.A",
+  "deck4.pad.B",
+  "deck4.pad.C",
+  "deck4.pad.D",
+  "deck4.pad.E",
+  "deck4.pad.F",
+  "deck4.pad.G",
+  "deck4.pad.H",
+  "deck4.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck4.loop"
+band = "deck-row"
+place = "right deck control area, after the pads"
+order = "column"
+elements = [
+  "deck4.loop.size",
+  "deck4.loop.halve",
+  "deck4.loop.double",
+  "deck4.loop.auto",
+  "deck4.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck4.transport"
+band = "deck-row"
+place = "right deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck4.tempo-mode",
+  "deck4.cue",
+  "deck4.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck4.platter"
+band = "deck-row"
+place = "right deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck4.platter",
+  "deck4.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck4.sync"
+band = "deck-row"
+place = "right deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck4.slip",
+  "deck4.quantize",
+  "deck4.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "global.phones"
+band = "global"
+place = "left of centre"
+order = "row"
+elements = [
+  "global.phones.mix",
+  "global.phones.level",
+]
+note = "UX §1.3 global bar"
+
+[[view.region]]
+id = "global.xf-a"
+band = "global"
+place = "left of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-a.deck1",
+  "global.xf-a.deck2",
+  "global.xf-a.deck3",
+  "global.xf-a.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "global.xfader"
+band = "global"
+place = "centred under the mixer"
+order = "row"
+elements = [
+  "global.xfader",
+]
+
+[[view.region]]
+id = "global.xf-b"
+band = "global"
+place = "right of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-b.deck1",
+  "global.xf-b.deck2",
+  "global.xf-b.deck3",
+  "global.xf-b.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "rec"
+band = "global"
+place = "right end of the global bar, under deck 2"
+order = "row"
+elements = [
+  "rec.source",
+  "rec.level",
+  "rec.meter",
+  "rec.toggle",
+  "rec.time",
+]
+note = "UX §1.3, §2.3"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Perform: 2 decks vertical ----
+[[view]]
+id = "perform.2deck-vertical"
+title = "Perform: 2 decks vertical"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.4"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "deck-row", "global", "browser", "status"]
+note = "Taller decks: the pad list shows A–H as one vertical list"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "wave.vertical"
+band = "deck-row"
+place = "centre column above the mixer"
+order = "row"
+elements = [
+  "wave.zoom-in",
+  "wave.zoom-reset",
+  "wave.zoom-out",
+  "wave.lane1",
+  "wave.lane2",
+]
+note = "vertical lanes, zoom and RST at the top"
+
+[[view.region]]
+id = "deck1.header"
+band = "deck-row"
+place = "left deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck1.number",
+  "deck1.artwork",
+  "deck1.title",
+  "deck1.artist",
+  "deck1.bpm",
+  "deck1.time-remaining",
+  "deck1.time-elapsed",
+  "deck1.key-sync",
+  "deck1.key-shift",
+  "deck1.beat-sync",
+  "deck1.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck1.overview"
+band = "deck-row"
+place = "left deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck1.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck1.stems"
+band = "deck-row"
+place = "left deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck1.stem.vocal",
+  "deck1.stem.inst",
+  "deck1.stem.drums",
+  "deck1.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck1.rail"
+band = "deck-row"
+place = "left deck control area, outer edge"
+order = "column"
+elements = [
+  "deck1.view.pads",
+  "deck1.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck1.pads"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
+  "deck1.pad.A",
+  "deck1.pad.B",
+  "deck1.pad.C",
+  "deck1.pad.D",
+  "deck1.pad.E",
+  "deck1.pad.F",
+  "deck1.pad.G",
+  "deck1.pad.H",
+  "deck1.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck1.loop"
+band = "deck-row"
+place = "left deck control area, after the pads"
+order = "column"
+elements = [
+  "deck1.loop.size",
+  "deck1.loop.halve",
+  "deck1.loop.double",
+  "deck1.loop.auto",
+  "deck1.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck1.transport"
+band = "deck-row"
+place = "left deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck1.tempo-mode",
+  "deck1.cue",
+  "deck1.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck1.platter"
+band = "deck-row"
+place = "left deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck1.platter",
+  "deck1.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck1.sync"
+band = "deck-row"
+place = "left deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck1.slip",
+  "deck1.quantize",
+  "deck1.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "mixer.ch1"
+band = "deck-row"
+place = "mixer column 1 of 2"
+order = "column"
+elements = [
+  "mixer.ch1.trim",
+  "mixer.ch1.eq-high",
+  "mixer.ch1.eq-mid",
+  "mixer.ch1.eq-low",
+  "mixer.ch1.cue",
+  "mixer.ch1.fader",
+  "mixer.ch1.stem",
+]
+note = "UX §1.3 mixer; channel order 1-2"
+
+[[view.region]]
+id = "mixer.ch2"
+band = "deck-row"
+place = "mixer column 2 of 2"
+order = "column"
+elements = [
+  "mixer.ch2.trim",
+  "mixer.ch2.eq-high",
+  "mixer.ch2.eq-mid",
+  "mixer.ch2.eq-low",
+  "mixer.ch2.cue",
+  "mixer.ch2.fader",
+  "mixer.ch2.stem",
+]
+note = "UX §1.3 mixer; channel order 1-2"
+
+[[view.region]]
+id = "deck2.header"
+band = "deck-row"
+place = "right deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck2.number",
+  "deck2.artwork",
+  "deck2.title",
+  "deck2.artist",
+  "deck2.bpm",
+  "deck2.time-remaining",
+  "deck2.time-elapsed",
+  "deck2.key-sync",
+  "deck2.key-shift",
+  "deck2.beat-sync",
+  "deck2.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck2.overview"
+band = "deck-row"
+place = "right deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck2.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck2.stems"
+band = "deck-row"
+place = "right deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck2.stem.vocal",
+  "deck2.stem.inst",
+  "deck2.stem.drums",
+  "deck2.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck2.rail"
+band = "deck-row"
+place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.view.pads",
+  "deck2.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck2.pads"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.pad.A",
+  "deck2.pad.B",
+  "deck2.pad.C",
+  "deck2.pad.D",
+  "deck2.pad.E",
+  "deck2.pad.F",
+  "deck2.pad.G",
+  "deck2.pad.H",
+  "deck2.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck2.loop"
+band = "deck-row"
+place = "right deck control area, after the pads"
+order = "column"
+elements = [
+  "deck2.loop.size",
+  "deck2.loop.halve",
+  "deck2.loop.double",
+  "deck2.loop.auto",
+  "deck2.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck2.transport"
+band = "deck-row"
+place = "right deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck2.tempo-mode",
+  "deck2.cue",
+  "deck2.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck2.platter"
+band = "deck-row"
+place = "right deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck2.platter",
+  "deck2.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck2.sync"
+band = "deck-row"
+place = "right deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck2.slip",
+  "deck2.quantize",
+  "deck2.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "global.phones"
+band = "global"
+place = "left of centre"
+order = "row"
+elements = [
+  "global.phones.mix",
+  "global.phones.level",
+]
+note = "UX §1.3 global bar"
+
+[[view.region]]
+id = "global.xf-a"
+band = "global"
+place = "left of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-a.deck1",
+  "global.xf-a.deck2",
+  "global.xf-a.deck3",
+  "global.xf-a.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "global.xfader"
+band = "global"
+place = "centred under the mixer"
+order = "row"
+elements = [
+  "global.xfader",
+]
+
+[[view.region]]
+id = "global.xf-b"
+band = "global"
+place = "right of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-b.deck1",
+  "global.xf-b.deck2",
+  "global.xf-b.deck3",
+  "global.xf-b.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "rec"
+band = "global"
+place = "right end of the global bar, under deck 2"
+order = "row"
+elements = [
+  "rec.source",
+  "rec.level",
+  "rec.meter",
+  "rec.toggle",
+  "rec.time",
+]
+note = "UX §1.3, §2.3"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Perform: 4 decks vertical ----
+[[view]]
+id = "perform.4deck-vertical"
+title = "Perform: 4 decks vertical"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.4"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "deck-row", "global", "browser", "status"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "wave.vertical"
+band = "deck-row"
+place = "centre column (about 280 pt) above the mixer"
+order = "row"
+elements = [
+  "wave.zoom-in",
+  "wave.zoom-reset",
+  "wave.zoom-out",
+  "wave.lane1",
+  "wave.lane2",
+  "wave.lane3",
+  "wave.lane4",
+]
+
+[[view.region]]
+id = "deck1.header"
+band = "deck-row"
+place = "left deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck1.number",
+  "deck1.artwork",
+  "deck1.title",
+  "deck1.artist",
+  "deck1.bpm",
+  "deck1.time-remaining",
+  "deck1.time-elapsed",
+  "deck1.key-sync",
+  "deck1.key-shift",
+  "deck1.beat-sync",
+  "deck1.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck1.overview"
+band = "deck-row"
+place = "left deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck1.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck1.stems"
+band = "deck-row"
+place = "left deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck1.stem.vocal",
+  "deck1.stem.inst",
+  "deck1.stem.drums",
+  "deck1.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck1.rail"
+band = "deck-row"
+place = "left deck control area, outer edge"
+order = "column"
+elements = [
+  "deck1.view.pads",
+  "deck1.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck1.pads"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
+  "deck1.pad.A",
+  "deck1.pad.B",
+  "deck1.pad.C",
+  "deck1.pad.D",
+  "deck1.pad.E",
+  "deck1.pad.F",
+  "deck1.pad.G",
+  "deck1.pad.H",
+  "deck1.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck1.loop"
+band = "deck-row"
+place = "left deck control area, after the pads"
+order = "column"
+elements = [
+  "deck1.loop.size",
+  "deck1.loop.halve",
+  "deck1.loop.double",
+  "deck1.loop.auto",
+  "deck1.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck1.transport"
+band = "deck-row"
+place = "left deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck1.tempo-mode",
+  "deck1.cue",
+  "deck1.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck1.platter"
+band = "deck-row"
+place = "left deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck1.platter",
+  "deck1.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck1.sync"
+band = "deck-row"
+place = "left deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck1.slip",
+  "deck1.quantize",
+  "deck1.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "deck3.header"
+band = "deck-row"
+place = "left deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck3.number",
+  "deck3.artwork",
+  "deck3.title",
+  "deck3.artist",
+  "deck3.bpm",
+  "deck3.time-remaining",
+  "deck3.time-elapsed",
+  "deck3.key-sync",
+  "deck3.key-shift",
+  "deck3.beat-sync",
+  "deck3.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck3.overview"
+band = "deck-row"
+place = "left deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck3.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck3.stems"
+band = "deck-row"
+place = "left deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck3.stem.vocal",
+  "deck3.stem.inst",
+  "deck3.stem.drums",
+  "deck3.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck3.rail"
+band = "deck-row"
+place = "left deck control area, outer edge"
+order = "column"
+elements = [
+  "deck3.view.pads",
+  "deck3.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck3.pads"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
+  "deck3.pad.A",
+  "deck3.pad.B",
+  "deck3.pad.C",
+  "deck3.pad.D",
+  "deck3.pad.E",
+  "deck3.pad.F",
+  "deck3.pad.G",
+  "deck3.pad.H",
+  "deck3.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck3.loop"
+band = "deck-row"
+place = "left deck control area, after the pads"
+order = "column"
+elements = [
+  "deck3.loop.size",
+  "deck3.loop.halve",
+  "deck3.loop.double",
+  "deck3.loop.auto",
+  "deck3.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck3.transport"
+band = "deck-row"
+place = "left deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck3.tempo-mode",
+  "deck3.cue",
+  "deck3.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck3.platter"
+band = "deck-row"
+place = "left deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck3.platter",
+  "deck3.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck3.sync"
+band = "deck-row"
+place = "left deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck3.slip",
+  "deck3.quantize",
+  "deck3.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "mixer.ch3"
+band = "deck-row"
+place = "mixer column 1 of 4"
+order = "column"
+elements = [
+  "mixer.ch3.trim",
+  "mixer.ch3.eq-high",
+  "mixer.ch3.eq-mid",
+  "mixer.ch3.eq-low",
+  "mixer.ch3.cue",
+  "mixer.ch3.fader",
+  "mixer.ch3.stem",
+]
+note = "UX §1.3 mixer; channel order 3-1-2-4"
+
+[[view.region]]
+id = "mixer.ch1"
+band = "deck-row"
+place = "mixer column 2 of 4"
+order = "column"
+elements = [
+  "mixer.ch1.trim",
+  "mixer.ch1.eq-high",
+  "mixer.ch1.eq-mid",
+  "mixer.ch1.eq-low",
+  "mixer.ch1.cue",
+  "mixer.ch1.fader",
+  "mixer.ch1.stem",
+]
+note = "UX §1.3 mixer; channel order 3-1-2-4"
+
+[[view.region]]
+id = "mixer.ch2"
+band = "deck-row"
+place = "mixer column 3 of 4"
+order = "column"
+elements = [
+  "mixer.ch2.trim",
+  "mixer.ch2.eq-high",
+  "mixer.ch2.eq-mid",
+  "mixer.ch2.eq-low",
+  "mixer.ch2.cue",
+  "mixer.ch2.fader",
+  "mixer.ch2.stem",
+]
+note = "UX §1.3 mixer; channel order 3-1-2-4"
+
+[[view.region]]
+id = "mixer.ch4"
+band = "deck-row"
+place = "mixer column 4 of 4"
+order = "column"
+elements = [
+  "mixer.ch4.trim",
+  "mixer.ch4.eq-high",
+  "mixer.ch4.eq-mid",
+  "mixer.ch4.eq-low",
+  "mixer.ch4.cue",
+  "mixer.ch4.fader",
+  "mixer.ch4.stem",
+]
+note = "UX §1.3 mixer; channel order 3-1-2-4"
+
+[[view.region]]
+id = "deck2.header"
+band = "deck-row"
+place = "right deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck2.number",
+  "deck2.artwork",
+  "deck2.title",
+  "deck2.artist",
+  "deck2.bpm",
+  "deck2.time-remaining",
+  "deck2.time-elapsed",
+  "deck2.key-sync",
+  "deck2.key-shift",
+  "deck2.beat-sync",
+  "deck2.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck2.overview"
+band = "deck-row"
+place = "right deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck2.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck2.stems"
+band = "deck-row"
+place = "right deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck2.stem.vocal",
+  "deck2.stem.inst",
+  "deck2.stem.drums",
+  "deck2.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck2.rail"
+band = "deck-row"
+place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.view.pads",
+  "deck2.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck2.pads"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.pad.A",
+  "deck2.pad.B",
+  "deck2.pad.C",
+  "deck2.pad.D",
+  "deck2.pad.E",
+  "deck2.pad.F",
+  "deck2.pad.G",
+  "deck2.pad.H",
+  "deck2.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck2.loop"
+band = "deck-row"
+place = "right deck control area, after the pads"
+order = "column"
+elements = [
+  "deck2.loop.size",
+  "deck2.loop.halve",
+  "deck2.loop.double",
+  "deck2.loop.auto",
+  "deck2.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck2.transport"
+band = "deck-row"
+place = "right deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck2.tempo-mode",
+  "deck2.cue",
+  "deck2.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck2.platter"
+band = "deck-row"
+place = "right deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck2.platter",
+  "deck2.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck2.sync"
+band = "deck-row"
+place = "right deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck2.slip",
+  "deck2.quantize",
+  "deck2.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "deck4.header"
+band = "deck-row"
+place = "right deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck4.number",
+  "deck4.artwork",
+  "deck4.title",
+  "deck4.artist",
+  "deck4.bpm",
+  "deck4.time-remaining",
+  "deck4.time-elapsed",
+  "deck4.key-sync",
+  "deck4.key-shift",
+  "deck4.beat-sync",
+  "deck4.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck4.overview"
+band = "deck-row"
+place = "right deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck4.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck4.stems"
+band = "deck-row"
+place = "right deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck4.stem.vocal",
+  "deck4.stem.inst",
+  "deck4.stem.drums",
+  "deck4.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck4.rail"
+band = "deck-row"
+place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck4.view.pads",
+  "deck4.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck4.pads"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck4.pad.A",
+  "deck4.pad.B",
+  "deck4.pad.C",
+  "deck4.pad.D",
+  "deck4.pad.E",
+  "deck4.pad.F",
+  "deck4.pad.G",
+  "deck4.pad.H",
+  "deck4.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck4.loop"
+band = "deck-row"
+place = "right deck control area, after the pads"
+order = "column"
+elements = [
+  "deck4.loop.size",
+  "deck4.loop.halve",
+  "deck4.loop.double",
+  "deck4.loop.auto",
+  "deck4.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck4.transport"
+band = "deck-row"
+place = "right deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck4.tempo-mode",
+  "deck4.cue",
+  "deck4.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck4.platter"
+band = "deck-row"
+place = "right deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck4.platter",
+  "deck4.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck4.sync"
+band = "deck-row"
+place = "right deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck4.slip",
+  "deck4.quantize",
+  "deck4.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "global.phones"
+band = "global"
+place = "left of centre"
+order = "row"
+elements = [
+  "global.phones.mix",
+  "global.phones.level",
+]
+note = "UX §1.3 global bar"
+
+[[view.region]]
+id = "global.xf-a"
+band = "global"
+place = "left of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-a.deck1",
+  "global.xf-a.deck2",
+  "global.xf-a.deck3",
+  "global.xf-a.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "global.xfader"
+band = "global"
+place = "centred under the mixer"
+order = "row"
+elements = [
+  "global.xfader",
+]
+
+[[view.region]]
+id = "global.xf-b"
+band = "global"
+place = "right of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-b.deck1",
+  "global.xf-b.deck2",
+  "global.xf-b.deck3",
+  "global.xf-b.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "rec"
+band = "global"
+place = "right end of the global bar, under deck 2"
+order = "row"
+elements = [
+  "rec.source",
+  "rec.level",
+  "rec.meter",
+  "rec.toggle",
+  "rec.time",
+]
+note = "UX §1.3, §2.3"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Perform: Browse layout ----
+[[view]]
+id = "perform.browse"
+title = "Perform: Browse layout"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.4"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "deck-row", "browser", "status"]
+note = "Only header, overview and stem strip per deck; panel toggles dimmed"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "deck1.header"
+band = "deck-row"
+place = "left deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck1.number",
+  "deck1.artwork",
+  "deck1.title",
+  "deck1.artist",
+  "deck1.bpm",
+  "deck1.time-remaining",
+  "deck1.time-elapsed",
+  "deck1.key-sync",
+  "deck1.key-shift",
+  "deck1.beat-sync",
+  "deck1.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck1.overview"
+band = "deck-row"
+place = "left deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck1.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck1.stems"
+band = "deck-row"
+place = "left deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck1.stem.vocal",
+  "deck1.stem.inst",
+  "deck1.stem.drums",
+  "deck1.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck2.header"
+band = "deck-row"
+place = "right deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck2.number",
+  "deck2.artwork",
+  "deck2.title",
+  "deck2.artist",
+  "deck2.bpm",
+  "deck2.time-remaining",
+  "deck2.time-elapsed",
+  "deck2.key-sync",
+  "deck2.key-shift",
+  "deck2.beat-sync",
+  "deck2.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck2.overview"
+band = "deck-row"
+place = "right deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck2.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck2.stems"
+band = "deck-row"
+place = "right deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck2.stem.vocal",
+  "deck2.stem.inst",
+  "deck2.stem.drums",
+  "deck2.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Perform: mixer toggle off ----
+[[view]]
+id = "perform.mixer-off"
+title = "Perform: mixer toggle off"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.4"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "wave", "deck-row", "global", "browser", "status"]
+note = "Mixer column and headphone / crossfader half of the global bar disappear; decks meet in the centre"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "wave.zoom"
+band = "wave"
+place = "far left, 14 pt column"
+order = "column"
+elements = [
+  "wave.collapse",
+  "wave.zoom-in",
+  "wave.zoom-reset",
+  "wave.zoom-out",
+  "wave.expand",
+]
+note = "UX §1.3"
+
+[[view.region]]
+id = "wave.lanes"
+band = "wave"
+place = "full width, one lane per deck, playhead at the horizontal centre"
+order = "column"
+elements = [
+  "wave.lane1",
+  "wave.lane2",
+  "wave.playhead",
+]
+note = "UX §1.3; 4 decks: lane numbers at the right edge (§1.4)"
+
+[[view.region]]
+id = "deck1.header"
+band = "deck-row"
+place = "left deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck1.number",
+  "deck1.artwork",
+  "deck1.title",
+  "deck1.artist",
+  "deck1.bpm",
+  "deck1.time-remaining",
+  "deck1.time-elapsed",
+  "deck1.key-sync",
+  "deck1.key-shift",
+  "deck1.beat-sync",
+  "deck1.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck1.overview"
+band = "deck-row"
+place = "left deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck1.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck1.stems"
+band = "deck-row"
+place = "left deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck1.stem.vocal",
+  "deck1.stem.inst",
+  "deck1.stem.drums",
+  "deck1.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck1.rail"
+band = "deck-row"
+place = "left deck control area, outer edge"
+order = "column"
+elements = [
+  "deck1.view.pads",
+  "deck1.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck1.pads"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
+  "deck1.pad.A",
+  "deck1.pad.B",
+  "deck1.pad.C",
+  "deck1.pad.D",
+  "deck1.pad.E",
+  "deck1.pad.F",
+  "deck1.pad.G",
+  "deck1.pad.H",
+  "deck1.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck1.loop"
+band = "deck-row"
+place = "left deck control area, after the pads"
+order = "column"
+elements = [
+  "deck1.loop.size",
+  "deck1.loop.halve",
+  "deck1.loop.double",
+  "deck1.loop.auto",
+  "deck1.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck1.transport"
+band = "deck-row"
+place = "left deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck1.tempo-mode",
+  "deck1.cue",
+  "deck1.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck1.platter"
+band = "deck-row"
+place = "left deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck1.platter",
+  "deck1.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck1.sync"
+band = "deck-row"
+place = "left deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck1.slip",
+  "deck1.quantize",
+  "deck1.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "deck2.header"
+band = "deck-row"
+place = "right deck, top, 54 pt"
+order = "row"
+elements = [
+  "deck2.number",
+  "deck2.artwork",
+  "deck2.title",
+  "deck2.artist",
+  "deck2.bpm",
+  "deck2.time-remaining",
+  "deck2.time-elapsed",
+  "deck2.key-sync",
+  "deck2.key-shift",
+  "deck2.beat-sync",
+  "deck2.master",
+]
+note = "UX §1.3 item 1; empty deck shows dim 'Not Loaded.'"
+
+[[view.region]]
+id = "deck2.overview"
+band = "deck-row"
+place = "right deck, under the header, 43 pt"
+order = "column"
+elements = [
+  "deck2.overview",
+]
+note = "UX §1.3 item 2"
+
+[[view.region]]
+id = "deck2.stems"
+band = "deck-row"
+place = "right deck, under the overview, right-aligned, 21 pt"
+order = "row"
+elements = [
+  "deck2.stem.vocal",
+  "deck2.stem.inst",
+  "deck2.stem.drums",
+  "deck2.stem.bass",
+]
+note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
+
+[[view.region]]
+id = "deck2.rail"
+band = "deck-row"
+place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.view.pads",
+  "deck2.view.grid",
+]
+note = "UX §1.3 item 4"
+
+[[view.region]]
+id = "deck2.pads"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
+  "deck2.pad.A",
+  "deck2.pad.B",
+  "deck2.pad.C",
+  "deck2.pad.D",
+  "deck2.pad.E",
+  "deck2.pad.F",
+  "deck2.pad.G",
+  "deck2.pad.H",
+  "deck2.pad-mode",
+]
+note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+
+[[view.region]]
+id = "deck2.loop"
+band = "deck-row"
+place = "right deck control area, after the pads"
+order = "column"
+elements = [
+  "deck2.loop.size",
+  "deck2.loop.halve",
+  "deck2.loop.double",
+  "deck2.loop.auto",
+  "deck2.loop.manual",
+]
+note = "UX §1.3: big loop length, < >, AU, MA"
+
+[[view.region]]
+id = "deck2.transport"
+band = "deck-row"
+place = "right deck control area, after the loop column"
+order = "column"
+elements = [
+  "deck2.tempo-mode",
+  "deck2.cue",
+  "deck2.play",
+]
+note = "Round CUE and PLAY (≥ 32 pt; 44 px in kiosk)"
+
+[[view.region]]
+id = "deck2.platter"
+band = "deck-row"
+place = "right deck control area, before the sync column"
+order = "column"
+elements = [
+  "deck2.platter",
+  "deck2.pitch",
+]
+note = "Platter shows BPM large and pitch % with range"
+
+[[view.region]]
+id = "deck2.sync"
+band = "deck-row"
+place = "right deck, column nearest the mixer"
+order = "column"
+elements = [
+  "deck2.slip",
+  "deck2.quantize",
+  "deck2.master-tempo",
+]
+note = "SLIP / Q / MT"
+
+[[view.region]]
+id = "rec"
+band = "global"
+place = "centre of the global bar"
+order = "row"
+elements = [
+  "rec.source",
+  "rec.level",
+  "rec.meter",
+  "rec.toggle",
+  "rec.time",
+]
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- FX panel ----
+[[view]]
+id = "panel.fx"
+title = "FX panel"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.5"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "fx", "wave", "deck-row", "global", "browser", "status"]
+features = ["fx-panel", "fx-beat-fx", "fx-beat-fx-controls", "fx-colour-fx-select", "fx-stem-fx"]
+note = "Docked above the waveform zone; the browser loses exactly the panel height (UX §2.8)"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "fx.unit1"
+band = "fx"
+place = "row 1, left half"
+order = "row"
+elements = [
+  "fx.unit1.assign.ch1",
+  "fx.unit1.assign.ch2",
+  "fx.unit1.assign.sampler",
+  "fx.unit1.assign.ch3",
+  "fx.unit1.assign.ch4",
+  "fx.unit1.assign.master",
+  "fx.unit1.menu",
+  "fx.unit1.slot1.type",
+  "fx.unit1.slot1.depth",
+  "fx.unit1.slot1.beats-down",
+  "fx.unit1.slot1.beats",
+  "fx.unit1.slot1.beats-up",
+  "fx.unit1.slot2.type",
+  "fx.unit1.slot2.depth",
+  "fx.unit1.slot2.beats-down",
+  "fx.unit1.slot2.beats",
+  "fx.unit1.slot2.beats-up",
+  "fx.unit1.slot3.type",
+  "fx.unit1.slot3.depth",
+  "fx.unit1.slot3.beats-down",
+  "fx.unit1.slot3.beats",
+  "fx.unit1.slot3.beats-up",
+  "fx.unit1.beat-fx",
+  "fx.unit1.auto",
+  "fx.unit1.tap",
+  "fx.unit1.on",
+]
+note = "assign grid 1 2 S / 3 4 M, three slots, beat-FX, AUTO, TAP"
+
+[[view.region]]
+id = "fx.unit2"
+band = "fx"
+place = "row 1, right half (mirrored)"
+order = "row"
+elements = [
+  "fx.unit2.assign.ch1",
+  "fx.unit2.assign.ch2",
+  "fx.unit2.assign.sampler",
+  "fx.unit2.assign.ch3",
+  "fx.unit2.assign.ch4",
+  "fx.unit2.assign.master",
+  "fx.unit2.menu",
+  "fx.unit2.slot1.type",
+  "fx.unit2.slot1.depth",
+  "fx.unit2.slot1.beats-down",
+  "fx.unit2.slot1.beats",
+  "fx.unit2.slot1.beats-up",
+  "fx.unit2.slot2.type",
+  "fx.unit2.slot2.depth",
+  "fx.unit2.slot2.beats-down",
+  "fx.unit2.slot2.beats",
+  "fx.unit2.slot2.beats-up",
+  "fx.unit2.slot3.type",
+  "fx.unit2.slot3.depth",
+  "fx.unit2.slot3.beats-down",
+  "fx.unit2.slot3.beats",
+  "fx.unit2.slot3.beats-up",
+  "fx.unit2.beat-fx",
+  "fx.unit2.auto",
+  "fx.unit2.tap",
+  "fx.unit2.on",
+]
+
+[[view.region]]
+id = "fx.stem-target"
+band = "fx"
+place = "far right column"
+order = "column"
+elements = [
+  "fx.stem.vocal",
+  "fx.stem.inst",
+  "fx.stem.drums",
+  "fx.stem.bass",
+]
+
+[[view.region]]
+id = "fx.cfx"
+band = "fx"
+place = "row 2"
+order = "row"
+elements = [
+  "fx.cfx.preset",
+  "fx.cfx.type",
+  "fx.cfx.param",
+  "fx.cfx.sampler",
+  "fx.cfx.ch3",
+  "fx.cfx.ch1",
+  "fx.cfx.ch2",
+  "fx.cfx.ch4",
+  "fx.cfx.master",
+]
+note = "CFX knobs S, 3, 1, 2, 4, M"
+
+[[view.region]]
+id = "wave.zoom"
+band = "wave"
+place = "far left, 14 pt column"
+order = "column"
+elements = [
+  "wave.collapse",
+  "wave.zoom-in",
+  "wave.zoom-reset",
+  "wave.zoom-out",
+  "wave.expand",
+]
+note = "UX §1.3"
+
+[[view.region]]
+id = "wave.lanes"
+band = "wave"
+place = "full width, one lane per deck, playhead at the horizontal centre"
+order = "column"
+elements = [
+  "wave.lane1",
+  "wave.lane2",
+  "wave.playhead",
+]
+note = "UX §1.3; 4 decks: lane numbers at the right edge (§1.4)"
+
+# ---- Mix Point Link panel ----
+[[view]]
+id = "panel.mix-point-link"
+title = "Mix Point Link panel"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.5"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "mpl", "wave", "deck-row", "global", "browser", "status"]
+features = ["shell-mix-point-link"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "mpl"
+band = "mpl"
+place = "above the waveform zone"
+order = "row"
+elements = [
+  "mpl.mix-in",
+  "mpl.mix-out",
+  "mpl.prev",
+  "mpl.next",
+  "mpl.edit",
+  "mpl.link",
+]
+
+[[view.region]]
+id = "mpl.deck1"
+band = "mpl"
+place = "left"
+order = "row"
+elements = [
+  "mpl.deck1.points",
+  "mpl.deck1.mix-in-time",
+  "mpl.deck1.mix-out-time",
+]
+
+[[view.region]]
+id = "mpl.deck2"
+band = "mpl"
+place = "right"
+order = "row"
+elements = [
+  "mpl.deck2.points",
+  "mpl.deck2.mix-in-time",
+  "mpl.deck2.mix-out-time",
+]
+
+# ---- Sampler panel ----
+[[view]]
+id = "panel.sampler"
+title = "Sampler panel"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.5"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "wave", "deck-row", "global", "sampler", "browser", "status"]
+features = ["sampler-panel", "sampler-banks", "sampler-sequencer"]
+note = "Docked between the global bar and the browser (UX §2.8)"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "sampler.slots-left"
+band = "sampler"
+place = "left of the centre column"
+order = "grid"
+elements = [
+  "sampler.slot1",
+  "sampler.slot2",
+  "sampler.slot3",
+  "sampler.slot4",
+  "sampler.slot9",
+  "sampler.slot10",
+  "sampler.slot11",
+  "sampler.slot12",
+]
+note = "two rows of 4 (row-major: slots 1–4 over 9–12)"
+
+[[view.region]]
+id = "sampler.centre"
+band = "sampler"
+place = "centre column"
+order = "column"
+elements = [
+  "sampler.gain",
+  "sampler.cue",
+  "sampler.bpm",
+  "sampler.bpm-up",
+  "sampler.bpm-down",
+]
+
+[[view.region]]
+id = "sampler.slots-right"
+band = "sampler"
+place = "right of the centre column"
+order = "grid"
+elements = [
+  "sampler.slot5",
+  "sampler.slot6",
+  "sampler.slot7",
+  "sampler.slot8",
+  "sampler.slot13",
+  "sampler.slot14",
+  "sampler.slot15",
+  "sampler.slot16",
+]
+
+[[view.region]]
+id = "sampler.footer"
+band = "sampler"
+place = "footer row"
+order = "row"
+elements = [
+  "sampler.bank",
+  "sampler.quantize",
+  "sampler.bpm-sync",
+  "sampler.master",
+  "sampler.seq.rec",
+  "sampler.seq.play",
+  "sampler.seq.save",
+  "sampler.seq.pattern",
+  "sampler.seq.length",
+  "sampler.seq.position",
+  "sampler.seq.mute",
+  "sampler.seq.erase",
+]
+
+# ---- Recording section (Perform) ----
+[[view]]
+id = "panel.recording"
+title = "Recording section (Perform)"
+mode = "perform"
+source = "docs/ux-study/rekordbox-layout.md §1.3, §2.3"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "global"]
+features = ["rec-panel", "rec-one-button"]
+note = "Shown / hidden with topbar.toggle.rec"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.fx",
+  "topbar.toggle.mpl",
+  "topbar.toggle.sampler",
+  "topbar.toggle.mixer",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2. LINK, plan badge and cloud spinner are excluded (cloud / Pro DJ Link later)"
+
+[[view.region]]
+id = "global.phones"
+band = "global"
+place = "left of centre"
+order = "row"
+elements = [
+  "global.phones.mix",
+  "global.phones.level",
+]
+note = "UX §1.3 global bar"
+
+[[view.region]]
+id = "global.xf-a"
+band = "global"
+place = "left of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-a.deck1",
+  "global.xf-a.deck2",
+  "global.xf-a.deck3",
+  "global.xf-a.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "global.xfader"
+band = "global"
+place = "centred under the mixer"
+order = "row"
+elements = [
+  "global.xfader",
+]
+
+[[view.region]]
+id = "global.xf-b"
+band = "global"
+place = "right of the crossfader"
+order = "grid"
+elements = [
+  "global.xf-b.deck1",
+  "global.xf-b.deck2",
+  "global.xf-b.deck3",
+  "global.xf-b.deck4",
+]
+note = "2 x 2 assign grid"
+
+[[view.region]]
+id = "rec"
+band = "global"
+place = "right end of the global bar, under deck 2"
+order = "row"
+elements = [
+  "rec.source",
+  "rec.level",
+  "rec.meter",
+  "rec.toggle",
+  "rec.time",
+]
+note = "UX §1.3, §2.3"
+
+# ---- Prepare: 1 player (default) ----
+[[view]]
+id = "prepare.1-player"
+title = "Prepare: 1 player (default)"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.7"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "player", "browser", "status"]
+features = ["cues-hot-cues-prepare", "cues-memory-add", "cues-memory-edit", "analysis-grid-editor"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "player1.transport"
+band = "player"
+place = "left, 80 pt transport column"
+order = "column"
+elements = [
+  "player1.loop-in",
+  "player1.loop-out",
+  "player1.jump-back",
+  "player1.jump-forward",
+  "player1.jump-size",
+  "player1.cue",
+  "player1.play",
+]
+
+[[view.region]]
+id = "player1.title-line"
+band = "player"
+place = "waveform block, top line"
+order = "row"
+elements = [
+  "player1.artwork",
+  "player1.title",
+  "player1.artist",
+  "player1.time-remaining",
+  "player1.time-elapsed",
+  "player1.bpm",
+]
+
+[[view.region]]
+id = "player1.waveforms"
+band = "player"
+place = "waveform block"
+order = "column"
+elements = [
+  "player1.overview",
+  "player1.zoom-in",
+  "player1.zoom-reset",
+  "player1.zoom-out",
+  "player1.enlarged",
+]
+note = "overview, then zoom column + enlarged waveform"
+
+[[view.region]]
+id = "player1.toolbar"
+band = "player"
+place = "bottom toolbar of the player, 28 pt"
+order = "row"
+elements = [
+  "player1.tab.cue-loop",
+  "player1.tab.grid",
+  "player1.hot-cue.A",
+  "player1.hot-cue.B",
+  "player1.hot-cue.C",
+  "player1.hot-cue.D",
+  "player1.hot-cue.E",
+  "player1.hot-cue.F",
+  "player1.hot-cue.G",
+  "player1.hot-cue.H",
+  "player1.memory.set",
+  "player1.memory.prev",
+  "player1.memory.next",
+  "player1.memory.delete",
+  "player1.loop.auto",
+  "player1.loop.manual",
+  "player1.loop.halve",
+  "player1.loop.size",
+  "player1.loop.double",
+  "player1.quantize",
+  "player1.menu",
+]
+note = "UX §1.7"
+
+[[view.region]]
+id = "player1.cue-list"
+band = "player"
+place = "right, about 210 pt"
+order = "column"
+elements = [
+  "player1.cue-list.rows",
+  "player1.cue-list.tab.memory",
+  "player1.cue-list.tab.hot-cue",
+  "player1.cue-list.tab.info",
+]
+note = "UX §1.7 cue list panel"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Prepare: player GRID tab ----
+[[view]]
+id = "prepare.1-player.grid"
+title = "Prepare: player GRID tab"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.7"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "player"]
+features = ["analysis-grid-editor", "analysis-grid-tap-bpm", "analysis-phrase-edit"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "player1.grid-tools"
+band = "player"
+place = "bottom toolbar of the player"
+order = "row"
+elements = [
+  "player1.tab.cue-loop",
+  "player1.tab.grid",
+  "player1.grid.bpm",
+  "player1.grid.tap",
+  "player1.grid.shift-left",
+  "player1.grid.shift-right",
+  "player1.grid.double",
+  "player1.grid.halve",
+  "player1.grid.metronome",
+  "player1.grid.undo",
+  "player1.grid.redo",
+  "player1.grid.lock",
+  "player1.phrase.cut",
+  "player1.phrase.clear",
+]
+note = "GRID tab swaps the toolbar for grid tools"
+
+# ---- Prepare: 2 players ----
+[[view]]
+id = "prepare.2-players"
+title = "Prepare: 2 players"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.7"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "player", "browser", "status"]
+note = "Shared enlarged-waveform area and a single transport / crossfader column at the left"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "player1.transport"
+band = "player"
+place = "left, 80 pt transport column"
+order = "column"
+elements = [
+  "player1.loop-in",
+  "player1.loop-out",
+  "player1.jump-back",
+  "player1.jump-forward",
+  "player1.jump-size",
+  "player1.cue",
+  "player1.play",
+]
+
+[[view.region]]
+id = "player1.title-line"
+band = "player"
+place = "waveform block, top line"
+order = "row"
+elements = [
+  "player1.artwork",
+  "player1.title",
+  "player1.artist",
+  "player1.time-remaining",
+  "player1.time-elapsed",
+  "player1.bpm",
+]
+
+[[view.region]]
+id = "player1.waveforms"
+band = "player"
+place = "waveform block"
+order = "column"
+elements = [
+  "player1.overview",
+  "player1.zoom-in",
+  "player1.zoom-reset",
+  "player1.zoom-out",
+  "player1.enlarged",
+]
+note = "overview, then zoom column + enlarged waveform"
+
+[[view.region]]
+id = "player1.toolbar"
+band = "player"
+place = "bottom toolbar of the player, 28 pt"
+order = "row"
+elements = [
+  "player1.tab.cue-loop",
+  "player1.tab.grid",
+  "player1.hot-cue.A",
+  "player1.hot-cue.B",
+  "player1.hot-cue.C",
+  "player1.hot-cue.D",
+  "player1.hot-cue.E",
+  "player1.hot-cue.F",
+  "player1.hot-cue.G",
+  "player1.hot-cue.H",
+  "player1.memory.set",
+  "player1.memory.prev",
+  "player1.memory.next",
+  "player1.memory.delete",
+  "player1.loop.auto",
+  "player1.loop.manual",
+  "player1.loop.halve",
+  "player1.loop.size",
+  "player1.loop.double",
+  "player1.quantize",
+  "player1.menu",
+]
+note = "UX §1.7"
+
+[[view.region]]
+id = "player1.cue-list"
+band = "player"
+place = "right, about 210 pt"
+order = "column"
+elements = [
+  "player1.cue-list.rows",
+  "player1.cue-list.tab.memory",
+  "player1.cue-list.tab.hot-cue",
+  "player1.cue-list.tab.info",
+]
+note = "UX §1.7 cue list panel"
+
+[[view.region]]
+id = "player2.transport"
+band = "player"
+place = "left, 80 pt transport column"
+order = "column"
+elements = [
+  "player2.loop-in",
+  "player2.loop-out",
+  "player2.jump-back",
+  "player2.jump-forward",
+  "player2.jump-size",
+  "player2.cue",
+  "player2.play",
+]
+
+[[view.region]]
+id = "player2.title-line"
+band = "player"
+place = "waveform block, top line"
+order = "row"
+elements = [
+  "player2.artwork",
+  "player2.title",
+  "player2.artist",
+  "player2.time-remaining",
+  "player2.time-elapsed",
+  "player2.bpm",
+]
+
+[[view.region]]
+id = "player2.waveforms"
+band = "player"
+place = "waveform block"
+order = "column"
+elements = [
+  "player2.overview",
+  "player2.zoom-in",
+  "player2.zoom-reset",
+  "player2.zoom-out",
+  "player2.enlarged",
+]
+note = "overview, then zoom column + enlarged waveform"
+
+[[view.region]]
+id = "player2.toolbar"
+band = "player"
+place = "bottom toolbar of the player, 28 pt"
+order = "row"
+elements = [
+  "player2.tab.cue-loop",
+  "player2.tab.grid",
+  "player2.hot-cue.A",
+  "player2.hot-cue.B",
+  "player2.hot-cue.C",
+  "player2.hot-cue.D",
+  "player2.hot-cue.E",
+  "player2.hot-cue.F",
+  "player2.hot-cue.G",
+  "player2.hot-cue.H",
+  "player2.memory.set",
+  "player2.memory.prev",
+  "player2.memory.next",
+  "player2.memory.delete",
+  "player2.loop.auto",
+  "player2.loop.manual",
+  "player2.loop.halve",
+  "player2.loop.size",
+  "player2.loop.double",
+  "player2.quantize",
+  "player2.menu",
+]
+note = "UX §1.7"
+
+[[view.region]]
+id = "player2.cue-list"
+band = "player"
+place = "right, about 210 pt"
+order = "column"
+elements = [
+  "player2.cue-list.rows",
+  "player2.cue-list.tab.memory",
+  "player2.cue-list.tab.hot-cue",
+  "player2.cue-list.tab.info",
+]
+note = "UX §1.7 cue list panel"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Prepare: dual player ----
+[[view]]
+id = "prepare.dual-player"
+title = "Prepare: dual player"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.7"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "player", "browser", "status"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "player1.transport"
+band = "player"
+place = "left, 80 pt transport column"
+order = "column"
+elements = [
+  "player1.loop-in",
+  "player1.loop-out",
+  "player1.jump-back",
+  "player1.jump-forward",
+  "player1.jump-size",
+  "player1.cue",
+  "player1.play",
+]
+
+[[view.region]]
+id = "player1.title-line"
+band = "player"
+place = "waveform block, top line"
+order = "row"
+elements = [
+  "player1.artwork",
+  "player1.title",
+  "player1.artist",
+  "player1.time-remaining",
+  "player1.time-elapsed",
+  "player1.bpm",
+]
+
+[[view.region]]
+id = "player1.waveforms"
+band = "player"
+place = "waveform block"
+order = "column"
+elements = [
+  "player1.overview",
+  "player1.zoom-in",
+  "player1.zoom-reset",
+  "player1.zoom-out",
+  "player1.enlarged",
+]
+note = "overview, then zoom column + enlarged waveform"
+
+[[view.region]]
+id = "player1.toolbar"
+band = "player"
+place = "bottom toolbar of the player, 28 pt"
+order = "row"
+elements = [
+  "player1.tab.cue-loop",
+  "player1.tab.grid",
+  "player1.hot-cue.A",
+  "player1.hot-cue.B",
+  "player1.hot-cue.C",
+  "player1.hot-cue.D",
+  "player1.hot-cue.E",
+  "player1.hot-cue.F",
+  "player1.hot-cue.G",
+  "player1.hot-cue.H",
+  "player1.memory.set",
+  "player1.memory.prev",
+  "player1.memory.next",
+  "player1.memory.delete",
+  "player1.loop.auto",
+  "player1.loop.manual",
+  "player1.loop.halve",
+  "player1.loop.size",
+  "player1.loop.double",
+  "player1.quantize",
+  "player1.menu",
+]
+note = "UX §1.7"
+
+[[view.region]]
+id = "player1.cue-list"
+band = "player"
+place = "right, about 210 pt"
+order = "column"
+elements = [
+  "player1.cue-list.rows",
+  "player1.cue-list.tab.memory",
+  "player1.cue-list.tab.hot-cue",
+  "player1.cue-list.tab.info",
+]
+note = "UX §1.7 cue list panel"
+
+[[view.region]]
+id = "player2.transport"
+band = "player"
+place = "left, 80 pt transport column"
+order = "column"
+elements = [
+  "player2.loop-in",
+  "player2.loop-out",
+  "player2.jump-back",
+  "player2.jump-forward",
+  "player2.jump-size",
+  "player2.cue",
+  "player2.play",
+]
+
+[[view.region]]
+id = "player2.title-line"
+band = "player"
+place = "waveform block, top line"
+order = "row"
+elements = [
+  "player2.artwork",
+  "player2.title",
+  "player2.artist",
+  "player2.time-remaining",
+  "player2.time-elapsed",
+  "player2.bpm",
+]
+
+[[view.region]]
+id = "player2.waveforms"
+band = "player"
+place = "waveform block"
+order = "column"
+elements = [
+  "player2.overview",
+  "player2.zoom-in",
+  "player2.zoom-reset",
+  "player2.zoom-out",
+  "player2.enlarged",
+]
+note = "overview, then zoom column + enlarged waveform"
+
+[[view.region]]
+id = "player2.toolbar"
+band = "player"
+place = "bottom toolbar of the player, 28 pt"
+order = "row"
+elements = [
+  "player2.tab.cue-loop",
+  "player2.tab.grid",
+  "player2.hot-cue.A",
+  "player2.hot-cue.B",
+  "player2.hot-cue.C",
+  "player2.hot-cue.D",
+  "player2.hot-cue.E",
+  "player2.hot-cue.F",
+  "player2.hot-cue.G",
+  "player2.hot-cue.H",
+  "player2.memory.set",
+  "player2.memory.prev",
+  "player2.memory.next",
+  "player2.memory.delete",
+  "player2.loop.auto",
+  "player2.loop.manual",
+  "player2.loop.halve",
+  "player2.loop.size",
+  "player2.loop.double",
+  "player2.quantize",
+  "player2.menu",
+]
+note = "UX §1.7"
+
+[[view.region]]
+id = "player2.cue-list"
+band = "player"
+place = "right, about 210 pt"
+order = "column"
+elements = [
+  "player2.cue-list.rows",
+  "player2.cue-list.tab.memory",
+  "player2.cue-list.tab.hot-cue",
+  "player2.cue-list.tab.info",
+]
+note = "UX §1.7 cue list panel"
+
+[[view.region]]
+id = "player.mixer.p1"
+band = "player"
+place = "small mixer column"
+order = "column"
+elements = [
+  "player1.trim",
+  "player1.eq-high",
+  "player1.eq-mid",
+  "player1.eq-low",
+]
+
+[[view.region]]
+id = "player.mixer.p2"
+band = "player"
+place = "small mixer column"
+order = "column"
+elements = [
+  "player2.trim",
+  "player2.eq-high",
+  "player2.eq-mid",
+  "player2.eq-low",
+]
+
+[[view.region]]
+id = "player.key-sync"
+band = "player"
+place = "player headers"
+order = "row"
+elements = [
+  "player1.key-sync",
+  "player2.key-sync",
+]
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Prepare: simple player ----
+[[view]]
+id = "prepare.simple-player"
+title = "Prepare: simple player"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.7"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "player", "browser", "status"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "player1.simple"
+band = "player"
+place = "single 40 pt line"
+order = "row"
+elements = [
+  "player1.play",
+  "player1.artwork",
+  "player1.title",
+  "player1.overview",
+  "player1.time-remaining",
+  "player1.bpm",
+  "player1.rating",
+]
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Prepare: full browser ----
+[[view]]
+id = "prepare.full-browser"
+title = "Prepare: full browser"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.7"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "browser", "status"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Prepare: recording bar ----
+[[view]]
+id = "prepare.recording-bar"
+title = "Prepare: recording bar"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.7, §2.3"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "player", "rec", "browser"]
+features = ["rec-panel"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "rec"
+band = "rec"
+place = "30 pt bar under the player"
+order = "row"
+elements = [
+  "rec.source",
+  "rec.level",
+  "rec.meter",
+  "rec.toggle",
+  "rec.time",
+]
+
+# ---- Browser source: Collection ----
+[[view]]
+id = "browser.collection"
+title = "Browser source: Collection"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "browser", "status"]
+features = ["browser-collection-table", "browser-search"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree.all",
+  "browser.tree.date-added",
+  "browser.tree.genre",
+  "browser.tree.artist",
+  "browser.tree.album",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Browser source: Playlists ----
+[[view]]
+id = "browser.playlists"
+title = "Browser source: Playlists"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "browser", "status"]
+features = ["browser-tree-nodes", "browser-smart-playlists", "browser-sets-flow"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree.view-switch",
+  "browser.tree.filter",
+  "browser.tree.all-tracks",
+  "browser.tree.playlists",
+  "browser.tree.add",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Browser source: Related tracks ----
+[[view]]
+id = "browser.related"
+title = "Browser source: Related tracks"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "browser", "status"]
+features = ["browser-related-tracks"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree.rules",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "browser.related-source"
+band = "browser"
+place = "list title row"
+order = "row"
+elements = [
+  "browser.related.master",
+  "browser.related.deck1",
+  "browser.related.deck2",
+  "browser.related.deck3",
+  "browser.related.deck4",
+]
+note = "deck-source selector MASTER, 1, 2, 3, 4"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Browser source: Explorer ----
+[[view]]
+id = "browser.explorer"
+title = "Browser source: Explorer"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6, §2.2"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "browser", "status"]
+features = ["browser-explorer", "browser-explorer-import-on-load"]
+note = "Reduced column set, sorted by BPM ascending (UX §2.2)"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree.home",
+  "browser.tree.volumes",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.preview",
+  "browser.header.title",
+  "browser.header.bpm",
+  "browser.header.key",
+  "browser.header.artist",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Browser source: Devices ----
+[[view]]
+id = "browser.devices"
+title = "Browser source: Devices"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "browser", "status"]
+features = ["export-device-registry", "export-auto-sync"]
+note = "Per stick: connected, sync state with pending count, free space, formats (SPEC §8.2)"
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree.devices",
+  "browser.tree.device-sync",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Browser source: Histories ----
+[[view]]
+id = "browser.histories"
+title = "Browser source: Histories"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "browser", "status"]
+features = ["browser-own-history", "browser-player-histories"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree.years",
+  "browser.tree.sessions",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Browser source: Recordings ----
+[[view]]
+id = "browser.recordings"
+title = "Browser source: Recordings"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6"
+sizes = ["desktop", "laptop", "kiosk"]
+bands = ["topbar", "browser", "status"]
+features = ["rec-library-section"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree.recordings",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.preview",
+  "browser.header.summary",
+  "browser.header.title",
+  "browser.header.artist",
+  "browser.header.album",
+  "browser.header.genre",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Browser source: Tag list ----
+[[view]]
+id = "browser.tag-list"
+title = "Browser source: Tag list"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6 toolbar"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "browser", "status"]
+features = ["browser-tag-list"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree.tag-list",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Browser source: Sampler source ----
+[[view]]
+id = "browser.sampler"
+title = "Browser source: Sampler source"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "browser", "status"]
+features = ["sampler-load-library"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree.all-samples",
+  "browser.tree.capture",
+  "browser.tree.packs",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Info panel ----
+[[view]]
+id = "browser.info-panel"
+title = "Info panel"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "browser", "status"]
+features = ["browser-info-panel"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "info"
+band = "browser"
+place = "right-hand panel, narrows the list"
+order = "column"
+elements = [
+  "info.tab.summary",
+  "info.tab.info",
+  "info.tab.artwork",
+  "info.time",
+  "info.file-type",
+  "info.size",
+  "info.created",
+  "info.sample-rate",
+  "info.bitrate",
+  "info.play-count",
+]
+note = "UX §1.6 Info"
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Sub-browser ----
+[[view]]
+id = "browser.sub-browser"
+title = "Sub-browser"
+mode = "prepare"
+source = "docs/ux-study/rekordbox-layout.md §1.6"
+sizes = ["desktop", "laptop"]
+bands = ["topbar", "browser", "status"]
+features = ["browser-sub-browser"]
+
+[[view.region]]
+id = "topbar"
+band = "topbar"
+place = "full width, 28 pt"
+order = "row"
+elements = [
+  "topbar.mode",
+  "topbar.layout",
+  "topbar.toggle.rec",
+  "topbar.status.midi",
+  "topbar.settings",
+  "topbar.master-meter",
+  "topbar.master-volume",
+  "topbar.clock",
+]
+note = "UX §1.2: Export has a single RECORDING toggle"
+
+[[view.region]]
+id = "browser.rail"
+band = "browser"
+place = "left edge of the tree pane, 38 pt"
+order = "column"
+elements = [
+  "browser.rail.collection",
+  "browser.rail.playlists",
+  "browser.rail.related",
+  "browser.rail.sampler",
+  "browser.rail.explorer",
+  "browser.rail.devices",
+  "browser.rail.histories",
+  "browser.rail.recordings",
+  "browser.rail.tag-list",
+]
+note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
+
+[[view.region]]
+id = "browser.tree"
+band = "browser"
+place = "tree pane, 28 % of the width"
+order = "column"
+elements = [
+  "browser.tree",
+]
+
+[[view.region]]
+id = "browser.splitter"
+band = "browser"
+place = "between tree and list"
+order = "any"
+elements = [
+  "browser.splitter",
+]
+note = "draggable, double-click resets (SPEC §12)"
+
+[[view.region]]
+id = "browser.title"
+band = "browser"
+place = "list area, title row 34 pt"
+order = "row"
+elements = [
+  "browser.list-title",
+  "browser.target",
+  "browser.density",
+  "browser.search",
+]
+note = "UX §1.6 list area"
+
+[[view.region]]
+id = "browser.header"
+band = "browser"
+place = "list area, column header 29 pt"
+order = "row"
+elements = [
+  "browser.header.filter",
+  "browser.header.attribute",
+  "browser.header.columns",
+]
+
+[[view.region]]
+id = "browser.list"
+band = "browser"
+place = "list area, rows"
+order = "column"
+elements = [
+  "browser.rows",
+]
+note = "loaded rows carry the deck numeral next to the first column"
+
+[[view.region]]
+id = "browser.panels"
+band = "browser"
+place = "right panel strip"
+order = "column"
+elements = [
+  "browser.panel.my-tag",
+  "browser.panel.related",
+  "browser.panel.sampler",
+  "browser.panel.info",
+  "browser.panel.sub-browser",
+]
+note = "UX §1.6 right panel strip"
+
+[[view.region]]
+id = "subbrowser"
+band = "browser"
+place = "beside the list, narrower"
+order = "row"
+elements = [
+  "subbrowser.rail",
+  "subbrowser.tree",
+  "subbrowser.rows",
+]
+
+[[view.region]]
+id = "status"
+band = "status"
+place = "bottom, 30 pt"
+order = "row"
+elements = [
+  "status.activity",
+  "status.summary",
+]
+note = "UX §1.6 status bar: list summary at the right; our activity (analysis / sync / separation) at the left (SPEC §12)"
+
+# ---- Preferences: View ----
+[[view]]
+id = "prefs.view"
+title = "Preferences: View"
+mode = "preferences"
+source = "docs/ux-study/rekordbox-layout.md §1.8"
+sizes = ["desktop", "laptop"]
+bands = ["prefs"]
+features = ["prefs-window", "prefs-display", "prefs-browser-font", "prefs-waveform-options"]
+
+[[view.region]]
+id = "prefs.nav"
+band = "prefs"
+place = "left column, about 150 pt"
+order = "column"
+elements = [
+  "prefs.search",
+  "prefs.nav.view",
+  "prefs.nav.audio",
+  "prefs.nav.analysis",
+  "prefs.nav.controller",
+  "prefs.nav.keyboard",
+  "prefs.nav.advanced",
+]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
+
+[[view.region]]
+id = "prefs.view.tabs"
+band = "prefs"
+place = "top tabs"
+order = "row"
+elements = [
+  "prefs.view.tab.display-type",
+  "prefs.view.tab.layout",
+  "prefs.view.tab.color",
+]
+
+[[view.region]]
+id = "prefs.view.content"
+band = "prefs"
+place = "stacked cards"
+order = "column"
+elements = [
+  "prefs.view.language",
+  "prefs.view.tooltips",
+  "prefs.view.font-size",
+  "prefs.view.font-bold",
+  "prefs.view.line-space",
+  "prefs.view.center-selected",
+  "prefs.view.played-colour",
+  "prefs.view.media-browser",
+  "prefs.view.phrase-enlarged",
+  "prefs.view.phrase-overview",
+  "prefs.view.phrase-types",
+  "prefs.view.colour-blind",
+  "prefs.view.high-contrast",
+  "prefs.view.scale",
+  "prefs.reset",
+]
+note = "fixed 'Reset to defaults' at the bottom left"
+
+# ---- Preferences: Audio ----
+[[view]]
+id = "prefs.audio"
+title = "Preferences: Audio"
+mode = "preferences"
+source = "docs/ux-study/rekordbox-layout.md §1.8"
+sizes = ["desktop", "laptop"]
+bands = ["prefs"]
+features = ["prefs-window", "prefs-audio-device"]
+
+[[view.region]]
+id = "prefs.nav"
+band = "prefs"
+place = "left column, about 150 pt"
+order = "column"
+elements = [
+  "prefs.search",
+  "prefs.nav.view",
+  "prefs.nav.audio",
+  "prefs.nav.analysis",
+  "prefs.nav.controller",
+  "prefs.nav.keyboard",
+  "prefs.nav.advanced",
+]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
+
+[[view.region]]
+id = "prefs.audio.tabs"
+band = "prefs"
+place = "top tabs"
+order = "row"
+elements = [
+  "prefs.audio.tab.configuration",
+  "prefs.audio.tab.input-output",
+]
+
+[[view.region]]
+id = "prefs.audio.content"
+band = "prefs"
+place = "stacked cards"
+order = "column"
+elements = [
+  "prefs.audio.device",
+  "prefs.audio.buffer",
+  "prefs.audio.sample-rate",
+  "prefs.audio.output-routing",
+  "prefs.audio.headphone-routing",
+  "prefs.reset",
+]
+note = "fixed 'Reset to defaults' at the bottom left"
+
+# ---- Preferences: Analysis ----
+[[view]]
+id = "prefs.analysis"
+title = "Preferences: Analysis"
+mode = "preferences"
+source = "docs/ux-study/rekordbox-layout.md §1.8"
+sizes = ["desktop", "laptop"]
+bands = ["prefs"]
+features = ["prefs-window", "analysis-bpm-range"]
+
+[[view.region]]
+id = "prefs.nav"
+band = "prefs"
+place = "left column, about 150 pt"
+order = "column"
+elements = [
+  "prefs.search",
+  "prefs.nav.view",
+  "prefs.nav.audio",
+  "prefs.nav.analysis",
+  "prefs.nav.controller",
+  "prefs.nav.keyboard",
+  "prefs.nav.advanced",
+]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
+
+[[view.region]]
+id = "prefs.analysis.tabs"
+band = "prefs"
+place = "top tabs"
+order = "row"
+elements = [
+  "prefs.analysis.tab.track-analysis",
+  "prefs.analysis.tab.cue-analysis",
+]
+
+[[view.region]]
+id = "prefs.analysis.content"
+band = "prefs"
+place = "stacked cards"
+order = "column"
+elements = [
+  "prefs.analysis.bpm-grid",
+  "prefs.analysis.bpm-range",
+  "prefs.analysis.key",
+  "prefs.analysis.phrase",
+  "prefs.analysis.vocal",
+  "prefs.analysis.key-notation",
+  "prefs.reset",
+]
+note = "fixed 'Reset to defaults' at the bottom left"
+
+# ---- Preferences: Controller ----
+[[view]]
+id = "prefs.controller"
+title = "Preferences: Controller"
+mode = "preferences"
+source = "docs/ux-study/rekordbox-layout.md §1.8"
+sizes = ["desktop", "laptop"]
+bands = ["prefs"]
+features = ["prefs-window", "prefs-deck-defaults", "mixer-eq-mode", "mixer-fader-curve", "mixer-crossfader-curve", "ctrl-midi-learn-monitor"]
+
+[[view.region]]
+id = "prefs.nav"
+band = "prefs"
+place = "left column, about 150 pt"
+order = "column"
+elements = [
+  "prefs.search",
+  "prefs.nav.view",
+  "prefs.nav.audio",
+  "prefs.nav.analysis",
+  "prefs.nav.controller",
+  "prefs.nav.keyboard",
+  "prefs.nav.advanced",
+]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
+
+[[view.region]]
+id = "prefs.controller.tabs"
+band = "prefs"
+place = "top tabs"
+order = "row"
+elements = [
+  "prefs.controller.tab.deck",
+  "prefs.controller.tab.mixer",
+  "prefs.controller.tab.effect",
+  "prefs.controller.tab.sampler",
+  "prefs.controller.tab.recordings",
+  "prefs.controller.tab.mix-point-link",
+  "prefs.controller.tab.others",
+]
+
+[[view.region]]
+id = "prefs.controller.content"
+band = "prefs"
+place = "stacked cards"
+order = "column"
+elements = [
+  "prefs.controller.tempo-range",
+  "prefs.controller.quantize",
+  "prefs.controller.sync-mode",
+  "prefs.controller.jog-mode",
+  "prefs.controller.auto-cue",
+  "prefs.controller.eq-mode",
+  "prefs.controller.fader-curve",
+  "prefs.controller.crossfader-curve",
+  "prefs.controller.midi-learn",
+  "prefs.reset",
+]
+note = "fixed 'Reset to defaults' at the bottom left"
+
+# ---- Preferences: Keyboard ----
+[[view]]
+id = "prefs.keyboard"
+title = "Preferences: Keyboard"
+mode = "preferences"
+source = "docs/ux-study/rekordbox-layout.md §1.8"
+sizes = ["desktop", "laptop"]
+bands = ["prefs"]
+features = ["prefs-window", "browser-keyboard-shortcuts"]
+
+[[view.region]]
+id = "prefs.nav"
+band = "prefs"
+place = "left column, about 150 pt"
+order = "column"
+elements = [
+  "prefs.search",
+  "prefs.nav.view",
+  "prefs.nav.audio",
+  "prefs.nav.analysis",
+  "prefs.nav.controller",
+  "prefs.nav.keyboard",
+  "prefs.nav.advanced",
+]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
+
+[[view.region]]
+id = "prefs.keyboard.tabs"
+band = "prefs"
+place = "top tabs"
+order = "row"
+elements = [
+  "prefs.keyboard.tab.shortcuts",
+]
+
+[[view.region]]
+id = "prefs.keyboard.content"
+band = "prefs"
+place = "stacked cards"
+order = "column"
+elements = [
+  "prefs.keyboard.shortcut-list",
+  "prefs.reset",
+]
+note = "fixed 'Reset to defaults' at the bottom left"
+
+# ---- Preferences: Advanced ----
+[[view]]
+id = "prefs.advanced"
+title = "Preferences: Advanced"
+mode = "preferences"
+source = "docs/ux-study/rekordbox-layout.md §1.8"
+sizes = ["desktop", "laptop"]
+bands = ["prefs"]
+features = ["prefs-window", "browser-library-backups", "browser-relocate", "browser-consolidate"]
+
+[[view.region]]
+id = "prefs.nav"
+band = "prefs"
+place = "left column, about 150 pt"
+order = "column"
+elements = [
+  "prefs.search",
+  "prefs.nav.view",
+  "prefs.nav.audio",
+  "prefs.nav.analysis",
+  "prefs.nav.controller",
+  "prefs.nav.keyboard",
+  "prefs.nav.advanced",
+]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
+
+[[view.region]]
+id = "prefs.advanced.tabs"
+band = "prefs"
+place = "top tabs"
+order = "row"
+elements = [
+  "prefs.advanced.tab.database",
+  "prefs.advanced.tab.browse",
+  "prefs.advanced.tab.others",
+]
+
+[[view.region]]
+id = "prefs.advanced.content"
+band = "prefs"
+place = "stacked cards"
+order = "column"
+elements = [
+  "prefs.advanced.backups",
+  "prefs.advanced.relocate",
+  "prefs.advanced.consolidate",
+  "prefs.reset",
+]
+note = "fixed 'Reset to defaults' at the bottom left"
+
+# ---- Track row context menu ----
+[[view]]
+id = "ctx.track-row"
+title = "Track row context menu"
+mode = "menu"
+source = "docs/ux-study/rekordbox-layout.md §1.9"
+sizes = ["desktop", "laptop"]
+bands = ["menu"]
+features = ["browser-row-context-menu"]
+
+[[view.region]]
+id = "ctx.row"
+band = "menu"
+place = "popup at the pointer"
+order = "column"
+elements = [
+  "ctx.row.load",
+  "ctx.row.import",
+  "ctx.row.analyse",
+  "ctx.row.analysis-lock",
+  "ctx.row.add-to-playlist",
+  "ctx.row.add-to-tag-list",
+  "ctx.row.reload-tag",
+  "ctx.row.export-track",
+  "ctx.row.reset-play-count",
+  "ctx.row.memory-to-hot-cues",
+  "ctx.row.sort-hot-cues",
+  "ctx.row.remove",
+  "ctx.row.show-info",
+  "ctx.row.show-in-finder",
+]
+note = "Groups separated by rules; unavailable items dimmed, not hidden. 'Get Info from iTunes' and 'Request Catalog' omitted"
+
+# ---- Column header context menu ----
+[[view]]
+id = "ctx.column-header"
+title = "Column header context menu"
+mode = "menu"
+source = "docs/ux-study/rekordbox-layout.md §1.9"
+sizes = ["desktop", "laptop"]
+bands = ["menu"]
+features = ["browser-column-choice"]
+
+[[view.region]]
+id = "ctx.header"
+band = "menu"
+place = "popup at the pointer"
+order = "column"
+elements = [
+  "ctx.header.auto-size",
+  "ctx.header.auto-size-all",
+  "ctx.header.columns",
+]
+note = "checkable list of every column"
+
+# ---- View menu ----
+[[view]]
+id = "menu.view"
+title = "View menu"
+mode = "menu"
+source = "docs/ux-study/rekordbox-layout.md §1.9"
+sizes = ["desktop", "laptop"]
+bands = ["menu"]
+features = ["shell-keyboard-layouts"]
+
+[[view.region]]
+id = "menu.view"
+band = "menu"
+place = "menu bar"
+order = "column"
+elements = [
+  "menu.view.full-screen",
+  "menu.view.layouts",
+  "menu.view.pad-platter",
+  "menu.view.my-tag",
+  "menu.view.related",
+  "menu.view.suggestion",
+  "menu.view.info",
+  "menu.view.sub-browser",
+]
+note = "Layout entries with ⌘7–⌘0 in Prepare"
+
