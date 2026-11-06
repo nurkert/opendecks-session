@@ -1,5 +1,6 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine, ProgressLine } from "lines.slint";
+import { UpdateBar } from "update.slint";
 import { Caps, PlateButton, Field, LineToggle, Splitter, TooltipState } from "controls.slint";
 import { TooltipLayer } from "tooltip.slint";
 import { Sidebar } from "sidebar.slint";
@@ -133,6 +134,11 @@ export component AppWindow inherits Window {
 
     // Perform.
     in property <[DeckView]> decks;
+    // Update notice (SPEC §14.1); "" = hidden.
+    in property <string> update-state;
+    in property <string> update-text;
+    in property <float> update-progress;
+    callback update-action(string);
     in property <[LaneMotion]> lane-motion;
     callback deck-zoom(int, float);
     callback deck-zoom-reset(int);
@@ -224,6 +230,7 @@ export component AppWindow inherits Window {
     // Held keys (pitch bend) end on release.
     callback key-released(string);
     callback open-preferences();
+    callback check-updates();
     // Appearance: the top-bar button cycles dark → light → system; Rust
     // hears every change of the effective palette (waveform images).
     callback cycle-appearance();
@@ -265,6 +272,7 @@ export component AppWindow inherits Window {
         Menu {
             title: @tr("File");
             MenuItem { title: @tr("Preferences…"); shortcut: @keys(Control + ","); activated => { root.open-preferences(); } }
+            MenuItem { title: @tr("Check for Updates…"); activated => { root.check-updates(); } }
             MenuItem { title: @tr("Add Music Folder…"); activated => { root.import-folder(); } }
             MenuItem { title: @tr("Import from rekordbox…"); activated => { root.import-rekordbox(); } }
         }
@@ -306,6 +314,12 @@ export component AppWindow inherits Window {
                 set-mode(m) => { root.set-mode(m); }
                 toggle-recording => { root.toggle-recording(); }
                 undo => { root.undo(); }
+            }
+            if root.update-state != "": UpdateBar {
+                state: root.update-state;
+                text: root.update-text;
+                progress: root.update-progress;
+                act(what) => { root.update-action(what); }
             }
 
             // ── Upper half: player (Prepare) or decks + mixer (Perform) ──

@@ -7,7 +7,7 @@
 use crate::state::{AppConfig, AppState};
 use slint::ComponentHandle;
 use crate::workers::{AnalysisWorker, WorkerEvent};
-use crate::{AppWindow, browser, controller, decks, devices, engine, explorer, fx, mixer, player, preferences, recorder, sampler, shell};
+use crate::{AppWindow, browser, controller, decks, devices, engine, explorer, fx, mixer, player, preferences, recorder, sampler, shell, update};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use od_devices::{DeviceManager, ManagerConfig};
 use od_library::Library;
@@ -52,6 +52,8 @@ pub struct App {
     pub(crate) prefs: RefCell<preferences::Prefs>,
     /// Held keyboard actions (pitch bend): (action, deck).
     pub(crate) held: RefCell<Vec<(String, usize)>>,
+    /// Update check and install (SPEC §14.1).
+    pub(crate) update: RefCell<update::UpdateRuntime>,
     worker_events: Receiver<WorkerEvent>,
     tick_timer: slint::Timer,
 }
@@ -81,6 +83,7 @@ impl App {
             state: RefCell::new(state),
             prefs: RefCell::new(preferences::Prefs::default()),
             held: RefCell::new(Vec::new()),
+            update: RefCell::new(update::UpdateRuntime::default()),
             engine: RefCell::new(engine::EngineHost::default()),
             decks: RefCell::new(decks::Decks::default()),
             mixer: mixer::MixerView::default(),
@@ -108,6 +111,7 @@ impl App {
         sampler::wire(&app);
         preferences::wire(&app);
         crate::appearance::wire(&app);
+        update::wire(&app);
         engine::start(&app);
         decks::autoload(&app);
 
@@ -176,6 +180,7 @@ impl App {
             }
         }
         crate::appearance::tick(self);
+        update::poll(self);
         if devices::poll(self) {
             need_refresh = true;
         }

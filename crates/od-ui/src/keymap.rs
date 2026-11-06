@@ -388,6 +388,7 @@ fn build() -> Vec<Action> {
     let g = Group::General;
     // ── General ──
     b.add("prefs.open", "Open preferences", None, g, Global, &["Mod+,"]);
+    b.add_split("app.check-updates", "Check for updates", None, g, Global, &["Mod+Alt+U"], &["Alt+U"]);
     b.add_split("library.undo", "Undo", None, g, Global, &["Mod+Z"], &["Mod+Z"]);
     b.add_split("library.redo", "Redo", None, g, Global, &["Mod+Shift+Z"], &["Mod+Shift+Z", "Mod+Y"]);
     b.add_split("mode.prepare", "Switch to Prepare", None, g, Global, &["Mod+Alt+1"], &["Alt+1"]);

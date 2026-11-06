@@ -215,9 +215,18 @@ pub(crate) fn refresh(app: &App) {
         }
         .into());
         w.set_backup_on_start(s.advanced.backup_on_start);
+        w.set_update_auto(s.update.auto_check);
+        w.set_update_prereleases(s.update.prereleases);
     });
     drop(st);
+    refresh_updates(app);
     refresh_keys(app);
+}
+
+/// Advanced > Updates: the version and when it was last checked.
+pub(crate) fn refresh_updates(app: &App) {
+    let text = crate::update::last_checked_text(app);
+    with_window(app, |w| w.set_update_status(text.into()));
 }
 
 /// Rows of the Keyboard page: matching actions under group headers.
@@ -504,6 +513,8 @@ fn flag(app: &App, key: &str, v: bool) {
             crate::recorder::arm(app, v);
         }
         "adv.backup" => change(app, |s| s.advanced.backup_on_start = v),
+        "update.auto" => change(app, |s| s.update.auto_check = v),
+        "update.pre" => change(app, |s| s.update.prereleases = v),
         _ => tracing::warn!(key, "unknown flag"),
     }
 }
@@ -529,7 +540,11 @@ fn act(app: &App, what: &str) {
                     "analysis" => s.analysis = d.analysis.clone(),
                     "controller" => s.controller = d.controller.clone(),
                     "recording" => s.recording = d.recording.clone(),
-                    "advanced" => s.advanced = d.advanced.clone(),
+                    "advanced" => {
+                        s.advanced = d.advanced.clone();
+                        s.update.auto_check = d.update.auto_check;
+                        s.update.prereleases = d.update.prereleases;
+                    }
                     _ => {}
                 }
             });
@@ -572,6 +587,7 @@ fn act(app: &App, what: &str) {
                 reveal(&p);
             }
         }
+        "update.check" => crate::update::check_now(app, true),
         "keys.reset-all" => {
             {
                 let mut st = app.state.borrow_mut();

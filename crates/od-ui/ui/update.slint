@@ -1,0 +1,51 @@
+// The update notice (SPEC §14.1): a slim, non-modal bar under the top bar.
+// It never covers the decks and never takes focus; the line on the left
+// carries the state (sodium: on offer, live: installing / ready, fault:
+// failed).
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine, ProgressLine } from "lines.slint";
+import { PlateButton } from "controls.slint";
+
+export component UpdateBar inherits Rectangle {
+    // "available" | "installing" | "ready" | "info" | "error"
+    in property <string> state;
+    in property <string> text;
+    in property <float> progress;
+    // "install" | "notes" | "later" | "skip" | "cancel" | "restart" | "page" | "close"
+    callback act(string);
+
+    property <color> tone: root.state == "error" ? Theme.fault : root.state == "available" ? Theme.attention : Theme.live;
+    height: 34px;
+    background: Theme.ground-band;
+    accessible-role: groupbox;
+    accessible-label: @tr("Update");
+
+    HLine { y: parent.height - self.height; width: parent.width; tone: Theme.rule; }
+    if root.state == "installing": ProgressLine { x: 0; y: parent.height - 2px; width: parent.width; height: 2px; progress: root.progress; tone: Theme.live; }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 12px;
+        padding-top: 4px;
+        padding-bottom: 4px;
+        spacing: 8px;
+        VLine { weight: 2px; tone: root.tone; form: root.state == "available" ? "double" : "solid"; }
+        Text {
+            horizontal-stretch: 1;
+            text: root.text;
+            font-family: Theme.family; font-size: 13px; color: Theme.bone;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+        if root.state == "available": PlateButton { compact: true; label: @tr("INSTALL NOW"); tone: Theme.attention; clicked => { root.act("install"); } }
+        if root.state == "available": PlateButton { compact: true; label: @tr("RELEASE NOTES"); clicked => { root.act("notes"); } }
+        if root.state == "available": PlateButton { compact: true; label: @tr("LATER"); clicked => { root.act("later"); } }
+        if root.state == "available": PlateButton { compact: true; label: @tr("SKIP THIS VERSION"); clicked => { root.act("skip"); } }
+        if root.state == "installing": PlateButton { compact: true; label: @tr("CANCEL"); clicked => { root.act("cancel"); } }
+        if root.state == "ready": PlateButton { compact: true; label: @tr("RESTART NOW"); tone: Theme.live; clicked => { root.act("restart"); } }
+        if root.state == "ready": PlateButton { compact: true; label: @tr("LATER"); clicked => { root.act("later"); } }
+        if root.state == "info" || root.state == "error": PlateButton { compact: true; label: @tr("RELEASE PAGE"); clicked => { root.act("page"); } }
+        if root.state == "info" || root.state == "error": PlateButton { compact: true; label: @tr("CLOSE"); clicked => { root.act("close"); } }
+    }
+}

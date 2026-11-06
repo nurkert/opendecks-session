@@ -76,6 +76,7 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
     let slot = |l: &str| l.bytes().next().map(|b| (b.saturating_sub(b'a')) as i32).unwrap_or(0).clamp(0, 7);
     match id {
         "prefs.open" => crate::preferences::open(app),
+        "app.check-updates" => crate::update::check_now(app, true),
         "library.undo" => app.undo(),
         "library.redo" => app.redo(),
         "mode.prepare" => ui.invoke_set_mode(S::from("prepare")),

@@ -8,7 +8,7 @@
 //!   [`format`]
 //! - features: [`shell`], [`browser`], [`explorer`], [`player`], [`decks`],
 //!   [`mixer`], [`fx`], [`sampler`], [`recorder`], [`devices`],
-//!   [`preferences`] (with [`settings`] and the [`keymap`]), plus [`engine`] (audio lifecycle, frame tick) and
+//!   [`preferences`] (with [`settings`] and the [`keymap`]), [`update`], plus [`engine`] (audio lifecycle, frame tick) and
 //!   [`controller`] (MIDI)
 //! - [`render`]: waveform images; [`appearance`]: dark / light / system
 
@@ -38,6 +38,7 @@ mod settings;
 mod shell;
 mod smart_text;
 mod state;
+mod update;
 mod workers;
 
 pub use app::App;

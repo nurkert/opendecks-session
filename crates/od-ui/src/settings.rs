@@ -20,6 +20,7 @@ pub struct Settings {
     pub controller: ControllerSettings,
     pub recording: RecordingSettings,
     pub advanced: AdvancedSettings,
+    pub update: UpdateSettings,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -96,6 +97,26 @@ pub struct AdvancedSettings {
     pub backup_on_start: bool,
 }
 
+/// The update check (SPEC §14.1; Preferences > Advanced).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct UpdateSettings {
+    /// Check GitHub for a new version at start and once a day.
+    pub auto_check: bool,
+    /// Offer pre-releases too.
+    pub prereleases: bool,
+    /// The version the user chose to skip ("SKIP THIS VERSION").
+    pub skip_version: String,
+    /// Last successful check, seconds since 1970 (0 = never).
+    pub last_check: i64,
+}
+
+impl Default for UpdateSettings {
+    fn default() -> Self {
+        Self { auto_check: true, prereleases: false, skip_version: String::new(), last_check: 0 }
+    }
+}
+
 impl Default for Settings {
     fn default() -> Self {
         Self {
@@ -105,6 +126,7 @@ impl Default for Settings {
             controller: ControllerSettings::default(),
             recording: RecordingSettings::default(),
             advanced: AdvancedSettings::default(),
+            update: UpdateSettings::default(),
         }
     }
 }
@@ -342,6 +364,10 @@ mod tests {
         s.recording.format = "flac".into();
         s.recording.auto_split = true;
         s.controller.mapping_file = "/tmp/my.toml".into();
+        s.update.auto_check = false;
+        s.update.prereleases = true;
+        s.update.skip_version = "0.2.0".into();
+        s.update.last_check = 1_790_000_000;
         assert_eq!(Settings::from_json(&s.to_json()), s);
     }
 
@@ -359,6 +385,8 @@ mod tests {
         assert_eq!(s.audio.buffer, 512);
         assert_eq!(s.audio.headphones, "auto");
         assert!(s.analysis.auto_analyse);
+        // Settings stored before the update check existed: checks are on.
+        assert!(s.update.auto_check && !s.update.prereleases);
         assert_eq!(Settings::from_json("not json"), Settings::default());
     }
 

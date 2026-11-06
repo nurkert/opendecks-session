@@ -219,6 +219,9 @@ export component PreferencesWindow inherits Window {
     in property <bool> library-pending;
     in property <string> backups-text;
     in property <bool> backup-on-start;
+    in property <bool> update-auto;
+    in property <bool> update-prereleases;
+    in property <string> update-status;
 
     callback select-page(string);
     // Choices by key ("audio.device", "view.language", …) and index.
@@ -524,6 +527,15 @@ export component PreferencesWindow inherits Window {
                             Button { label: @tr("BACK UP NOW"); tone: Theme.live; tooltip: @tr("Copy the library to the backups folder now"); clicked => { root.act("backup.now"); } }
                             Button { label: @tr("SHOW"); tooltip: @tr("Show the backups folder"); clicked => { root.act("backup.show"); } }
                         }
+                        Heading { text: @tr("Updates"); }
+                        Row { label: @tr("Automatically"); Switch { label: @tr("Check for updates automatically"); on: root.update-auto; toggled(v) => { root.flag("update.auto", v); } } }
+                        Row { label: @tr("Pre-releases"); Switch { label: @tr("Include pre-releases"); on: root.update-prereleases; toggled(v) => { root.flag("update.pre", v); } } }
+                        Row {
+                            label: @tr("Now");
+                            Text { horizontal-stretch: 1; text: root.update-status; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
+                            Button { label: @tr("CHECK NOW"); tone: Theme.live; clicked => { root.act("update.check"); } }
+                        }
+                        Note { text: @tr("Only GitHub's public release list is read; nothing about you or your library is sent. Checks never run while a deck plays in Perform, and an update never interrupts a performance."); }
                     }
                 }
             }
