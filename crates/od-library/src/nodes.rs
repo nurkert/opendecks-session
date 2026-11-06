@@ -282,10 +282,10 @@ impl Library {
     /// [`Library::edit_with`] so that the id stays free until the write.
     pub fn new_node(&self, parent: Option<NodeId>, kind: NodeKind, name: &str) -> Result<Node> {
         let conn = &self.conn;
-        if let Some(p) = parent {
-            if read_node(conn, p)?.kind != NodeKind::Folder {
-                return Err(LibraryError::Invalid("only folders can contain other nodes".into()));
-            }
+        if let Some(p) = parent
+            && read_node(conn, p)?.kind != NodeKind::Folder
+        {
+            return Err(LibraryError::Invalid("only folders can contain other nodes".into()));
         }
         let id = NodeId(conn.query_row("SELECT coalesce(max(id), 0) + 1 FROM node", [], |r| r.get(0))?);
         let sort_order: i64 = conn.query_row(
