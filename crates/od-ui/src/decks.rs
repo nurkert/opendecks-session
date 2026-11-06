@@ -868,6 +868,74 @@ fn deck_state(app: &App, d: usize) -> Option<DeckState> {
     engine::snapshot(app).map(|s| s.decks[d])
 }
 
+/// Hot cues set or deleted while performing (pads, controller) become
+/// library edits: one undo step each, synced to sticks like any edit. The
+/// cue keeps its label and colour when only its position changes.
+pub(crate) fn persist_cue_events(app: &App, events: &[od_engine::Event]) {
+    use od_engine::Event;
+    // Tracks played from a stick are read-only here.
+    if events.is_empty() || app.state.borrow().read_only() || app.decks.borrow().loaded_from_stick {
+        return;
+    }
+    for ev in events {
+        let (track, index, cue) = match *ev {
+            Event::HotCueSet { deck, track, bank, slot, cue } if deck != PREVIEW_DECK => (track, bank * 8 + slot, Some(cue)),
+            Event::HotCueDeleted { deck, track, bank, slot } if deck != PREVIEW_DECK => (track, bank * 8 + slot, None),
+            _ => continue,
+        };
+        let Ok(index) = u8::try_from(index) else { continue };
+        let current = app.state.borrow().lib.cues(track).unwrap_or_default();
+        let next = apply_hot_cue(current.clone(), index, cue);
+        if next == current {
+            continue;
+        }
+        let result = app.state.borrow_mut().lib.set_cues(track, next);
+        match result {
+            Ok(()) => {
+                refresh_deck_cues(app, track);
+                app.after_edit("");
+            }
+            Err(e) => tracing::warn!(error = %e, "could not save a hot cue set while performing"),
+        }
+    }
+}
+
+/// Rebuilds the cue marks and pad labels of every deck showing `track`.
+fn refresh_deck_cues(app: &App, track: TrackId) {
+    let cues = app.state.borrow().lib.cues(track).unwrap_or_default();
+    let duration = app.state.borrow().lib.track(track).map(|t| t.duration).unwrap_or(0.0);
+    let mut d = app.decks.borrow_mut();
+    for i in 0..DECKS {
+        if let Some(m) = d.loaded[i].as_mut().filter(|m| m.id == track) {
+            m.cues = cue_marks(&cues, duration, false);
+            m.labels = std::array::from_fn(|s| cues.iter().find(|c| c.kind == CueKind::Hot(s as u8)).map(|c| c.label.clone()).unwrap_or_default());
+            // Force the lane to rebuild its per-track models.
+            d.views.lanes[i].track = None;
+        }
+    }
+}
+
+/// The cue list with hot cue `index` set to `cue` (or removed when `None`).
+pub(crate) fn apply_hot_cue(mut cues: Vec<od_core::Cue>, index: u8, cue: Option<od_engine::HotCue>) -> Vec<od_core::Cue> {
+    let pos = cues.iter().position(|c| c.kind == CueKind::Hot(index));
+    match (cue, pos) {
+        (Some(h), Some(i)) => {
+            cues[i].start = h.start;
+            cues[i].loop_end = h.loop_end;
+        }
+        (Some(h), None) => {
+            let mut c = od_core::Cue::hot(index, h.start);
+            c.loop_end = h.loop_end;
+            cues.push(c);
+        }
+        (None, Some(i)) => {
+            cues.remove(i);
+        }
+        (None, None) => {}
+    }
+    cues
+}
+
 /// New zoom after a scroll of `delta` logical pixels (up = closer): from
 /// 1 s to 32 s across the lane.
 pub(crate) fn zoom_by(zoom: f64, delta: f64) -> f64 {
@@ -975,6 +1043,23 @@ pub(crate) fn wire(app: &Rc<App>) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn hot_cue_events_edit_the_cue_list() {
+        let mut named = od_core::Cue::hot(2, 10.0);
+        named.label = "Drop".into();
+        let cues = vec![named, od_core::Cue::hot(0, 1.0)];
+        // Moving C keeps its label; setting B adds it; deleting A removes it.
+        let moved = apply_hot_cue(cues, 2, Some(od_engine::HotCue { start: 12.5, loop_end: None }));
+        let c = moved.iter().find(|c| c.kind == CueKind::Hot(2)).unwrap();
+        assert_eq!((c.start, c.label.as_str()), (12.5, "Drop"));
+        let added = apply_hot_cue(moved, 1, Some(od_engine::HotCue { start: 4.0, loop_end: Some(6.0) }));
+        let b = added.iter().find(|c| c.kind == CueKind::Hot(1)).unwrap();
+        assert_eq!((b.start, b.loop_end), (4.0, Some(6.0)));
+        let removed = apply_hot_cue(added, 0, None);
+        assert!(!removed.iter().any(|c| c.kind == CueKind::Hot(0)));
+        assert_eq!(removed.len(), 2);
+    }
 
     #[test]
     fn autoload_spec() {

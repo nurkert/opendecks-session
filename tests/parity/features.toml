@@ -922,13 +922,14 @@ id = "cues-hot-cues-perform"
 area = "cues"
 name = "8 hot cues A–H (Perform, pads/UI)"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P1"
 tests = [
   "od-engine::render::hot_cue_quantize_set_and_trigger",
+  "od-ui::decks::tests::hot_cue_events_edit_the_cue_list",
 ]
-evidence = ["DeckCommand::HotCue", "set_cues", "perform.rs"]
-note = "`DeckCommand::HotCue`; set/delete live only in the engine, **not saved to the library** (no `set_cues` call in `perform.rs`), so never reaches the stick"
+evidence = ["DeckCommand::HotCue", "od-ui/src/decks.rs::persist_cue_events"]
+note = "Set/delete on pads or the controller are saved to the library (one undo step each) and reach sticks through the normal sync"
 
 [[feature]]
 id = "cues-hot-cue-banks"

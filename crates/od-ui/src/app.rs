@@ -184,14 +184,8 @@ impl App {
         if devices::poll(self) {
             need_refresh = true;
         }
-        // Changes made through other connections.
-        let seq = self.state.borrow().lib.change_seq().unwrap_or(0);
-        let changed = {
-            let mut st = self.state.borrow_mut();
-            let c = seq != st.last_seq;
-            st.last_seq = seq;
-            c
-        };
+        // Changes made through other connections (MCP server, od-cli).
+        let changed = self.state.borrow().lib.external_change().unwrap_or(false);
         if changed || need_refresh {
             self.refresh_library();
         }

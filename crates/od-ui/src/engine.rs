@@ -136,10 +136,14 @@ fn frame(app: &App) {
     explorer::poll(app);
     controller::poll(app);
 
-    let state = app.engine.borrow_mut().engine.as_mut().map(|e| {
-        e.collect_garbage();
-        *e.state()
-    });
+    let (state, events) = match app.engine.borrow_mut().engine.as_mut() {
+        Some(e) => {
+            e.collect_garbage();
+            (Some(*e.state()), e.events().collect::<Vec<_>>())
+        }
+        None => (None, Vec::new()),
+    };
+    decks::persist_cue_events(app, &events);
     let Some(state) = state else {
         // Before audio starts: empty deck plates, so the layout is complete.
         if app.ui.get_mode() == "perform" {

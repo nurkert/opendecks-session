@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 82 DONE (40 %), 31 PARTIAL, 27 ENGINE-ONLY, 66 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 83 DONE (40 %), 30 PARTIAL, 27 ENGINE-ONLY, 66 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -109,7 +109,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
 | 8 hot cues A–H (Prepare) | DONE | `app.rs` `on_hot_cue/on_remove_hot_cue`; keys 1–8 | 2 |  |
-| 8 hot cues A–H (Perform, pads/UI) | PARTIAL | `DeckCommand::HotCue`; set/delete live only in the engine, **not saved to the library** (no `set_cues` call in `perform.rs`), so never reaches the stick | 1 | **P1** |
+| 8 hot cues A–H (Perform, pads/UI) | DONE | `DeckCommand::HotCue`, `od-ui/src/decks.rs::persist_cue_events`; Set/delete on pads or the controller are saved to the library (one undo step each) and reach sticks through the normal sync | 2 | **P1** |
 | Hot cue banks / hot cue bank lists | MISSING | — | — | P3 |
 | Memory cues: add (Prepare) | DONE | `on_add_memory_cue` | — |  |
 | Memory cues: delete, move (Prepare) | MISSING | No callback | — | **P1** |
@@ -322,8 +322,8 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 82 |
-| PARTIAL | 31 |
+| DONE | 83 |
+| PARTIAL | 30 |
 | ENGINE-ONLY | 27 |
 | MISSING | 66 |
 | deferred (in scope, later milestone) | 2 |

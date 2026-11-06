@@ -45,8 +45,6 @@ pub(crate) struct AppState {
     pub explorer: ExplorerState,
     /// Analysis worker progress (done, total).
     pub analysis: (usize, usize),
-    /// Last seen library change sequence (changes by other connections).
-    pub last_seq: i64,
 }
 
 impl AppState {
@@ -71,7 +69,6 @@ impl AppState {
             devices: DevicesState::default(),
             explorer,
             analysis: (0, 0),
-            last_seq: -1,
         }
     }
 
