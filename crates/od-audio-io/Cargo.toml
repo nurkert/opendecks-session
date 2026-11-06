@@ -1,0 +1,26 @@
+[package]
+name = "od-audio-io"
+description = "Audio device I/O for OpenDecks Session (CoreAudio, ALSA, PipeWire/JACK via cpal)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = []
+# cpal's JACK host (JACK servers and PipeWire's JACK compatibility layer).
+jack = ["cpal/jack"]
+# cpal's native PipeWire host (Linux desktop, preferred there).
+pipewire = ["cpal/pipewire"]
+# Real-time thread priority for the ALSA callback thread (Linux / Raspberry Pi).
+realtime = ["cpal/realtime"]
+
+[dependencies]
+od-engine.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+cpal = "0.18"
+rtrb = "0.4"
+
+[dev-dependencies]
+od-decode.workspace = true
+od-core.workspace = true

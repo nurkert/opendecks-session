@@ -1,0 +1,26 @@
+[package]
+name = "od-engine"
+description = "Real-time audio engine of OpenDecks Session: decks, mixer, sync, FX, sampler"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+links = "rubberband"
+build = "build.rs"
+
+[features]
+default = ["rubberband"]
+# Link the Rubber Band library for keylock (time-stretching). Without it,
+# keylock falls back to plain variable-rate playback (pitch follows tempo).
+rubberband = []
+
+[dependencies]
+od-core.workspace = true
+od-decode.workspace = true
+thiserror.workspace = true
+rtrb = "0.4"
+triple_buffer = "9"
+
+[build-dependencies]
+pkg-config = "0.3"
+
+[dev-dependencies]
