@@ -1,0 +1,16 @@
+[package]
+name = "od-lighting"
+description = "DMX lighting for OpenDecks Session: universes, Art-Net / sACN / Enttec outputs, Open Fixture Library fixtures, attribute rendering and the automatic music-driven show"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+od-core.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

@@ -4491,6 +4491,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "od-lighting"
+version = "0.0.1"
+dependencies = [
+ "od-core",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.21",
+ "tracing",
+]
+
+[[package]]
 name = "od-mcp"
 version = "0.0.1"
 dependencies = [
@@ -4515,6 +4527,7 @@ name = "od-parity"
 version = "0.0.1"
 dependencies = [
  "serde",
+ "serde_json",
  "toml 0.9.12+spec-1.1.0",
 ]
 
