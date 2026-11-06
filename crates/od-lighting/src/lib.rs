@@ -29,6 +29,37 @@ pub enum Error {
     Output(#[from] std::io::Error),
 }
 
+/// Everything about a rig the app keeps between sessions.
+#[derive(Clone, Debug, Default, PartialEq, serde::Serialize, serde::Deserialize)]
+pub struct RigConfig {
+    pub patch: Patch,
+    pub settings: ShowSettings,
+    /// Universe → output.
+    pub outputs: Vec<(u16, OutputKind)>,
+    /// Lighting on at all (outputs only send while enabled).
+    #[serde(default)]
+    pub enabled: bool,
+}
+
+impl RigConfig {
+    /// Reads a rig; a missing file is the empty default.
+    pub fn load(path: &std::path::Path) -> Result<Self, Error> {
+        match std::fs::read_to_string(path) {
+            Ok(text) => serde_json::from_str(&text).map_err(|e| Error::Patch(e.to_string())),
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Self::default()),
+            Err(e) => Err(e.into()),
+        }
+    }
+
+    pub fn save(&self, path: &std::path::Path) -> Result<(), Error> {
+        let text = serde_json::to_string_pretty(self).map_err(|e| Error::Patch(e.to_string()))?;
+        let tmp = path.with_extension("json.part");
+        std::fs::write(&tmp, text)?;
+        std::fs::rename(tmp, path)?;
+        Ok(())
+    }
+}
+
 /// A complete lighting rig: patch, show and the outputs per universe.
 pub struct Lighting {
     pub patch: Patch,
@@ -79,6 +110,28 @@ impl Lighting {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn rig_config_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("lighting.json");
+        assert_eq!(RigConfig::load(&path).unwrap(), RigConfig::default());
+        let mut rig = RigConfig {
+            enabled: true,
+            ..Default::default()
+        };
+        rig.outputs.push((0, OutputKind::Sacn { universe: 1 }));
+        rig.settings.mode = Mode::Pro;
+        rig.settings.groups.insert(
+            "Movers".into(),
+            GroupSettings {
+                program: Some(Program::Sweep),
+                ..Default::default()
+            },
+        );
+        rig.save(&path).unwrap();
+        assert_eq!(RigConfig::load(&path).unwrap(), rig);
+    }
 
     #[test]
     fn tick_renders_and_sends() {
