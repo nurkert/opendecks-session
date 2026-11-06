@@ -616,6 +616,18 @@ note = "Activate/double-click and controller load work; drag to deck and the con
 spec = "UX §2.1"
 
 [[feature]]
+id = "browser-drag-to-deck"
+area = "browser"
+name = "Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player"
+scope = "in"
+status = "missing"
+prio = "P1"
+tests = []
+evidence = []
+note = "Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (rekordbox behaviour: loads unless the deck is playing and load-lock is on); Finder/Explorer files are imported on drop."
+spec = "SPEC §5.5"
+
+[[feature]]
 id = "browser-row-context-menu"
 area = "browser"
 name = "Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …)"

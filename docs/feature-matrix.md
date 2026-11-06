@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 203 features; 195 in scope: 75 DONE (38 %), 31 PARTIAL, 25 ENGINE-ONLY, 64 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
+**Summary:** 204 features; 196 in scope: 75 DONE (38 %), 31 PARTIAL, 25 ENGINE-ONLY, 65 MISSING; 2 deferred to a later milestone; 6 out of scope (SPEC §1).
 
 The reference list is the rekordbox 7 feature set (top plan) relevant to a DJ who prepares in
 EXPORT mode and plays in PERFORMANCE mode with a DDJ-FLX10 / DDJ-FLX4, extended by the
@@ -77,6 +77,7 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings) | PARTIAL | `crates/od-ui/ui/rail.slint`; Rail with sections exists; Explorer, Histories, Related and Tag list sources missing; (UX §1.6, §4 P4.9) | — | P2 |
 | Re-orderable columns and multi-sort | MISSING | Fixed column order, one sort key (`browser/tracks.rs`); (SPEC §5.5) | — | P3 |
 | Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | PARTIAL | `crates/od-ui/src/decks.rs::free_deck`; Activate/double-click and controller load work; drag to deck and the context menu do not exist; (UX §2.1) | 1 | **P1** |
+| Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | MISSING | Owner request 2026-11-06. Drop target highlights while dragging (deck colour); dropping on a playing deck asks no dialog but needs a deliberate drop on the deck area (rekordbox behaviour: loads unless the deck is playing and load-lock is on); Finder/Explorer files are imported on drop.; (SPEC §5.5) | — | **P1** |
 | Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | MISSING | No popup menus in `crates/od-ui/ui`; (UX §1.9) | — | P2 |
 | Info panel (track details beside the list) | MISSING | (SPEC §5.5; UX §1.6) | — | P2 |
 | Sub-browser (second tree + list for dragging between playlists) | MISSING | (UX §1.6, §4 P4.12) | — | P3 |
@@ -311,10 +312,10 @@ Priority (gaps only): **P1** = a rekordbox user hits it in the first session and
 | DONE | 75 |
 | PARTIAL | 31 |
 | ENGINE-ONLY | 25 |
-| MISSING | 64 |
+| MISSING | 65 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 6 |
-| **Total** | **203** |
+| **Total** | **204** |
 
 ## P1 gaps and implementation notes
 

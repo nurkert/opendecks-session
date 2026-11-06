@@ -251,7 +251,10 @@ Pioneer players" in the device view.
 - Track list: configurable and re-orderable columns (incl. preview
   waveform, artwork, rating, colour, comment, My Tag, key, BPM, time,
   date added, play count, bitrate), multi-sort, inline editing of tags,
-  rating and colour, drag and drop to playlists / decks / sticks,
+  rating and colour, drag and drop to playlists / decks / sticks (tracks
+  dragged from the list, Explorer or Finder onto a deck load there; the
+  target deck highlights while dragging; a playing deck is protected by an
+  optional load lock, as in rekordbox),
   reordering in playlists and sets.
 - Search with filters (BPM range, key match, rating, colour, My Tag,
   genre), key and BPM matching against the master deck.
