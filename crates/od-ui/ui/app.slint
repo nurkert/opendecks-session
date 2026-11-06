@@ -159,6 +159,11 @@ export component AppWindow inherits Window {
     in property <int> focus-deck: 1;
     // Library browser below the decks (kiosk: a separate screen).
     in-out property <bool> browser-open: true;
+    // Perform panels (top bar FX / SAMPLER), persisted in the settings.
+    in property <bool> fx-panel;
+    in property <bool> sampler-panel;
+    callback toggle-fx-panel();
+    callback toggle-sampler-panel();
     in property <bool> small-screen;
     in property <image> ground-texture;
 
@@ -307,6 +312,11 @@ export component AppWindow inherits Window {
                 mode: root.mode;
                 kiosk: root.kiosk;
                 show-record: root.mode != "perform";
+                show-panels: root.mode == "perform";
+                fx-panel: root.fx-panel;
+                sampler-panel: root.sampler-panel;
+                toggle-fx-panel => { root.toggle-fx-panel(); }
+                toggle-sampler-panel => { root.toggle-sampler-panel(); }
                 status: root.mode == "perform"
                     ? (root.engine-ready ? (root.master-bpm == "" ? @tr("NO MASTER") : @tr("MASTER {} BPM", root.master-bpm)) : root.engine-message)
                     : root.analysis-text;

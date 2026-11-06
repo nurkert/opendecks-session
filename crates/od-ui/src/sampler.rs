@@ -1,7 +1,17 @@
-//! Sampler: slots, banks and sequencer (SPEC §10.3a). Sampler pads are triggered from controllers (see `controller`); the panel is not built yet.
+//! Sampler: slots, banks and sequencer (SPEC §10.3a).
 
-use crate::app::App;
+use crate::app::{App, handler};
 use std::rc::Rc;
 
-/// Callbacks of this module (none yet).
-pub(crate) fn wire(_app: &Rc<App>) {}
+/// Opens or closes the sampler panel and remembers it.
+pub(crate) fn toggle_panel(app: &App) {
+    let on = !app.state.borrow().settings.perform.sampler_panel;
+    app.state.borrow_mut().change_settings(|s| s.perform.sampler_panel = on);
+    app.ui.set_sampler_panel(on);
+}
+
+pub(crate) fn wire(app: &Rc<App>) {
+    let ui = &app.ui;
+    ui.set_sampler_panel(app.state.borrow().settings.perform.sampler_panel);
+    ui.on_toggle_sampler_panel(handler!(app, |a| toggle_panel(&a)));
+}

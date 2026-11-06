@@ -21,6 +21,7 @@ pub struct Settings {
     pub recording: RecordingSettings,
     pub advanced: AdvancedSettings,
     pub update: UpdateSettings,
+    pub perform: PerformSettings,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -97,6 +98,29 @@ pub struct AdvancedSettings {
     pub backup_on_start: bool,
 }
 
+/// Perform view state that persists: which panels are open and the Colour
+/// FX the mixer's CFX knobs drive.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct PerformSettings {
+    /// Beat FX panel above the waveforms (top bar FX toggle).
+    pub fx_panel: bool,
+    /// Sampler panel under the decks (top bar SAMPLER toggle).
+    pub sampler_panel: bool,
+    /// Colour FX of the CFX knobs: "filter", "echo", "noise", "space",
+    /// "crush", "pitch", "dub_echo" or "sweep".
+    pub color_fx: String,
+}
+
+impl Default for PerformSettings {
+    fn default() -> Self {
+        Self { fx_panel: false, sampler_panel: false, color_fx: "filter".into() }
+    }
+}
+
+/// Colour FX names stored in [`PerformSettings::color_fx`], in panel order.
+pub const COLOR_FX: [&str; 8] = ["filter", "echo", "noise", "space", "crush", "pitch", "dub_echo", "sweep"];
+
 /// The update check (SPEC §14.1; Preferences > Advanced).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -127,6 +151,7 @@ impl Default for Settings {
             recording: RecordingSettings::default(),
             advanced: AdvancedSettings::default(),
             update: UpdateSettings::default(),
+            perform: PerformSettings::default(),
         }
     }
 }
@@ -222,6 +247,9 @@ impl Settings {
         }
         if !["wav", "flac", "wav+mp3"].contains(&self.recording.format.as_str()) {
             self.recording.format = "wav".into();
+        }
+        if !COLOR_FX.contains(&self.perform.color_fx.as_str()) {
+            self.perform.color_fx = "filter".into();
         }
         self
     }
@@ -368,6 +396,9 @@ mod tests {
         s.update.prereleases = true;
         s.update.skip_version = "0.2.0".into();
         s.update.last_check = 1_790_000_000;
+        s.perform.fx_panel = true;
+        s.perform.sampler_panel = true;
+        s.perform.color_fx = "dub_echo".into();
         assert_eq!(Settings::from_json(&s.to_json()), s);
     }
 
@@ -388,6 +419,9 @@ mod tests {
         // Settings stored before the update check existed: checks are on.
         assert!(s.update.auto_check && !s.update.prereleases);
         assert_eq!(Settings::from_json("not json"), Settings::default());
+        // Panels start closed; an unknown colour FX falls back to the filter.
+        assert!(!s.perform.fx_panel && !s.perform.sampler_panel);
+        assert_eq!(Settings::from_json(r#"{"perform": {"color_fx": "laser"}}"#).perform.color_fx, "filter");
     }
 
     #[test]

@@ -25,6 +25,31 @@ component ModeTab inherits Rectangle {
     touch := TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.clicked(); } }
 }
 
+// Panel switch in the bar (FX, SAMPLER): an outlined label whose line
+// lights while the panel is open.
+component PanelToggle inherits Rectangle {
+    in property <string> label;
+    in property <bool> on;
+    in property <string> tooltip;
+    in property <string> command;
+    callback clicked();
+    width: t.preferred-width + 22px;
+    Rectangle {
+        y: 9px; height: parent.height - 18px;
+        border-width: 1px;
+        border-color: root.on ? Theme.attention.with-alpha(0.8) : Theme.rule-strong;
+        background: root.on ? Theme.attention.with-alpha(0.14) : touch.has-hover ? Theme.plate : transparent;
+        Rectangle { y: 0; height: 2px; background: root.on ? Theme.attention : transparent; }
+    }
+    t := Text {
+        text: root.label;
+        font-family: Theme.family; font-size: 11px; font-weight: 600; letter-spacing: 1.6px;
+        color: root.on ? Theme.bone : touch.has-hover ? Theme.bone : Theme.bone-2;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+    touch := TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
 export component TopBar inherits Rectangle {
     in property <string> mode;
     in property <string> status;
@@ -34,6 +59,12 @@ export component TopBar inherits Rectangle {
     in property <bool> kiosk;
     // In Perform, recording lives in the global bar under the decks.
     in property <bool> show-record: true;
+    // Perform panel switches (shown in Perform only).
+    in property <bool> show-panels;
+    in property <bool> fx-panel;
+    in property <bool> sampler-panel;
+    callback toggle-fx-panel();
+    callback toggle-sampler-panel();
     callback set-mode(string);
     callback toggle-recording();
     callback undo();
@@ -63,6 +94,20 @@ export component TopBar inherits Rectangle {
         ModeTab { label: @tr("PERFORM"); tooltip: @tr("Perform: decks and mixer"); command: "mode.perform"; current: root.mode == "perform"; clicked => { root.set-mode("perform"); } }
         Rectangle { width: 24px; }
         Caps { text: root.status; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+        if root.show-panels: PanelToggle {
+            label: "FX"; on: root.fx-panel;
+            tooltip: root.fx-panel ? @tr("Hide the Beat FX panel") : @tr("Show the Beat FX panel");
+            command: "perform.fx.panel";
+            clicked => { root.toggle-fx-panel(); }
+        }
+        if root.show-panels: Rectangle { width: 6px; }
+        if root.show-panels: PanelToggle {
+            label: @tr("SAMPLER"); on: root.sampler-panel;
+            tooltip: root.sampler-panel ? @tr("Hide the sampler panel") : @tr("Show the sampler panel");
+            command: "perform.sampler.panel";
+            clicked => { root.toggle-sampler-panel(); }
+        }
+        if root.show-panels: Rectangle { width: 10px; }
         // Appearance: moon (dark), sun (light), half disc (follow system);
         // a click moves on to the next mode.
         Rectangle {
