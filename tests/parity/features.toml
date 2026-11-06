@@ -560,22 +560,44 @@ id = "browser-explorer"
 area = "browser"
 name = "Explorer: browse folders on disk and play directly"
 scope = "in"
-status = "missing"
-prio = "P1"
-tests = []
-evidence = ["crates/od-ui/src/explorer.rs"]
-note = "Module is a placeholder (`ExplorerState::load` returns nothing, `wire` is empty)"
+status = "done"
+tests = [
+  "od-ui::explorer::tests::nested_folders_any_depth_listed_lazily",
+  "od-ui::explorer::tests::deep_trees_have_no_depth_limit_in_the_sidebar",
+  "od-ui::explorer::tests::selecting_expands_a_folder",
+  "od-ui::explorer::tests::lists_audio_files_and_folders",
+  "od-ui::explorer::tests::roots_default_and_persisted",
+]
+evidence = ["crates/od-ui/src/explorer.rs::ExplorerState::rows", "crates/od-ui/src/explorer.rs::open_folder", "crates/od-ui/ui/sidebar.slint::ExplorerItem"]
+note = "User-added roots (persisted in library meta) as a nested folder tree of any depth: sub-folders are listed lazily on expand/select, each probed one level so only expandable folders get a mark; hidden and player data folders are skipped. Selecting a folder expands it and lists its audio files"
 spec = "SPEC §5.5; UX §2.2"
+
+[[feature]]
+id = "browser-explorer-subfolders"
+area = "browser"
+name = "Explorer: \"Include subfolders\" lists the files of a folder and all its sub-folders"
+scope = "in"
+status = "done"
+qualifier = "beyond rekordbox"
+tests = [
+  "od-ui::explorer::tests::files_of_the_folder_or_all_subfolders",
+  "od-ui::explorer::tests::recursive_listing_survives_symlink_loops",
+  "od-ui::explorer::tests::recursive_listing_stops_at_max_depth",
+]
+evidence = ["crates/od-ui/src/explorer.rs::list_files", "crates/od-ui/src/explorer.rs::set_recursive", "crates/od-ui/ui/app.slint"]
+note = "Toggle in the folder list header (persisted as `explorer.recursive`); rekordbox lists only the folder itself. Depth-first, each folder by name, symlink loops followed once, capped at 32 levels / 20 000 files"
+spec = "SPEC §5.5"
 
 [[feature]]
 id = "browser-explorer-import-on-load"
 area = "browser"
 name = "Explorer: loading a file adds it to the collection and analyses it in the background"
 scope = "in"
-status = "missing"
+status = "partial"
 prio = "P1"
 tests = []
-note = "Depends on `browser-explorer`; import and analysis paths exist (`od-ui/src/workers.rs`)"
+evidence = ["crates/od-ui/src/explorer.rs::start_import", "crates/od-ui/src/explorer.rs::poll"]
+note = "Implemented (`explorer.rs` `start_import` adds the file in the background via `workers::import_file`, `poll` wakes analysis and loads it); no automated test yet"
 spec = "SPEC §5.5"
 
 [[feature]]
