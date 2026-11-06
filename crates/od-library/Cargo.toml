@@ -1,0 +1,17 @@
+[package]
+name = "od-library"
+description = "SQLite music library for OpenDecks Session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+od-core.workspace = true
+rusqlite = { workspace = true, features = ["bundled", "backup"] }
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true

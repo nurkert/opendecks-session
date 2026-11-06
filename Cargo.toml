@@ -1,0 +1,50 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "apps/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "GPL-3.0-or-later"
+repository = "https://github.com/nurkert/opendecks-session"
+rust-version = "1.90"
+
+[workspace.dependencies]
+od-core = { path = "crates/od-core" }
+od-library = { path = "crates/od-library" }
+od-decode = { path = "crates/od-decode" }
+od-analysis = { path = "crates/od-analysis" }
+od-import-rekordbox = { path = "crates/od-import-rekordbox" }
+od-format-pioneer = { path = "crates/od-format-pioneer" }
+od-format-native = { path = "crates/od-format-native" }
+od-devices = { path = "crates/od-devices" }
+od-audio-io = { path = "crates/od-audio-io" }
+od-engine = { path = "crates/od-engine" }
+od-recorder = { path = "crates/od-recorder" }
+od-controller = { path = "crates/od-controller" }
+od-i18n = { path = "crates/od-i18n" }
+od-ui = { path = "crates/od-ui" }
+
+anyhow = "1"
+thiserror = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.9"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+rusqlite = { version = "0.37", features = ["bundled"] }
+symphonia = { version = "0.5", features = ["all"] }
+rayon = "1"
+blake3 = "1"
+tempfile = "3"
+clap = { version = "4", features = ["derive"] }
+crossbeam-channel = "0.5"
+parking_lot = "0.12"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 2

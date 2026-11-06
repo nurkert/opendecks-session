@@ -1,0 +1,16 @@
+[package]
+name = "od-decode"
+description = "Audio decoding, probing and tag reading for OpenDecks Session"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+od-core.workspace = true
+symphonia.workspace = true
+thiserror.workspace = true
+blake3.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+hound = "3"
