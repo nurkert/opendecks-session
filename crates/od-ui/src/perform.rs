@@ -84,7 +84,7 @@ impl Default for Perform {
             shift: [false; DECKS],
             pad_mode: [PadMode::HotCue; DECKS],
             last_dominant: None,
-            message: "Audio starts when you load a track".into(),
+            message: od_i18n::tr("Audio starts when you load a track").into(),
             timer: slint::Timer::default(),
             last_frame: Instant::now(),
             controller_name: None,
@@ -184,6 +184,11 @@ fn ensure_engine(app: &App) -> bool {
             false
         }
     }
+}
+
+/// Shows a status message in the current language.
+fn say(app: &App, text: impl Into<String>) {
+    app.ui.set_status_text(od_i18n::translate_message(&text.into()).into());
 }
 
 fn send(app: &App, cmd: Command) {
@@ -321,9 +326,9 @@ fn toggle_recording(app: &App) {
                     rusqlite_params(&rec),
                 );
                 drop(st);
-                app.ui.set_status_text(format!("Recording saved: {} ({} tracks)", rec.path.display(), rec.tracklist.len()).into());
+                say(app, format!("Recording saved: {} ({} tracks)", rec.path.display(), rec.tracklist.len()));
             }
-            Some(Err(e)) => app.ui.set_status_text(format!("Recording failed: {e}").into()),
+            Some(Err(e)) => say(app, format!("Recording failed: {e}")),
             None => {}
         }
         app.perform.borrow_mut().last_dominant = None;
@@ -333,7 +338,7 @@ fn toggle_recording(app: &App) {
         send(app, Command::SetRecordTap(true));
         let r = app.perform.borrow_mut().recorder.as_mut().map(|r| r.start(&dir, &name));
         if let Some(Err(e)) = r {
-            app.ui.set_status_text(format!("Recording could not start: {e}").into());
+            say(app, format!("Recording could not start: {e}"));
         }
     }
 }
@@ -576,7 +581,7 @@ fn frame(app: &App) {
         }
         let msg = app.perform.borrow().message.clone();
         app.ui.set_engine_message(msg.into());
-        app.ui.set_status_text(format!("Loaded {title} on deck {}", deck + 1).into());
+        say(app, format!("Loaded {title} on deck {}", deck + 1));
     }
     // Controller events.
     let events: Vec<od_controller::io::ControllerEvent> =
@@ -588,14 +593,14 @@ fn frame(app: &App) {
                 handle_action(app, action);
             }
             od_controller::io::ControllerEvent::Connected { device, .. } => {
-                app.ui.set_status_text(format!("Controller connected: {device}").into());
+                say(app, format!("Controller connected: {device}"));
                 if device.contains("FLX10") || device.contains("flx10") {
                     app.perform.borrow_mut().deck_count = 4;
                 }
                 app.perform.borrow_mut().controller_name = Some(device);
             }
             od_controller::io::ControllerEvent::Disconnected { device, .. } => {
-                app.ui.set_status_text(format!("Controller disconnected: {device}").into());
+                say(app, format!("Controller disconnected: {device}"));
                 app.perform.borrow_mut().controller_name = None;
             }
             od_controller::io::ControllerEvent::Error(e) => tracing::warn!(error = %e, "controller"),

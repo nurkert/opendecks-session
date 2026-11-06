@@ -26,7 +26,7 @@ pub(crate) fn run_rekordbox_import(app: &App) {
     let wake = app.analysis.wake.clone();
     let ui = app.ui.as_weak();
     let say = move |ui: &slint::Weak<crate::AppWindow>, text: String| {
-        let _ = ui.upgrade_in_event_loop(move |ui| ui.set_status_text(text.into()));
+        let _ = ui.upgrade_in_event_loop(move |ui| ui.set_status_text(od_i18n::translate_message(&text).into()));
     };
     say(&ui, "Reading rekordbox library…".into());
     std::thread::spawn(move || {

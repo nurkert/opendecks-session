@@ -27,6 +27,7 @@ od-engine.workspace = true
 od-audio-io.workspace = true
 od-controller.workspace = true
 od-recorder.workspace = true
+od-i18n.workspace = true
 od-import-rekordbox.workspace = true
 serde_json.workspace = true
 rfd = "0.15"

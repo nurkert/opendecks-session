@@ -43,7 +43,7 @@ component CueSlot inherits Rectangle {
     }
     Text {
         x: 34px; width: parent.width - 52px; height: parent.height;
-        text: root.cue.set ? root.cue.time : @tr("set");
+        text: root.cue.set ? root.cue.time : "";
         font-family: Theme.family; font-size: 12px;
         color: root.cue.set ? Theme.bone-2 : Theme.bone-3;
         vertical-alignment: center;

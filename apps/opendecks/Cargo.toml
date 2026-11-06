@@ -16,6 +16,7 @@ kiosk = ["od-ui/kiosk"]
 od-ui.workspace = true
 od-core.workspace = true
 od-library.workspace = true
+od-i18n.workspace = true
 anyhow.workspace = true
 tracing.workspace = true
 tracing-subscriber.workspace = true

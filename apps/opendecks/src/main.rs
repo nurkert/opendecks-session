@@ -52,9 +52,6 @@ fn main() -> anyhow::Result<()> {
             other => anyhow::bail!("unknown option {other}"),
         }
     }
-    if lang.starts_with("de") {
-        let _ = slint::select_bundled_translation("de");
-    }
     tracing::info!(library = %library.display(), lite, kiosk, "starting OpenDecks Session");
-    od_ui::run(od_ui::AppConfig { library_path: library, lite, kiosk, key_notation: keys })
+    od_ui::run(od_ui::AppConfig { library_path: library, lite, kiosk, key_notation: keys, language: lang })
 }

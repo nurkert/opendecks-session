@@ -24,6 +24,8 @@ pub struct AppConfig {
     pub lite: bool,
     pub kiosk: bool,
     pub key_notation: KeyNotation,
+    /// "de" selects German; anything else English.
+    pub language: String,
 }
 
 pub(crate) struct State {
@@ -153,6 +155,12 @@ impl App {
             }
         }
         let ui = AppWindow::new()?;
+        if config.language.starts_with("de") {
+            if let Err(e) = slint::select_bundled_translation("de") {
+                tracing::warn!(error = %e, "German translation unavailable");
+            }
+            od_i18n::set_language(od_i18n::Language::German);
+        }
         ui.set_kiosk(config.kiosk);
         let (wtx, wrx) = unbounded();
         let analysis = Rc::new(AnalysisWorker::start(config.library_path.clone(), config.lite, wtx.clone()));
@@ -280,7 +288,7 @@ impl App {
             .collect();
         let mut rows = vec![TreeRow {
             id: -1,
-            name: "All tracks".into(),
+            name: od_i18n::tr("All tracks").into(),
             kind: "all".into(),
             depth: 0,
             count: st.lib.track_count().unwrap_or(0) as i32,
@@ -380,11 +388,11 @@ impl App {
         self.ui.set_selection_count(st.selection.len() as i32);
         let (title, kind_str) = match st.node.and_then(|n| st.lib.node(n).ok()) {
             Some(n) => (n.name.clone(), n.kind.as_str()),
-            None => ("All tracks".to_string(), "all"),
+            None => (od_i18n::tr("All tracks").to_string(), "all"),
         };
         self.ui.set_node_title(title.clone().into());
         self.ui.set_node_kind(kind_str.into());
-        self.ui.set_node_sub(format!("{} TRACKS  ·  {}", st.rows.len(), fmt_time(total)).into());
+        self.ui.set_node_sub(od_i18n::trf("{} TRACKS  ·  {}", &[&st.rows.len(), &fmt_time(total)]).into());
         self.ui.set_register_target(if kind_str == "all" { SharedString::new() } else { title.to_uppercase().into() });
         if kind == Some(NodeKind::Smart) {
             let rule = st.node.and_then(|n| st.lib.node(n).ok()).and_then(|n| n.smart_rule);
@@ -456,7 +464,7 @@ impl App {
         self.ui.set_track_duration(fmt_time(t.duration).into());
         self.ui.set_track_analysed(t.analysis_version >= od_analysis::ANALYSIS_VERSION);
         self.ui.set_grid_source(
-            grid.as_ref().map(|(_, s)| s.as_str().to_uppercase()).unwrap_or_else(|| "NONE".into()).into(),
+            od_i18n::tr(&grid.as_ref().map(|(_, s)| s.as_str().to_uppercase()).unwrap_or_else(|| "NONE".into())).to_string().into(),
         );
         self.ui.set_grid_locked(grid.as_ref().is_some_and(|(g, _)| g.locked));
         let scale = self.ui.window().scale_factor();
@@ -505,7 +513,14 @@ impl App {
             .map(|s| {
                 let (state, detail, progress) = match &s.state {
                     DeviceState::Disconnected => ("disconnected", "Not connected".to_string(), 0.0),
-                    DeviceState::InSync => ("in-sync", format!("In sync{}", s.device.last_sync.as_deref().map(|t| format!(" · {}", &t[..16.min(t.len())].replace('T', " "))).unwrap_or_default()), 1.0),
+                    DeviceState::InSync => (
+                        "in-sync",
+                        match s.device.last_sync.as_deref() {
+                            Some(t) => format!("In sync · {}", &t[..16.min(t.len())].replace('T', " ")),
+                            None => "In sync".to_string(),
+                        },
+                        1.0,
+                    ),
                     DeviceState::OutOfDate { pending } => ("pending", format!("{pending} change{} waiting", if *pending == 1 { "" } else { "s" }), 0.0),
                     DeviceState::Syncing(p) => match p {
                         od_devices::Progress::Copying { done_bytes, total_bytes, current } => (
@@ -529,9 +544,9 @@ impl App {
                     id: s.device.id.0 as i32,
                     name: s.device.name.clone().into(),
                     state: state.into(),
-                    detail: detail.into(),
+                    detail: od_i18n::translate_message(&detail).into(),
                     progress,
-                    space: s.volume.as_ref().map(|v| format!("{} FREE OF {}", fmt_bytes(v.free_bytes), fmt_bytes(v.total_bytes))).unwrap_or_default().into(),
+                    space: s.volume.as_ref().map(|v| od_i18n::trf("{} FREE OF {}", &[&fmt_bytes(v.free_bytes), &fmt_bytes(v.total_bytes)])).unwrap_or_default().into(),
                     formats: formats.join(" + ").into(),
                     connected: s.volume.is_some(),
                 }
@@ -545,7 +560,7 @@ impl App {
             .map(|(i, v)| VolumeRow {
                 index: i as i32,
                 name: v.name.clone().into(),
-                space: format!("{} FREE OF {}", fmt_bytes(v.free_bytes), fmt_bytes(v.total_bytes)).into(),
+                space: od_i18n::trf("{} FREE OF {}", &[&fmt_bytes(v.free_bytes), &fmt_bytes(v.total_bytes)]).into(),
             })
             .collect();
         self.ui.set_volumes(model(vols));
@@ -625,11 +640,13 @@ impl App {
     fn refresh_status(&self) {
         let st = self.state.borrow();
         let journal = st.lib.journal(1).unwrap_or_default();
-        self.ui.set_undo_label(journal.first().filter(|j| !j.undone).map(|j| j.label.to_uppercase()).unwrap_or_default().into());
+        self.ui.set_undo_label(
+            journal.first().filter(|j| !j.undone).map(|j| od_i18n::translate_message(&j.label).to_uppercase()).unwrap_or_default().into(),
+        );
         let (done, total) = st.analysis;
         if total > 0 && done < total {
             self.ui.set_analysis_progress(done as f32 / total as f32);
-            self.ui.set_analysis_text(format!("ANALYSING {done}/{total}").into());
+            self.ui.set_analysis_text(od_i18n::trf("ANALYSING {}/{}", &[&done, &total]).into());
         } else {
             self.ui.set_analysis_progress(0.0);
             self.ui.set_analysis_text(SharedString::new());
@@ -637,7 +654,7 @@ impl App {
     }
 
     fn status(&self, text: impl Into<String>) {
-        self.ui.set_status_text(text.into().into());
+        self.ui.set_status_text(od_i18n::translate_message(&text.into()).into());
     }
 
     // ── Periodic work ───────────────────────────────────────────────────
@@ -1267,14 +1284,14 @@ impl App {
     fn undo(&self) {
         let r = self.state.borrow_mut().lib.undo();
         if let Some(label) = self.report(r) {
-            self.after_edit(&label.map(|l| format!("Undid: {l}")).unwrap_or_else(|| "Nothing to undo".into()));
+            self.after_edit(&label.map(|l| format!("Undid: {}", od_i18n::translate_message(&l))).unwrap_or_else(|| "Nothing to undo".into()));
         }
     }
 
     fn redo(&self) {
         let r = self.state.borrow_mut().lib.redo();
         if let Some(label) = self.report(r) {
-            self.after_edit(&label.map(|l| format!("Redid: {l}")).unwrap_or_else(|| "Nothing to redo".into()));
+            self.after_edit(&label.map(|l| format!("Redid: {}", od_i18n::translate_message(&l))).unwrap_or_else(|| "Nothing to redo".into()));
         }
     }
 

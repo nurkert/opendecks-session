@@ -465,8 +465,10 @@ export component AppWindow inherits Window {
             }
 
             // ── Perform ───────────────────────────────────────────────
-            if root.mode == "perform": PerformView {
-                horizontal-stretch: 1;
+            if root.mode == "perform": VerticalLayout {
+              horizontal-stretch: 1;
+              PerformView {
+                vertical-stretch: 3;
                 decks: root.decks;
                 recording: root.recording;
                 recording-time: root.recording-time;
@@ -483,6 +485,40 @@ export component AppWindow inherits Window {
                 hot-cue(d, s) => { root.deck-hot-cue(d, s); }
                 toggle-recording => { root.toggle-recording(); }
                 set-deck-count(n) => { root.set-deck-count(n); }
+              }
+              // Library browser: browse encoder moves, press loads.
+              Rectangle {
+                vertical-stretch: 1;
+                min-height: 160px;
+                HLine { y: 0; width: parent.width; tone: Theme.rule; }
+                VerticalLayout {
+                    padding-left: 16px; padding-right: 16px; padding-top: 8px;
+                    spacing: 6px;
+                    HorizontalLayout {
+                        spacing: 10px;
+                        height: 32px;
+                        Caps { text: root.node-title + "  ·  " + root.node-sub; vertical-alignment: center; }
+                        Rectangle { horizontal-stretch: 1; }
+                        Field {
+                            width: 240px;
+                            placeholder: @tr("SEARCH");
+                            text <=> root.search-text;
+                            edited(t) => { root.search(t); }
+                        }
+                    }
+                    TrackTable {
+                        vertical-stretch: 1;
+                        rows: root.tracks;
+                        sort-column: root.sort-column;
+                        descending: root.sort-descending;
+                        show-position: root.node-kind == "playlist" || root.node-kind == "set";
+                        empty-text: @tr("No tracks in this list.");
+                        sort(c) => { root.sort(c); }
+                        row-clicked(i, c, s) => { root.row-clicked(i, c, s); keys.focus(); }
+                        row-activated(i) => { root.row-activated(i); }
+                    }
+                }
+              }
             }
         }
     }

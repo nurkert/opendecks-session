@@ -2,3 +2,343 @@ msgid ""
 msgstr ""
 "Content-Type: text/plain; charset=UTF-8\n"
 "Language: de\n"
+
+msgctxt "AppWindow"
+msgid "SEARCH  ⌘F"
+msgstr "SUCHEN  ⌘F"
+
+msgctxt "AppWindow"
+msgid "ADD MUSIC"
+msgstr "MUSIK HINZUFÜGEN"
+
+msgctxt "AppWindow"
+msgid "PLAYLIST"
+msgstr "PLAYLIST"
+
+msgctxt "AppWindow"
+msgid "SET"
+msgstr "SET"
+
+msgctxt "AppWindow"
+msgid "SMART"
+msgstr "SMART"
+
+msgctxt "AppWindow"
+msgid "FOLDER"
+msgstr "ORDNER"
+
+msgctxt "AppWindow"
+msgid "DELETE"
+msgstr "LÖSCHEN"
+
+msgctxt "AppWindow"
+msgid "RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
+msgstr "REGELN, Z. B.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
+
+msgctxt "AppWindow"
+msgid "TRANSITION NOTE FOR THE SELECTED POSITION — ENTER TO SAVE"
+msgstr "ÜBERGANGSNOTIZ FÜR DIE GEWÄHLTE POSITION — ENTER ZUM SPEICHERN"
+
+msgctxt "AppWindow"
+msgid "Your library is empty. Use ADD MUSIC to add a folder, or import your rekordbox library once."
+msgstr "Deine Bibliothek ist leer. Füge mit MUSIK HINZUFÜGEN einen Ordner hinzu oder importiere einmalig deine rekordbox-Bibliothek."
+
+msgctxt "AppWindow"
+msgid "No tracks here yet. Select tracks in All tracks and press + next to this list in the sidebar."
+msgstr "Hier sind noch keine Tracks. Wähle Tracks unter „Alle Tracks“ und drücke + neben dieser Liste in der Seitenleiste."
+
+msgctxt "AppWindow"
+msgid "ADD MUSIC FOLDER"
+msgstr "MUSIKORDNER HINZUFÜGEN"
+
+msgctxt "AppWindow"
+msgid "IMPORT FROM REKORDBOX"
+msgstr "AUS REKORDBOX IMPORTIEREN"
+
+msgctxt "AppWindow"
+msgid "USB STICKS"
+msgstr "USB-STICKS"
+
+msgctxt "AppWindow"
+msgid "{} REGISTERED"
+msgstr "{} REGISTRIERT"
+
+msgctxt "AppWindow"
+msgid "Registered sticks are kept in sync automatically while they are plugged in. Every change to a playlist, cue or beatgrid reaches the stick within seconds."
+msgstr "Registrierte Sticks werden automatisch synchron gehalten, solange sie eingesteckt sind. Jede Änderung an Playlists, Cues oder Beatgrids ist in Sekunden auf dem Stick."
+
+msgctxt "AppWindow"
+msgid "STICK NAME"
+msgstr "STICK-NAME"
+
+msgctxt "AppWindow"
+msgid "FORMATS"
+msgstr "FORMATE"
+
+msgctxt "AppWindow"
+msgid "Pioneer players (export.pdb)"
+msgstr "Pioneer-Player (export.pdb)"
+
+msgctxt "AppWindow"
+msgid "OpenDecks"
+msgstr "OpenDecks"
+
+msgctxt "AppWindow"
+msgid "CONTENT — LISTS ON THIS STICK"
+msgstr "INHALT — LISTEN AUF DIESEM STICK"
+
+msgctxt "AppWindow"
+msgid "CHANGES MADE ON PLAYERS — REVIEW"
+msgstr "ÄNDERUNGEN AN PLAYERN — PRÜFEN"
+
+msgctxt "AppWindow"
+msgid "IMPORT"
+msgstr "IMPORTIEREN"
+
+msgctxt "AppWindow"
+msgid "TAKE STICK CUES"
+msgstr "STICK-CUES ÜBERNEHMEN"
+
+msgctxt "AppWindow"
+msgid "DISMISS"
+msgstr "VERWERFEN"
+
+msgctxt "AppWindow"
+msgid "KEEP LIBRARY"
+msgstr "BIBLIOTHEK BEHALTEN"
+
+msgctxt "AppWindow"
+msgid "SYNC NOW"
+msgstr "JETZT SYNCHRONISIEREN"
+
+msgctxt "AppWindow"
+msgid "REBUILD STICK"
+msgstr "STICK NEU SCHREIBEN"
+
+msgctxt "AppWindow"
+msgid "FORGET"
+msgstr "VERGESSEN"
+
+msgctxt "AppWindow"
+msgid "RECORDINGS"
+msgstr "AUFNAHMEN"
+
+msgctxt "AppWindow"
+msgid "{} MIXES"
+msgstr "{} MIXE"
+
+msgctxt "AppWindow"
+msgid "No recordings yet. Press RECORD in Perform, or the record button on your controller."
+msgstr "Noch keine Aufnahmen. Drücke AUFNEHMEN in Perform oder die Aufnahmetaste am Controller."
+
+msgctxt "AppWindow"
+msgid "UNDO  {}  ⌘Z"
+msgstr "RÜCKGÄNGIG  {}  ⌘Z"
+
+msgctxt "AppWindow"
+msgid "SEARCH"
+msgstr "SUCHEN"
+
+msgctxt "AppWindow"
+msgid "No tracks in this list."
+msgstr "Keine Tracks in dieser Liste."
+
+msgctxt "DeviceLine"
+msgid "SYNC"
+msgstr "SYNC"
+
+msgctxt "DeviceLine"
+msgid "EJECT"
+msgstr "AUSWERFEN"
+
+msgctxt "DeviceBoard"
+msgid "DEVICES"
+msgstr "GERÄTE"
+
+msgctxt "DeviceBoard"
+msgid "Plug in a USB stick to register it. Registered sticks stay in sync automatically."
+msgstr "Stecke einen USB-Stick ein, um ihn zu registrieren. Registrierte Sticks bleiben automatisch synchron."
+
+msgctxt "DeviceBoard"
+msgid "New stick: {}"
+msgstr "Neuer Stick: {}"
+
+msgctxt "DeviceBoard"
+msgid "SELECT A PLAYLIST FIRST"
+msgstr "ZUERST EINE PLAYLIST WÄHLEN"
+
+msgctxt "DeviceBoard"
+msgid "REGISTER WITH {}"
+msgstr "MIT {} REGISTRIEREN"
+
+msgctxt "SetFlow"
+msgid "SET FLOW"
+msgstr "SET-VERLAUF"
+
+msgctxt "SetFlow"
+msgid "HEIGHT ENERGY  ·  DASHED CAUTION  ·  STRUCK CLASH"
+msgstr "HÖHE ENERGIE  ·  GESTRICHELT VORSICHT  ·  DURCHGESTRICHEN CLASH"
+
+msgctxt "DeckPlate"
+msgid "Empty — load a track"
+msgstr "Leer — lade einen Track"
+
+msgctxt "DeckPlate"
+msgid "TEMPO"
+msgstr "TEMPO"
+
+msgctxt "DeckPlate"
+msgid "KEY"
+msgstr "TONART"
+
+msgctxt "DeckPlate"
+msgid "REMAIN"
+msgstr "REST"
+
+msgctxt "DeckPlate"
+msgid "PLAY"
+msgstr "PLAY"
+
+msgctxt "DeckPlate"
+msgid "KEYLOCK"
+msgstr "KEYLOCK"
+
+msgctxt "DeckPlate"
+msgid "LOOP"
+msgstr "LOOP"
+
+msgctxt "DeckPlate"
+msgid "PAUSE"
+msgstr "PAUSE"
+
+msgctxt "PerformView"
+msgid "MASTER {} BPM"
+msgstr "MASTER {} BPM"
+
+msgctxt "PerformView"
+msgid "2 DECKS"
+msgstr "2 DECKS"
+
+msgctxt "PerformView"
+msgid "4 DECKS"
+msgstr "4 DECKS"
+
+msgctxt "PerformView"
+msgid "REC {}"
+msgstr "REC {}"
+
+msgctxt "PerformView"
+msgid "RECORD"
+msgstr "AUFNEHMEN"
+
+msgctxt "CueSlot"
+msgid "set"
+msgstr "setzen"
+
+msgctxt "TrackPlate"
+msgid "NO TRACK SELECTED"
+msgstr "KEIN TRACK GEWÄHLT"
+
+msgctxt "TrackPlate"
+msgid "KEY"
+msgstr "TONART"
+
+msgctxt "TrackPlate"
+msgid "TIME"
+msgstr "ZEIT"
+
+msgctxt "TrackPlate"
+msgid "STOP"
+msgstr "STOPP"
+
+msgctxt "TrackPlate"
+msgid "PREVIEW"
+msgstr "VORHÖREN"
+
+msgctxt "TrackPlate"
+msgid "MEMORY CUE"
+msgstr "MEMORY CUE"
+
+msgctxt "TrackPlate"
+msgid "ANALYSE"
+msgstr "ANALYSIEREN"
+
+msgctxt "TrackPlate"
+msgid "HOT CUES — CLICK AN EMPTY SLOT TO SET IT AT THE CURSOR"
+msgstr "HOT CUES — LEEREN SLOT KLICKEN, UM IHN AM CURSOR ZU SETZEN"
+
+msgctxt "TrackPlate"
+msgid "BEATGRID"
+msgstr "BEATGRID"
+
+msgctxt "TrackPlate"
+msgid "LOCKED"
+msgstr "GESPERRT"
+
+msgctxt "TrackPlate"
+msgid "DOWNBEAT AT CURSOR"
+msgstr "DOWNBEAT AM CURSOR"
+
+msgctxt "TrackPlate"
+msgid "UNLOCK"
+msgstr "ENTSPERREN"
+
+msgctxt "TrackPlate"
+msgid "LOCK"
+msgstr "SPERREN"
+
+msgctxt "Rail"
+msgid "LIBRARY"
+msgstr "BIBLIOTHEK"
+
+msgctxt "Rail"
+msgid "TRACKS & PLAYLISTS"
+msgstr "TRACKS & PLAYLISTS"
+
+msgctxt "Rail"
+msgid "DEVICES"
+msgstr "GERÄTE"
+
+msgctxt "Rail"
+msgid "USB STICKS"
+msgstr "USB-STICKS"
+
+msgctxt "Rail"
+msgid "RECORDINGS"
+msgstr "AUFNAHMEN"
+
+msgctxt "Rail"
+msgid "MIXES"
+msgstr "MIXE"
+
+msgctxt "Rail"
+msgid "PREPARE"
+msgstr "PREPARE"
+
+msgctxt "Rail"
+msgid "PERFORM"
+msgstr "PERFORM"
+
+msgctxt "TrackTable"
+msgid "TITLE"
+msgstr "TITEL"
+
+msgctxt "TrackTable"
+msgid "ARTIST"
+msgstr "KÜNSTLER"
+
+msgctxt "TrackTable"
+msgid "GENRE"
+msgstr "GENRE"
+
+msgctxt "TrackTable"
+msgid "KEY"
+msgstr "TONART"
+
+msgctxt "TrackTable"
+msgid "TIME"
+msgstr "ZEIT"
+
+msgctxt "TrackTable"
+msgid "RATING"
+msgstr "WERTUNG"
