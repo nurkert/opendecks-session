@@ -136,6 +136,21 @@ export struct LaneMotion {
     t2: float,
 }
 
+// One deck pad in the current pad mode.
+export struct PadView {
+    // 0..7 (A–H).
+    index: int,
+    // Main legend (letter, "+2", "1/4", slot number) and the line under it.
+    caption: string,
+    sub: string,
+    // Has something to play (a stored cue, a loaded sample, …).
+    set: bool,
+    // Playing / engaged now.
+    lit: bool,
+    // Hot cue slot for the cue colour, -1 for the pad mode's colour.
+    cue-slot: int,
+}
+
 export struct DeckView {
     deck: int,
     loaded: bool,
@@ -159,10 +174,20 @@ export struct DeckView {
     waveform: image,
     overview: image,
     cues: [CueMark],
-    // Hot cue pads A–H, and the two columns A–D / E–H.
-    pads: [HotCueSlot],
-    pads-left: [HotCueSlot],
-    pads-right: [HotCueSlot],
+    // The eight pads in the deck's pad mode, and the two columns A–D / E–H.
+    pads: [PadView],
+    pads-left: [PadView],
+    pads-right: [PadView],
+    // Pad mode id ("hot_cue", "pad_fx1", "pad_fx2", "beat_jump", "sampler",
+    // "keyboard", "key_shift", "beat_loop", "slicer") and the value of its
+    // ‹ › (hot cue bank, jump size, …; "" = none).
+    pad-mode: string,
+    pad-param: string,
+    // Key shift ("±0", "+2") and key sync.
+    key-shift: string,
+    key-sync: bool,
+    // Beat jump size of the −/+ buttons, e.g. "4".
+    jump-size: string,
     tempo-value: float,
     tempo-range: string,
     quantize: bool,

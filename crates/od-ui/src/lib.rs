@@ -29,6 +29,7 @@ mod import;
 mod keymap;
 mod mixer;
 mod models;
+mod pads;
 mod player;
 mod preferences;
 mod recorder;

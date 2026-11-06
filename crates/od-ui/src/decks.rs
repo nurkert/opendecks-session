@@ -11,7 +11,7 @@
 use crate::app::{App, handler};
 use crate::models::{Rows, model};
 use crate::player::{cue_marks, phrase_marks};
-use crate::{CueMark, DeckView, HotCueSlot, LaneMotion, PhraseMark, engine, format, player, render};
+use crate::{CueMark, DeckView, LaneMotion, PadView, PhraseMark, engine, format, pads, player, render};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use od_controller::PadMode;
 use od_core::{Beatgrid, CueKind, TrackId, Waveform};
@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub(crate) const DECKS: usize = 4;
 /// The hidden deck the Prepare preview plays on.
@@ -38,11 +38,14 @@ pub(crate) struct Loaded {
     pub title: String,
     pub artist: String,
     key: String,
+    /// The track's key for key sync.
+    musical_key: Option<od_core::MusicalKey>,
     waveform: Waveform,
     grid: Beatgrid,
     overview: Image,
     cues: Vec<CueMark>,
-    labels: [String; 8],
+    /// Hot cue labels by library index (bank * 8 + slot).
+    labels: Vec<String>,
     phrases: Vec<od_core::Phrase>,
     phrase_marks: Vec<PhraseMark>,
     /// What a reload with stems needs.
@@ -88,6 +91,10 @@ pub(crate) struct Decks {
     pub loop_size: [f64; DECKS],
     pub shift: [bool; DECKS],
     pub pad_mode: [PadMode; DECKS],
+    /// Hot cue the Keyboard pads play, per deck (0..8).
+    pub keyboard_cue: [usize; DECKS],
+    /// Slicer domain per deck, in beats.
+    pub slicer_beats: [f64; DECKS],
     stem_cache: od_stems::StemCache,
     #[cfg(feature = "separation")]
     stem_worker: Option<od_stems::StemWorker>,
@@ -113,6 +120,8 @@ impl Default for Decks {
             loop_size: [4.0; DECKS],
             shift: [false; DECKS],
             pad_mode: [PadMode::HotCue; DECKS],
+            keyboard_cue: [0; DECKS],
+            slicer_beats: [8.0; DECKS],
             stem_cache: od_stems::StemCache::open_default(),
             #[cfg(feature = "separation")]
             stem_worker: None,
@@ -254,11 +263,12 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
         title: t.tags.title.clone(),
         artist: t.tags.artist.clone(),
         key: st.key_text(&t),
+        musical_key: t.key,
         overview: render::overview(&analysis.waveform, &analysis.beatgrid, t.duration, (900.0 * scale) as u32, (30.0 * scale) as u32),
         waveform: analysis.waveform.clone(),
         grid: analysis.beatgrid.clone(),
         cues: cue_marks(&cues, t.duration, false),
-        labels: std::array::from_fn(|s| cues.iter().find(|c| c.kind == CueKind::Hot(s as u8)).map(|c| c.label.clone()).unwrap_or_default()),
+        labels: hot_labels(&cues),
         phrases: analysis.phrases.clone(),
         phrase_marks: phrase_marks(&analysis.phrases, &analysis.beatgrid, t.duration),
         source: source.clone(),
@@ -315,12 +325,14 @@ pub(crate) fn receive_prepared(app: &App) {
         let meta = app.decks.borrow_mut().pending[deck].take().filter(|m| m.id == pr.data.id);
         let Some(meta) = meta else { continue };
         let title = meta.title.clone();
+        let musical_key = meta.musical_key;
         if needs_stems && deck != PREVIEW_DECK {
             request_stems(app, meta.id, &meta.source);
         }
         app.decks.borrow_mut().loaded[deck] = Some(meta);
         crate::browser::refresh_tracks(app);
         engine::deck_cmd(app, deck, DeckCommand::Load(pr.data));
+        engine::deck_cmd(app, deck, DeckCommand::SetTrackKey(musical_key));
         if let Some(t) = play_from {
             engine::deck_cmd(app, deck, DeckCommand::Seek { seconds: t });
             engine::deck_cmd(app, deck, DeckCommand::Play);
@@ -418,16 +430,18 @@ pub(crate) fn refresh_analysis(app: &App) {
         m.phrases = a.phrases;
         if let Some(k) = st.lib.track(m.id).ok().and_then(|t| t.key) {
             m.key = k.format(st.settings.key_notation());
+            m.musical_key = Some(k);
         }
         m.source.gain = a.loudness_lufs.map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0)).unwrap_or(0.0);
-        swaps.push((i, m.id, m.source.clone(), m.grid.clone()));
+        swaps.push((i, m.id, m.source.clone(), m.grid.clone(), m.musical_key));
         // Rebuild the per-track view parts on the next frame.
         d.views.lanes[i].track = None;
     }
     let (cache, tx) = (d.stem_cache.clone(), d.prepared_tx.clone());
     drop(d);
     drop(st);
-    for (deck, id, src, grid) in swaps {
+    for (deck, id, src, grid, key) in swaps {
+        engine::deck_cmd(app, deck, DeckCommand::SetTrackKey(key));
         prepare_in_background(cache.clone(), tx.clone(), deck, id, src, rate, grid, None, Some(Swap::Analysis));
     }
 }
@@ -536,6 +550,11 @@ pub(crate) struct DeckFields {
     pub phrase: SharedString,
     pub jog_angle: f32,
     pub beat_pos: SharedString,
+    pub pad_mode: SharedString,
+    pub pad_param: SharedString,
+    pub key_shift: SharedString,
+    pub key_sync: bool,
+    pub jump_size: SharedString,
 }
 
 /// What the projection needs besides the engine's deck state.
@@ -550,6 +569,9 @@ pub(crate) struct DeckInputs<'a> {
     pub loop_size: f64,
     /// Bar counter mode (Preferences › View).
     pub bar_counter: &'a str,
+    pub pad_mode: PadMode,
+    /// Value of the pad mode's ‹ › (see [`pads::param_label`]).
+    pub pad_param: String,
 }
 
 /// The deck's bar counter in the chosen mode (falls back to counting up).
@@ -634,23 +656,12 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         // 33⅓ rpm: 200° per second of audio.
         jog_angle: (s.position * 200.0).rem_euclid(360.0) as f32,
         beat_pos: bar_counter(s, i.meta, i.bar_counter).into(),
+        pad_mode: i.pad_mode.name().into(),
+        pad_param: i.pad_param.as_str().into(),
+        key_shift: pads::key_shift_label(s.key_shift).into(),
+        key_sync: s.key_sync,
+        jump_size: pads::beats_label(if s.beat_jump_size > 0.0 { s.beat_jump_size } else { 4.0 }).into(),
     }
-}
-
-/// Pads A–H (or a column of them) from the engine's hot cues.
-pub(crate) fn pad_slots(s: &DeckState, meta: Option<&Loaded>, slots: std::ops::Range<usize>) -> Vec<HotCueSlot> {
-    slots
-        .map(|slot| {
-            let hc = s.hot_cues[slot];
-            HotCueSlot {
-                slot: slot as i32,
-                letter: ((b'A' + slot as u8) as char).to_string().into(),
-                set: hc.is_some(),
-                time: hc.map(|h| format::deck_time(h.start)).unwrap_or_default().into(),
-                label: meta.map(|m| m.labels[slot].clone()).unwrap_or_default().into(),
-            }
-        })
-        .collect()
 }
 
 /// Identity of a rendered scrolling waveform: same key, same pixels.
@@ -684,9 +695,9 @@ struct Lane {
     overview: Image,
     wave_key: Option<WaveKey>,
     waveform: Image,
-    pads: Rows<HotCueSlot>,
-    pads_left: Rows<HotCueSlot>,
-    pads_right: Rows<HotCueSlot>,
+    pads: Rows<PadView>,
+    pads_left: Rows<PadView>,
+    pads_right: Rows<PadView>,
 }
 
 impl Default for Lane {
@@ -750,6 +761,11 @@ impl Lane {
             phrase: f.phrase,
             jog_angle: f.jog_angle,
             beat_pos: f.beat_pos,
+            pad_mode: f.pad_mode,
+            pad_param: f.pad_param,
+            key_shift: f.key_shift,
+            key_sync: f.key_sync,
+            jump_size: f.jump_size,
         }
     }
 }
@@ -769,7 +785,21 @@ impl DeckViews {
     fn resize(&mut self, count: usize) {
         for (d, lane) in self.lanes.iter_mut().enumerate() {
             *lane = Lane::default();
-            lane.fields = Some(DeckFields { deck: d as i32 + 1, ..Default::default() });
+            // Empty decks show their hot cue pads and mode too.
+            let s = DeckState::default();
+            let ctx = pads::PadCtx { deck: d, mode: PadMode::HotCue, sampler_bank: 0, keyboard_cue: 0, slicer_beats: 8.0, labels: &[], sampler_slots: &[] };
+            let rows = pads::pad_views(&s, &Default::default(), &[], &ctx);
+            lane.pads.sync_eq(rows.clone());
+            lane.pads_left.sync_eq(rows[..4].to_vec());
+            lane.pads_right.sync_eq(rows[4..].to_vec());
+            lane.fields = Some(DeckFields {
+                deck: d as i32 + 1,
+                pad_mode: PadMode::HotCue.name().into(),
+                pad_param: pads::param_label(&s, &ctx).into(),
+                key_shift: pads::key_shift_label(0.0).into(),
+                jump_size: "4".into(),
+                ..Default::default()
+            });
         }
         let views: Vec<DeckView> = (0..count).map(|d| self.lanes[d].view()).collect();
         let side = |odd: bool| views.iter().filter(|v| (v.deck % 2 == 1) == odd).cloned().collect::<Vec<_>>();
@@ -801,6 +831,8 @@ pub(crate) fn project(app: &App, state: &EngineState) {
     let show_phrases = app.ui.get_show_phrases();
     let bar_mode = app.state.borrow().settings.view.bar_counter.clone();
     let scale = app.ui.window().scale_factor();
+    let sampler_bank = app.sampler.bank.get();
+    let sampler_slots = app.sampler.slots.borrow();
     let mut guard = app.decks.borrow_mut();
     let d = &mut *guard;
     let count = d.deck_count;
@@ -836,9 +868,20 @@ pub(crate) fn project(app: &App, state: &EngineState) {
         if let Some(row) = d.scroll[i].update(&input) {
             d.motion.set_row_data(i, row);
         }
-        lane.pads.sync_eq(pad_slots(s, meta, 0..8));
-        lane.pads_left.sync_eq(pad_slots(s, meta, 0..4));
-        lane.pads_right.sync_eq(pad_slots(s, meta, 4..8));
+        let ctx = pads::PadCtx {
+            deck: i,
+            mode: d.pad_mode[i],
+            sampler_bank,
+            keyboard_cue: d.keyboard_cue[i],
+            slicer_beats: d.slicer_beats[i],
+            labels: meta.map(|m| m.labels.as_slice()).unwrap_or(&[]),
+            sampler_slots: &sampler_slots,
+        };
+        let rows = pads::pad_views(s, &state.channels[i], &state.sampler, &ctx);
+        let pad_param = pads::param_label(s, &ctx);
+        lane.pads.sync_eq(rows.clone());
+        lane.pads_left.sync_eq(rows[..4].to_vec());
+        lane.pads_right.sync_eq(rows[4..].to_vec());
         let fields = deck_fields(
             s,
             &DeckInputs {
@@ -850,6 +893,8 @@ pub(crate) fn project(app: &App, state: &EngineState) {
                 stems_busy: meta.is_some_and(|m| d.stem_progress.contains_key(&m.id)),
                 loop_size: d.loop_size[i],
                 bar_counter: &bar_mode,
+                pad_mode: d.pad_mode[i],
+                pad_param,
             },
         );
         if lane.fields.as_ref() != Some(&fields) {
@@ -908,11 +953,16 @@ fn refresh_deck_cues(app: &App, track: TrackId) {
     for i in 0..DECKS {
         if let Some(m) = d.loaded[i].as_mut().filter(|m| m.id == track) {
             m.cues = cue_marks(&cues, duration, false);
-            m.labels = std::array::from_fn(|s| cues.iter().find(|c| c.kind == CueKind::Hot(s as u8)).map(|c| c.label.clone()).unwrap_or_default());
+            m.labels = hot_labels(&cues);
             // Force the lane to rebuild its per-track models.
             d.views.lanes[i].track = None;
         }
     }
+}
+
+/// Hot cue labels by library index, for every bank.
+fn hot_labels(cues: &[od_core::Cue]) -> Vec<String> {
+    (0..od_engine::HOT_CUE_BANKS * od_engine::HOT_CUES).map(|s| cues.iter().find(|c| c.kind == CueKind::Hot(s as u8)).map(|c| c.label.clone()).unwrap_or_default()).collect()
 }
 
 /// The cue list with hot cue `index` set to `cue` (or removed when `None`).
@@ -940,6 +990,112 @@ pub(crate) fn apply_hot_cue(mut cues: Vec<od_core::Cue>, index: u8, cue: Option<
 /// 1 s to 32 s across the lane.
 pub(crate) fn zoom_by(zoom: f64, delta: f64) -> f64 {
     (zoom * (-delta * 0.004).exp()).clamp(0.125, 4.0)
+}
+
+// ── Pad modes, key shift ────────────────────────────────────────────────
+
+/// Runs `f` with the pad context of deck `d` and its engine state (starts
+/// audio first).
+fn with_pads<R>(app: &App, d: usize, f: impl FnOnce(&DeckState, &pads::PadCtx) -> R) -> R {
+    engine::ensure_engine(app);
+    let s = deck_state(app, d).unwrap_or_default();
+    let slots = app.sampler.slots.borrow();
+    let dk = app.decks.borrow();
+    let labels = dk.loaded(d).map(|m| m.labels.clone()).unwrap_or_default();
+    let ctx = pads::PadCtx {
+        deck: d,
+        mode: dk.pad_mode[d],
+        sampler_bank: app.sampler.bank.get(),
+        keyboard_cue: dk.keyboard_cue[d],
+        slicer_beats: dk.slicer_beats[d],
+        labels: &labels,
+        sampler_slots: &slots,
+    };
+    f(&s, &ctx)
+}
+
+/// Pad `index` (0..8) of deck `d` pressed or released, in the deck's mode.
+pub(crate) fn pad(app: &App, d: usize, index: usize, pressed: bool) {
+    let cmds = with_pads(app, d, |s, ctx| pads::press_commands(s, ctx, index, pressed));
+    for c in cmds {
+        engine::send(app, c);
+    }
+}
+
+/// The shifted pad (right click): deletes a hot cue, stops a sample.
+pub(crate) fn pad_alt(app: &App, d: usize, index: usize) {
+    let mode = app.decks.borrow().pad_mode[d];
+    engine::ensure_engine(app);
+    match mode {
+        PadMode::HotCue => engine::deck_cmd(app, d, DeckCommand::DeleteHotCue { slot: index.min(7) }),
+        PadMode::Sampler => {
+            let slot = pads::sampler_slot(d, app.sampler.bank.get(), index);
+            engine::send(app, Command::Sampler(od_engine::SamplerCommand::Stop { slot }));
+        }
+        _ => {}
+    }
+}
+
+/// Switches deck `d` to pad mode `mode`.
+pub(crate) fn set_pad_mode(app: &App, d: usize, mode: PadMode) {
+    let (old, beats) = {
+        let dk = app.decks.borrow();
+        (dk.pad_mode[d], dk.slicer_beats[d])
+    };
+    if old != mode {
+        engine::ensure_engine(app);
+        for c in pads::mode_change_commands(d, old, mode, beats) {
+            engine::send(app, c);
+        }
+    }
+    app.decks.borrow_mut().pad_mode[d] = mode;
+}
+
+/// The ‹ › beside the pad mode: bank, page, jump size, key, slice length.
+pub(crate) fn pad_param(app: &App, d: usize, delta: i32) {
+    engine::ensure_engine(app);
+    let s = deck_state(app, d).unwrap_or_default();
+    let mode = app.decks.borrow().pad_mode[d];
+    match mode {
+        PadMode::HotCue => engine::deck_cmd(app, d, DeckCommand::SetHotCueBank(pads::step_hot_cue_bank(s.hot_cue_bank, delta))),
+        PadMode::PadFx1 => set_pad_mode(app, d, PadMode::PadFx2),
+        PadMode::PadFx2 => set_pad_mode(app, d, PadMode::PadFx1),
+        PadMode::BeatJump => step_jump_size(app, d, delta),
+        PadMode::Sampler => crate::sampler::step_bank_by(app, delta),
+        PadMode::Keyboard => {
+            let mut dk = app.decks.borrow_mut();
+            dk.keyboard_cue[d] = (dk.keyboard_cue[d] as i32 + delta).rem_euclid(8) as usize;
+        }
+        PadMode::KeyShift => key_shift(app, d, delta),
+        PadMode::Slicer => {
+            let beats = pads::step_in(&pads::SLICER_BEATS, app.decks.borrow().slicer_beats[d], delta);
+            app.decks.borrow_mut().slicer_beats[d] = beats;
+            if s.slicer.active {
+                engine::deck_cmd(app, d, DeckCommand::Slicer(od_engine::SlicerCommand::Enable { beats, loop_mode: s.slicer.loop_mode }));
+            }
+        }
+        PadMode::BeatLoop => {}
+    }
+}
+
+/// Beat jump size one step up or down.
+pub(crate) fn step_jump_size(app: &App, d: usize, delta: i32) {
+    let cur = deck_state(app, d).map(|s| s.beat_jump_size).filter(|b| *b > 0.0).unwrap_or(4.0);
+    engine::deck_cmd(app, d, DeckCommand::SetBeatJumpSize(pads::step_in(&pads::JUMP_SIZES, cur, delta)));
+}
+
+/// Key shift by `delta` semitones (0 resets), −12 … +12.
+pub(crate) fn key_shift(app: &App, d: usize, delta: i32) {
+    engine::ensure_engine(app);
+    let cur = deck_state(app, d).map(|s| s.key_shift).unwrap_or(0.0);
+    let next = if delta == 0 { 0.0 } else { (cur.round() + delta as f32).clamp(-12.0, 12.0) };
+    engine::deck_cmd(app, d, DeckCommand::SetKeyShift(next));
+}
+
+pub(crate) fn toggle_key_sync(app: &App, d: usize) {
+    engine::ensure_engine(app);
+    let on = deck_state(app, d).map(|s| s.key_sync).unwrap_or(false);
+    engine::deck_cmd(app, d, DeckCommand::SetKeySync(!on));
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
@@ -1034,6 +1190,20 @@ pub(crate) fn wire(app: &Rc<App>) {
         engine::ensure_engine(&a);
         engine::deck_cmd(&a, idx(d), DeckCommand::BeatJump { beats: beats as f64 });
     }));
+    ui.on_deck_pad(handler!(app, |a, d: i32, i: i32, pressed: bool| pad(&a, idx(d), i.max(0) as usize, pressed)));
+    ui.on_deck_pad_alt(handler!(app, |a, d: i32, i: i32| pad_alt(&a, idx(d), i.max(0) as usize)));
+    ui.on_deck_pad_mode_step(handler!(app, |a, d: i32, x: i32| {
+        let mode = pads::step_mode(a.decks.borrow().pad_mode[idx(d)], x);
+        set_pad_mode(&a, idx(d), mode);
+    }));
+    ui.on_deck_pad_mode_set(handler!(app, |a, d: i32, i: i32| set_pad_mode(&a, idx(d), pads::UI_MODES[(i.max(0) as usize).min(7)])));
+    ui.on_deck_pad_param(handler!(app, |a, d: i32, x: i32| pad_param(&a, idx(d), x)));
+    ui.on_deck_key_sync(handler!(app, |a, d: i32| toggle_key_sync(&a, idx(d))));
+    ui.on_deck_key_shift(handler!(app, |a, d: i32, x: i32| key_shift(&a, idx(d), x)));
+    ui.on_deck_beat_jump_step(handler!(app, |a, d: i32, fwd: bool| {
+        engine::ensure_engine(&a);
+        engine::deck_cmd(&a, idx(d), DeckCommand::BeatJumpStep { forward: fwd });
+    }));
     ui.on_deck_load(handler!(app, |a, d: i32| {
         engine::ensure_engine(&a);
         load_selected(&a, idx(d));
@@ -1079,7 +1249,7 @@ mod tests {
     #[test]
     fn empty_deck_projection() {
         let s = DeckState::default();
-        let f = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5, bar_counter: "up" });
+        let f = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5, bar_counter: "up", pad_mode: PadMode::HotCue, pad_param: String::new() });
         assert_eq!(f.deck, 2);
         assert!(!f.loaded);
         assert_eq!(f.bpm, "");
@@ -1087,7 +1257,7 @@ mod tests {
         assert_eq!(f.loop_size, "1/2");
         assert_eq!(f.elapsed, "0:00.0");
         // Unchanged state projects equal, so no row is written.
-        let g = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5, bar_counter: "up" });
+        let g = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5, bar_counter: "up", pad_mode: PadMode::HotCue, pad_param: String::new() });
         assert_eq!(f, g);
     }
 

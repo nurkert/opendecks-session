@@ -440,6 +440,8 @@ export component Stepper inherits Rectangle {
     in property <string> value;
     in property <string> template: "00000";
     in property <length> size: 24px;
+    // Width of the ‹ › areas.
+    in property <length> arrow: root.size;
     in property <color> tone: Theme.bone-3;
     in property <bool> lit;
     in property <bool> enabled: true;
@@ -447,20 +449,20 @@ export component Stepper inherits Rectangle {
     callback step(int);
     callback value-clicked();
     height: root.size;
-    min-width: probe.preferred-width + 2 * root.size + 12px;
+    min-width: probe.preferred-width + 2 * root.arrow + 12px;
     background: Theme.plate;
     border-width: 1px;
     border-color: root.lit ? root.tone.with-alpha(0.8) : Theme.rule;
     probe := Text { visible: false; text: root.template; font-family: Theme.family; font-size: root.font-size; font-weight: 600; letter-spacing: 1px; }
     Rectangle {
-        x: 0; width: root.size;
+        x: 0; width: root.arrow;
         background: prev.pressed ? Theme.plate-raised : prev.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : transparent;
         Glyph { x: (parent.width - 10px) / 2; y: (parent.height - 10px) / 2; kind: "prev"; tone: root.enabled ? Theme.bone-2 : Theme.bone-3; }
         prev := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.step(-1); } }
     }
-    VLine { x: root.size; height: parent.height; weight: 1px; tone: Theme.rule; }
+    VLine { x: root.arrow; height: parent.height; weight: 1px; tone: Theme.rule; }
     Rectangle {
-        x: root.size + 1px; width: parent.width - 2 * root.size - 2px;
+        x: root.arrow + 1px; width: parent.width - 2 * root.arrow - 2px;
         background: mid.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : transparent;
         Text {
             text: root.value;
@@ -471,9 +473,9 @@ export component Stepper inherits Rectangle {
         }
         mid := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.value-clicked(); } }
     }
-    VLine { x: parent.width - root.size - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
+    VLine { x: parent.width - root.arrow - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
     Rectangle {
-        x: parent.width - root.size; width: root.size;
+        x: parent.width - root.arrow; width: root.arrow;
         background: next.pressed ? Theme.plate-raised : next.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : transparent;
         Glyph { x: (parent.width - 10px) / 2; y: (parent.height - 10px) / 2; kind: "next"; tone: root.enabled ? Theme.bone-2 : Theme.bone-3; }
         next := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.step(1); } }

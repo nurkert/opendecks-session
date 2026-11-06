@@ -7,10 +7,10 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, PlateButton, Glyph, Knob, Fader, Toggle, Transport, Jog } from "controls.slint";
+import { Caps, PlateButton, Glyph, Knob, Fader, Toggle, Transport, Jog, Stepper, TipArea } from "controls.slint";
 import { DropZone } from "drag.slint";
-import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark, LaneMotion, FxUnitView } from "structs.slint";
-import { FxPanel, ColorFxSelector } from "fx.slint";
+import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark, LaneMotion, FxUnitView, PadView } from "structs.slint";
+import { FxPanel, ColorFxSelector, ChoiceList } from "fx.slint";
 import { SamplerPanel } from "sampler.slint";
 import { SamplerPadView, SamplerView } from "structs.slint";
 
@@ -192,25 +192,156 @@ component Overview inherits VerticalLayout {
     PhraseBar { phrases: root.deck.phrases; }
 }
 
-// Pad grid in two columns (A–D | E–H), pad mode named underneath.
+// Pad modes, in selector order (ids as in DeckView.pad-mode).
+global PadModes {
+    out property <[string]> ids: ["hot_cue", "pad_fx1", "beat_jump", "sampler", "keyboard", "key_shift", "beat_loop", "slicer"];
+    out property <[string]> names: [@tr("HOT CUE"), @tr("PAD FX"), @tr("BEAT JUMP"), @tr("SAMPLER"), @tr("KEYBOARD"), @tr("KEY SHIFT"), @tr("BEAT LOOP"), @tr("SLICER")];
+    public pure function index(id: string) -> int {
+        if (id == "pad_fx1" || id == "pad_fx2") { return 1; }
+        if (id == "beat_jump") { return 2; }
+        if (id == "sampler") { return 3; }
+        if (id == "keyboard") { return 4; }
+        if (id == "key_shift") { return 5; }
+        if (id == "beat_loop") { return 6; }
+        if (id == "slicer") { return 7; }
+        return 0;
+    }
+    // Pad colour of a mode (hot cues use their cue colours).
+    public pure function tone(id: string) -> color {
+        if (id == "pad_fx1" || id == "pad_fx2") { return Theme.w405; }
+        if (id == "beat_jump") { return Theme.w436; }
+        if (id == "sampler") { return Theme.w546; }
+        if (id == "keyboard" || id == "key_shift") { return Theme.w589; }
+        if (id == "beat_loop") { return Theme.w615; }
+        if (id == "slicer") { return Theme.w486; }
+        return Theme.bone-2;
+    }
+}
+
+// A deck pad in any pad mode: filled in its colour when it has something
+// to play, brighter while engaged; legend and the line under it. Reports
+// press and release (gate samples, slices, Pad FX are held); a right click
+// is the shifted pad (delete a hot cue).
+export component DeckPad inherits Rectangle {
+    in property <PadView> p;
+    in property <string> mode;
+    callback press(bool);
+    callback alt();
+    property <color> tone: root.p.cue-slot >= 0 ? Theme.cue-color(root.p.cue-slot) : PadModes.tone(root.mode);
+    property <bool> down: touch.pressed;
+    height: 30px;
+    background: root.p.lit || root.down
+        ? root.tone.with-alpha(0.5)
+        : root.p.set ? root.tone.with-alpha(touch.has-hover ? 0.3 : 0.2)
+        : (touch.has-hover ? Theme.plate-raised.mix(Theme.plate, 0.5) : Theme.plate);
+    border-width: 1px;
+    border-color: root.p.lit ? root.tone : root.p.set ? root.tone.with-alpha(0.8) : Theme.rule;
+    Rectangle { y: 0; height: 2px; background: root.p.set || root.p.lit ? root.tone : transparent; }
+    cap := Text {
+        x: 8px; height: parent.height;
+        text: root.p.caption;
+        font-family: Theme.family; font-size: 13px; font-weight: 600;
+        color: root.p.set || root.p.lit ? Theme.bone : Theme.bone-3; vertical-alignment: center;
+    }
+    Text {
+        x: max(24px, cap.preferred-width + 14px); width: parent.width - self.x - 4px; height: parent.height;
+        text: root.p.sub;
+        font-family: Theme.family; font-size: 11px;
+        color: Theme.bone-2; vertical-alignment: center; overflow: elide;
+    }
+    touch := TipArea {
+        tooltip: root.mode == "hot_cue" ? (root.p.set ? @tr("Hot cue: jump (hold to preview while paused) — right click deletes") : @tr("Hot cue: store the current position"))
+            : root.mode == "sampler" ? @tr("Play the sampler slot (drop tracks on the sampler panel)")
+            : root.mode == "beat_jump" ? @tr("Jump by this many beats")
+            : root.mode == "beat_loop" ? @tr("Loop this many beats; press again to exit")
+            : root.mode == "key_shift" ? @tr("Shift the key by these semitones")
+            : root.mode == "keyboard" ? @tr("Play the hot cue at this key")
+            : root.mode == "slicer" ? @tr("Play this slice while held")
+            : @tr("Effect while held");
+        mouse-cursor: pointer;
+        pointer-event(ev) => {
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.down) { root.press(true); }
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.up) { root.press(false); }
+            if (ev.button == PointerEventButton.right && ev.kind == PointerEventKind.down) { root.alt(); }
+        }
+    }
+}
+
+// Pad mode selector (‹ MODE ›, the name opens the list) and the mode's own
+// ‹ value › (hot cue bank, jump size, sampler bank, …).
+component PadModeBar inherits Rectangle {
+    in property <DeckView> deck;
+    in property <length> size: 22px;
+    callback mode-step(int);
+    callback mode-set(int);
+    callback param(int);
+    height: root.size;
+    HorizontalLayout {
+        spacing: 4px;
+        Stepper {
+            horizontal-stretch: 1;
+            size: root.size; font-size: 10px; arrow: 16px;
+            min-width: 2 * 16px + 40px;
+            value: root.deck.pad-mode == "pad_fx2" ? @tr("PAD FX 2") : PadModes.names[PadModes.index(root.deck.pad-mode)];
+            template: "BEAT JUMP"; lit: true; tone: PadModes.tone(root.deck.pad-mode);
+            tooltip: @tr("Pad mode: previous / next — click the name for the list");
+            command: "deck" + root.deck.deck + ".padmode.next";
+            step(d) => { root.mode-step(d); }
+            value-clicked => { modes.show(); }
+        }
+        if root.deck.pad-param != "": Stepper {
+            horizontal-stretch: 1;
+            size: root.size; font-size: 10px; arrow: 16px;
+            min-width: 2 * 16px + 30px;
+            value: root.deck.pad-param; template: "8 BEATS";
+            tooltip: root.deck.pad-mode == "hot_cue" ? @tr("Hot cue bank")
+                : root.deck.pad-mode == "beat_jump" ? @tr("Beat jump size of the − / + buttons")
+                : root.deck.pad-mode == "sampler" ? @tr("Sampler bank")
+                : root.deck.pad-mode == "keyboard" ? @tr("Hot cue the keyboard plays")
+                : root.deck.pad-mode == "key_shift" ? @tr("Key shift in semitones")
+                : root.deck.pad-mode == "slicer" ? @tr("Length of the sliced section")
+                : @tr("Pad FX page");
+            command: root.deck.pad-mode == "hot_cue" ? "deck" + root.deck.deck + ".hotcue.bank" : "";
+            step(d) => { root.param(d); }
+        }
+    }
+    modes := PopupWindow {
+        x: 0; y: -4 * 26px - 6px;
+        ChoiceList {
+            items: PadModes.names; current: PadModes.index(root.deck.pad-mode); columns: 2; cell-w: 104px;
+            chosen(i) => { root.mode-set(i); modes.close(); }
+        }
+    }
+}
+
+// Pad grid in two columns (A–D | E–H), the pad mode underneath.
 component PadColumns inherits VerticalLayout {
     in property <DeckView> deck;
     in property <length> pad-h: 30px;
-    callback hot-cue(int);
+    callback pad(int, bool);
+    callback pad-alt(int);
+    callback mode-step(int);
+    callback mode-set(int);
+    callback param(int);
     horizontal-stretch: 3;
     spacing: 4px;
     HorizontalLayout {
         spacing: 4px;
         VerticalLayout {
             spacing: 4px;
-            for c in root.deck.pads-left: Pad { height: root.pad-h; cue: c; pressed => { root.hot-cue(c.slot); } }
+            for c in root.deck.pads-left: DeckPad { height: root.pad-h; p: c; mode: root.deck.pad-mode; press(d) => { root.pad(c.index, d); } alt => { root.pad-alt(c.index); } }
         }
         VerticalLayout {
             spacing: 4px;
-            for c in root.deck.pads-right: Pad { height: root.pad-h; cue: c; pressed => { root.hot-cue(c.slot); } }
+            for c in root.deck.pads-right: DeckPad { height: root.pad-h; p: c; mode: root.deck.pad-mode; press(d) => { root.pad(c.index, d); } alt => { root.pad-alt(c.index); } }
         }
     }
-    Caps { text: "HOT CUE"; font-size: 10px; }
+    PadModeBar {
+        deck: root.deck;
+        mode-step(d) => { root.mode-step(d); }
+        mode-set(i) => { root.mode-set(i); }
+        param(d) => { root.param(d); }
+    }
 }
 
 // Loop size and beat jump, as on the deck: size readout, ‹ ›, LOOP.
@@ -220,7 +351,7 @@ component LoopColumn inherits VerticalLayout {
     callback loop(float);
     callback loop-exit();
     callback loop-scale(float);
-    callback beat-jump(float);
+    callback beat-jump-step(bool);
     width: 104px;
     spacing: 4px;
     alignment: center;
@@ -242,8 +373,8 @@ component LoopColumn inherits VerticalLayout {
     }
     HorizontalLayout {
         spacing: 4px;
-        Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "−4"; clicked => { root.beat-jump(-4); } }
-        Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "+4"; clicked => { root.beat-jump(4); } }
+        Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "−" + root.deck.jump-size; tooltip: @tr("Beat jump back (size: ‹ › in Beat Jump pad mode)"); command: "deck" + root.deck.deck + ".jump.back"; clicked => { root.beat-jump-step(false); } }
+        Toggle { size: root.ctl-h; horizontal-stretch: 1; label: "+" + root.deck.jump-size; tooltip: @tr("Beat jump forward"); command: "deck" + root.deck.deck + ".jump.fwd"; clicked => { root.beat-jump-step(true); } }
     }
 }
 
@@ -305,13 +436,19 @@ export component DeckPanel inherits Rectangle {
     callback quantize();
     callback slip();
     callback seek(float);
-    callback hot-cue(int);
+    callback pad(int, bool);
+    callback pad-alt(int);
+    callback pad-mode-step(int);
+    callback pad-mode-set(int);
+    callback pad-param(int);
+    callback key-sync();
+    callback key-shift(int);
     callback tempo(float);
     callback stem(string);
     callback loop(float);
     callback loop-exit();
     callback loop-scale(float);
-    callback beat-jump(float);
+    callback beat-jump-step(bool);
     callback load();
 
     property <color> tone: Theme.deck-color(root.deck.deck);
@@ -355,6 +492,26 @@ export component DeckPanel inherits Rectangle {
             Readout { label: "BPM"; template: "000.00"; value: root.deck.bpm; size: root.compact ? 18px : 22px; tone: root.deck.master ? Theme.attention : Theme.bone; }
             Readout { label: @tr("REMAIN"); template: "-00:00.0"; value: root.deck.remaining; sub: root.compact ? "" : root.deck.elapsed; size: root.compact ? 18px : 22px; }
             Readout { label: @tr("KEY"); template: "12A"; value: root.deck.key; size: root.compact ? 18px : 22px; }
+            // Key sync and key shift (semitones; the value resets).
+            VerticalLayout {
+                spacing: 3px;
+                alignment: center;
+                width: 78px;
+                Toggle {
+                    size: 22px; label: "KEY SYNC"; on: root.deck.key-sync; tone: Theme.w436;
+                    tooltip: @tr("Key sync: match the key of the master deck");
+                    command: "deck" + root.deck.deck + ".keysync";
+                    clicked => { root.key-sync(); }
+                }
+                Stepper {
+                    size: 22px; font-size: 11px;
+                    value: root.deck.key-shift; template: "+12"; lit: root.deck.key-shift != "±0"; tone: Theme.w436;
+                    tooltip: @tr("Key shift: down / up a semitone — click the value to reset");
+                    command: "deck" + root.deck.deck + ".keyshift.up";
+                    step(d) => { root.key-shift(d); }
+                    value-clicked => { root.key-shift(0); }
+                }
+            }
             VerticalLayout {
                 spacing: 3px;
                 alignment: center;
@@ -387,8 +544,8 @@ export component DeckPanel inherits Rectangle {
         // ── Full deck, outer → inner: pads | loop | CUE / PLAY | platter | state | tempo ──
         if !root.compact && !root.mirror: HorizontalLayout {
             spacing: 12px;
-            PadColumns { deck: root.deck; pad-h: root.pad-h; hot-cue(s) => { root.hot-cue(s); } }
-            LoopColumn { deck: root.deck; ctl-h: root.ctl-h; loop(b) => { root.loop(b); } loop-exit => { root.loop-exit(); } loop-scale(f) => { root.loop-scale(f); } beat-jump(b) => { root.beat-jump(b); } }
+            PadColumns { deck: root.deck; pad-h: root.pad-h; pad(i, d) => { root.pad(i, d); } pad-alt(i) => { root.pad-alt(i); } mode-step(d) => { root.pad-mode-step(d); } mode-set(i) => { root.pad-mode-set(i); } param(d) => { root.pad-param(d); } }
+            LoopColumn { deck: root.deck; ctl-h: root.ctl-h; loop(b) => { root.loop(b); } loop-exit => { root.loop-exit(); } loop-scale(f) => { root.loop-scale(f); } beat-jump-step(f) => { root.beat-jump-step(f); } }
             TransportColumn { deck: root.deck; size: root.touch-size ? 60px : 52px; cue => { root.cue(); } toggle-play => { root.toggle-play(); } }
             Jog {
                 size: root.jog; angle: root.deck.jog-angle; progress: root.deck.progress;
@@ -410,8 +567,8 @@ export component DeckPanel inherits Rectangle {
                 sub-text: root.deck.tempo + "  " + root.deck.tempo-range;
             }
             TransportColumn { deck: root.deck; size: root.touch-size ? 60px : 52px; cue => { root.cue(); } toggle-play => { root.toggle-play(); } }
-            LoopColumn { deck: root.deck; ctl-h: root.ctl-h; loop(b) => { root.loop(b); } loop-exit => { root.loop-exit(); } loop-scale(f) => { root.loop-scale(f); } beat-jump(b) => { root.beat-jump(b); } }
-            PadColumns { deck: root.deck; pad-h: root.pad-h; hot-cue(s) => { root.hot-cue(s); } }
+            LoopColumn { deck: root.deck; ctl-h: root.ctl-h; loop(b) => { root.loop(b); } loop-exit => { root.loop-exit(); } loop-scale(f) => { root.loop-scale(f); } beat-jump-step(f) => { root.beat-jump-step(f); } }
+            PadColumns { deck: root.deck; pad-h: root.pad-h; pad(i, d) => { root.pad(i, d); } pad-alt(i) => { root.pad-alt(i); } mode-step(d) => { root.pad-mode-step(d); } mode-set(i) => { root.pad-mode-set(i); } param(d) => { root.pad-param(d); } }
         }
 
         // ── Compact deck (four decks / small screens) ──
@@ -419,7 +576,16 @@ export component DeckPanel inherits Rectangle {
             spacing: 4px;
             Transport { kind: "cue"; tone: Theme.attention; size: root.touch-size ? 44px : 34px; clicked => { root.cue(); } }
             Transport { kind: "play"; on: root.deck.playing; tone: Theme.live; size: root.touch-size ? 44px : 34px; clicked => { root.toggle-play(); } }
-            for c in root.deck.pads: Pad { horizontal-stretch: 1; height: root.pad-h; cue: c; pressed => { root.hot-cue(c.slot); } }
+            for c in root.deck.pads: DeckPad { horizontal-stretch: 1; height: root.pad-h; p: c; mode: root.deck.pad-mode; press(d) => { root.pad(c.index, d); } alt => { root.pad-alt(c.index); } }
+            Toggle {
+                size: root.ctl-h; width: 52px;
+                label: root.deck.pad-mode == "hot_cue" ? "CUE" : root.deck.pad-mode == "pad_fx1" || root.deck.pad-mode == "pad_fx2" ? "FX" : root.deck.pad-mode == "beat_jump" ? "JUMP"
+                    : root.deck.pad-mode == "sampler" ? "SMPL" : root.deck.pad-mode == "keyboard" ? "KEYB" : root.deck.pad-mode == "key_shift" ? "KEY" : root.deck.pad-mode == "beat_loop" ? "LOOP" : "SLICE";
+                on: root.deck.pad-mode != "hot_cue"; tone: PadModes.tone(root.deck.pad-mode);
+                tooltip: @tr("Pad mode: click for the next one");
+                command: "deck" + root.deck.deck + ".padmode.next";
+                clicked => { root.pad-mode-step(1); }
+            }
             Toggle { size: root.ctl-h; label: root.deck.loop-size; on: root.deck.looping; tone: Theme.w615; clicked => { if (root.deck.looping) { root.loop-exit(); } else { root.loop(0); } } }
             Toggle { size: root.ctl-h; label: "Q"; on: root.deck.quantize; tone: Theme.attention; clicked => { root.quantize(); } }
             Toggle { size: root.ctl-h; label: "MT"; on: root.deck.keylock; tone: Theme.w436; clicked => { root.keylock(); } }
@@ -660,13 +826,19 @@ export component PerformView inherits Rectangle {
     callback quantize(int);
     callback slip(int);
     callback seek(int, float);
-    callback hot-cue(int, int);
+    callback pad(int, int, bool);
+    callback pad-alt(int, int);
+    callback pad-mode-step(int, int);
+    callback pad-mode-set(int, int);
+    callback pad-param(int, int);
+    callback key-sync(int);
+    callback key-shift(int, int);
     callback tempo(int, float);
     callback stem(int, string);
     callback loop(int, float);
     callback loop-exit(int);
     callback loop-scale(int, float);
-    callback beat-jump(int, float);
+    callback beat-jump-step(int, bool);
     callback load(int);
     callback trim(int, float);
     callback eq(int, int, float);
@@ -725,13 +897,19 @@ export component PerformView inherits Rectangle {
                     quantize => { root.quantize(d.deck); }
                     slip => { root.slip(d.deck); }
                     seek(p) => { root.seek(d.deck, p); }
-                    hot-cue(s) => { root.hot-cue(d.deck, s); }
+                    pad(i, p) => { root.pad(d.deck, i, p); }
+                    pad-alt(i) => { root.pad-alt(d.deck, i); }
+                    pad-mode-step(x) => { root.pad-mode-step(d.deck, x); }
+                    pad-mode-set(i) => { root.pad-mode-set(d.deck, i); }
+                    pad-param(x) => { root.pad-param(d.deck, x); }
+                    key-sync => { root.key-sync(d.deck); }
+                    key-shift(x) => { root.key-shift(d.deck, x); }
                     tempo(v) => { root.tempo(d.deck, v); }
                     stem(s) => { root.stem(d.deck, s); }
                     loop(b) => { root.loop(d.deck, b); }
                     loop-exit => { root.loop-exit(d.deck); }
                     loop-scale(f) => { root.loop-scale(d.deck, f); }
-                    beat-jump(b) => { root.beat-jump(d.deck, b); }
+                    beat-jump-step(f) => { root.beat-jump-step(d.deck, f); }
                     load => { root.load(d.deck); }
                 }
             }
@@ -770,13 +948,19 @@ export component PerformView inherits Rectangle {
                     quantize => { root.quantize(d.deck); }
                     slip => { root.slip(d.deck); }
                     seek(p) => { root.seek(d.deck, p); }
-                    hot-cue(s) => { root.hot-cue(d.deck, s); }
+                    pad(i, p) => { root.pad(d.deck, i, p); }
+                    pad-alt(i) => { root.pad-alt(d.deck, i); }
+                    pad-mode-step(x) => { root.pad-mode-step(d.deck, x); }
+                    pad-mode-set(i) => { root.pad-mode-set(d.deck, i); }
+                    pad-param(x) => { root.pad-param(d.deck, x); }
+                    key-sync => { root.key-sync(d.deck); }
+                    key-shift(x) => { root.key-shift(d.deck, x); }
                     tempo(v) => { root.tempo(d.deck, v); }
                     stem(s) => { root.stem(d.deck, s); }
                     loop(b) => { root.loop(d.deck, b); }
                     loop-exit => { root.loop-exit(d.deck); }
                     loop-scale(f) => { root.loop-scale(d.deck, f); }
-                    beat-jump(b) => { root.beat-jump(d.deck, b); }
+                    beat-jump-step(f) => { root.beat-jump-step(d.deck, f); }
                     load => { root.load(d.deck); }
                 }
             }

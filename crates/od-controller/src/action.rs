@@ -57,10 +57,12 @@ pub enum PadMode {
     PadFx2,
     Keyboard,
     KeyShift,
+    /// Slicer: the pads play eight slices of a beat-aligned domain.
+    Slicer,
 }
 
 impl PadMode {
-    pub const ALL: [PadMode; 8] = [
+    pub const ALL: [PadMode; 9] = [
         PadMode::HotCue,
         PadMode::BeatLoop,
         PadMode::BeatJump,
@@ -69,6 +71,7 @@ impl PadMode {
         PadMode::PadFx2,
         PadMode::Keyboard,
         PadMode::KeyShift,
+        PadMode::Slicer,
     ];
 
     pub fn name(self) -> &'static str {
@@ -81,6 +84,7 @@ impl PadMode {
             PadMode::PadFx2 => "pad_fx2",
             PadMode::Keyboard => "keyboard",
             PadMode::KeyShift => "key_shift",
+            PadMode::Slicer => "slicer",
         }
     }
 

@@ -201,6 +201,16 @@ export component AppWindow inherits Window {
     callback sampler-seq-play();
     callback sampler-seq-record();
     callback sampler-seq-clear();
+    // Deck pads in their pad mode (1-based deck, pad 0..7), the pad mode
+    // selector, key sync / shift and the beat jump size.
+    callback deck-pad(int, int, bool);
+    callback deck-pad-alt(int, int);
+    callback deck-pad-mode-step(int, int);
+    callback deck-pad-mode-set(int, int);
+    callback deck-pad-param(int, int);
+    callback deck-key-sync(int);
+    callback deck-key-shift(int, int);
+    callback deck-beat-jump-step(int, bool);
     in property <bool> small-screen;
     in property <image> ground-texture;
 
@@ -474,13 +484,19 @@ export component AppWindow inherits Window {
                 quantize(d) => { root.deck-quantize(d); }
                 slip(d) => { root.deck-slip(d); }
                 seek(d, p) => { root.deck-seek(d, p); }
-                hot-cue(d, s) => { root.deck-hot-cue(d, s); }
+                pad(d, i, p) => { root.deck-pad(d, i, p); }
+                pad-alt(d, i) => { root.deck-pad-alt(d, i); }
+                pad-mode-step(d, x) => { root.deck-pad-mode-step(d, x); }
+                pad-mode-set(d, i) => { root.deck-pad-mode-set(d, i); }
+                pad-param(d, x) => { root.deck-pad-param(d, x); }
+                key-sync(d) => { root.deck-key-sync(d); }
+                key-shift(d, x) => { root.deck-key-shift(d, x); }
                 tempo(d, v) => { root.deck-tempo(d, v); }
                 stem(d, s) => { root.deck-stem(d, s); }
                 loop(d, b) => { root.deck-loop(d, b); }
                 loop-exit(d) => { root.deck-loop-exit(d); }
                 loop-scale(d, f) => { root.deck-loop-scale(d, f); }
-                beat-jump(d, b) => { root.deck-beat-jump(d, b); }
+                beat-jump-step(d, f) => { root.deck-beat-jump-step(d, f); }
                 load(d) => { root.deck-load(d); }
                 trim(c, v) => { root.mixer-trim(c, v); }
                 eq(c, b, v) => { root.mixer-eq(c, b, v); }
