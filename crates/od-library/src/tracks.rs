@@ -658,6 +658,33 @@ impl Library {
 }
 
 #[cfg(test)]
+impl TrackRecord {
+    /// An empty record for unit tests.
+    pub(crate) fn test_default() -> Self {
+        Self {
+            id: TrackId(0),
+            path: PathBuf::new(),
+            content_hash: ContentHash(String::new()),
+            file_size: 0,
+            format: None,
+            duration: 0.0,
+            sample_rate: 0,
+            channels: 2,
+            bit_rate: None,
+            bits_per_sample: None,
+            tags: TrackTags::default(),
+            date_added: String::new(),
+            play_count: 0,
+            last_played: None,
+            missing: false,
+            bpm: None,
+            key: None,
+            analysis_version: 0,
+        }
+    }
+}
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use crate::test_util::track;

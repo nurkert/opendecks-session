@@ -10,6 +10,7 @@
 mod blob;
 pub mod backup;
 pub mod devices;
+pub mod duplicates;
 pub mod journal;
 pub mod mirror;
 pub mod mytags;
