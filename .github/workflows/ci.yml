@@ -14,8 +14,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14        # Apple Silicon
-          - os: macos-13        # Intel
+          - os: macos-latest    # Apple Silicon
+          - os: macos-15-intel  # Intel
           - os: ubuntu-24.04    # x86_64
           - os: ubuntu-24.04-arm  # aarch64 (Raspberry Pi class)
     runs-on: ${{ matrix.os }}
