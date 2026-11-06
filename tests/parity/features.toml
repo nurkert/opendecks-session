@@ -28,7 +28,9 @@ appendix = '''
    label, unless the deck plays from a stick (`loaded_from_stick`). Wire the
    dropped `MemoryCueSet/MemoryCueDelete` actions the same way. Sync then
    follows automatically via the change log.
-2. **Beat FX and Colour FX selection.** Engine is complete; nothing drives it.
+2. **Beat FX and Colour FX selection.** *Done 2026-11-06:* FX panel, CFX selector,
+   keyboard and controller inputs with LEDs (`fx.rs`, `controller.rs`). Original note:
+   engine is complete; nothing drives it.
    *`od-ui` (`perform.rs::handle_action`)*: translate `BeatFxAction`
    (toggle/on, level, beat up/down, auto beat, select next/prev, assign,
    tap) into `Command::BeatFx`, and `ColorFxAction::Select/Next` into
@@ -55,7 +57,9 @@ appendix = '''
    BPM entry building a constant grid from the current downbeat
    (`Beatgrid::constant`). Wire `DeckAction::TapBpm` to the same helper for
    the loaded track.
-7. **Controller coverage for mapped but dropped actions.** `handle_action`
+7. **Controller coverage for mapped but dropped actions.** *Mostly done 2026-11-06*
+   (FX, sampler, pad modes, key sync, tap BPM, memory cues, booth / master cue,
+   stems); `deck.search` and `browse.related / view_toggle` remain. `handle_action`
    falls through to `_ => None` for many FLX10/FLX4 inputs that the mappings
    already decode. *`od-engine`*: add `DeckCommand::Search { forward, on }`
    (fast scan) and a `KeySync` (shift to master key via `SetKeyShift`).
@@ -77,18 +81,15 @@ appendix = '''
 Column choice and filter bar; My Tag; related-tracks / suggestion panel
 (`suggest_next`); own play history with a history view; tree node reorder;
 set backups/start time UI; full Prepare keyboard shortcuts and controller
-tree navigation; phrase display (in progress); key shift + key-shift pads +
-key sync; pad FX and release FX; sampler loading, banks and volume; pad LEDs
-for all modes; waveform zoom; EQ/fader/crossfader curve settings (if not
-covered by P1-8); master cue and booth output; FLAC/MP3 recording and silence
+tree navigation; phrase display (in progress); waveform zoom; EQ/fader/crossfader
+curve settings (if not covered by P1-8); FLAC/MP3 recording and silence
 auto start; batch stem separation in Prepare.
 
 ### P3 summary
 
 Artwork display, duplicate check, XML/iTunes exchange, consolidate UI,
 variable-tempo grid editing, BPM range setting, waveform style options,
-vocal position, hot cue banks, active loop, beat-jump size setting, keyboard
-and slicer pad modes, larger Beat FX list, stem FX, sampler sequencer, Smart
+vocal position, active loop, stem FX, Smart
 CFX/Smart Fader, mic/aux input, auto-gain toggle, recording folder/level
 settings, `exportExt.pdb`, `MYSETTING`, MIDI learn UI, FLX10 utility settings
 UI and jog displays (M4).
@@ -936,10 +937,14 @@ id = "cues-hot-cue-banks"
 area = "cues"
 name = "Hot cue banks / hot cue bank lists"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "—"
+tests = [
+  "od-engine::deck_features::hot_cue_banks",
+  "od-ui::pads::tests::hot_cue_pads_follow_the_bank",
+]
+evidence = ["pads.rs::bank_label"]
+note = "Banks A–H, I–P, Q–X, Y–AF with ‹ › in Hot Cue mode (keyboard too); pads show the bank's letters and labels"
 
 [[feature]]
 id = "cues-memory-add"
@@ -975,11 +980,13 @@ id = "cues-memory-controller"
 area = "cues"
 name = "Memory cue set/delete from controller"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P1"
-tests = []
-evidence = ["deck.memory_cue_set/delete", "flx10.toml", "handle_action"]
-note = "Mapped (`deck.memory_cue_set/delete` in `flx10.toml`), dropped in `handle_action`"
+tests = [
+  "od-ui::decks::tests::memory_cue_edits",
+]
+evidence = ["decks.rs::memory_cue"]
+note = "`deck.memory_cue_set` / `_delete` edit the library cue list (one undo step) and update the deck without a gap"
 
 [[feature]]
 id = "cues-saved-loops"
@@ -1134,21 +1141,27 @@ id = "deck-key-shift"
 area = "deck"
 name = "Key shift (±semitones)"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P2"
-tests = []
-evidence = ["DeckCommand::SetKeyShift"]
-note = "`DeckCommand::SetKeyShift`; only `KeyReset` reaches it"
+tests = [
+  "od-engine::deck_features::key_shift_octave_doubles_the_pitch",
+  "od-ui::pads::tests::letters_banks_and_labels",
+]
+evidence = ["decks.rs::key_shift"]
+note = "‹ ±0 › in the deck header (click resets), Key Shift pad mode, keyboard"
 
 [[feature]]
 id = "deck-key-sync"
 area = "deck"
 name = "Key sync"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
-note = "Mapped (`deck.key_sync`); no engine command"
+tests = [
+  "od-engine::deck_features::key_sync_matches_the_master_key",
+]
+evidence = ["decks.rs::toggle_key_sync"]
+note = "KEY SYNC in the deck header, keyboard and controller (`deck.key_sync` with LED); the track key reaches the engine on load"
 
 [[feature]]
 id = "deck-beat-sync"
@@ -1223,11 +1236,13 @@ id = "deck-beat-jump-size"
 area = "deck"
 name = "Beat jump size setting"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-evidence = ["handle_action"]
-note = "Fixed ±4 in UI, pad sizes fixed in `handle_action`"
+tests = [
+  "od-ui::pads::tests::letters_banks_and_labels",
+]
+evidence = ["decks.rs::step_jump_size"]
+note = "‹ › in Beat Jump pad mode (1/8 … 64); the deck's −/+ buttons and the keyboard jump by it"
 
 [[feature]]
 id = "deck-manual-loop"
@@ -1291,10 +1306,14 @@ id = "deck-tap-bpm"
 area = "deck"
 name = "Tap BPM"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P1"
-tests = []
-note = "Mapped (`deck.tap_bpm`), dropped (with grid tap)"
+tests = [
+  "od-ui::decks::tests::tapped_grid_keeps_the_downbeat",
+  "od-ui::fx::tests::tap_tempo_averages_and_restarts",
+]
+evidence = ["decks.rs::tap_bpm"]
+note = "Controller TAP: three taps give a constant grid at the tapped tempo, keeping the first downbeat (saved, undoable; locked grids stay)"
 
 [[feature]]
 id = "pad-mode-hot-cue"
@@ -1339,66 +1358,82 @@ id = "pad-mode-sampler"
 area = "deck"
 name = "Pad mode: Sampler"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
-tests = []
-note = "Triggers slots, but no way to load samples (see §8)"
+tests = [
+  "od-ui::pads::tests::sampler_pads_play_the_deck_half_of_the_bank",
+]
+evidence = ["pads.rs::sampler_slot"]
+note = "Odd decks play pads 1–8, even decks 9–16 of the shown bank; gate samples follow the pad"
 
 [[feature]]
 id = "pad-mode-pad-fx"
 area = "deck"
 name = "Pad mode: Pad FX 1/2"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
-evidence = ["PadMode::PadFx1/2", "action.rs"]
-note = "`PadMode::PadFx1/2` exist in `action.rs`; no effect logic"
+tests = [
+  "od-engine::fx::pad_fx_momentary_and_release_presets",
+  "od-ui::pads::tests::jump_loop_key_and_fx_pads",
+]
+evidence = ["pads.rs::press_commands"]
+note = "Pad FX page 1 / 2 (‹ ›), momentary"
 
 [[feature]]
 id = "pad-mode-keyboard"
 area = "deck"
 name = "Pad mode: Keyboard"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-evidence = ["PadMode::Keyboard"]
-note = "`PadMode::Keyboard` selectable; no logic (needs key shift)"
+tests = [
+  "od-engine::deck_features::keyboard_pads_play_the_hot_cue_at_semitone_offsets",
+  "od-ui::pads::tests::jump_loop_key_and_fx_pads",
+]
+evidence = ["pads.rs::KEY_STEPS"]
+note = "−3 … +4 semitones on the chosen hot cue (‹ CUE A ›)"
 
 [[feature]]
 id = "pad-mode-key-shift"
 area = "deck"
 name = "Pad mode: Key Shift"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P2"
-tests = []
-evidence = ["PadMode::KeyShift"]
-note = "`PadMode::KeyShift` selectable; engine `SetKeyShift` exists; pads dropped"
+tests = [
+  "od-ui::pads::tests::jump_loop_key_and_fx_pads",
+]
+evidence = ["pads.rs::press_commands"]
+note = "Pads set the key shift −3 … +4"
 
 [[feature]]
 id = "pad-mode-slicer"
 area = "deck"
 name = "Pad mode: Slicer"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "Not in `PadMode`"
+tests = [
+  "od-engine::deck_features::slicer_retriggers_slices_on_the_grid",
+  "od-ui::pads::tests::slicer_starts_with_its_mode",
+]
+evidence = ["pads.rs::mode_change_commands"]
+note = "`PadMode::Slicer`; domain 4 … 64 beats (‹ ›), starts and stops with the mode"
 
 [[feature]]
 id = "pad-led-feedback"
 area = "deck"
 name = "Pad LED feedback per mode"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
-  "od-controller::mappings::flx10_pad_colours_use_palette",
+  "od-ui::controller::tests::mapping_names_and_leds",
+  "od-ui::pads::tests::sampler_pads_play_the_deck_half_of_the_bank",
 ]
-evidence = ["perform.rs::feedback"]
-note = "Only hot-cue pad LEDs (`perform.rs::feedback`)"
+evidence = ["controller.rs::feedback"]
+note = "Pad mode LEDs and the pads of the current mode (on = engaged, dim = loaded / set)"
 
 [[feature]]
 id = "deck-waveform-zoom"
@@ -1661,22 +1696,26 @@ id = "mixer-master-cue"
 area = "mixer"
 name = "Master cue"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
-evidence = ["master_cue"]
-note = "Mapped (`master_cue`), no engine function"
+tests = [
+  "od-engine::fx::booth_output_and_master_cue",
+]
+evidence = ["controller.rs::handle_action"]
+note = "Controller `master_cue` toggles it, with LED"
 
 [[feature]]
 id = "mixer-booth"
 area = "mixer"
 name = "Booth level / booth output"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
-evidence = ["booth_level"]
-note = "Mapped (`booth_level`), no engine bus"
+tests = [
+  "od-engine::fx::booth_output_and_master_cue",
+]
+evidence = ["controller.rs::handle_action"]
+note = "Controller `booth_level` sets the booth output"
 
 [[feature]]
 id = "mixer-smart-cfx-fader"
@@ -1726,67 +1765,90 @@ id = "fx-beat-fx"
 area = "effects"
 name = "Beat FX (2 units: echo, delay, reverb, flanger, phaser, roll, filter sweep, trans)"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P1"
 tests = [
+  "od-engine::fx::every_beat_fx_runs_and_returns_to_dry",
   "od-engine::render::sampler_and_beat_fx_run",
-  "od-engine::render::trans_gate_follows_master_beat",
+  "od-ui::fx::tests::unit_projection",
+  "od-ui::controller::tests::mapping_names_and_leds",
 ]
-evidence = ["od-engine/src/beatfx.rs::BeatFxCommand", "handle_action"]
-note = "`od-engine/src/beatfx.rs`, `BeatFxCommand`; 10 FLX10 mapping entries (`beat_fx.*`) all dropped in `handle_action`; no UI panel"
+evidence = ["crates/od-ui/src/fx.rs", "crates/od-ui/ui/fx.slint"]
+note = "FX panel (top bar FX) with two units; controller `beat_fx.*` inputs drive the same functions; ON / release LEDs"
 
 [[feature]]
 id = "fx-beat-fx-controls"
 area = "effects"
 name = "Beat FX: beat select, auto beat, tap, channel assign"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P1"
 tests = [
-  "od-controller::mappings::flx10_colour_fx_and_beat_fx",
+  "od-engine::fx::beat_fx_follows_the_channel_bpm_and_tap",
+  "od-ui::fx::tests::beat_lengths_step_and_print",
+  "od-ui::fx::tests::tap_tempo_averages_and_restarts",
+  "od-ui::fx::tests::unit_projection",
 ]
-note = "`SetBeats`, `SetTarget`; same as above"
+evidence = ["fx.rs::step_beats", "fx.rs::TapTempo"]
+note = "Beat ‹ › (1/8 … 16), TAP (three taps) and AUTO (back to the deck tempo), channel assign 1–4 / master, level and parameter knobs; on screen, keyboard and controller"
 
 [[feature]]
 id = "fx-beat-fx-catalogue"
 area = "effects"
 name = "Larger Beat FX list (ping pong, spiral, helix, pitch, vinyl brake, triplet, shimmer …)"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "8 kinds today"
+tests = [
+  "od-engine::fx::every_beat_fx_runs_and_returns_to_dry",
+  "od-ui::fx::tests::kinds_wrap_and_map_controller_names",
+]
+evidence = ["command.rs::BeatFxKind::ALL"]
+note = "14 effects selectable in the panel (list or ‹ ›); controller effect names map to the closest one"
 
 [[feature]]
 id = "fx-colour-fx-select"
 area = "effects"
 name = "Sound Colour FX selection (filter, noise, space, crush, echo)"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P1"
-tests = []
-evidence = ["colorfx.rs"]
-note = "`ColorFxKind`, `colorfx.rs`; `color_fx.select` mapped and dropped; no UI"
+tests = [
+  "od-engine::fx::every_colour_fx_runs_and_returns_to_dry",
+  "od-ui::fx::tests::color_fx_follows_the_selection",
+  "od-ui::controller::tests::mapping_names_and_leds",
+]
+evidence = ["fx.rs::select_color_fx"]
+note = "One global selection (‹ NAME › under the mixer, keyboard, controller CFX buttons with LEDs), persisted, applied to every channel"
 
 [[feature]]
 id = "fx-release-fx"
 area = "effects"
 name = "Release FX"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P2"
-tests = []
-note = "Mapped (`beat_fx.release`), no release effect"
+tests = [
+  "od-engine::fx::backspin_and_echo_out_release",
+  "od-ui::fx::tests::unit_projection",
+]
+evidence = ["fx.slint::FxUnit"]
+note = "BRAKE / BACKSPIN / ECHO OUT per unit while held (panel, keyboard); controller release button = echo out"
 
 [[feature]]
 id = "fx-pad-fx"
 area = "effects"
 name = "Pad FX"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
-note = "See pad modes"
+tests = [
+  "od-engine::fx::pad_fx_momentary_and_release_presets",
+  "od-ui::fx::tests::pad_fx_presets_cover_two_pages",
+  "od-ui::pads::tests::jump_loop_key_and_fx_pads",
+]
+evidence = ["fx.rs::pad_fx_preset"]
+note = "Two pages of eight presets (beat and release FX) on the deck pads"
 
 [[feature]]
 id = "fx-stem-fx"
@@ -1803,11 +1865,14 @@ id = "fx-panel"
 area = "effects"
 name = "FX panel (FX1 | FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row)"
 scope = "in"
-status = "missing"
+status = "partial"
 prio = "P1"
-tests = []
-evidence = ["crates/od-ui/src/fx.rs"]
-note = "Module exists, panel not built"
+tests = [
+  "od-ui::fx::tests::unit_projection",
+  "od-ui::fx::tests::beat_lengths_step_and_print",
+]
+evidence = ["crates/od-ui/ui/fx.slint"]
+note = "FX1 | FX2 above the waveforms with effect, beat, assign, level, parameter, ON, TAP and Release FX; CFX selector in the mixer. One effect per unit (no three-slot chain)"
 spec = "SPEC §10.2; UX §1.5"
 
 [[feature]]
@@ -1815,9 +1880,14 @@ id = "fx-colour-fx-extended"
 area = "effects"
 name = "Colour FX: pitch, dub echo, sweep"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
+tests = [
+  "od-engine::fx::colour_pitch_and_sweep_gate",
+  "od-ui::fx::tests::color_fx_follows_the_selection",
+]
+evidence = ["settings.rs::COLOR_FX"]
+note = "Pitch, dub echo and sweep selectable like the others"
 spec = "SPEC §10.2"
 
 # ---- Stems / track separation ----
@@ -1928,65 +1998,86 @@ id = "sampler-slots"
 area = "sampler"
 name = "16 slots, one-shot/loop, gain, stop"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P2"
 tests = [
-  "od-engine::render::sampler_and_beat_fx_run",
+  "od-engine::sampler::one_shot_loop_and_gate_modes",
+  "od-engine::sampler::retrigger_is_click_free",
+  "od-ui::sampler::tests::panel_projection",
 ]
-evidence = ["od-engine/src/sampler.rs", "SamplerCommand::Load"]
-note = "`od-engine/src/sampler.rs`, `SAMPLER_SLOTS = 16`; nothing sends `SamplerCommand::Load`"
+evidence = ["crates/od-ui/src/sampler.rs"]
+note = "16 pads per bank in the sampler panel: play, stop all, clear, gain"
 
 [[feature]]
 id = "sampler-load-library"
 area = "sampler"
 name = "Load samples / sample library"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
-note = "No UI, no store"
+tests = [
+  "od-ui::sampler::tests::store_round_trips",
+  "od-ui::sampler::tests::panel_projection",
+]
+evidence = ["sampler.rs::load_selected", "sampler.slint::SampleDrop"]
+note = "LOAD SELECTED or drop a track row on a pad; decoded off the UI thread; slot contents kept in the library meta and restored when audio starts"
 
 [[feature]]
 id = "sampler-banks"
 area = "sampler"
 name = "Banks (bank next/prev)"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
-note = "Mapped (`sampler.bank_*`), dropped"
+tests = [
+  "od-ui::sampler::tests::slots_banks_and_modes",
+]
+evidence = ["sampler.rs::step_bank"]
+note = "Four banks (panel, keyboard, controller `sampler.bank_*`)"
 
 [[feature]]
 id = "sampler-volume-cue"
 area = "sampler"
 name = "Sampler volume, cue"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P2"
-tests = []
-evidence = ["MixerCommand::SetSamplerLevel"]
-note = "`MixerCommand::SetSamplerLevel`; `sampler.volume` mapped and dropped"
+tests = [
+  "od-engine::sampler::sampler_cue_to_headphones",
+  "od-ui::sampler::tests::volume_is_square_law",
+]
+evidence = ["sampler.rs::set_volume"]
+note = "VOL knob and CUE in the panel; controller `sampler.volume` / `sampler.cue` with LED"
 
 [[feature]]
 id = "sampler-sequencer"
 area = "sampler"
 name = "Sequencer"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "—"
+tests = [
+  "od-engine::sampler::sequencer_plays_steps_on_the_master_beat",
+  "od-engine::sampler::sequencer_pattern_recording",
+  "od-ui::sampler::tests::pattern_flags",
+  "od-ui::sampler::tests::panel_projection",
+]
+evidence = ["sampler.slint::SamplerPanel"]
+note = "16 steps of the selected slot under the pads, PLAY / REC / CLR, playing step shown; patterns saved with the slots"
 
 [[feature]]
 id = "sampler-panel"
 area = "sampler"
 name = "Sampler panel (2 x 8 slots, gain, cue, BPM, bank row)"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
-evidence = ["crates/od-ui/src/sampler.rs"]
-note = "Module exists, panel not built"
+tests = [
+  "od-ui::sampler::tests::panel_projection",
+  "od-ui::sampler::tests::slots_banks_and_modes",
+]
+evidence = ["crates/od-ui/ui/sampler.slint"]
+note = "Between the global bar and the browser (top bar SAMPLER): bank, 2 × 8 pads, selected slot (mode, sync, BPM, gain), quantise, cue, volume"
 spec = "SPEC §10.3a; UX §1.5"
 
 [[feature]]
@@ -1994,9 +2085,16 @@ id = "sampler-modes-sync"
 area = "sampler"
 name = "Gate mode, quantised triggering, sample sync to the master tempo"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
+tests = [
+  "od-engine::sampler::one_shot_loop_and_gate_modes",
+  "od-engine::sampler::quantised_trigger_starts_on_the_grid",
+  "od-engine::sampler::sync_follows_the_master_tempo",
+  "od-ui::sampler::tests::slots_banks_and_modes",
+]
+evidence = ["sampler.slint::SamplerPanel"]
+note = "1-SHOT / LOOP / GATE (pads report press and release), QUANT, SYNC per slot"
 spec = "SPEC §10.3a"
 
 # ---- Recording ----

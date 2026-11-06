@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 83 DONE (40 %), 30 PARTIAL, 27 ENGINE-ONLY, 66 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 111 DONE (54 %), 29 PARTIAL, 18 ENGINE-ONLY, 48 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -110,11 +110,11 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 |---|---|---|---|---|
 | 8 hot cues A–H (Prepare) | DONE | `app.rs` `on_hot_cue/on_remove_hot_cue`; keys 1–8 | 2 |  |
 | 8 hot cues A–H (Perform, pads/UI) | DONE | `DeckCommand::HotCue`, `od-ui/src/decks.rs::persist_cue_events`; Set/delete on pads or the controller are saved to the library (one undo step each) and reach sticks through the normal sync | 2 | **P1** |
-| Hot cue banks / hot cue bank lists | MISSING | — | — | P3 |
+| Hot cue banks / hot cue bank lists | DONE | `pads.rs::bank_label`; Banks A–H, I–P, Q–X, Y–AF with ‹ › in Hot Cue mode (keyboard too); pads show the bank's letters and labels | 2 | P3 |
 | Memory cues: add (Prepare) | DONE | `on_add_memory_cue` | — |  |
 | Memory cues: delete, move (Prepare) | MISSING | No callback | — | **P1** |
 | Memory cues: call prev/next (Perform) | DONE | `MemoryCueJump` via controller | — |  |
-| Memory cue set/delete from controller | ENGINE-ONLY | Mapped (`deck.memory_cue_set/delete` in `flx10.toml`), dropped in `handle_action` | — | **P1** |
+| Memory cue set/delete from controller | DONE | `decks.rs::memory_cue`; `deck.memory_cue_set` / `_delete` edit the library cue list (one undo step) and update the deck without a gap | 1 | **P1** |
 | Saved loops (memory/hot-cue loops) | PARTIAL | Model, import, export and playback exist (`Cue.loop_end`); cannot be created in Prepare; loop hot cues made in Perform are not persisted | 1 | **P1** |
 | Active loop (auto-engaged saved loop) | MISSING | — | — | P3 |
 | Cue colours | PARTIAL | `Cue.color` imported/exported; not drawn (`CueMark` has no colour), not editable | — | **P1** |
@@ -132,30 +132,30 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Jog display (FLX10 screens) | MISSING, M4 | Needs the non-MIDI protocol (SPEC M4, `docs/ddj-flx10-usb-protocol.md`) (M4) | — | P3 |
 | Tempo fader, ranges ±6/10/16/WIDE, reset | DONE | `TempoRange`; controller cycles range; UI shows it but has no range button | 3 |  |
 | Master tempo / key lock (Rubber Band) | DONE | `od-engine/src/keylock`, UI toggle + controller | 4 |  |
-| Key shift (±semitones) | ENGINE-ONLY | `DeckCommand::SetKeyShift`; only `KeyReset` reaches it | — | P2 |
-| Key sync | MISSING | Mapped (`deck.key_sync`); no engine command | — | P2 |
+| Key shift (±semitones) | DONE | `decks.rs::key_shift`; ‹ ±0 › in the deck header (click resets), Key Shift pad mode, keyboard | 2 | P2 |
+| Key sync | DONE | `decks.rs::toggle_key_sync`; KEY SYNC in the deck header, keyboard and controller (`deck.key_sync` with LED); the track key reaches the engine on load | 1 | P2 |
 | Beat sync + master deck | DONE | `SetSync`, `SetMasterDeck`; UI + controller | 1 |  |
 | Quantize | DONE | `Command::SetQuantize`; UI + controller | 1 |  |
 | Slip | DONE | `SetSlip`; UI + controller | 1 |  |
 | Reverse | DONE | `SetReverse` via controller; no UI button | 2 |  |
 | Censor (slip reverse) | DONE | `DeckAction::Censor` in `handle_action` | — |  |
 | Beat jump | DONE | `DeckCommand::BeatJump`; UI ±4, controller, pad mode | 1 |  |
-| Beat jump size setting | MISSING | Fixed ±4 in UI, pad sizes fixed in `handle_action` | — | P3 |
+| Beat jump size setting | DONE | `decks.rs::step_jump_size`; ‹ › in Beat Jump pad mode (1/8 … 64); the deck's −/+ buttons and the keyboard jump by it | 1 | P3 |
 | Manual loop in/out, reloop/exit, ½ / 2× | DONE | `LoopIn/LoopOut/Reloop/LoopExit/LoopHalve/LoopDouble` | 1 |  |
 | Auto beat loop (1/32 … 32) | DONE | `DeckCommand::AutoLoop`; UI size stepper | 1 |  |
 | Loop roll | DONE | `DeckCommand::LoopRoll` via controller | 1 |  |
 | Needle search | DONE | `NeedleSearch`; overview click + FLX touch strip | 1 |  |
 | Search (FF/REW buttons) | MISSING | Mapped (`deck.search`); no engine command, dropped (controller coverage) | — | **P1** |
-| Tap BPM | MISSING | Mapped (`deck.tap_bpm`), dropped (with grid tap) | — | **P1** |
+| Tap BPM | DONE | `decks.rs::tap_bpm`; Controller TAP: three taps give a constant grid at the tapped tempo, keeping the first downbeat (saved, undoable; locked grids stay) | 2 | **P1** |
 | Pad mode: Hot Cue | DONE | `PadMode::HotCue` in `handle_action` | 1 |  |
 | Pad mode: Beat Loop | DONE | `PadMode::BeatLoop` → `AutoLoop` | 2 |  |
 | Pad mode: Beat Jump | DONE | `PadMode::BeatJump` | 2 |  |
-| Pad mode: Sampler | PARTIAL | Triggers slots, but no way to load samples (see §8) | — | P2 |
-| Pad mode: Pad FX 1/2 | MISSING | `PadMode::PadFx1/2` exist in `action.rs`; no effect logic | — | P2 |
-| Pad mode: Keyboard | MISSING | `PadMode::Keyboard` selectable; no logic (needs key shift) | — | P3 |
-| Pad mode: Key Shift | ENGINE-ONLY | `PadMode::KeyShift` selectable; engine `SetKeyShift` exists; pads dropped | — | P2 |
-| Pad mode: Slicer | MISSING | Not in `PadMode` | — | P3 |
-| Pad LED feedback per mode | PARTIAL | Only hot-cue pad LEDs (`perform.rs::feedback`) | 1 | P2 |
+| Pad mode: Sampler | DONE | `pads.rs::sampler_slot`; Odd decks play pads 1–8, even decks 9–16 of the shown bank; gate samples follow the pad | 1 | P2 |
+| Pad mode: Pad FX 1/2 | DONE | `pads.rs::press_commands`; Pad FX page 1 / 2 (‹ ›), momentary | 2 | P2 |
+| Pad mode: Keyboard | DONE | `pads.rs::KEY_STEPS`; −3 … +4 semitones on the chosen hot cue (‹ CUE A ›) | 2 | P3 |
+| Pad mode: Key Shift | DONE | `pads.rs::press_commands`; Pads set the key shift −3 … +4 | 1 | P2 |
+| Pad mode: Slicer | DONE | `pads.rs::mode_change_commands`; `PadMode::Slicer`; domain 4 … 64 beats (‹ ›), starts and stops with the mode | 2 | P3 |
+| Pad LED feedback per mode | DONE | `controller.rs::feedback`; Pad mode LEDs and the pads of the current mode (on = engaged, dim = loaded / set) | 2 | P2 |
 | Waveform zoom in Perform | MISSING | Fixed `DETAIL_SPAN` 8 s (`perform.rs`) | — | P2 |
 | Waveform overview + scrolling detail, cue markers, beat ticks | DONE | `render.rs::overview/detail`, `ui/plate.slint` | 3 |  |
 | Phrases on the overview and enlarged waveform, with display options | PARTIAL | `crates/od-ui/src/player.rs::phrase_marks`, `crates/od-ui/src/render.rs`; Phrase strip is painted; no opt-in toggles for enlarged / overview waveform and no phrase types; (SPEC §10.1; UX §2.5) | 1 | P2 |
@@ -183,8 +183,8 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Crossfader assign A/THRU/B | DONE | Controller (`MixerAction::CrossfaderAssign`); no UI control | 1 |  |
 | Headphone cue, mix, level | DONE | `SetCue`, `SetHeadphoneMix/Level`; UI + controller | 2 |  |
 | Master level, VU meters, limiter | DONE | `SetMasterLevel`, meters in `ChannelView`, limiter on by default | 3 |  |
-| Master cue | MISSING | Mapped (`master_cue`), no engine function | — | P2 |
-| Booth level / booth output | MISSING | Mapped (`booth_level`), no engine bus | — | P2 |
+| Master cue | DONE | `controller.rs::handle_action`; Controller `master_cue` toggles it, with LED | 1 | P2 |
+| Booth level / booth output | DONE | `controller.rs::handle_action`; Controller `booth_level` sets the booth output | 1 | P2 |
 | Smart CFX / Smart Fader (FLX4) | MISSING | — | — | P3 |
 | Mic / aux input | MISSING | — | — | P3 |
 | Auto gain toggle | ENGINE-ONLY | `ChannelCommand::SetAutoGain`; always on | — | P3 |
@@ -194,15 +194,15 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
-| Beat FX (2 units: echo, delay, reverb, flanger, phaser, roll, filter sweep, trans) | ENGINE-ONLY | `od-engine/src/beatfx.rs`, `BeatFxCommand`; 10 FLX10 mapping entries (`beat_fx.*`) all dropped in `handle_action`; no UI panel | 2 | **P1** |
-| Beat FX: beat select, auto beat, tap, channel assign | ENGINE-ONLY | `SetBeats`, `SetTarget`; same as above | 1 | **P1** |
-| Larger Beat FX list (ping pong, spiral, helix, pitch, vinyl brake, triplet, shimmer …) | MISSING | 8 kinds today | — | P3 |
-| Sound Colour FX selection (filter, noise, space, crush, echo) | ENGINE-ONLY | `ColorFxKind`, `colorfx.rs`; `color_fx.select` mapped and dropped; no UI | — | **P1** |
-| Release FX | ENGINE-ONLY | Mapped (`beat_fx.release`), no release effect | — | P2 |
-| Pad FX | MISSING | See pad modes | — | P2 |
+| Beat FX (2 units: echo, delay, reverb, flanger, phaser, roll, filter sweep, trans) | DONE | `crates/od-ui/src/fx.rs`, `crates/od-ui/ui/fx.slint`; FX panel (top bar FX) with two units; controller `beat_fx.*` inputs drive the same functions; ON / release LEDs | 4 | **P1** |
+| Beat FX: beat select, auto beat, tap, channel assign | DONE | `fx.rs::step_beats`, `fx.rs::TapTempo`; Beat ‹ › (1/8 … 16), TAP (three taps) and AUTO (back to the deck tempo), channel assign 1–4 / master, level and parameter knobs; on screen, keyboard and controller | 4 | **P1** |
+| Larger Beat FX list (ping pong, spiral, helix, pitch, vinyl brake, triplet, shimmer …) | DONE | `command.rs::BeatFxKind::ALL`; 14 effects selectable in the panel (list or ‹ ›); controller effect names map to the closest one | 2 | P3 |
+| Sound Colour FX selection (filter, noise, space, crush, echo) | DONE | `fx.rs::select_color_fx`; One global selection (‹ NAME › under the mixer, keyboard, controller CFX buttons with LEDs), persisted, applied to every channel | 3 | **P1** |
+| Release FX | DONE | `fx.slint::FxUnit`; BRAKE / BACKSPIN / ECHO OUT per unit while held (panel, keyboard); controller release button = echo out | 2 | P2 |
+| Pad FX | DONE | `fx.rs::pad_fx_preset`; Two pages of eight presets (beat and release FX) on the deck pads | 3 | P2 |
 | Stem FX (FX on one part) | MISSING | — | — | P3 |
-| FX panel (FX1 \| FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row) | MISSING | `crates/od-ui/src/fx.rs`; Module exists, panel not built; (SPEC §10.2; UX §1.5) | — | **P1** |
-| Colour FX: pitch, dub echo, sweep | MISSING | (SPEC §10.2) | — | P3 |
+| FX panel (FX1 \| FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row) | PARTIAL | `crates/od-ui/ui/fx.slint`; FX1 \| FX2 above the waveforms with effect, beat, assign, level, parameter, ON, TAP and Release FX; CFX selector in the mixer. One effect per unit (no three-slot chain); (SPEC §10.2; UX §1.5) | 2 | **P1** |
+| Colour FX: pitch, dub echo, sweep | DONE | `settings.rs::COLOR_FX`; Pitch, dub echo and sweep selectable like the others; (SPEC §10.2) | 2 | P3 |
 
 ## 7. Stems / track separation
 
@@ -221,13 +221,13 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
-| 16 slots, one-shot/loop, gain, stop | ENGINE-ONLY | `od-engine/src/sampler.rs`, `SAMPLER_SLOTS = 16`; nothing sends `SamplerCommand::Load` | 1 | P2 |
-| Load samples / sample library | MISSING | No UI, no store | — | P2 |
-| Banks (bank next/prev) | MISSING | Mapped (`sampler.bank_*`), dropped | — | P2 |
-| Sampler volume, cue | ENGINE-ONLY | `MixerCommand::SetSamplerLevel`; `sampler.volume` mapped and dropped | — | P2 |
-| Sequencer | MISSING | — | — | P3 |
-| Sampler panel (2 x 8 slots, gain, cue, BPM, bank row) | MISSING | `crates/od-ui/src/sampler.rs`; Module exists, panel not built; (SPEC §10.3a; UX §1.5) | — | P2 |
-| Gate mode, quantised triggering, sample sync to the master tempo | MISSING | (SPEC §10.3a) | — | P2 |
+| 16 slots, one-shot/loop, gain, stop | DONE | `crates/od-ui/src/sampler.rs`; 16 pads per bank in the sampler panel: play, stop all, clear, gain | 3 | P2 |
+| Load samples / sample library | DONE | `sampler.rs::load_selected`, `sampler.slint::SampleDrop`; LOAD SELECTED or drop a track row on a pad; decoded off the UI thread; slot contents kept in the library meta and restored when audio starts | 2 | P2 |
+| Banks (bank next/prev) | DONE | `sampler.rs::step_bank`; Four banks (panel, keyboard, controller `sampler.bank_*`) | 1 | P2 |
+| Sampler volume, cue | DONE | `sampler.rs::set_volume`; VOL knob and CUE in the panel; controller `sampler.volume` / `sampler.cue` with LED | 2 | P2 |
+| Sequencer | DONE | `sampler.slint::SamplerPanel`; 16 steps of the selected slot under the pads, PLAY / REC / CLR, playing step shown; patterns saved with the slots | 4 | P3 |
+| Sampler panel (2 x 8 slots, gain, cue, BPM, bank row) | DONE | `crates/od-ui/ui/sampler.slint`; Between the global bar and the browser (top bar SAMPLER): bank, 2 × 8 pads, selected slot (mode, sync, BPM, gain), quantise, cue, volume; (SPEC §10.3a; UX §1.5) | 2 | P2 |
+| Gate mode, quantised triggering, sample sync to the master tempo | DONE | `sampler.slint::SamplerPanel`; 1-SHOT / LOOP / GATE (pads report press and release), QUANT, SYNC per slot; (SPEC §10.3a) | 4 | P2 |
 
 ## 9. Recording
 
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 83 |
-| PARTIAL | 30 |
-| ENGINE-ONLY | 27 |
-| MISSING | 66 |
+| DONE | 111 |
+| PARTIAL | 29 |
+| ENGINE-ONLY | 18 |
+| MISSING | 48 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |
@@ -340,7 +340,9 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
    label, unless the deck plays from a stick (`loaded_from_stick`). Wire the
    dropped `MemoryCueSet/MemoryCueDelete` actions the same way. Sync then
    follows automatically via the change log.
-2. **Beat FX and Colour FX selection.** Engine is complete; nothing drives it.
+2. **Beat FX and Colour FX selection.** *Done 2026-11-06:* FX panel, CFX selector,
+   keyboard and controller inputs with LEDs (`fx.rs`, `controller.rs`). Original note:
+   engine is complete; nothing drives it.
    *`od-ui` (`perform.rs::handle_action`)*: translate `BeatFxAction`
    (toggle/on, level, beat up/down, auto beat, select next/prev, assign,
    tap) into `Command::BeatFx`, and `ColorFxAction::Select/Next` into
@@ -367,7 +369,9 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
    BPM entry building a constant grid from the current downbeat
    (`Beatgrid::constant`). Wire `DeckAction::TapBpm` to the same helper for
    the loaded track.
-7. **Controller coverage for mapped but dropped actions.** `handle_action`
+7. **Controller coverage for mapped but dropped actions.** *Mostly done 2026-11-06*
+   (FX, sampler, pad modes, key sync, tap BPM, memory cues, booth / master cue,
+   stems); `deck.search` and `browse.related / view_toggle` remain. `handle_action`
    falls through to `_ => None` for many FLX10/FLX4 inputs that the mappings
    already decode. *`od-engine`*: add `DeckCommand::Search { forward, on }`
    (fast scan) and a `KeySync` (shift to master key via `SetKeyShift`).
@@ -389,18 +393,15 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 Column choice and filter bar; My Tag; related-tracks / suggestion panel
 (`suggest_next`); own play history with a history view; tree node reorder;
 set backups/start time UI; full Prepare keyboard shortcuts and controller
-tree navigation; phrase display (in progress); key shift + key-shift pads +
-key sync; pad FX and release FX; sampler loading, banks and volume; pad LEDs
-for all modes; waveform zoom; EQ/fader/crossfader curve settings (if not
-covered by P1-8); master cue and booth output; FLAC/MP3 recording and silence
+tree navigation; phrase display (in progress); waveform zoom; EQ/fader/crossfader
+curve settings (if not covered by P1-8); FLAC/MP3 recording and silence
 auto start; batch stem separation in Prepare.
 
 ### P3 summary
 
 Artwork display, duplicate check, XML/iTunes exchange, consolidate UI,
 variable-tempo grid editing, BPM range setting, waveform style options,
-vocal position, hot cue banks, active loop, beat-jump size setting, keyboard
-and slicer pad modes, larger Beat FX list, stem FX, sampler sequencer, Smart
+vocal position, active loop, stem FX, Smart
 CFX/Smart Fader, mic/aux input, auto-gain toggle, recording folder/level
 settings, `exportExt.pdb`, `MYSETTING`, MIDI learn UI, FLX10 utility settings
 UI and jog displays (M4).
