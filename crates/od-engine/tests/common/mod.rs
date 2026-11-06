@@ -58,6 +58,7 @@ pub struct Rig {
     pub proc: EngineProcessor,
     pub master: Vec<f32>,
     pub phones: Vec<f32>,
+    pub booth: Vec<f32>,
 }
 
 impl Rig {
@@ -76,11 +77,16 @@ impl Rig {
         engine
             .send(Command::Mixer(MixerCommand::SetLimiter(false)))
             .unwrap();
+        // Tests position explicitly: load at the track start.
+        for d in 0..config.decks {
+            engine.deck(d, DeckCommand::SetAutoCue(false)).unwrap();
+        }
         Self {
             engine,
             proc,
             master: vec![0.0; 8192 * 2],
             phones: vec![0.0; 8192 * 2],
+            booth: vec![0.0; 8192 * 2],
         }
     }
 
@@ -97,6 +103,7 @@ impl Rig {
         let mut out = Outputs {
             master: &mut self.master[..frames * 2],
             headphones: Some(&mut self.phones[..frames * 2]),
+            booth: Some(&mut self.booth[..frames * 2]),
         };
         self.proc.process(frames, &mut out);
         &self.master[..frames * 2]
@@ -205,4 +212,24 @@ pub fn tone_level(interleaved: &[f32], freq: f64) -> f64 {
         wsum += win;
     }
     2.0 * (re * re + im * im).sqrt() / wsum
+}
+
+/// Frequency of the strongest spectral component (left channel) within
+/// `lo..=hi` Hz; robust against the phase jumps of granular pitch shifting,
+/// unlike zero-crossing counting.
+pub fn peak_freq(interleaved: &[f32], lo: f64, hi: f64) -> f64 {
+    let scan = |from: f64, to: f64, step: f64| {
+        let mut best = (from, -1.0);
+        let mut f = from;
+        while f <= to {
+            let p = tone_level(interleaved, f);
+            if p > best.1 {
+                best = (f, p);
+            }
+            f += step;
+        }
+        best.0
+    };
+    let coarse = scan(lo, hi, 4.0);
+    scan(coarse - 4.0, coarse + 4.0, 0.5)
 }

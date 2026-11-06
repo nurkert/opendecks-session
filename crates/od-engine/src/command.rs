@@ -21,6 +21,10 @@ pub enum Command {
     Mixer(MixerCommand),
     /// A command for Beat FX unit `0..BEAT_FX_UNITS`.
     BeatFx(usize, BeatFxCommand),
+    /// Pad FX of mixer channel `0..decks` (an FX unit of its own per
+    /// channel, independent of the two Beat FX units).
+    PadFx(usize, PadFxCommand),
+    /// Sampler slots (`0..SAMPLER_TOTAL`) and step sequencer.
     Sampler(SamplerCommand),
     /// Global quantize: snaps cue/loop/hot-cue positions to the beatgrid and
     /// keeps phase on jumps.
@@ -77,10 +81,30 @@ pub enum MemoryCueJump {
     Index(usize),
 }
 
+/// Slicer pad mode: a domain of `beats` beats (aligned to the beatgrid) is
+/// split into [`crate::SLICER_SLICES`] slices, one per pad.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum SlicerCommand {
+    /// Enables the slicer with the domain (a multiple of `beats` on the
+    /// grid, 1 … 64 beats) that contains the playhead. Without `loop_mode`
+    /// the domain moves on with playback; with `loop_mode` it is looped.
+    Enable { beats: f64, loop_mode: bool },
+    /// Disables the slicer (releases a held slice, ends the domain loop).
+    Disable,
+    /// Slice pad `slice` (0..8). Press: with quantize the playhead jumps to
+    /// the same phase within the slice (the beat stays on the grid), without
+    /// quantize to the slice start; the slice repeats while held. Release
+    /// resumes where normal playback would be (slip).
+    Pad { slice: usize, pressed: bool },
+}
+
 #[derive(Debug)]
 pub enum DeckCommand {
-    /// Loads a track (replacing any loaded one). The deck pauses at the
-    /// first memory cue, or the first beat/start of the track.
+    /// Loads a track (replacing any loaded one) and pauses. With auto cue
+    /// on (default) the deck is cued to the first memory cue, else to the
+    /// first audible sound ([`TrackData::first_sound`]); with auto cue off
+    /// to the start of the track. The hot cue bank, the track key
+    /// ([`DeckCommand::SetTrackKey`]) and an armed active loop are reset.
     Load(Arc<TrackData>),
     /// Replaces the loaded track's data with a new build of the *same* track
     /// (same [`TrackData::id`]), e.g. once stems were separated, without
@@ -104,8 +128,20 @@ pub enum DeckCommand {
     SetTempoFader(f32),
     SetTempoRange(TempoRange),
     SetKeylock(bool),
-    /// Key shift in semitones (only effective with keylock).
+    /// Key shift in semitones (−12..=12, fractional allowed). Works with and
+    /// without keylock: a non-zero shift routes the deck through the Rubber
+    /// Band stretcher (without keylock the tempo pitch change is kept and the
+    /// shift is added on top). Setting it switches key sync off.
     SetKeyShift(f32),
+    /// Key sync: continuously sets the key shift so that the deck's key
+    /// (incl. the tempo pitch change without keylock) matches the sync
+    /// master's key or its relative major/minor with the smallest shift
+    /// (−6..=6 semitones). Needs [`DeckCommand::SetTrackKey`] on both decks;
+    /// no effect on the master deck itself.
+    SetKeySync(bool),
+    /// Musical key of the loaded track (from analysis/library), used by key
+    /// sync. Reset to `None` by `Load`.
+    SetTrackKey(Option<od_core::MusicalKey>),
     /// Beat sync to the master deck (BPM and phase).
     SetSync(bool),
     /// Temporary relative speed offset, e.g. ±0.04 while a nudge button is
@@ -118,6 +154,9 @@ pub enum DeckCommand {
     /// audio, like a 33⅓ rpm record). Scratches while touched in vinyl mode,
     /// bends the pitch otherwise; searches while paused.
     JogTurn(f32),
+    /// Selects the active hot cue bank `0..HOT_CUE_BANKS`. All hot cue
+    /// commands (`slot` 0..8) address the active bank.
+    SetHotCueBank(usize),
     /// Hot cue pad A–H (`slot` 0..8). Pressing an empty slot stores a hot
     /// cue (a loop hot cue if a loop is active); pressing a stored slot
     /// jumps (quantized), and while paused previews until released.
@@ -141,6 +180,14 @@ pub enum DeckCommand {
     },
     /// Jumps to a memory cue and makes it the cue point.
     MemoryCue(MemoryCueJump),
+    /// Recalls a saved loop (a memory cue with a loop end): previous/next
+    /// relative to the playhead, or by index among the saved loops. Jumps to
+    /// its start (quantized while playing) and activates it.
+    SavedLoop(MemoryCueJump),
+    /// Arms an *active loop* (seconds, `start < end`): when the playhead
+    /// reaches `start` while playing forward, the loop engages (sample
+    /// accurate). `None` disarms. Reset by `Load`.
+    SetActiveLoop(Option<(f64, f64)>),
     /// Sets the loop in point at the current (quantized) position.
     LoopIn,
     /// Sets the loop out point and activates the loop.
@@ -149,7 +196,7 @@ pub enum DeckCommand {
     LoopExit,
     /// Re-activates the last loop and jumps to its start.
     Reloop,
-    /// Activates a loop of `beats` beats (1/32 … 32) starting at the current
+    /// Activates a loop of `beats` beats (1/32 … 512) starting at the current
     /// beat (quantized) or position.
     AutoLoop {
         beats: f64,
@@ -169,7 +216,20 @@ pub enum DeckCommand {
     BeatJump {
         beats: f64,
     },
+    /// Beat jump size in beats for [`DeckCommand::BeatJumpStep`]
+    /// (1/32 … 512, default 4).
+    SetBeatJumpSize(f64),
+    /// Beat jump by the configured size, forward or back.
+    BeatJumpStep {
+        forward: bool,
+    },
     SetReverse(bool),
+    /// Censor: plays in reverse while held (`true`) and resumes on release
+    /// where normal playback would be (slip), whether or not slip is on.
+    Censor(bool),
+    /// Auto cue on load (default on), see [`DeckCommand::Load`]. Kept across
+    /// loads.
+    SetAutoCue(bool),
     /// Seeks to an absolute position in seconds.
     Seek {
         seconds: f64,
@@ -177,6 +237,17 @@ pub enum DeckCommand {
     /// Needle search on the strip: `fraction` 0..=1 of the track length.
     NeedleSearch {
         fraction: f64,
+    },
+    /// Slicer pad mode, see [`SlicerCommand`].
+    Slicer(SlicerCommand),
+    /// Keyboard pad mode: plays hot cue `slot` (active bank) at `semitones`
+    /// key shift. Press sets the key shift (key sync off) and jumps to the
+    /// hot cue at once (no quantize wait); while paused it previews until
+    /// released, like a hot cue pad. The shift stays after release.
+    Keyboard {
+        slot: usize,
+        semitones: f32,
+        pressed: bool,
     },
     /// Level 0..=1 of one part of the track (1 = unchanged, 0 = muted).
     /// Ramped over ~20 ms. Only audible if the loaded track has stems
@@ -199,8 +270,17 @@ pub enum ColorFxKind {
     Space,
     /// Bit/sample-rate reduction.
     Crush,
-    /// Tempo-synced echo (3/4 beat).
+    /// Tempo-synced echo (3/4 beat), filtered by knob direction; tails ring
+    /// out when the knob returns to the centre.
     Echo,
+    /// Pitch shift: left lowers, right raises (±12 semitones at the ends).
+    Pitch,
+    /// Dub echo: 1/2-beat echo with long, saturating, filtered feedback;
+    /// tails ring out.
+    DubEcho,
+    /// Left: beat-synced 1/16 gate (depth = knob); right: band-pass sweep
+    /// rising with the knob.
+    Sweep,
 }
 
 /// Crossfader assignment of a channel.
@@ -272,27 +352,120 @@ pub enum MixerCommand {
     SetHeadphoneLevel(f32),
     /// Sampler output level 0..=1.
     SetSamplerLevel(f32),
+    /// Sampler to the headphone cue bus.
+    SetSamplerCue(bool),
+    /// Booth output level 0..=1 (square law, 1 = 0 dB). The booth output is
+    /// the master bus after Beat FX, before master level and limiter,
+    /// soft-clipped; see [`crate::Outputs::booth`].
+    SetBoothLevel(f32),
+    /// Master cue: adds the master output to the headphone cue bus.
+    SetMasterCue(bool),
     /// Master limiter + soft clip (default on).
     SetLimiter(bool),
     ResetClipIndicators,
 }
 
-/// Beat FX type.
+/// Beat FX type. Every effect is synced to the BPM and beat of its unit's
+/// clock: the targeted channel's deck (if it plays a track with a grid),
+/// else the master clock, or a tapped BPM ([`BeatFxCommand::SetTapBpm`]).
+/// `beats` is the effect length, `level` the depth / wet amount and `param`
+/// (−1..=1, remembered per kind) is documented per variant. Kinds marked
+/// *tail* keep ringing out after being switched off.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum BeatFxKind {
+    /// Echo with feedback, a repeat every `beats`. Tail.
     #[default]
     Echo,
-    /// Single tempo-synced repeat.
+    /// Single repeat after `beats`. Tail.
     Delay,
+    /// Echo alternating left/right every `beats`. Tail.
+    PingPong,
+    /// Reverb; `beats` sets the size; `param` > 0 brightens, < 0 darkens.
+    /// Tail.
     Reverb,
+    /// Flanger, one LFO cycle per `beats`.
     Flanger,
+    /// Phaser, one LFO cycle per `beats`.
     Phaser,
-    /// Repeats the last `beats` captured when switched on.
+    /// Repeats the `beats` captured from switching on; changing `beats`
+    /// while on changes the repeat length within the capture.
     Roll,
-    /// Synced low-pass/high-pass sweep.
-    FilterSweep,
-    /// Synced volume gate.
+    /// Like roll, but changing `beats` while on re-captures from the live
+    /// signal (playback has continued underneath).
+    SlipRoll,
+    /// Synced filter sweep, one cycle per `beats`; `param` ≤ 0 low-pass,
+    /// > 0 high-pass.
+    Filter,
+    /// Synced volume gate (open for the first half of each `beats`).
     Trans,
+    /// Pitch shift by `param × 12` semitones (default +6).
+    Pitch,
+    /// Slows the signal to a stop over `beats` beats when switched on.
+    VinylBrake,
+    /// Echo whose repeats are pitch-shifted by `param × 12` semitones each
+    /// (default +3), spiralling up or down. Tail.
+    Helix,
+    /// Long diffuse echo; changing `beats` glides the delay time (pitch
+    /// sweep). Tail.
+    Spiral,
+}
+
+impl BeatFxKind {
+    pub const ALL: [BeatFxKind; 14] = [
+        BeatFxKind::Echo,
+        BeatFxKind::Delay,
+        BeatFxKind::PingPong,
+        BeatFxKind::Reverb,
+        BeatFxKind::Flanger,
+        BeatFxKind::Phaser,
+        BeatFxKind::Roll,
+        BeatFxKind::SlipRoll,
+        BeatFxKind::Filter,
+        BeatFxKind::Trans,
+        BeatFxKind::Pitch,
+        BeatFxKind::VinylBrake,
+        BeatFxKind::Helix,
+        BeatFxKind::Spiral,
+    ];
+
+    /// Index into [`BeatFxKind::ALL`].
+    pub const fn index(self) -> usize {
+        self as usize
+    }
+
+    /// Whether the effect keeps ringing out after being switched off.
+    pub const fn has_tail(self) -> bool {
+        matches!(
+            self,
+            BeatFxKind::Echo
+                | BeatFxKind::Delay
+                | BeatFxKind::PingPong
+                | BeatFxKind::Reverb
+                | BeatFxKind::Helix
+                | BeatFxKind::Spiral
+        )
+    }
+
+    /// Default `param` of the kind.
+    pub const fn default_param(self) -> f32 {
+        match self {
+            BeatFxKind::Pitch => 0.5,
+            BeatFxKind::Helix => 0.25,
+            _ => 0.0,
+        }
+    }
+}
+
+/// Release FX: ends the sound of an FX unit's target musically while
+/// engaged. Engaging switches the unit's Beat FX off.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReleaseFxKind {
+    /// Slows to a stop over `beats`.
+    VinylBrake,
+    /// Spins backwards and stops over `beats`.
+    Backspin,
+    /// Cuts the input and echoes the last `beats` (at most 1) out.
+    EchoOut,
 }
 
 /// Where a Beat FX unit is inserted.
@@ -308,20 +481,70 @@ pub enum BeatFxCommand {
     SetKind(BeatFxKind),
     SetTarget(FxTarget),
     SetOn(bool),
-    /// Wet/dry (depth) 0..=1.
+    /// Wet/dry (depth) 0..=1, ramped.
     SetLevel(f32),
     /// Beat fraction: 1/32 … 16 beats.
     SetBeats(f32),
+    /// Effect parameter −1..=1 of the current kind (see [`BeatFxKind`]).
+    SetParam(f32),
+    /// Tapped BPM (`Some`, 40..=300) overrides the synced clock; `None`
+    /// returns to it.
+    SetTapBpm(Option<f32>),
+    /// Release FX on the unit's target while `on`, lasting `beats`.
+    /// Engaging switches the Beat FX off; releasing brings the dry signal
+    /// back (click-free).
+    Release {
+        kind: ReleaseFxKind,
+        beats: f32,
+        on: bool,
+    },
+}
+
+/// What a Pad FX pad does.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PadFxEffect {
+    Beat(BeatFxKind),
+    Release(ReleaseFxKind),
+}
+
+/// A Pad FX preset: one pad of the Pad FX pad mode.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct PadFxPreset {
+    pub effect: PadFxEffect,
+    /// Effect length in beats (1/32 … 16).
+    pub beats: f32,
+    /// Depth 0..=1.
+    pub level: f32,
+    /// Parameter −1..=1 (see [`BeatFxKind`]).
+    pub param: f32,
+}
+
+/// Pad FX of a channel: momentary effects while a pad is held.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum PadFxCommand {
+    /// Pad pressed: engages the preset on the channel. A Beat FX preset
+    /// replaces an engaged one; a release preset releases an engaged Beat FX
+    /// preset through the release FX.
+    Press(PadFxPreset),
+    /// Pad released: the effect switches off (tails ring out); a release FX
+    /// returns to the dry signal.
+    Release,
 }
 
 /// Sampler slot playback mode.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum SampleMode {
+    /// Plays to the end once.
     #[default]
     OneShot,
+    /// Repeats until stopped.
     Loop,
+    /// Plays (looping) only while the pad is held: stops on `Release`.
+    Gate,
 }
 
+/// Sampler commands. `slot` is `0..SAMPLER_TOTAL` (`bank * 16 + pad`);
+/// commands with an out-of-range slot are ignored.
 #[derive(Debug)]
 pub enum SamplerCommand {
     Load {
@@ -331,10 +554,18 @@ pub enum SamplerCommand {
     Unload {
         slot: usize,
     },
-    /// Starts (or restarts) a slot from the beginning.
+    /// Starts (or restarts, crossfading the old voice out) a slot from the
+    /// beginning; with sampler quantize at the next quantize boundary of the
+    /// master beat clock. While the sequencer records, also stores the
+    /// nearest step.
     Trigger {
         slot: usize,
     },
+    /// Pad released: stops a slot in `Gate` mode (other modes ignore it).
+    Release {
+        slot: usize,
+    },
+    /// Stops a slot (short fade).
     Stop {
         slot: usize,
     },
@@ -343,9 +574,44 @@ pub enum SamplerCommand {
         slot: usize,
         mode: SampleMode,
     },
-    /// Slot gain 0..=2 (linear).
+    /// Slot gain 0..=2 (linear), ramped.
     SetGain {
         slot: usize,
         gain: f32,
     },
+    /// Original tempo of the sample (needed for sync).
+    SetBpm {
+        slot: usize,
+        bpm: Option<f64>,
+    },
+    /// Sync the slot to the master tempo: plays at `master_bpm / bpm` speed
+    /// (resampled; pitch follows, like a turntable).
+    SetSync {
+        slot: usize,
+        on: bool,
+    },
+    /// Trigger quantize in beats of the master clock (e.g. `Some(1.0)`);
+    /// `None` = immediate (default).
+    SetQuantize(Option<f64>),
+    /// Sets/clears step `0..SEQ_STEPS` of a slot's sequencer pattern.
+    SeqStep {
+        slot: usize,
+        step: usize,
+        on: bool,
+    },
+    /// Replaces a slot's pattern (bit `n` = step `n`), e.g. to load a saved
+    /// sequence.
+    SeqPattern {
+        slot: usize,
+        mask: u16,
+    },
+    /// Clears all patterns.
+    SeqClear,
+    /// Starts/stops the step sequencer. Steps are 16th notes locked to the
+    /// master beat clock (step = ⌊beat × 4⌋ mod 16), triggered sample
+    /// accurately.
+    SeqPlay(bool),
+    /// Pattern recording: while on and playing, `Trigger` also stores the
+    /// nearest step for the slot.
+    SeqRecord(bool),
 }

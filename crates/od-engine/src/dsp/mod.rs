@@ -8,6 +8,7 @@ pub mod delay;
 pub mod eq;
 pub mod limiter;
 pub mod meter;
+pub mod pitchshift;
 pub mod resample;
 pub mod reverb;
 pub mod smooth;

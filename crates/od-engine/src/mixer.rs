@@ -1,5 +1,6 @@
 //! Mixer channel strip and fader/crossfader curves.
 
+use crate::beatfx::BeatClock;
 use crate::colorfx::ColorFx;
 use crate::command::{ChannelCommand, CrossfaderCurve, FaderCurve, XfAssign};
 use crate::dsp::db_to_gain;
@@ -122,7 +123,7 @@ impl Channel {
     }
 
     /// Trim → EQ → colour FX, in place; then meters (pre-fader).
-    pub fn process_pre(&mut self, buf: &mut [f32], beat_frames: f32) {
+    pub fn process_pre(&mut self, buf: &mut [f32], clock: &BeatClock) {
         for f in buf.as_chunks_mut::<2>().0 {
             let g = self.pre_gain.next();
             f[0] *= g;
@@ -131,7 +132,7 @@ impl Channel {
         if !self.eq.is_flat() {
             self.eq.process(buf);
         }
-        self.color.process(buf, beat_frames);
+        self.color.process(buf, clock);
         self.meter.process(buf);
     }
 
@@ -146,6 +147,7 @@ impl Channel {
             color_fx_amount: self.color.amount(),
             xf_assign: self.xf,
             cue: self.cue,
+            pad_fx: Default::default(),
             gain_to_master: self.gain_to_master,
         }
     }

@@ -162,6 +162,7 @@ impl CallbackState {
                     } else {
                         None
                     },
+                    booth: None,
                 };
                 self.processor.process(n, &mut out);
             }

@@ -47,10 +47,22 @@ impl EngineConfig {
 
 /// Upper bound of decks/channels; state arrays are always this long.
 pub const MAX_DECKS: usize = 4;
-/// Number of hot cue slots (A–H).
+/// Number of hot cue slots (A–H) per bank.
 pub const HOT_CUES: usize = 8;
-/// Number of sampler slots.
+/// Number of hot cue banks per deck (bank `b`, slot `s` is library hot cue
+/// index `b * HOT_CUES + s`).
+pub const HOT_CUE_BANKS: usize = 4;
+/// Number of sampler slots per bank (one pad page).
 pub const SAMPLER_SLOTS: usize = 16;
+/// Number of sampler banks.
+pub const SAMPLER_BANKS: usize = 4;
+/// Total sampler slots addressable by [`crate::SamplerCommand`]: slot
+/// `bank * SAMPLER_SLOTS + pad`.
+pub const SAMPLER_TOTAL: usize = SAMPLER_SLOTS * SAMPLER_BANKS;
+/// Steps of the sampler step sequencer (one bar of 16th notes).
+pub const SEQ_STEPS: usize = 16;
+/// Slices of the slicer domain (one per pad).
+pub const SLICER_SLICES: usize = 8;
 /// Number of Beat FX units.
 pub const BEAT_FX_UNITS: usize = 2;
 /// Maximum number of additional command senders (see [`crate::Engine::new_sender`]).
