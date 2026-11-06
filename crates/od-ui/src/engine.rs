@@ -2,7 +2,7 @@
 //! the deck and mixer view models.
 
 use crate::app::App;
-use crate::{controller, decks, explorer, fx, mixer, player, recorder};
+use crate::{controller, decks, explorer, fx, mixer, player, recorder, sampler};
 use od_engine::{Command, DeckCommand, Engine, EngineConfig, EngineState, Profile};
 use slint::ComponentHandle;
 use std::rc::Rc;
@@ -135,6 +135,7 @@ fn frame(app: &App) {
     decks::poll_stems(app);
     explorer::poll(app);
     controller::poll(app);
+    sampler::poll(app);
 
     let (state, events) = match app.engine.borrow_mut().engine.as_mut() {
         Some(e) => {
@@ -159,6 +160,7 @@ fn frame(app: &App) {
     decks::project(app, &state);
     mixer::project(app, &state);
     fx::project(app, &state);
+    sampler::project(app, &state);
     app.ui.set_engine_ready(true);
     if let Some(h) = app.engine.borrow().host.as_ref() {
         let s = h.stats();

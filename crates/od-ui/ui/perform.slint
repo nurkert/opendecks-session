@@ -11,6 +11,8 @@ import { Caps, PlateButton, Glyph, Knob, Fader, Toggle, Transport, Jog } from "c
 import { DropZone } from "drag.slint";
 import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark, LaneMotion, FxUnitView } from "structs.slint";
 import { FxPanel, ColorFxSelector } from "fx.slint";
+import { SamplerPanel } from "sampler.slint";
+import { SamplerPadView, SamplerView } from "structs.slint";
 
 // Phrase bar: one labelled block per phrase.
 export component PhraseBar inherits Rectangle {
@@ -617,6 +619,27 @@ export component PerformView inherits Rectangle {
     callback fx-release(int, int, bool);
     callback color-fx-select(int);
     callback color-fx-step(int);
+    // Sampler panel under the global bar.
+    in property <bool> show-sampler;
+    in property <[SamplerPadView]> sampler-pads;
+    in property <[bool]> sampler-steps;
+    in property <SamplerView> sampler;
+    callback sampler-pad(int, bool);
+    callback sampler-select(int);
+    callback sampler-bank(int);
+    callback sampler-load(int);
+    callback sampler-unload();
+    callback sampler-stop-all();
+    callback sampler-mode(int);
+    callback sampler-gain(float);
+    callback sampler-sync();
+    callback sampler-quantize();
+    callback sampler-volume(float);
+    callback sampler-cue();
+    callback sampler-step(int);
+    callback sampler-seq-play();
+    callback sampler-seq-record();
+    callback sampler-seq-clear();
     in property <float> crossfader: 0.5;
     in property <float> master-level: 1;
     in property <float> headphone-mix: 0.5;
@@ -771,6 +794,27 @@ export component PerformView inherits Rectangle {
             set-headphone-mix(v) => { root.set-headphone-mix(v); }
             set-headphone-level(v) => { root.set-headphone-level(v); }
             toggle-recording => { root.toggle-recording(); }
+        }
+        if root.show-sampler: SamplerPanel {
+            pads: root.sampler-pads;
+            steps: root.sampler-steps;
+            s: root.sampler;
+            pad(i, d) => { root.sampler-pad(i, d); }
+            select(i) => { root.sampler-select(i); }
+            bank(b) => { root.sampler-bank(b); }
+            load(i) => { root.sampler-load(i); }
+            unload => { root.sampler-unload(); }
+            stop-all => { root.sampler-stop-all(); }
+            mode(m) => { root.sampler-mode(m); }
+            gain(g) => { root.sampler-gain(g); }
+            sync => { root.sampler-sync(); }
+            quantize => { root.sampler-quantize(); }
+            volume(v) => { root.sampler-volume(v); }
+            cue => { root.sampler-cue(); }
+            step(k) => { root.sampler-step(k); }
+            seq-play => { root.sampler-seq-play(); }
+            seq-record => { root.sampler-seq-record(); }
+            seq-clear => { root.sampler-seq-clear(); }
         }
     }
 }

@@ -43,6 +43,8 @@ pub struct App {
     pub(crate) mixer: mixer::MixerView,
     /// Beat FX panel rows and tap tempo.
     pub(crate) fx: fx::FxRuntime,
+    /// Sampler slots, bank and panel rows.
+    pub(crate) sampler: sampler::SamplerRuntime,
     pub(crate) recorder: RefCell<recorder::RecorderState>,
     pub(crate) controller: RefCell<controller::Controllers>,
     pub(crate) browser: browser::BrowserViews,
@@ -90,6 +92,7 @@ impl App {
             decks: RefCell::new(decks::Decks::default()),
             mixer: mixer::MixerView::default(),
             fx: fx::FxRuntime::default(),
+            sampler: sampler::SamplerRuntime::default(),
             recorder: RefCell::new(recorder::RecorderState::default()),
             controller: RefCell::new(controller::Controllers::default()),
             browser: browser::BrowserViews::default(),

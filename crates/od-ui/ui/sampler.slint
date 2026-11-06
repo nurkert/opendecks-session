@@ -1,0 +1,272 @@
+// Sampler panel (between the global bar and the browser): bank, 16 pads in
+// two rows of eight as on the hardware, the selected slot's mode, gain and
+// sync, a 16-step sequencer under the pads, quantise, cue and volume.
+// Tracks dragged from the list onto a pad are loaded into it.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, Knob, Toggle, PlateButton, TipArea } from "controls.slint";
+import { DragState } from "drag.slint";
+import { SamplerPadView, SamplerView } from "structs.slint";
+
+// Drop target for a dragged track row. It does not claim DragState.target
+// (that would load a deck); it notices the release itself.
+component SampleDrop inherits Rectangle {
+    callback dropped();
+    property <bool> over: DragState.active
+        && DragState.x >= self.absolute-position.x && DragState.x < self.absolute-position.x + self.width
+        && DragState.y >= self.absolute-position.y && DragState.y < self.absolute-position.y + self.height;
+    property <bool> was-over;
+    property <bool> dragging: DragState.active;
+    changed over => {
+        if (self.over) { self.was-over = true; } else if (DragState.active) { self.was-over = false; }
+    }
+    changed dragging => {
+        if (!self.dragging && self.was-over) { root.dropped(); }
+        if (!self.dragging) { self.was-over = false; }
+    }
+    border-width: root.over ? 2px : 0px;
+    border-color: Theme.attention;
+    background: root.over ? Theme.attention.with-alpha(0.1) : transparent;
+}
+
+component SamplerPad inherits Rectangle {
+    in property <SamplerPadView> p;
+    callback press(bool);
+    callback dropped();
+    property <color> tone: Theme.w546;
+    background: root.p.playing ? root.tone.with-alpha(touch.pressed ? 0.42 : 0.28)
+        : root.p.loaded ? (touch.pressed ? Theme.plate-raised : touch.has-hover ? Theme.plate-raised.mix(Theme.plate, 0.5) : Theme.plate)
+        : (touch.has-hover ? Theme.plate.mix(Theme.ground, 0.5) : Theme.ground-band);
+    border-width: 1px;
+    border-color: root.p.selected ? Theme.bone-2 : root.p.playing ? root.tone.with-alpha(0.85) : root.p.pending ? Theme.attention : Theme.rule;
+    Rectangle { y: 0; height: 2px; background: root.p.playing ? root.tone : root.p.pending ? Theme.attention : root.p.loaded ? Theme.bone-3 : transparent; }
+    // Playback progress along the bottom.
+    if root.p.playing: Rectangle { x: 0; y: parent.height - 2px; height: 2px; width: parent.width * root.p.progress; background: root.tone; }
+    Text {
+        x: 6px; y: 4px;
+        text: root.p.pad;
+        font-family: Theme.family; font-size: 10px; font-weight: 600;
+        color: root.p.loaded ? Theme.bone-2 : Theme.bone-3;
+    }
+    if root.p.loaded: Text {
+        x: parent.width - 20px; y: 4px; width: 14px; horizontal-alignment: right;
+        text: root.p.mode == 1 ? "L" : root.p.mode == 2 ? "G" : "";
+        font-family: Theme.family; font-size: 10px; font-weight: 600; color: Theme.w486;
+    }
+    Text {
+        x: 6px; y: 14px; width: parent.width - 10px; height: parent.height - 16px;
+        text: root.p.loaded ? root.p.name : "";
+        font-family: Theme.family; font-size: 11px;
+        color: Theme.bone; vertical-alignment: center; overflow: elide;
+    }
+    touch := TipArea {
+        tooltip: root.p.loaded ? @tr("Play the sample (drop a track here to replace it)") : @tr("Empty slot: drop a track here or use LOAD SELECTED");
+        command: root.p.pad <= 8 ? "sampler.slot" + root.p.pad : "";
+        mouse-cursor: pointer;
+        pointer-event(ev) => {
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.down) { root.press(true); }
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.up) { root.press(false); }
+        }
+    }
+    SampleDrop { width: parent.width; height: parent.height; dropped => { root.dropped(); } }
+}
+
+export component SamplerPanel inherits Rectangle {
+    in property <[SamplerPadView]> pads;
+    in property <[bool]> steps;
+    in property <SamplerView> s;
+    callback pad(int, bool);
+    callback select(int);
+    callback bank(int);
+    callback load(int);
+    callback unload();
+    callback stop-all();
+    callback mode(int);
+    callback gain(float);
+    callback sync();
+    callback quantize();
+    callback volume(float);
+    callback cue();
+    callback step(int);
+    callback seq-play();
+    callback seq-record();
+    callback seq-clear();
+    property <length> row-h: 32px;
+    property <length> gap: 4px;
+    height: 2 * root.row-h + 24px + 2 * root.gap + 18px;
+    background: Theme.ground;
+
+    HorizontalLayout {
+        padding-left: 14px; padding-right: 14px; padding-top: 9px; padding-bottom: 9px;
+        spacing: 14px;
+        // Bank, quantise / cue, sequencer transport.
+        VerticalLayout {
+            width: 150px;
+            spacing: root.gap;
+            HorizontalLayout {
+                height: root.row-h;
+                spacing: 3px;
+                Caps { text: @tr("BANK"); font-size: 9px; vertical-alignment: center; width: 34px; }
+                for b in 4: Toggle {
+                    size: 26px; y: 3px; horizontal-stretch: 1;
+                    label: b + 1; on: root.s.bank == b; tone: Theme.w546;
+                    tooltip: @tr("Sampler bank {}", b + 1);
+                    command: "sampler.bank.next";
+                    clicked => { root.bank(b); }
+                }
+            }
+            HorizontalLayout {
+                height: root.row-h;
+                spacing: 3px;
+                Rectangle { width: 34px; }
+                Toggle {
+                    size: 26px; y: 3px; horizontal-stretch: 1;
+                    label: @tr("QUANT"); on: root.s.quantize; tone: Theme.attention;
+                    tooltip: @tr("Quantise: pads start on the next beat of the master tempo");
+                    clicked => { root.quantize(); }
+                }
+                Toggle {
+                    size: 26px; y: 3px; horizontal-stretch: 1;
+                    label: "CUE"; on: root.s.cue; tone: Theme.attention;
+                    tooltip: @tr("Sampler to the headphones");
+                    clicked => { root.cue(); }
+                }
+            }
+            HorizontalLayout {
+                height: 24px;
+                spacing: 3px;
+                Caps { text: "SEQ"; font-size: 9px; vertical-alignment: center; width: 34px; }
+                Toggle {
+                    size: 24px; horizontal-stretch: 1;
+                    label: root.s.seq-playing ? @tr("STOP") : @tr("PLAY"); on: root.s.seq-playing; tone: Theme.live;
+                    tooltip: @tr("Start / stop the step sequencer (locked to the master beat)");
+                    command: "sampler.seq.play";
+                    clicked => { root.seq-play(); }
+                }
+                Toggle {
+                    size: 24px; horizontal-stretch: 1;
+                    label: "REC"; on: root.s.seq-recording; tone: Theme.fault;
+                    tooltip: @tr("Record pads into the pattern while the sequencer plays");
+                    clicked => { root.seq-record(); }
+                }
+                Toggle {
+                    size: 24px; width: 30px;
+                    label: "CLR";
+                    tooltip: @tr("Clear the selected slot's pattern");
+                    clicked => { root.seq-clear(); }
+                }
+            }
+        }
+        // Pads 1–8 / 9–16 and the 16 steps of the selected slot.
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: root.gap;
+            Rectangle {
+                height: 2 * root.row-h + root.gap;
+                property <length> w: (self.width - 7 * root.gap) / 8;
+                for p[i] in root.pads: SamplerPad {
+                    x: Math.mod(i, 8) * (parent.w + root.gap);
+                    y: Math.floor(i / 8) * (root.row-h + root.gap);
+                    width: parent.w; height: root.row-h;
+                    p: p;
+                    press(down) => { root.pad(i, down); }
+                    dropped => { root.select(i); root.load(i); }
+                }
+            }
+            HorizontalLayout {
+                height: 24px;
+                spacing: 2px;
+                for on[k] in root.steps: Rectangle {
+                    horizontal-stretch: 1;
+                    // A wider gap after every beat (four steps).
+                    property <bool> playing: root.s.step == k;
+                    background: on ? Theme.w546.with-alpha(st.has-hover ? 0.6 : 0.45) : st.has-hover ? Theme.plate-raised.mix(Theme.plate, 0.5) : Math.mod(k, 8) < 4 ? Theme.plate : Theme.ground-band;
+                    border-width: 1px;
+                    border-color: self.playing ? Theme.bone : on ? Theme.w546 : Theme.rule;
+                    if Math.mod(k, 4) == 0: Text {
+                        x: 4px; text: Math.floor(k / 4) + 1;
+                        font-family: Theme.family; font-size: 9px; font-weight: 600;
+                        color: Theme.bone-3; vertical-alignment: center;
+                    }
+                    st := TipArea {
+                        tooltip: @tr("Step {} of the selected slot's pattern", k + 1);
+                        mouse-cursor: pointer;
+                        clicked => { root.step(k); }
+                    }
+                }
+            }
+        }
+        // The selected slot: name, mode, sync, load / clear.
+        VerticalLayout {
+            width: 236px;
+            spacing: root.gap;
+            HorizontalLayout {
+                height: root.row-h;
+                spacing: 6px;
+                Text {
+                    text: root.s.selected-number;
+                    font-family: Theme.family; font-size: 17px; font-weight: 600; color: Theme.w546;
+                    vertical-alignment: center; width: 22px;
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 0;
+                    Text {
+                        text: root.s.selected-loaded ? root.s.selected-name : @tr("Empty slot");
+                        font-family: Theme.family; font-size: 12px; font-weight: 600;
+                        color: root.s.selected-loaded ? Theme.bone : Theme.bone-3; overflow: elide;
+                    }
+                    Caps { text: root.s.selected-bpm == "" ? "" : root.s.selected-bpm + " BPM"; font-size: 9px; }
+                }
+            }
+            HorizontalLayout {
+                height: root.row-h;
+                spacing: 3px;
+                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; label: @tr("1-SHOT"); on: root.s.selected-mode == 0; tone: Theme.w486; enabled: root.s.selected-loaded;
+                    tooltip: @tr("One-shot: plays to the end once"); clicked => { root.mode(0); } }
+                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; label: @tr("LOOP"); on: root.s.selected-mode == 1; tone: Theme.w486; enabled: root.s.selected-loaded;
+                    tooltip: @tr("Loop: repeats until stopped"); clicked => { root.mode(1); } }
+                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; label: @tr("GATE"); on: root.s.selected-mode == 2; tone: Theme.w486; enabled: root.s.selected-loaded;
+                    tooltip: @tr("Gate: plays only while the pad is held"); clicked => { root.mode(2); } }
+                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; label: "SYNC"; on: root.s.selected-sync; tone: Theme.w486; enabled: root.s.selected-loaded && root.s.selected-bpm != "";
+                    tooltip: @tr("Sync the sample to the master tempo"); clicked => { root.sync(); } }
+            }
+            HorizontalLayout {
+                height: 24px;
+                spacing: 3px;
+                PlateButton { compact: true; height: 24px; horizontal-stretch: 1; label: @tr("LOAD SELECTED"); tone: Theme.w546;
+                    tooltip: @tr("Load the selected track into this slot"); clicked => { root.load(-1); } }
+                PlateButton { compact: true; height: 24px; label: @tr("CLEAR"); tone: Theme.bone-3; enabled: root.s.selected-loaded;
+                    tooltip: @tr("Empty this slot"); clicked => { root.unload(); } }
+            }
+        }
+        // Slot gain, sampler volume, stop.
+        VerticalLayout {
+            spacing: root.gap;
+            alignment: center;
+            HorizontalLayout {
+                spacing: 8px;
+                Knob {
+                    label: @tr("GAIN"); size: 26px; minimum: 0; maximum: 2; default-value: 1;
+                    value: root.s.selected-gain; tone: Theme.w546;
+                    tooltip: @tr("Gain of the selected slot");
+                    changed(v) => { root.gain(v); }
+                }
+                Knob {
+                    label: @tr("VOL"); size: 26px; minimum: 0; maximum: 1; default-value: 1;
+                    value: root.s.volume; tone: Theme.attention;
+                    tooltip: @tr("Sampler volume");
+                    changed(v) => { root.volume(v); }
+                }
+            }
+            Toggle {
+                size: 24px; label: @tr("STOP ALL");
+                tooltip: @tr("Stop every sample");
+                command: "sampler.stop.all";
+                clicked => { root.stop-all(); }
+            }
+        }
+    }
+    HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+}

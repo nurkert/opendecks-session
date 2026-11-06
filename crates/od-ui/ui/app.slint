@@ -16,8 +16,8 @@ import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint
 
 export { PreferencesWindow, KeyRow }
 // Perform panels (FX, sampler, pad modes).
-import { FxUnitView } from "structs.slint";
-export { FxUnitView }
+import { FxUnitView, SamplerPadView, SamplerView } from "structs.slint";
+export { FxUnitView, SamplerPadView, SamplerView }
 export { Theme, TooltipState, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget }
 
 export struct ProposalRow {
@@ -181,6 +181,26 @@ export component AppWindow inherits Window {
     callback fx-release(int, int, bool);
     callback color-fx-select(int);
     callback color-fx-step(int);
+    // Sampler panel: the 16 pads of the shown bank, the selected slot's steps.
+    in property <[SamplerPadView]> sampler-pads;
+    in property <[bool]> sampler-steps;
+    in property <SamplerView> sampler;
+    callback sampler-pad(int, bool);
+    callback sampler-select(int);
+    callback sampler-bank(int);
+    callback sampler-load(int);
+    callback sampler-unload();
+    callback sampler-stop-all();
+    callback sampler-mode(int);
+    callback sampler-gain(float);
+    callback sampler-sync();
+    callback sampler-quantize();
+    callback sampler-volume(float);
+    callback sampler-cue();
+    callback sampler-step(int);
+    callback sampler-seq-play();
+    callback sampler-seq-record();
+    callback sampler-seq-clear();
     in property <bool> small-screen;
     in property <image> ground-texture;
 
@@ -413,6 +433,26 @@ export component AppWindow inherits Window {
                 fx-release(u, k, p) => { root.fx-release(u, k, p); }
                 color-fx-select(i) => { root.color-fx-select(i); }
                 color-fx-step(d) => { root.color-fx-step(d); }
+                show-sampler: root.sampler-panel;
+                sampler-pads: root.sampler-pads;
+                sampler-steps: root.sampler-steps;
+                sampler: root.sampler;
+                sampler-pad(i, d) => { root.sampler-pad(i, d); }
+                sampler-select(i) => { root.sampler-select(i); }
+                sampler-bank(b) => { root.sampler-bank(b); }
+                sampler-load(i) => { root.sampler-load(i); }
+                sampler-unload => { root.sampler-unload(); }
+                sampler-stop-all => { root.sampler-stop-all(); }
+                sampler-mode(m) => { root.sampler-mode(m); }
+                sampler-gain(g) => { root.sampler-gain(g); }
+                sampler-sync => { root.sampler-sync(); }
+                sampler-quantize => { root.sampler-quantize(); }
+                sampler-volume(v) => { root.sampler-volume(v); }
+                sampler-cue => { root.sampler-cue(); }
+                sampler-step(k) => { root.sampler-step(k); }
+                sampler-seq-play => { root.sampler-seq-play(); }
+                sampler-seq-record => { root.sampler-seq-record(); }
+                sampler-seq-clear => { root.sampler-seq-clear(); }
                 decks-left: root.decks-left;
                 decks-right: root.decks-right;
                 channels: root.channels;

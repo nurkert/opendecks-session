@@ -220,3 +220,42 @@ export struct FxUnitView {
     // Engaged Release FX: -1 none, 0 vinyl brake, 1 backspin, 2 echo out.
     release: int,
 }
+
+// One sampler pad of the shown bank.
+export struct SamplerPadView {
+    // Slot number 0..63 and pad number 1..16 in the bank.
+    slot: int,
+    pad: int,
+    name: string,
+    loaded: bool,
+    playing: bool,
+    // Triggered, waiting for the quantise boundary.
+    pending: bool,
+    // 0 one-shot, 1 loop, 2 gate.
+    mode: int,
+    gain: float,
+    progress: float,
+    selected: bool,
+    sync: bool,
+}
+
+// The sampler panel's scalar state.
+export struct SamplerView {
+    bank: int,
+    // Selected pad in the shown bank (0..15), -1 if it is in another bank.
+    selected: int,
+    selected-number: int,
+    selected-name: string,
+    selected-loaded: bool,
+    selected-mode: int,
+    selected-gain: float,
+    selected-sync: bool,
+    selected-bpm: string,
+    quantize: bool,
+    volume: float,
+    cue: bool,
+    seq-playing: bool,
+    seq-recording: bool,
+    // Step the sequencer plays (0..15), -1 when stopped.
+    step: int,
+}
