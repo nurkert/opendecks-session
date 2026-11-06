@@ -646,12 +646,12 @@ msgstr "KOMMENTAR"
 #: ui/info.slint:73
 msgctxt "InfoPanel"
 msgid "KEY"
-msgstr ""
+msgstr "TONART"
 
 #: ui/info.slint:74
 msgctxt "InfoPanel"
 msgid "TIME"
-msgstr ""
+msgstr "ZEIT"
 
 #: ui/info.slint:76
 msgctxt "InfoPanel"
