@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 194 DONE (94 %), 5 PARTIAL, 1 ENGINE-ONLY, 6 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 195 DONE (95 %), 4 PARTIAL, 1 ENGINE-ONLY, 6 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -271,7 +271,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | MIDI learn / MIDI monitor | DONE | `crates/od-ui/src/midi_tools.rs`, `od-controller/src/learn.rs`; Preferences ▸ Controller: MIDI monitor (raw messages with the mapping hits) and MIDI learn (action, deck, the learned control described and as a mapping entry; ADD TO MY MAPPING writes it to the own mapping file, checked to load) | 7 | P3 |
 | FLX10 utility settings (jog ring, fader start, USB input …) | PARTIAL | `crates/od-ui/src/midi_tools.rs`, `od-controller/src/flx10_settings.rs`; Preferences ▸ Controller ▸ DDJ-FLX10: fader start, REC OUT, jog display time, slip flashing, SLIP button, hot cue indicator, jog ring colour, USB boost; stored, with the control transfers shown. WRITE TO DDJ-FLX10 sends them over USB only in builds with the `flx10-usb` feature (libusb, off by default); USB input routing has no UI yet | 5 | P3 |
 | Audio output on macOS (CoreAudio) | DONE | `crates/od-audio-io/src/output.rs`; (SPEC §10.4) | 1 |  |
-| Linux audio: PipeWire / JACK, ALSA direct on the Pi | PARTIAL | `crates/od-audio-io/src/devices.rs`; Host selection exists; no automated test per backend; (SPEC §10.4) | — | P2 |
+| Linux audio: PipeWire / JACK, ALSA direct on the Pi | DONE | `crates/od-audio-io/src/devices.rs`; ALSA (always; direct on the Pi), JACK and PipeWire (features `jack`, `pipewire`) selectable in Preferences ▸ Audio; CI builds and tests all three hosts on Linux x86_64 and aarch64; (SPEC §10.4) | 4 | P2 |
 | DDJ-FLX10 mapping (4 decks, LEDs) | DONE | `mappings/pioneer/ddj-flx10.toml`; (SPEC §9.1) | 3 |  |
 | DDJ-FLX4 mapping (2 decks, LEDs) | DONE | (SPEC §9.1) | 2 |  |
 | Browser font size and line spacing | DONE | `crates/od-ui/src/shell.rs::apply_browser_style`; Preferences > View > Browser: text size 12–18 px and line spacing compact / normal / roomy (22 / 28 / 34 px rows), live; (UX §1.8, §4 P5.17) | 2 |  |
@@ -322,8 +322,8 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 194 |
-| PARTIAL | 5 |
+| DONE | 195 |
+| PARTIAL | 4 |
 | ENGINE-ONLY | 1 |
 | MISSING | 6 |
 | deferred (in scope, later milestone) | 2 |
