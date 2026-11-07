@@ -188,3 +188,56 @@ pub(crate) fn find_device(host: &cpal::Host, pattern: &str, output: bool) -> Opt
                 .unwrap_or(false)
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn backend_names_round_trip() {
+        for b in [Backend::CoreAudio, Backend::Alsa, Backend::Jack, Backend::PipeWire] {
+            assert_eq!(Backend::from_host_name(b.host_name().unwrap()), Some(b));
+        }
+        assert_eq!(Backend::from_host_name("alsa"), Some(Backend::Alsa), "case-insensitive");
+        assert_eq!(Backend::from_host_name("WASAPI"), None);
+        assert!(host(Backend::Default).is_ok(), "the platform default host opens");
+    }
+
+    /// Linux / Raspberry Pi: ALSA is always there (direct hardware access on
+    /// the Pi, also the fallback on the desktop).
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn alsa_host_on_linux() {
+        assert!(backends().contains(&Backend::Alsa), "{:?}", backends());
+        assert!(host(Backend::Alsa).is_ok());
+    }
+
+    /// JACK (and PipeWire's JACK layer) when built with `--features jack`.
+    #[cfg(all(target_os = "linux", feature = "jack"))]
+    #[test]
+    fn jack_host_compiled_in() {
+        assert!(cpal::available_hosts().iter().any(|h| h.name().eq_ignore_ascii_case("JACK")));
+    }
+
+    /// Native PipeWire when built with `--features pipewire`.
+    #[cfg(all(target_os = "linux", feature = "pipewire"))]
+    #[test]
+    fn pipewire_host_compiled_in() {
+        assert!(cpal::available_hosts().iter().any(|h| h.name().eq_ignore_ascii_case("PipeWire")));
+    }
+
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn coreaudio_host_on_macos() {
+        assert!(backends().contains(&Backend::CoreAudio));
+        assert!(host(Backend::CoreAudio).is_ok());
+    }
+
+    #[test]
+    fn unavailable_backend_is_an_error_not_a_panic() {
+        #[cfg(target_os = "macos")]
+        assert!(matches!(host(Backend::Alsa), Err(AudioError::BackendUnavailable(Backend::Alsa))));
+        #[cfg(target_os = "linux")]
+        assert!(matches!(host(Backend::CoreAudio), Err(AudioError::BackendUnavailable(Backend::CoreAudio))));
+    }
+}

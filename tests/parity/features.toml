@@ -2655,11 +2655,16 @@ id = "audio-linux-backends"
 area = "preferences"
 name = "Linux audio: PipeWire / JACK, ALSA direct on the Pi"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
-tests = []
+tests = [
+  "od-audio-io::devices::tests::alsa_host_on_linux",
+  "od-audio-io::devices::tests::jack_host_compiled_in",
+  "od-audio-io::devices::tests::pipewire_host_compiled_in",
+  "od-audio-io::devices::tests::backend_names_round_trip",
+]
 evidence = ["crates/od-audio-io/src/devices.rs"]
-note = "Host selection exists; no automated test per backend"
+note = "ALSA (always; direct on the Pi), JACK and PipeWire (features `jack`, `pipewire`) selectable in Preferences ▸ Audio; CI builds and tests all three hosts on Linux x86_64 and aarch64"
 spec = "SPEC §10.4"
 
 [[feature]]
