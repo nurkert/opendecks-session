@@ -4103,6 +4103,78 @@ msgctxt "UpdateBar"
 msgid "CLOSE"
 msgstr "SCHLIESSEN"
 
+msgctxt "StemKey"
+msgid "separating"
+msgstr "wird getrennt"
+
+msgctxt "StemKey"
+msgid "muted"
+msgstr "stumm"
+
+msgctxt "StemKey"
+msgid "audible"
+msgstr "hörbar"
+
+msgctxt "StemKey"
+msgid "Lit = audible · click: mute / unmute · wheel: level"
+msgstr "Leuchtet = hörbar · Klick: stumm / laut · Mausrad: Pegel"
+
+msgctxt "StemStrip"
+msgid "PARTS"
+msgstr "PARTS"
+
+msgctxt "PhraseStrip"
+msgid "No phrases — analyse the track, or pick a type in the PHRASE tab"
+msgstr "Keine Phrasen — Track analysieren oder im PHRASE-Tab einen Typ wählen"
+
+msgctxt "PhraseStrip"
+msgid "Click: phrase type · drag an edge to move it (snaps to bars) · Shift+X split at the cursor · Shift+J merge"
+msgstr "Klick: Phrasentyp · Kante ziehen zum Verschieben (rastet auf Takte) · Shift+X am Cursor teilen · Shift+J verbinden"
+
+msgctxt "PhraseStrip"
+msgid "Drag to move the boundary (snaps to bars)"
+msgstr "Ziehen verschiebt die Grenze (rastet auf Takte)"
+
+msgctxt "PhraseStrip"
+msgid "MERGE WITH NEXT"
+msgstr "MIT NÄCHSTER VERBINDEN"
+
+msgctxt "PreparePlayer"
+msgid "MERGE"
+msgstr "VERBINDEN"
+
+msgctxt "PreparePlayer"
+msgid "Join the phrase at the cursor with the next one"
+msgstr "Die Phrase am Cursor mit der nächsten verbinden"
+
+msgctxt "PreparePlayer"
+msgid "OR ON THE STRIP: CLICK A PHRASE FOR ITS TYPE, DRAG AN EDGE"
+msgstr "ODER AUF DER LEISTE: PHRASE ANKLICKEN FÜR DEN TYP, KANTE ZIEHEN"
+
+msgctxt "PreferencesWindow"
+msgid "Remaining time"
+msgstr "Restzeit"
+
+msgctxt "PreferencesWindow"
+msgid "TRACK TIME"
+msgstr "TRACKZEIT"
+
+msgctxt "PreferencesWindow"
+msgid "REAL TIME AT TEMPO"
+msgstr "ECHTZEIT IM TEMPO"
+
+msgctxt "PreferencesWindow"
+msgid "BOTH"
+msgstr "BEIDE"
+
+msgctxt "DeckTime"
+msgid "REMAIN"
+msgstr "REST"
+
+msgctxt "DeckTime"
+msgid "REAL TIME"
+msgstr "ECHTZEIT"
+
 #~ msgctxt "DeckPanel"
 #~ msgid "SPLIT…"
 #~ msgstr "TRENNEN…"
@@ -4990,3 +5062,12 @@ msgstr "Arbeitsmodus"
 
 msgid "LOADING"
 msgstr "LÄDT"
+
+msgid "TO CUE"
+msgstr "BIS CUE"
+
+msgid "BAR"
+msgstr "TAKT"
+
+msgid "TO PHRASE"
+msgstr "BIS PHRASE"

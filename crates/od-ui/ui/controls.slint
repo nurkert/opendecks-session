@@ -7,6 +7,28 @@ import { TipArea, TooltipState } from "tooltip.slint";
 
 export { TipArea, TooltipState }
 
+// Where a popup goes: inside the window, flipped to the other side of its
+// anchor when it does not fit (the window size comes from AppWindow). On
+// platforms where popups are windows of their own nothing else keeps them
+// on screen, so every PopupWindow places itself with these.
+export global PopupPlace {
+    in-out property <length> window-width: 100000px;
+    in-out property <length> window-height: 100000px;
+    // Relative x of a popup `w` wide that wants to start `want` from its
+    // anchor at absolute x `ax`; kept 4 px inside the window.
+    public pure function x(ax: length, want: length, w: length) -> length {
+        return clamp(ax + want, 4px, max(4px, root.window-width - w - 4px)) - ax;
+    }
+    // Relative y of a popup `h` tall at an anchor at absolute y `ay`:
+    // `first` (e.g. below the anchor) when it fits, else `second` (above),
+    // else as close to `first` as the window allows.
+    public pure function y(ay: length, first: length, second: length, h: length) -> length {
+        if (ay + first >= 4px && ay + first + h <= root.window-height - 4px) { return first; }
+        if (ay + second >= 4px && ay + second + h <= root.window-height - 4px) { return second; }
+        return clamp(ay + first, 4px, max(4px, root.window-height - h - 4px)) - ay;
+    }
+}
+
 // Hairline marks drawn as paths instead of typed characters.
 export component Glyph inherits Path {
     in property <string> kind: "plus";

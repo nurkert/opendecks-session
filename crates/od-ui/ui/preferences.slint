@@ -193,6 +193,7 @@ export component PreferencesWindow inherits Window {
     in property <int> appearance;
     // 0 countdown to phrase end, 1 to the next memory cue, 2 count up.
     in property <int> bar-counter;
+    in property <int> deck-time;
     in property <int> waveform;
     // Phrases on the enlarged waveforms and on the overviews; phrase types
     // as names (0) or colours only (1).
@@ -412,6 +413,7 @@ export component PreferencesWindow inherits Window {
                         Row { label: @tr("Phrase types"); Choice { accessible-label: "prefs.view.phrase-types"; options: [@tr("NAMES"), @tr("COLOURS ONLY")]; selected: root.phrase-types; picked(i) => { root.choose("view.phrase-types", i); } } }
                         Row { label: @tr("Waveform colour"); Choice { accessible-label: "prefs.view.waveform-colour"; options: [@tr("3-BAND"), @tr("BLUE"), "RGB"]; selected: root.waveform; picked(i) => { root.choose("view.waveform", i); } } }
                         Row { label: @tr("Waveform zoom"); Choice { accessible-label: "prefs.view.zoom"; options: [@tr("4 S"), @tr("8 S"), @tr("16 S"), @tr("32 S")]; selected: root.zoom-span; picked(i) => { root.choose("view.zoom", i); } } }
+                        Row { label: @tr("Remaining time"); Choice { accessible-label: "prefs.view.deck-time"; options: [@tr("TRACK TIME"), @tr("REAL TIME AT TEMPO"), @tr("BOTH")]; selected: root.deck-time; picked(i) => { root.choose("view.deck-time", i); } } }
                         Row { label: @tr("Bar counter"); Choice { accessible-label: "prefs.view.bar-counter"; options: [@tr("TO PHRASE END"), @tr("TO NEXT MEMORY CUE"), @tr("COUNT UP")]; selected: root.bar-counter; picked(i) => { root.choose("view.bar-counter", i); } } }
                         Heading { text: @tr("Colour and accessibility"); }
                         Row { label: @tr("Colour"); Switch { accessible-label: "prefs.view.colour-blind"; label: @tr("Colour-blind-safe palette"); on: root.colorblind; toggled(v) => { root.flag("view.colorblind", v); } } }

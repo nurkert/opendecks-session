@@ -13,7 +13,7 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, PlateButton, Fader, Transport, Jog, HoldButton } from "controls.slint";
-import { DeckView, LaneMotion, PadView } from "structs.slint";
+import { DeckView, LaneMotion, PadView, DeckTime } from "structs.slint";
 import { WaveLane } from "wave.slint";
 
 export struct CdjStep {
@@ -276,7 +276,7 @@ export component CdjPlayer inherits Rectangle {
                     angle: root.deck.jog-angle; progress: root.deck.progress; playing: root.deck.playing; loaded: root.deck.loaded;
                     tone: root.tone;
                     top-text: root.deck.beat-pos;
-                    main-text: root.deck.remaining;
+                    main-text: DeckTime.main(root.deck);
                     sub-text: root.deck.phrase;
                 }
             }

@@ -11,6 +11,8 @@ export component WaveLane inherits Rectangle {
     in property <LaneMotion> motion;
     callback zoom(float);
     callback zoom-reset();
+    // Click on the bar counter: the next counter mode.
+    callback cycle-counter();
     // The lane that carries the `wave.playhead` label (one per window).
     in property <bool> playhead-label;
     property <color> tone: Theme.deck-color(root.deck.deck);
@@ -28,6 +30,23 @@ export component WaveLane inherits Rectangle {
     if root.motion.loaded: Image { x: root.gutter + (root.motion.t2 - root.left-t) / root.motion.span * root.area; width: root.area; height: parent.height; source: root.motion.tile2; image-fit: fill; }
     // Played audio left of the playhead is veiled.
     if root.motion.loaded: Rectangle { x: root.gutter; width: root.area / 2; height: parent.height; background: Theme.ground.with-alpha(0.45); }
+    // The loop: a light amber wash with solid in / out lines and bands along
+    // the edges (the waveform's colours stay readable through it).
+    if root.motion.loaded && root.deck.loop-out > root.deck.loop-in: band := Rectangle {
+        accessible-role: image;
+        accessible-label: "wave.loop\{root.deck.deck}";
+        property <length> x0: root.gutter + (root.deck.loop-in - root.left-t) / root.motion.span * root.area;
+        property <length> x1: root.gutter + (root.deck.loop-out - root.left-t) / root.motion.span * root.area;
+        property <float> strength: root.deck.looping ? 1 : 0.45;
+        x: max(root.gutter, self.x0);
+        width: max(0px, min(parent.width, self.x1) - max(root.gutter, self.x0));
+        height: parent.height;
+        background: Theme.attention.with-alpha(0.16 * self.strength);
+        Rectangle { y: 0; height: 3px; background: Theme.attention.with-alpha(band.strength); }
+        Rectangle { y: parent.height - 3px; height: 3px; background: Theme.attention.with-alpha(band.strength); }
+        if band.x0 >= root.gutter: Rectangle { x: 0; width: 2px; background: Theme.attention.with-alpha(band.strength); }
+        if band.x1 <= root.width: Rectangle { x: parent.width - 2px; width: 2px; background: Theme.attention.with-alpha(band.strength); }
+    }
     Rectangle {
         x: 0; y: 0; width: root.gutter; height: parent.height;
         background: Theme.ground;
@@ -58,13 +77,6 @@ export component WaveLane inherits Rectangle {
         text: root.deck.phrase;
         font-family: Theme.family; font-size: 10px; font-weight: 600; letter-spacing: 1px; color: Theme.bone;
     }
-    if root.deck.loaded: Text {
-        // Fixed width (template "-000.0"), right-aligned: digits never shift.
-        x: parent.width - 64px; width: 56px; y: 4px;
-        horizontal-alignment: right;
-        text: root.deck.beat-pos;
-        font-family: Theme.family; font-size: 11px; font-weight: 600; color: Theme.bone-2;
-    }
     // Scroll to zoom; double-click resets.
     TouchArea {
         x: root.gutter; width: root.area;
@@ -73,6 +85,39 @@ export component WaveLane inherits Rectangle {
             accept
         }
         double-clicked => { root.zoom-reset(); }
+    }
+    // Bar counter: large and on a plate so it reads from a distance; what it
+    // counts shows above the number, a click picks the next mode.
+    if root.deck.loaded: Rectangle {
+        accessible-role: button;
+        accessible-label: "wave.counter\{root.deck.deck}";
+        accessible-value: root.deck.beat-pos;
+        x: parent.width - self.width - 6px; y: 4px;
+        width: 92px; height: min(parent.height - 8px, 40px);
+        border-radius: 3px;
+        background: Theme.ground.with-alpha(0.82);
+        border-width: 1px; border-color: counter-touch.has-hover ? Theme.bone-3 : Theme.rule;
+        VerticalLayout {
+            padding-left: 6px; padding-right: 8px; padding-top: 1px; padding-bottom: 1px;
+            alignment: center;
+            spacing: 0;
+            if parent.height >= 32px: Text {
+                text: root.deck.counter-mode == "to-memory-cue" ? @tr("TO CUE") : root.deck.counter-mode == "up" ? @tr("BAR") : @tr("TO PHRASE");
+                font-family: Theme.family; font-size: 8px; font-weight: 600; letter-spacing: 1px;
+                color: Theme.bone-3;
+                horizontal-alignment: right;
+            }
+            Text {
+                text: root.deck.beat-pos;
+                font-family: Theme.family; font-size: parent.height >= 32px ? 18px : 14px; font-weight: 600;
+                color: root.tone.mix(Theme.bone, 0.35);
+                horizontal-alignment: right;
+            }
+        }
+        counter-touch := TouchArea {
+            mouse-cursor: pointer;
+            clicked => { root.cycle-counter(); }
+        }
     }
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
 }

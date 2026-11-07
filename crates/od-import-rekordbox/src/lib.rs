@@ -182,6 +182,18 @@ fn read_source(source: &Source, with_smart: bool) -> Result<SrcLibrary> {
     }
 }
 
+/// The cover art a source keeps per audio file, read without importing:
+/// (audio path, cover bytes, media type). Used to fill in covers of tracks
+/// imported before covers were taken over.
+pub fn source_covers(source: &Source) -> Result<Vec<(PathBuf, Vec<u8>, String)>> {
+    let src = read_source(source, false)?;
+    Ok(src
+        .tracks
+        .iter()
+        .filter_map(|t| source_artwork(t).map(|(data, media)| (t.path.clone(), data, media)))
+        .collect())
+}
+
 /// Counts what an import would bring in. Reads the database only (and the
 /// ANLZ cue lists of a stick).
 pub fn preview(source: &Source) -> Result<ImportPreview> {

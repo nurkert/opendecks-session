@@ -494,6 +494,15 @@ impl Library {
         Ok(())
     }
 
+    /// Tracks whose file is present but that have no cover art: (id, path).
+    pub fn tracks_without_artwork(&self) -> Result<Vec<(TrackId, PathBuf)>> {
+        let mut stmt = self
+            .conn
+            .prepare("SELECT id, path FROM track WHERE missing = 0 AND id NOT IN (SELECT track_id FROM artwork)")?;
+        let rows = stmt.query_map([], |r| Ok((TrackId(r.get(0)?), PathBuf::from(r.get::<_, String>(1)?))))?;
+        Ok(rows.collect::<rusqlite::Result<_>>()?)
+    }
+
     /// Stores cover art for a track that has none yet (an existing picture
     /// is kept). Returns whether it was stored.
     pub fn set_artwork_if_missing(

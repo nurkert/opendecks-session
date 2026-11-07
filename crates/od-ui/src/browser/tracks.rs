@@ -420,6 +420,16 @@ pub(crate) fn list_images(app: &App, ids: &[TrackId]) {
         .ok();
 }
 
+/// Where cover thumbnails made elsewhere (the cover search) are sent.
+pub(crate) fn art_sender(app: &App) -> Sender<Vec<((bool, TrackId), Option<SharedPixelBuffer<Rgba8Pixel>>)>> {
+    app.browser.art.tx.clone()
+}
+
+/// Edge of an ARTWORK column thumbnail in physical pixels.
+pub(crate) fn art_px(app: &App) -> u32 {
+    (ART_PX * app.ui.window().scale_factor()).round() as u32
+}
+
 /// Frame tick: finished cover thumbnails go into the cache and the list.
 pub(crate) fn poll_artworks(app: &App) {
     let art = &app.browser.art;

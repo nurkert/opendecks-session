@@ -1,9 +1,11 @@
-//! Phrase editing in the Prepare player (PHRASE tab next to GRID): the kind
-//! of the phrase at the cursor, a cut at the cursor, the nearest boundary
-//! moved to the cursor, and clearing all phrases. Every edit is stored
-//! through the library (one undo step, normalized with
-//! [`od_core::normalize_phrases`]) and reaches registered sticks like any
-//! other edit.
+//! Phrase editing in the Prepare player. Directly on the phrase strip under
+//! the overview: a click on a phrase opens a type picker beside it (and
+//! MERGE WITH NEXT), its edges drag to a new bar; at the cursor (PHRASE tab
+//! and keys): the kind, a split, a merge with the next phrase, the nearest
+//! boundary moved to the cursor, and clearing all phrases. Every edit snaps
+//! to the bar grid and is stored through the library (one undo step,
+//! normalized with [`od_core::normalize_phrases`]); it reaches registered
+//! sticks like any other edit.
 
 use crate::app::{App, handler};
 use od_core::{Beatgrid, Phrase, PhraseKind, normalize_phrases};
@@ -145,18 +147,62 @@ pub(crate) fn move_boundary(phrases: &[Phrase], beat: u32) -> Option<Vec<Phrase>
     ordered.then_some(out)
 }
 
+/// Moves the boundary nearest to `from` (a beat on or near an edge) to
+/// `to`; `None` when there is none or the move would pass a neighbouring
+/// boundary (pure).
+pub(crate) fn move_edge(phrases: &[Phrase], from: u32, to: u32) -> Option<Vec<Phrase>> {
+    let v = sorted(phrases);
+    let mut bounds: Vec<u32> = v.iter().flat_map(|p| [p.start_beat, p.end_beat]).collect();
+    bounds.sort_unstable();
+    bounds.dedup();
+    let b = *bounds.iter().min_by_key(|b| b.abs_diff(from))?;
+    if b == to {
+        return None;
+    }
+    let out: Vec<Phrase> = v
+        .iter()
+        .map(|p| Phrase {
+            start_beat: if p.start_beat == b { to } else { p.start_beat },
+            end_beat: if p.end_beat == b { to } else { p.end_beat },
+            kind: p.kind,
+        })
+        .collect();
+    let ordered = out.iter().all(|p| p.end_beat > p.start_beat)
+        && out.windows(2).all(|w| w[0].end_beat <= w[1].start_beat);
+    ordered.then_some(out)
+}
+
+/// The phrase at `beat` and the one right after it become one phrase of
+/// the first one's kind; `None` without a following neighbour (pure).
+pub(crate) fn merge(phrases: &[Phrase], beat: u32) -> Option<Vec<Phrase>> {
+    let mut v = sorted(phrases);
+    let i = phrase_at(&v, beat)?;
+    let next = v.get(i + 1).filter(|n| n.start_beat == v[i].end_beat)?.end_beat;
+    v[i].end_beat = next;
+    v.remove(i + 1);
+    Some(v)
+}
+
 fn sorted(phrases: &[Phrase]) -> Vec<Phrase> {
     let mut v = phrases.to_vec();
     v.sort_by_key(|p| p.start_beat);
     v
 }
 
-/// One phrase edit at the cursor.
+/// One phrase edit: at the cursor, or at a time (seconds) picked on the
+/// phrase strip.
 pub(crate) enum Op {
     Kind(PhraseKind),
     Cut,
     Boundary,
     Clear,
+    Merge,
+    /// The phrase at that time takes the kind.
+    KindAt(f64, PhraseKind),
+    /// The phrase at that time joins the next one.
+    MergeAt(f64),
+    /// The boundary at the first time moves to the second (bar-snapped).
+    MoveEdge(f64, f64),
 }
 
 /// Applies `op` to the current track's phrases at the cursor and stores the
@@ -178,7 +224,37 @@ pub(crate) fn edit(app: &App, op: Op) {
         (a.phrases, a.beatgrid)
     };
     let beat = edit_beat(&grid, cursor);
+    // A time picked on the strip: the beat inside the phrase there (the
+    // block's middle need not be on a bar).
+    let inside = |t: f64| grid.beat_position(t).map(|b| b.floor().max(0.0) as u32);
     let (next, label) = match (op, beat) {
+        (Op::KindAt(t, k), _) => match inside(t) {
+            Some(b) => (set_kind(&phrases, b, k, grid.beats.len() as u32), "Phrase changed"),
+            None => {
+                app.status("This track has no beatgrid yet — analyse it first");
+                return;
+            }
+        },
+        (Op::MergeAt(t), _) => match inside(t).and_then(|b| merge(&phrases, b)) {
+            Some(v) => (v, "Phrases merged"),
+            None => {
+                app.status("No phrase follows to merge with");
+                return;
+            }
+        },
+        (Op::MoveEdge(from, to), _) => match (edit_beat(&grid, from), edit_beat(&grid, to)) {
+            (Some(a), Some(b)) => match move_edge(&phrases, a, b) {
+                Some(v) => (v, "Phrase boundary moved"),
+                None => {
+                    app.status("The boundary cannot move past the next one");
+                    return;
+                }
+            },
+            _ => {
+                app.status("This track has no beatgrid yet — analyse it first");
+                return;
+            }
+        },
         (Op::Clear, _) => {
             if phrases.is_empty() {
                 app.status("This track has no phrases");
@@ -205,6 +281,13 @@ pub(crate) fn edit(app: &App, op: Op) {
                 return;
             }
         },
+        (Op::Merge, Some(b)) => match merge(&phrases, b) {
+            Some(v) => (v, "Phrases merged"),
+            None => {
+                app.status("No phrase follows to merge with");
+                return;
+            }
+        },
         (Op::Boundary, Some(b)) => match move_boundary(&phrases, b) {
             Some(v) => (v, "Phrase boundary moved to the cursor"),
             None => {
@@ -222,6 +305,29 @@ pub(crate) fn edit(app: &App, op: Op) {
     if app.report(r).is_some() {
         app.after_edit(label);
     }
+}
+
+/// The key for the type picker: opens it beside the phrase at the cursor.
+pub(crate) fn open_picker(app: &App) {
+    let st = app.state.borrow();
+    let Some(id) = st.player.current else { return };
+    let a = st.lib.analysis(id).unwrap_or_default();
+    let mut phrases = a.phrases.clone();
+    phrases.sort_by_key(|p| p.start_beat);
+    let Some(i) = a
+        .beatgrid
+        .beat_position(st.player.cursor)
+        .map(|b| b.floor().max(0.0) as u32)
+        .and_then(|b| phrase_at(&phrases, b))
+    else {
+        drop(st);
+        app.status("No phrase at the cursor");
+        return;
+    };
+    drop(st);
+    let pe = app.ui.global::<crate::PhraseEdit>();
+    pe.set_picker_index(i as i32);
+    pe.set_picker_request(pe.get_picker_request() + 1);
 }
 
 /// The phrase at the cursor for the PHRASE tab ("" = none).
@@ -251,6 +357,40 @@ pub(crate) fn wire(app: &Rc<App>) {
         }
     }));
     pe.on_cut(handler!(app, |a| edit(&a, Op::Cut)));
+    pe.on_merge(handler!(app, |a| edit(&a, Op::Merge)));
+    // On the strip: positions as fractions of the track.
+    let secs = |a: &App, f: f32| {
+        let st = a.state.borrow();
+        let d = st.player.current.and_then(|id| st.lib.track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
+        f.clamp(0.0, 1.0) as f64 * d
+    };
+    pe.on_kind_at(handler!(app, |a, f: f32, i: i32| {
+        if let Some(k) = KINDS.get(i.max(0) as usize) {
+            let t = secs(&a, f);
+            edit(&a, Op::KindAt(t, *k));
+        }
+    }));
+    pe.on_merge_at(handler!(app, |a, f: f32| {
+        let t = secs(&a, f);
+        edit(&a, Op::MergeAt(t));
+    }));
+    pe.on_move_edge(handler!(app, |a, from: f32, to: f32| {
+        let (from, to) = (secs(&a, from), secs(&a, to));
+        edit(&a, Op::MoveEdge(from, to));
+    }));
+    // Where a drag would land: the bar the edge snaps to, as a fraction.
+    let weak = Rc::downgrade(app);
+    pe.on_snap(move |f: f32| -> f32 {
+        let Some(a) = weak.upgrade() else { return f };
+        let st = a.state.borrow();
+        let Some(id) = st.player.current else { return f };
+        let d = st.lib.track(id).map(|t| t.duration).unwrap_or(0.0);
+        let grid = st.lib.analysis(id).unwrap_or_default().beatgrid;
+        match (d > 0.0, edit_beat(&grid, f.clamp(0.0, 1.0) as f64 * d)) {
+            (true, Some(b)) => grid.beats.get(b as usize).map(|x| (x.time / d) as f32).unwrap_or(f),
+            _ => f,
+        }
+    });
     pe.on_boundary(handler!(app, |a| edit(&a, Op::Boundary)));
     pe.on_clear(handler!(app, |a| edit(&a, Op::Clear)));
 }
@@ -337,6 +477,19 @@ mod tests {
         let m = move_boundary(&v, 40 * 4).unwrap();
         assert_eq!((m[1].end_beat, m[2].start_beat), (160, 160));
         assert_eq!(m[0], v[0]);
+    }
+
+    #[test]
+    fn edges_move_and_phrases_merge() {
+        // Bars (p takes bars; edits take beats).
+        let v = [p(0, 8, Intro), p(8, 16, Verse), p(16, 32, Outro)];
+        // The edge near beat 33 (bar 8) goes to beat 48 (bar 12).
+        assert_eq!(move_edge(&v, 33, 48).unwrap(), [p(0, 12, Intro), p(12, 16, Verse), p(16, 32, Outro)]);
+        // Not past the next boundary (bar 16 = beat 64).
+        assert!(move_edge(&v, 32, 70).is_none());
+        // The verse swallows the outro; the last phrase has nothing to merge.
+        assert_eq!(merge(&v, 40).unwrap(), [p(0, 8, Intro), p(8, 32, Verse)]);
+        assert!(merge(&v, 100).is_none());
     }
 
     #[test]

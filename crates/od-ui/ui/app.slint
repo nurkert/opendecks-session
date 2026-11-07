@@ -3,8 +3,10 @@ import { VLine, HLine, ProgressLine } from "lines.slint";
 import { UpdateBar } from "update.slint";
 import { DragGhost, DragState } from "drag.slint";
 export { DragState }
+export { PopupPlace }
+export { DeckTime } from "structs.slint";
 import { InfoPanel, TrackInfo } from "info.slint";
-import { Caps, PlateButton, Field, LineToggle, Splitter, TooltipState } from "controls.slint";
+import { Caps, PlateButton, Field, LineToggle, Splitter, TooltipState, PopupPlace } from "controls.slint";
 import { TooltipLayer } from "tooltip.slint";
 import { Sidebar, RailItem } from "sidebar.slint";
 import { TopBar } from "topbar.slint";
@@ -81,6 +83,10 @@ component SectionTitle inherits HorizontalLayout {
 }
 
 export component AppWindow inherits Window {
+    // Popups keep inside the window (PopupPlace).
+    init => { PopupPlace.window-width = self.width; PopupPlace.window-height = self.height; }
+    changed width => { PopupPlace.window-width = self.width; }
+    changed height => { PopupPlace.window-height = self.height; }
     title: "OpenDecks Session";
     preferred-width: 1440px;
     preferred-height: 900px;
@@ -205,6 +211,7 @@ export component AppWindow inherits Window {
     in property <[LaneMotion]> lane-motion;
     callback deck-zoom(int, float);
     callback deck-zoom-reset(int);
+    callback cycle-bar-counter();
     in property <[DeckView]> decks-left;
     in property <[DeckView]> decks-right;
     in property <[ChannelView]> channels;
@@ -377,6 +384,7 @@ export component AppWindow inherits Window {
     callback sort-then(string);
     callback toggle-column(string);
     callback move-column(string, int);
+    callback resize-column(string, float);
     callback reset-columns();
     callback toggle-filter();
     callback filter-edit(string, string);
@@ -685,6 +693,7 @@ export component AppWindow inherits Window {
                 lane-motion: root.lane-motion;
                 zoom(d, delta) => { root.deck-zoom(d, delta); }
                 zoom-reset(d) => { root.deck-zoom-reset(d); }
+                cycle-counter => { root.cycle-bar-counter(); }
                 show-fx: root.fx-panel;
                 fx-units: root.fx-units;
                 color-fx: root.color-fx;
@@ -1049,6 +1058,7 @@ export component AppWindow inherits Window {
                         sort-then(c) => { root.sort-then(c); }
                         toggle-column(c) => { root.toggle-column(c); }
                         move-column(c, i) => { root.move-column(c, i); }
+                        resize-column(c, w) => { root.resize-column(c, w); }
                         reset-columns => { root.reset-columns(); }
                         toggle-filter => { root.toggle-filter(); }
                         filter-edit(f, v) => { root.filter-edit(f, v); }

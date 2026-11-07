@@ -5,7 +5,7 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, Knob, Toggle, Stepper, HoldButton, TipArea } from "controls.slint";
+import { Caps, Knob, Toggle, Stepper, HoldButton, TipArea, PopupPlace } from "controls.slint";
 import { FxUnitView, FxSlotView } from "structs.slint";
 
 // Multi mode controls (unit 1-based, slot 2 or 3).
@@ -81,8 +81,12 @@ component FxUnit inherits Rectangle {
     background: Theme.ground;
 
     kinds := PopupWindow {
-        x: 72px; y: 8px + 26px;
-        ChoiceList {
+        x: PopupPlace.x(root.absolute-position.x, 72px, kinds-list.width);
+        y: PopupPlace.y(root.absolute-position.y, 8px + 26px, 8px - kinds-list.height, kinds-list.height);
+        // The popup is as big as its list (unsized, the list was centred on
+        // the popup's corner and hung half out to the left and top).
+        width: kinds-list.width; height: kinds-list.height;
+        kinds-list := ChoiceList {
             items: FxNames.beat; current: root.u.kind; columns: 2;
             chosen(i) => { root.kind(i); kinds.close(); }
         }
@@ -392,8 +396,10 @@ export component ColorFxSelector inherits Rectangle {
         }
     }
     list := PopupWindow {
-        x: 0; y: -4 * 26px - 6px;
-        ChoiceList {
+        x: PopupPlace.x(root.absolute-position.x, 0, color-list.width);
+        y: PopupPlace.y(root.absolute-position.y, -color-list.height - 4px, root.height + 4px, color-list.height);
+        width: color-list.width; height: color-list.height;
+        color-list := ChoiceList {
             items: FxNames.color; current: root.current; columns: 2; cell-w: 84px;
             chosen(i) => { root.select(i); list.close(); }
         }

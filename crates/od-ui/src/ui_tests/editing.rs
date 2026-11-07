@@ -429,3 +429,59 @@ fn sub_browser_drags_between_lists() {
     ui.pump(100);
     assert!(ui.has("browser.sub"), "the shortcut toggles it");
 }
+
+/// Phrases edit in place on the strip under the overview: a click on a
+/// phrase and one on a type changes it (≤ 2 steps), one drag moves a
+/// boundary to another bar, the picker merges with the next phrase, and the
+/// keys open the picker / merge at the cursor.
+#[test]
+fn phrases_edit_on_the_strip() {
+    use PhraseKind::*;
+    let fx = Fixture::new();
+    // 120 BPM: one bar = 2 s; 40 bars.
+    let id = analysed_track(&fx, "Strip Edit", 80.0, &[(0, 8, Intro), (8, 24, Verse), (24, 40, Outro)]);
+    let ui = Ui::start(fx, (1440, 900), false);
+    show(&ui, id);
+    assert!(ui.wait_until(5.0, |u| u.has("player1.phrase.block1")));
+    assert_eq!(ui.value("player1.phrase.block1"), "VERSE");
+    // Type in two steps: the phrase, then the type in its picker.
+    ui.steps.set(0);
+    ui.click("player1.phrase.block1");
+    assert!(ui.has("player1.phrase.picker"), "the picker opens beside the phrase");
+    // Popup contents report popup-local positions: the list starts at the
+    // popup's corner (placement: PopupPlace, tested in alignment.rs).
+    let picker = Rect::of(&ui.get("player1.phrase.picker"));
+    assert!(picker.x.abs() < 0.5 && picker.y.abs() < 0.5 && picker.w > 100.0, "{:?}", (picker.x, picker.y, picker.w));
+    assert!(ui.click_menu_item("CHORUS"));
+    assert!(ui.steps.get() <= 2, "{} steps", ui.steps.get());
+    assert_eq!(phrases(&ui, id), [(0, 8, Intro), (8, 24, Chorus), (24, 40, Outro)]);
+    // One drag moves the boundary at bar 8 to (near) bar 12: it snaps.
+    let strip = Rect::of(&ui.get("player1.phrases"));
+    let edge = ui.get("player1.phrase.edge0");
+    let y = strip.y + strip.h / 2.0;
+    let d = ui.fx.lib().track(id).unwrap().duration;
+    let x = strip.x + strip.w * (24.3 / d) as f32;
+    ui.drag_el(&edge, slint::LogicalPosition::new(x, y));
+    assert_eq!(phrases(&ui, id), [(0, 12, Intro), (12, 24, Chorus), (24, 40, Outro)]);
+    // MERGE WITH NEXT in the picker of the chorus: it swallows the outro.
+    ui.click("player1.phrase.block1");
+    // (Popup contents have their own coordinates: the element clicks itself.)
+    ui.get("player1.phrase.merge-next").mock_single_click(slint::platform::PointerEventButton::Left);
+    ui.pump(100);
+    assert_eq!(phrases(&ui, id), [(0, 12, Intro), (12, 40, Chorus)]);
+    // Keys at the cursor: Shift+P opens the picker, Shift+J merges.
+    seek(&ui, id, 4.0);
+    crate::commands::run(&ui.app, "player.phrase.type");
+    ui.pump(100);
+    assert!(ui.has("player1.phrase.picker"), "Shift+P opens the picker at the cursor");
+    ui.key(slint::platform::Key::Escape);
+    ui.pump(50);
+    crate::commands::run(&ui.app, "player.phrase.merge");
+    assert_eq!(phrases(&ui, id), [(0, 40, Intro)]);
+    // Undo is one step per edit.
+    ui.app.undo();
+    assert_eq!(phrases(&ui, id), [(0, 12, Intro), (12, 40, Chorus)]);
+    // A hint explains the strip in the PHRASE tab.
+    ui.click("player1.tab.phrase");
+    assert!(ui.has("player1.phrase.hint") && ui.has("player1.phrase.merge"));
+}

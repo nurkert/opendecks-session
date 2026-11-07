@@ -7,12 +7,12 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, PlateButton, Glyph, Knob, Fader, Toggle, Transport, Jog, Stepper, TipArea } from "controls.slint";
+import { Caps, PlateButton, Glyph, Knob, Fader, Toggle, Transport, Jog, Stepper, TipArea, PopupPlace } from "controls.slint";
 import { DropZone } from "drag.slint";
 import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark, LaneMotion, FxUnitView, PadView } from "structs.slint";
 import { FxPanel, ColorFxSelector, ChoiceList } from "fx.slint";
 import { SamplerPanel } from "sampler.slint";
-import { SamplerPadView, SamplerView } from "structs.slint";
+import { SamplerPadView, SamplerView, DeckTime } from "structs.slint";
 import { WaveLane, VerticalLane } from "wave.slint";
 import { MicControls } from "mic.slint";
 import { RecStrip } from "rec.slint";
@@ -83,6 +83,10 @@ component Readout inherits VerticalLayout {
     // labels sit on the texts).
     in property <string> value-label;
     in property <string> sub-label;
+    // A second small value on the sub line (e.g. the track time beside the
+    // elapsed time), with its own label.
+    in property <string> sub2;
+    in property <string> sub2-label;
     spacing: 0;
     alignment: center;
     Caps { text: root.label; font-size: 10px; horizontal-alignment: root.align; }
@@ -96,13 +100,33 @@ component Readout inherits VerticalLayout {
         color: root.tone; horizontal-alignment: root.align;
         probe := Text { visible: false; text: root.template; font-family: Theme.family; font-size: root.size; font-weight: 600; }
     }
-    if root.sub != "": Text {
+    if root.sub != "" && root.sub2 == "": Text {
         accessible-role: text;
         accessible-label: root.sub-label;
         accessible-value: root.sub;
         text: root.sub;
         font-family: Theme.family; font-size: 11px; font-weight: 500;
         color: Theme.bone-2; horizontal-alignment: root.align;
+    }
+    if root.sub2 != "": HorizontalLayout {
+        alignment: root.align == TextHorizontalAlignment.left ? LayoutAlignment.start : LayoutAlignment.end;
+        spacing: 6px;
+        Text {
+            accessible-role: text;
+            accessible-label: root.sub2-label;
+            accessible-value: root.sub2;
+            text: root.sub2;
+            font-family: Theme.family; font-size: 11px; font-weight: 500;
+            color: Theme.bone-3;
+        }
+        Text {
+            accessible-role: text;
+            accessible-label: root.sub-label;
+            accessible-value: root.sub;
+            text: root.sub;
+            font-family: Theme.family; font-size: 11px; font-weight: 500;
+            color: Theme.bone-2;
+        }
     }
 }
 
@@ -304,8 +328,10 @@ component PadModeBar inherits Rectangle {
         }
     }
     modes := PopupWindow {
-        x: 0; y: -4 * 26px - 6px;
-        ChoiceList {
+        x: PopupPlace.x(root.absolute-position.x, 0, mode-list.width);
+        y: PopupPlace.y(root.absolute-position.y, -mode-list.height - 4px, root.height + 4px, mode-list.height);
+        width: mode-list.width; height: mode-list.height;
+        mode-list := ChoiceList {
             items: PadModes.names; current: PadModes.index(root.deck.pad-mode); columns: 2; cell-w: 104px;
             chosen(i) => { root.mode-set(i); modes.close(); }
         }
@@ -463,6 +489,10 @@ component TempoColumn inherits VerticalLayout {
 
 // Part mute key with its level: click mutes / unmutes, the wheel sets the
 // level (part isolation), the line under it shows the level.
+// One part key. Lit in its colour = audible; a click mutes the part (grey,
+// struck from the audio), the wheel sets its level. While the parts are being
+// separated the keys fill left to right like one progress bar (`fill` 0..1
+// for this key) and do not take clicks.
 component StemKey inherits Rectangle {
     in property <int> deck;
     in property <string> stem;
@@ -471,10 +501,14 @@ component StemKey inherits Rectangle {
     in property <float> level: 1;
     in property <color> tone;
     in property <bool> enabled;
+    // Separation running: this key's share of the progress bar, 0..1.
+    in property <bool> busy;
+    in property <float> fill;
+    in property <length> size: 24px;
+    in property <length> key-width: 64px;
     callback toggle();
     callback set-level(float);
-    width: 64px; height: root.size;
-    in property <length> size: 24px;
+    width: root.key-width; height: root.size;
     TouchArea {
         enabled: root.enabled;
         scroll-event(e) => {
@@ -483,11 +517,20 @@ component StemKey inherits Rectangle {
         }
     }
     Toggle {
-        accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.muted;
+        accessible-role: checkbox; accessible-checkable: true; accessible-checked: !root.muted && root.enabled;
         accessible-label: "deck\{root.deck}.stem.\{root.stem}";
-        size: root.size; width: 64px; label: root.label; on: root.muted; tone: root.tone; enabled: root.enabled;
-        tooltip: @tr("Click: mute / unmute · wheel: level");
+        accessible-description: root.busy ? @tr("separating") : root.muted ? @tr("muted") : @tr("audible");
+        size: root.size; width: root.key-width; label: root.label; on: root.enabled && !root.muted; tone: root.tone; enabled: root.enabled;
+        tooltip: @tr("Lit = audible · click: mute / unmute · wheel: level");
         clicked => { root.toggle(); }
+    }
+    // Separation progress: this key's share, in the part colour.
+    if root.busy: Rectangle {
+        accessible-role: progress-indicator; accessible-label: "deck\{root.deck}.stem.\{root.stem}.progress"; accessible-value: Math.round(root.fill * 100) + " %";
+        x: 1px; y: 1px; height: parent.height - 2px;
+        width: (parent.width - 2px) * clamp(root.fill, 0, 1);
+        background: root.tone.with-alpha(0.32);
+        Rectangle { y: 0; height: 2px; background: root.tone; }
     }
     if root.enabled && root.level > 0.01 && root.level < 0.99: Rectangle {
         accessible-role: slider; accessible-label: "deck\{root.deck}.stem.\{root.stem}.level"; accessible-value: Math.round(root.level * 100) + " %";
@@ -496,23 +539,30 @@ component StemKey inherits Rectangle {
     }
 }
 
-// Part mutes of a deck: VOCAL INST DRUMS BASS, the state caption toward
-// the deck's outer side (MUTE, or the separation progress).
+// The four parts as one progress bar: key `i`'s share of `progress` 0..1.
+global StemFill {
+    public pure function of(progress: float, i: int) -> float { return clamp(progress * 4 - i, 0, 1); }
+}
+
+// Part keys of a deck: VOCAL INST DRUMS BASS, the caption toward the deck's
+// outer side (PARTS; while separating, the progress in percent).
 component StemStrip inherits HorizontalLayout {
     in property <DeckView> deck;
     in property <bool> mirror;
     in property <bool> compact;
     callback stem(string);
     callback stem-level(string, float);
+    property <bool> busy: root.deck.stems-busy;
+    property <string> caption: root.busy ? Math.round(root.deck.split-progress * 100) + "%" : @tr("PARTS");
     spacing: 4px;
-    if root.mirror && !root.compact: Caps { text: root.deck.stems-busy ? root.deck.split-text : "MUTE"; font-size: 10px; vertical-alignment: center; color: root.deck.stems-busy ? Theme.attention : Theme.bone-3; }
+    if root.mirror && !root.compact: Caps { accessible-label: "deck\{root.deck.deck}.stem.caption"; accessible-role: text; accessible-value: self.text; text: root.caption; font-size: 10px; vertical-alignment: center; color: Theme.bone-3; }
     if !root.mirror && !root.compact: Rectangle { horizontal-stretch: 1; }
-    if !root.mirror && !root.compact: Caps { text: root.deck.stems-busy ? root.deck.split-text : "MUTE"; font-size: 10px; vertical-alignment: center; color: root.deck.stems-busy ? Theme.attention : Theme.bone-3; }
-    if root.compact && root.deck.stems-busy: Caps { text: root.deck.split-text; font-size: 10px; vertical-alignment: center; color: Theme.attention; }
-    StemKey { deck: root.deck.deck; stem: "vocal"; label: "VOCAL"; muted: root.deck.mute-vocal; level: root.deck.level-vocal; tone: Theme.w546; enabled: root.deck.stems-available; toggle => { root.stem("vocal"); } set-level(v) => { root.stem-level("vocal", v); } }
-    StemKey { deck: root.deck.deck; stem: "inst"; label: "INST"; muted: root.deck.mute-inst; level: root.deck.level-inst; tone: Theme.w656; enabled: root.deck.stems-available; toggle => { root.stem("inst"); } set-level(v) => { root.stem-level("inst", v); } }
-    StemKey { deck: root.deck.deck; stem: "drums"; label: "DRUMS"; muted: root.deck.mute-drums; level: root.deck.level-drums; tone: Theme.w486; enabled: root.deck.stems-available; toggle => { root.stem("drums"); } set-level(v) => { root.stem-level("drums", v); } }
-    StemKey { deck: root.deck.deck; stem: "bass"; label: "BASS"; muted: root.deck.mute-bass; level: root.deck.level-bass; tone: Theme.w405; enabled: root.deck.stems-available; toggle => { root.stem("bass"); } set-level(v) => { root.stem-level("bass", v); } }
+    if !root.mirror && !root.compact: Caps { accessible-label: "deck\{root.deck.deck}.stem.caption"; accessible-role: text; accessible-value: self.text; text: root.caption; font-size: 10px; vertical-alignment: center; color: Theme.bone-3; }
+    if root.compact && root.busy: Caps { accessible-label: "deck\{root.deck.deck}.stem.caption"; accessible-role: text; accessible-value: self.text; text: root.caption; font-size: 10px; vertical-alignment: center; color: Theme.bone-3; }
+    StemKey { deck: root.deck.deck; stem: "vocal"; label: "VOCAL"; muted: root.deck.mute-vocal; level: root.deck.level-vocal; tone: Theme.w546; enabled: root.deck.stems-available; busy: root.busy; fill: StemFill.of(root.deck.split-progress, 0); toggle => { root.stem("vocal"); } set-level(v) => { root.stem-level("vocal", v); } }
+    StemKey { deck: root.deck.deck; stem: "inst"; label: "INST"; muted: root.deck.mute-inst; level: root.deck.level-inst; tone: Theme.w656; enabled: root.deck.stems-available; busy: root.busy; fill: StemFill.of(root.deck.split-progress, 1); toggle => { root.stem("inst"); } set-level(v) => { root.stem-level("inst", v); } }
+    StemKey { deck: root.deck.deck; stem: "drums"; label: "DRUMS"; muted: root.deck.mute-drums; level: root.deck.level-drums; tone: Theme.w486; enabled: root.deck.stems-available; busy: root.busy; fill: StemFill.of(root.deck.split-progress, 2); toggle => { root.stem("drums"); } set-level(v) => { root.stem-level("drums", v); } }
+    StemKey { deck: root.deck.deck; stem: "bass"; label: "BASS"; muted: root.deck.mute-bass; level: root.deck.level-bass; tone: Theme.w405; enabled: root.deck.stems-available; busy: root.busy; fill: StemFill.of(root.deck.split-progress, 3); toggle => { root.stem("bass"); } set-level(v) => { root.stem-level("bass", v); } }
     if root.mirror && !root.compact: Rectangle { horizontal-stretch: 1; }
 }
 
@@ -592,7 +642,7 @@ component KioskDeck inherits Rectangle {
             VerticalLayout {
                 alignment: center; spacing: 0px;
                 Text { accessible-role: text; accessible-label: "deck\{root.deck.deck}.bpm"; accessible-value: root.deck.bpm; text: root.deck.bpm == "" ? "—" : root.deck.bpm; font-family: Theme.family; font-size: 14px; font-weight: 600; color: root.deck.master ? Theme.attention : Theme.bone; horizontal-alignment: right; }
-                Text { accessible-role: text; accessible-label: "deck\{root.deck.deck}.time-remaining"; accessible-value: root.deck.remaining; text: root.deck.remaining == "" ? "—" : root.deck.remaining; font-family: Theme.family; font-size: 12px; font-weight: 600; color: Theme.bone; horizontal-alignment: right; }
+                Text { accessible-role: text; accessible-label: "deck\{root.deck.deck}.time-remaining"; accessible-value: DeckTime.main(root.deck); text: DeckTime.main(root.deck) == "" ? "—" : DeckTime.main(root.deck); font-family: Theme.family; font-size: 12px; font-weight: 600; color: Theme.bone; horizontal-alignment: right; }
                 Text { accessible-role: text; accessible-label: "deck\{root.deck.deck}.time-elapsed"; accessible-value: root.deck.elapsed; text: root.deck.elapsed; font-family: Theme.family; font-size: 10px; color: Theme.bone-2; horizontal-alignment: right; }
             }
             Toggle {
@@ -634,13 +684,14 @@ component KioskDeck inherits Rectangle {
                     HorizontalLayout { alignment: center; VerticalLayout { alignment: center; PlateButton { tall: true; label: @tr("LOAD SELECTED"); tone: root.tone; clicked => { root.load(); } } } }
                 }
             }
-            for st in [{ id: "vocal", label: "VOC", tone: Theme.w546 }, { id: "inst", label: "INST", tone: Theme.w656 }, { id: "drums", label: "DRM", tone: Theme.w486 }, { id: "bass", label: "BASS", tone: Theme.w405 }]: Toggle {
-                property <bool> muted: st.id == "vocal" ? root.deck.mute-vocal : st.id == "inst" ? root.deck.mute-inst : st.id == "drums" ? root.deck.mute-drums : root.deck.mute-bass;
-                accessible-role: checkbox; accessible-checkable: true; accessible-checked: self.muted;
-                accessible-label: "deck\{root.deck.deck}.stem." + st.id;
-                size: 44px; width: 46px; label: st.label; on: self.muted; tone: st.tone; enabled: root.deck.stems-available;
-                tooltip: @tr("Click: mute / unmute · wheel: level");
-                clicked => { root.stem(st.id); }
+            for st[i] in [{ id: "vocal", label: "VOC", tone: Theme.w546 }, { id: "inst", label: "INST", tone: Theme.w656 }, { id: "drums", label: "DRM", tone: Theme.w486 }, { id: "bass", label: "BASS", tone: Theme.w405 }]: StemKey {
+                deck: root.deck.deck; stem: st.id; label: st.label; tone: st.tone;
+                muted: st.id == "vocal" ? root.deck.mute-vocal : st.id == "inst" ? root.deck.mute-inst : st.id == "drums" ? root.deck.mute-drums : root.deck.mute-bass;
+                level: st.id == "vocal" ? root.deck.level-vocal : st.id == "inst" ? root.deck.level-inst : st.id == "drums" ? root.deck.level-drums : root.deck.level-bass;
+                size: 44px; key-width: 46px; enabled: root.deck.stems-available;
+                busy: root.deck.stems-busy; fill: StemFill.of(root.deck.split-progress, i);
+                toggle => { root.stem(st.id); }
+                set-level(v) => { root.stem-level(st.id, v); }
             }
         }
         // CUE, PLAY, SLIP, Q, MT, the channel's STEM and the platter read-out.
@@ -773,7 +824,7 @@ export component DeckPanel inherits Rectangle {
                 }
             }
             Readout { value-label: "deck\{root.deck.deck}.bpm"; label: "BPM"; template: "000.00"; value: root.deck.bpm; size: root.compact ? 18px : 22px; tone: root.deck.master ? Theme.attention : Theme.bone; }
-            Readout { value-label: "deck\{root.deck.deck}.time-remaining"; sub-label: "deck\{root.deck.deck}.time-elapsed"; label: @tr("REMAIN"); template: "-00:00.0"; value: root.deck.remaining; sub: root.deck.elapsed; size: root.compact ? 18px : 22px; }
+            Readout { value-label: "deck\{root.deck.deck}.time-remaining"; sub-label: "deck\{root.deck.deck}.time-elapsed"; sub2-label: "deck\{root.deck.deck}.time-track"; label: DeckTime.label(); template: "-00:00.0"; value: DeckTime.main(root.deck); sub: root.deck.elapsed; sub2: DeckTime.track(root.deck); size: root.compact ? 18px : 22px; }
             Readout { value-label: "deck\{root.deck.deck}.key"; label: @tr("KEY"); template: "12A"; value: root.deck.key; size: root.compact ? 18px : 22px; }
             // Key sync and key shift (semitones; the value resets). Narrow
             // decks leave them to the Key Shift pad mode and the keyboard.
@@ -914,8 +965,11 @@ export component DeckPanel inherits Rectangle {
                     accessible-role: text;
                     accessible-label: "deck\{root.deck.deck}.platter";
                     accessible-value: root.deck.loaded ? root.deck.bpm : "—";
-                    height: root.ctl-h; min-width: pl.preferred-width + 12px;
+                    // As wide as the longest readout, so loading a track or
+                    // moving the pitch never shifts the row.
+                    height: root.ctl-h; min-width: max(pl.preferred-width, pl-template.preferred-width) + 12px;
                     border-width: 1px; border-color: root.deck.playing ? root.tone : Theme.rule;
+                    pl-template := Text { visible: false; text: "000.00  +00.0%"; font-family: Theme.family; font-size: 11px; font-weight: 600; }
                     pl := Text {
                         text: (root.deck.loaded ? root.deck.bpm : "—") + "  " + root.deck.tempo;
                         font-family: Theme.family; font-size: 11px; font-weight: 600; color: Theme.bone-2;
@@ -1254,6 +1308,8 @@ export component PerformView inherits Rectangle {
     in property <[LaneMotion]> lane-motion;
     callback zoom(int, float);
     callback zoom-reset(int);
+    // Next bar counter mode (click on a lane's counter).
+    callback cycle-counter();
     // Beat FX panel above the waveforms.
     in property <bool> show-fx;
     in property <[FxUnitView]> fx-units;
@@ -1384,6 +1440,7 @@ export component PerformView inherits Rectangle {
             motion: root.lane-motion[d.deck - 1];
             zoom(delta) => { root.zoom(d.deck, delta); }
             zoom-reset => { root.zoom-reset(d.deck); }
+            cycle-counter => { root.cycle-counter(); }
             min-height: root.lane-min;
             preferred-height: PerformLayout.wave-size == 0 ? root.lane-min
                 : (root.tight ? 46px : root.decks.length > 2 ? 50px : 72px) * (PerformLayout.wave-size == 2 ? 2 : 1);

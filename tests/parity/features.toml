@@ -179,6 +179,8 @@ tests = [
   "od-ui::browser::columns::tests::choice_keeps_title_and_known_ids",
   "od-ui::settings::tests::json_round_trip",
   "od-ui::ui_tests::browser::column_menu_chooses_columns",
+  "od-ui::ui_tests::browser::columns_resize_by_dragging_their_edge",
+  "od-ui::ui_tests::browser::explorer_shows_chosen_columns_with_library_data",
 ]
 evidence = ["browser/columns.rs", "ui/table.slint"]
 note = "Header right-click or the columns button opens the column menu (preview, title, artist, album, genre, label, comment, My Tag, colour, BPM, key, time, year, date added, play count, bitrate, rating); the choice is stored in the settings (`browser.columns`); \"Default columns\" resets"
@@ -193,6 +195,7 @@ prio = "P3"
 tests = [
   "od-ui::ui_tests::prepare::artwork_in_info_panel_and_player",
   "od-ui::ui_tests::browser::preview_and_artwork_columns",
+  "od-ui::ui_tests::browser::covers_are_filled_in_from_the_folder",
   "od-import-rekordbox::tests::master_db_import",
 ]
 evidence = ["crates/od-ui/src/browser/mod.rs::artwork_image", "crates/od-ui/src/browser/tracks.rs::list_images", "ui/info.slint"]
@@ -1596,6 +1599,9 @@ scope = "in"
 status = "done"
 tests = [
   "od-ui::ui_tests::features::waveform_zoom_by_wheel",
+  "od-ui::ui_tests::waveform::loop_shows_on_the_waveform",
+  "od-ui::ui_tests::waveform::bar_counter_cycles_its_mode",
+  "od-ui::render::tests::beatgrid_lines_sit_on_the_beats",
 ]
 evidence = ["perform.rs"]
 note = "Mouse wheel over a lane zooms that deck, double-click resets (`decks::zoom_by`); zoom buttons of the zone column are tracked by the view test (`wave.zoom-*`)"

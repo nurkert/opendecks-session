@@ -3,7 +3,7 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, PlateButton, Glyph, TipArea, Knob } from "controls.slint";
+import { Caps, PlateButton, Glyph, TipArea, Knob, PopupPlace } from "controls.slint";
 import { Cdj } from "cdj.slint";
 import { Lighting } from "lighting.slint";
 import { PerformLayout } from "perform.slint";
@@ -361,7 +361,9 @@ export component TopBar inherits Rectangle {
             mk := Text { text: root.mode == "prepare" ? @tr("PREPARE") : root.mode == "lighting" ? @tr("LIGHTING") : @tr("PERFORM"); font-family: Theme.family; font-size: 12px; font-weight: 600; letter-spacing: 1.2px; color: Theme.bone; }
             kmode := TipArea { tooltip: @tr("Work mode"); mouse-cursor: pointer; clicked => { modes.show(); } }
             modes := PopupWindow {
-                x: 0; y: parent.height;
+                x: PopupPlace.x(parent.absolute-position.x, 0, 140px);
+                y: PopupPlace.y(parent.absolute-position.y, parent.height, -3 * 44px, 3 * 44px);
+                width: 140px; height: 3 * 44px;
                 Rectangle {
                     background: Theme.plate; border-width: 1px; border-color: Theme.rule-strong;
                     VerticalLayout {

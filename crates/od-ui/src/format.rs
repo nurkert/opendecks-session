@@ -42,9 +42,22 @@ pub fn beats(b: f64) -> String {
     }
 }
 
-/// Tempo ratio as pitch offset: 1.015 → "+1.5%".
+/// Remaining time at the deck's tempo: what is left of the track divided by
+/// the tempo ratio ("-6:21.3" for 6:49.2 left at +8 %); empty without a track.
+/// A stopped or reversed tempo shows the track time.
+pub fn remaining_at_tempo(duration: f64, position: f64, tempo: f64) -> String {
+    if duration <= 0.0 {
+        return String::new();
+    }
+    let left = (duration - position).max(0.0);
+    let t = if tempo.is_finite() && tempo > 0.05 { tempo } else { 1.0 };
+    format!("-{}", deck_time(left / t))
+}
+
+/// Tempo ratio as pitch offset: 1.015 → "+1.5%", 0.97 → "−3.0%". The minus
+/// is U+2212, as wide as the plus, so the digits stay put when the sign flips.
 pub fn tempo(ratio: f64) -> String {
-    format!("{:+.1}%", (ratio - 1.0) * 100.0)
+    format!("{:+.1}%", (ratio - 1.0) * 100.0).replace('-', "\u{2212}")
 }
 
 /// Bar.beat counter: beat 130 in bar position 3 → "33.3"; empty without grid.
@@ -101,8 +114,12 @@ mod tests {
 
     #[test]
     fn deck_fields() {
+        assert_eq!(remaining_at_tempo(409.2, 0.0, 1.08), format!("-{}", deck_time(409.2 / 1.08)));
+        assert_eq!(remaining_at_tempo(60.0, 30.0, 1.0), "-0:30.0");
+        assert_eq!(remaining_at_tempo(60.0, 30.0, 0.0), "-0:30.0");
+        assert_eq!(remaining_at_tempo(0.0, 0.0, 1.0), "");
         assert_eq!(tempo(1.0), "+0.0%");
-        assert_eq!(tempo(0.97), "-3.0%");
+        assert_eq!(tempo(0.97), "\u{2212}3.0%");
         assert_eq!(bar_beat(130.0, 3), "33.3");
         assert_eq!(bar_beat(130.0, 0), "");
         assert_eq!(bpm(Some(128.0), 1), "128.0");

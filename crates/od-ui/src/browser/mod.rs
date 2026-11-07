@@ -13,7 +13,7 @@ pub(crate) use columns::sanitize as sanitize_columns;
 #[cfg(test)]
 pub(crate) use sources::load_tag_list;
 pub(crate) use tracks::{
-    SortFields, default_descending, key_distance, list_images, poll_artworks, refresh_tracks,
+    SortFields, art_px, art_sender, default_descending, key_distance, list_images, poll_artworks, refresh_tracks,
     same_row, sort_key_known, sort_rows,
 };
 pub(crate) use tree::{refresh_tree, stick_root_id};
@@ -906,7 +906,22 @@ fn wire_columns(app: &Rc<App>) {
     ui.on_move_column(handler!(app, |a, id: SharedString, to: i32| {
         columns_changed(&a, &|c| columns::move_to(c, &id, to.max(0) as usize))
     }));
-    ui.on_reset_columns(handler!(app, |a| columns_changed(&a, &|_| Vec::new())));
+    ui.on_reset_columns(handler!(app, |a| {
+        a.state.borrow_mut().change_settings(|s| s.browser.widths.clear());
+        columns_changed(&a, &|_| Vec::new())
+    }));
+    // Drag on a header cell's right edge: the new width (0 = back to the
+    // default, double-click).
+    ui.on_resize_column(handler!(app, |a, id: SharedString, w: f32| {
+        a.state.borrow_mut().change_settings(|s| {
+            if w > 0.0 {
+                s.browser.widths.insert(id.to_string(), w.clamp(24.0, 900.0).round());
+            } else {
+                s.browser.widths.remove(id.as_str());
+            }
+        });
+        refresh_tracks(&a);
+    }));
     ui.on_sort_then(handler!(app, |a, col: SharedString| {
         let primary = a.state.borrow().browser.sort.clone();
         let next = columns::shift_sort(

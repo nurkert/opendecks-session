@@ -3,7 +3,7 @@
 Every user action of OpenDecks Session is a command in one registry
 (`crates/od-ui/src/keymap.rs`) with an id, a default binding per platform
 and optional user bindings (SPEC §12.2). The registry currently holds
-**251 actions**; every one has a default binding, and no two defaults
+**253 actions**; every one has a default binding, and no two defaults
 collide where they apply (checked by tests, together with this table).
 
 ## Changing bindings
@@ -170,6 +170,8 @@ Perform). Text fields keep the keys they type.
 | Lock / unlock the beatgrid | `player.grid.lock` | Prepare | `L` | `L` |
 | Tap the tempo | `player.grid.tap` | Prepare | `B` | `B` |
 | Cut the phrase at the cursor | `player.phrase.cut` | Prepare | `⇧X` | `Shift+X` |
+| Merge the phrase at the cursor with the next | `player.phrase.merge` | Prepare | `⇧J` | `Shift+J` |
+| Phrase type picker for the phrase at the cursor | `player.phrase.type` | Prepare | `⇧P` | `Shift+P` |
 | Move the nearest phrase boundary to the cursor | `player.phrase.boundary` | Prepare | `⇧B` | `Shift+B` |
 | Clear the phrases | `player.phrase.clear` | Prepare | `⇧⌘⌫` | `Ctrl+Shift+Backspace` |
 | Edit region start at the cursor | `player.edit.in` | Prepare | `⇧I` | `Shift+I` |

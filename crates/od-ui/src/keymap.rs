@@ -1130,6 +1130,22 @@ fn build() -> Vec<Action> {
         &["Shift+X"],
     );
     b.add(
+        "player.phrase.merge",
+        "Merge the phrase at the cursor with the next",
+        None,
+        g,
+        Prepare,
+        &["Shift+J"],
+    );
+    b.add(
+        "player.phrase.type",
+        "Phrase type picker for the phrase at the cursor",
+        None,
+        g,
+        Prepare,
+        &["Shift+P"],
+    );
+    b.add(
         "player.phrase.boundary",
         "Move the nearest phrase boundary to the cursor",
         None,

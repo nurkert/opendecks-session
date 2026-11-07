@@ -155,6 +155,7 @@ impl App {
         let _ = app.state.borrow_mut().lib.check_missing();
         shell::restore_view(&app);
         app.refresh_all();
+        crate::covers::spawn_backfill(&app);
         let weak = Rc::downgrade(&app);
         app.tick_timer.start(
             slint::TimerMode::Repeated,

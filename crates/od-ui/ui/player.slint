@@ -5,8 +5,9 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, PlateButton, Toggle, Transport, Splitter, Field, Stepper, Glyph, TipArea } from "controls.slint";
-import { Pad, PhraseBar } from "perform.slint";
+import { Caps, PlateButton, Toggle, Transport, Splitter, Field, Stepper, Glyph, TipArea, PopupPlace } from "controls.slint";
+import { Pad } from "perform.slint";
+import { ChoiceList } from "fx.slint";
 import { DropZone } from "drag.slint";
 import { CueMark, HotCueSlot, PhraseMark } from "structs.slint";
 
@@ -71,10 +72,132 @@ export global PhraseEdit {
     in property <[string]> kinds;
     // The phrase at the cursor (its label; "" = none).
     in property <string> current;
+    // Counts up when the type picker of phrase `picker-index` should open
+    // (the key: the phrase at the cursor).
+    in-out property <int> picker-request;
+    in-out property <int> picker-index: -1;
     callback kind(int);
     callback cut();
+    callback merge();
     callback boundary();
     callback clear();
+    // On the phrase strip (positions as fractions of the track): the phrase
+    // at `pos` takes kind `i`; it joins the next one; the edge at `from`
+    // moves to `to` (snapped to a bar).
+    callback kind-at(float, int);
+    callback merge-at(float);
+    callback move-edge(float, float);
+    // The bar an edge dragged to `pos` lands on.
+    pure callback snap(float) -> float;
+}
+
+// The phrases of the Prepare player, editable in place: a click on a phrase
+// opens its type picker beside it (with MERGE WITH NEXT), its right edge
+// drags to another bar. Empty with a hint while the track has none.
+component PhraseStrip inherits Rectangle {
+    in property <[PhraseMark]> phrases;
+    in property <bool> can-edit;
+    in property <float> cursor;
+    // The phrase whose picker is open, and where.
+    property <int> picked: -1;
+    property <float> picked-pos;
+    // An edge being dragged: its index and where it would land.
+    property <int> dragging: -1;
+    property <float> guide;
+    // The key opens the picker of the phrase at the cursor.
+    property <int> request: PhraseEdit.picker-request;
+    changed request => { root.open(PhraseEdit.picker-index); }
+    function open(i: int) {
+        if (!root.can-edit || i < 0 || i >= root.phrases.length) { return; }
+        root.picked = i;
+        root.picked-pos = (root.phrases[i].pos + root.phrases[i].end) / 2;
+        picker.show();
+    }
+    accessible-role: list;
+    accessible-label: "player1.phrases";
+    height: 22px;
+    background: Theme.ground;
+    if root.phrases.length == 0: Text {
+        x: 8px; height: parent.height;
+        text: root.can-edit ? @tr("No phrases — analyse the track, or pick a type in the PHRASE tab") : "";
+        font-family: Theme.family; font-size: 10px; color: Theme.bone-3; vertical-alignment: center;
+    }
+    for p[i] in root.phrases: Rectangle {
+        accessible-role: button;
+        accessible-label: "player1.phrase.block\{i}";
+        accessible-value: p.label;
+        x: parent.width * p.pos;
+        width: max(1px, parent.width * (p.end - p.pos) - 1px);
+        background: p.tone.with-alpha(block.has-hover && root.can-edit ? 0.5 : 0.32);
+        Rectangle { y: 0; height: 2px; background: p.tone; }
+        Text {
+            x: 4px; width: parent.width - 6px; height: parent.height;
+            text: parent.width > 30px ? p.label : "";
+            font-family: Theme.family; font-size: 9px; font-weight: 600; letter-spacing: 0.8px;
+            color: Theme.bone; vertical-alignment: center; overflow: clip;
+        }
+        block := TipArea {
+            enabled: root.can-edit;
+            mouse-cursor: pointer;
+            tooltip: @tr("Click: phrase type · drag an edge to move it (snaps to bars) · Shift+X split at the cursor · Shift+J merge");
+            clicked => { root.open(i); }
+        }
+    }
+    // Edges: the end of every phrase but the last, wide enough to grab.
+    for p[i] in root.phrases: Rectangle {
+        visible: i + 1 < root.phrases.length && root.can-edit;
+        accessible-role: slider;
+        accessible-label: "player1.phrase.edge\{i}";
+        accessible-value: Math.round(p.end * 1000) / 10 + " %";
+        x: parent.width * p.end - 5px; width: 10px;
+        Rectangle {
+            x: 4px; width: 2px;
+            background: edge.has-hover || root.dragging == i ? Theme.bone : transparent;
+        }
+        edge := TipArea {
+            mouse-cursor: ew-resize;
+            tooltip: @tr("Drag to move the boundary (snaps to bars)");
+            moved => {
+                if (self.pressed) {
+                    root.dragging = i;
+                    root.guide = PhraseEdit.snap(clamp((self.absolute-position.x + self.mouse-x - root.absolute-position.x) / root.width, 0, 1));
+                }
+            }
+            pointer-event(ev) => {
+                if (ev.kind == PointerEventKind.up && root.dragging == i) {
+                    PhraseEdit.move-edge(p.end, root.guide);
+                    root.dragging = -1;
+                }
+            }
+        }
+    }
+    // Where the dragged edge lands.
+    if root.dragging >= 0: Rectangle {
+        accessible-role: text; accessible-label: "player1.phrase.guide"; accessible-value: Math.round(root.guide * 1000) / 10 + " %";
+        x: parent.width * root.guide - 1px; width: 2px;
+        background: Theme.attention;
+    }
+    picker := PopupWindow {
+        property <length> w: kinds-list.width;
+        property <length> h: kinds-list.height + 30px;
+        x: PopupPlace.x(root.absolute-position.x, root.width * root.picked-pos - self.w / 2, self.w);
+        y: PopupPlace.y(root.absolute-position.y, root.height + 2px, -self.h - 2px, self.h);
+        width: self.w; height: self.h;
+        VerticalLayout {
+            kinds-list := ChoiceList {
+                accessible-role: list; accessible-label: "player1.phrase.picker";
+                items: PhraseEdit.kinds; columns: 2; cell-w: 92px;
+                current: -1;
+                chosen(k) => { PhraseEdit.kind-at(root.picked-pos, k); picker.close(); }
+            }
+            PlateButton {
+                accessible-role: button; accessible-label: "player1.phrase.merge-next";
+                compact: true; height: 30px; label: @tr("MERGE WITH NEXT"); glyph: "plus";
+                enabled: root.picked >= 0 && root.picked + 1 < root.phrases.length;
+                clicked => { PhraseEdit.merge-at(root.picked-pos); picker.close(); }
+            }
+        }
+    }
 }
 
 // Edit mode (EDIT tab): a region rendered into a new file.
@@ -270,7 +393,7 @@ export component PreparePlayer inherits Rectangle {
                     }
                 }
             }
-            PhraseBar { phrases: root.has-track ? root.phrases : []; }
+            PhraseStrip { phrases: root.has-track ? root.phrases : []; can-edit: root.has-track && !root.read-only; cursor: root.cursor; }
             HLine { tone: Theme.rule; }
             // Zoom of the enlarged waveform: in, reset, out, and the span shown.
             HorizontalLayout {
@@ -420,8 +543,14 @@ export component PreparePlayer inherits Rectangle {
                         }
                         Rectangle { width: 8px; }
                         Toggle { accessible-role: button; accessible-label: "player1.phrase.cut"; label: @tr("CUT"); command: "player.phrase.cut"; tooltip: @tr("Split the phrase at the cursor (on the nearest bar)"); enabled: parent.can-edit; clicked => { PhraseEdit.cut(); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.phrase.merge"; label: @tr("MERGE"); command: "player.phrase.merge"; tooltip: @tr("Join the phrase at the cursor with the next one"); enabled: parent.can-edit; clicked => { PhraseEdit.merge(); } }
                         Toggle { accessible-role: button; accessible-label: "player1.phrase.boundary"; label: @tr("BOUNDARY TO CURSOR"); command: "player.phrase.boundary"; tooltip: @tr("Move the nearest phrase boundary to the cursor (on the nearest bar)"); enabled: parent.can-edit; clicked => { PhraseEdit.boundary(); } }
-                        Rectangle { horizontal-stretch: 1; }
+                        Caps {
+                            accessible-role: text; accessible-label: "player1.phrase.hint"; accessible-value: self.text;
+                            horizontal-stretch: 1; min-width: 0;
+                            text: @tr("OR ON THE STRIP: CLICK A PHRASE FOR ITS TYPE, DRAG AN EDGE");
+                            font-size: 9px; vertical-alignment: center; horizontal-alignment: center; overflow: elide;
+                        }
                         Toggle { accessible-role: button; accessible-label: "player1.phrase.clear"; label: @tr("CLEAR"); command: "player.phrase.clear"; tone: Theme.fault; tooltip: @tr("Remove all phrases of this track"); enabled: parent.can-edit; clicked => { PhraseEdit.clear(); } }
                     }
                 }

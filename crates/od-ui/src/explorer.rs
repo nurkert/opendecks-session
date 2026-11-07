@@ -546,13 +546,14 @@ pub(crate) fn file_rows(
     notation: od_core::KeyNotation,
     loaded: &[(TrackId, usize)],
     images: impl Fn(TrackId) -> (slint::Image, slint::Image),
+    record: impl Fn(TrackId) -> Option<od_library::TrackRecord>,
 ) -> Vec<TrackRow> {
     files
         .iter()
         .enumerate()
         .map(|(i, f)| {
             let (preview, artwork) = f.track.map(&images).unwrap_or_default();
-            TrackRow {
+            let row = TrackRow {
                 preview,
                 artwork,
                 id: f.track.map(|t| t.0 as i32).unwrap_or(-1 - i as i32),
@@ -576,6 +577,34 @@ pub(crate) fn file_rows(
                     .map(|(_, d)| *d as i32 + 1)
                     .unwrap_or(0),
                 ..Default::default()
+            };
+            // A file already in the collection shows what the library
+            // knows about it (rating, genre, colour, …) in any column.
+            match f.track.and_then(&record) {
+                Some(t) => TrackRow {
+                    album: t.tags.album.into(),
+                    genre: t.tags.genre.into(),
+                    rating: t.tags.rating as i32,
+                    tag_color: t
+                        .tags
+                        .color
+                        .map(|c| slint::Color::from_rgb_u8(c.r, c.g, c.b))
+                        .unwrap_or(slint::Color::from_argb_u8(0, 0, 0, 0)),
+                    label: t.tags.label.into(),
+                    comment: t.tags.comment.into(),
+                    year: t.tags.year.map(|y| y.to_string()).unwrap_or_default().into(),
+                    date_added: t.date_added.get(..10).unwrap_or(&t.date_added).into(),
+                    plays: if t.play_count > 0 { t.play_count.to_string() } else { String::new() }.into(),
+                    bitrate: t
+                        .bit_rate
+                        .filter(|b| *b > 0)
+                        .map(|b| format!("{}k", (b + 500) / 1000))
+                        .unwrap_or_default()
+                        .into(),
+                    missing: t.missing,
+                    ..row
+                },
+                None => row,
             }
         })
         .collect()
@@ -630,6 +659,7 @@ pub(crate) fn refresh_files(app: &App) {
         st.settings.key_notation(),
         &loaded,
         images,
+        |id| st.lib.track(id).ok(),
     );
     app.browser.tracks.sync(rows, browser::same_row);
     let total: f64 = ex.files.iter().map(|f| f.duration).sum();
@@ -657,7 +687,7 @@ pub(crate) fn refresh_files(app: &App) {
 // ── Commands ────────────────────────────────────────────────────────────
 
 /// Shows `dir`'s audio files in the track table.
-fn open_folder(app: &App, dir: PathBuf) {
+pub(crate) fn open_folder(app: &App, dir: PathBuf) {
     let (generation, untagged) = {
         let mut st = app.state.borrow_mut();
         let paths = list_files(&dir, st.explorer.recursive);
@@ -1375,6 +1405,7 @@ mod tests {
             od_core::KeyNotation::default(),
             &[],
             |_| Default::default(),
+            |_| None,
         );
         assert_eq!(rows[0].bpm, "130.0");
         assert!(rows[1].selected);

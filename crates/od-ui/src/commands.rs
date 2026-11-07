@@ -206,6 +206,8 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "player.analyse" => ui.invoke_analyse_selected(),
         "player.grid.tap" => player::tap(app),
         "player.phrase.cut" => crate::phrase_edit::edit(app, crate::phrase_edit::Op::Cut),
+        "player.phrase.merge" => crate::phrase_edit::edit(app, crate::phrase_edit::Op::Merge),
+        "player.phrase.type" => crate::phrase_edit::open_picker(app),
         "player.phrase.boundary" => crate::phrase_edit::edit(app, crate::phrase_edit::Op::Boundary),
         "player.phrase.clear" => crate::phrase_edit::edit(app, crate::phrase_edit::Op::Clear),
         "player.edit.in" => crate::track_edit::mark(app, false),

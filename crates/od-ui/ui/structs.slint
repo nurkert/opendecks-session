@@ -246,12 +246,19 @@ export struct DeckView {
     tempo: string,
     elapsed: string,
     remaining: string,
+    // Remaining time at the current tempo (track time / tempo).
+    remaining-real: string,
     progress: float,
     playing: bool,
     master: bool,
     sync: bool,
     keylock: bool,
     looping: bool,
+    // Loop in / out in seconds (equal = no loop; a loop may start before 0).
+    loop-in: float,
+    loop-out: float,
+    // Bar counter mode on the waveform: "to-phrase", "to-memory-cue", "up".
+    counter-mode: string,
     loop-beats: string,
     slip: bool,
     level: float,
@@ -279,8 +286,9 @@ export struct DeckView {
     // Stems (part mute): true = muted.
     stems-available: bool,
     stems-busy: bool,
-    // Separation progress, e.g. "SPLIT 42%".
+    // Separation progress, e.g. "SPLIT 42%", and as a fraction 0..1.
     split-text: string,
+    split-progress: float,
     mute-vocal: bool,
     mute-inst: bool,
     mute-drums: bool,
@@ -401,4 +409,14 @@ export struct SamplerView {
     seq-recording: bool,
     // Step the sequencer plays (0..15), -1 when stopped.
     step: int,
+}
+
+// Remaining time on the decks (Preferences › View › Remaining time): the
+// time left in the file ("track"), the real time left at the deck's tempo
+// ("tempo"), or the real time with the track time small beside it ("both").
+export global DeckTime {
+    in-out property <string> mode: "tempo";
+    public pure function main(d: DeckView) -> string { return root.mode == "track" ? d.remaining : d.remaining-real; }
+    public pure function track(d: DeckView) -> string { return root.mode == "both" && d.remaining != d.remaining-real ? d.remaining : ""; }
+    public pure function label() -> string { return root.mode == "track" ? @tr("REMAIN") : @tr("REAL TIME"); }
 }

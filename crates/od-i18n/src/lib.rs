@@ -878,6 +878,12 @@ const DE: &[(&str, &str)] = &[
         "Sub-Browser ein- / ausblenden",
     ),
     ("Cut the phrase at the cursor", "Phrase am Cursor teilen"),
+    ("Merge the phrase at the cursor with the next", "Phrase am Cursor mit der nächsten verbinden"),
+    ("Phrase type picker for the phrase at the cursor", "Phrasentyp der Phrase am Cursor wählen"),
+    ("Phrases merged", "Phrasen verbunden"),
+    ("No phrase follows to merge with", "Keine folgende Phrase zum Verbinden"),
+    ("Phrase boundary moved", "Phrasengrenze verschoben"),
+    ("No phrase at the cursor", "Keine Phrase am Cursor"),
     (
         "Move the nearest phrase boundary to the cursor",
         "Nächste Phrasengrenze an den Cursor verschieben",

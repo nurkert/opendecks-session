@@ -164,7 +164,8 @@ fn waveform_zone_lanes_per_deck() {
     assert_eq!(lanes(&ui), 4);
 }
 
-/// Wheel over a lane zooms that deck's waveform; double-click resets.
+/// Wheel over a lane zooms the waveforms, all lanes alike; double-click
+/// resets.
 #[test]
 fn waveform_zoom_by_wheel() {
     let ui = Ui::open((1440, 900));
@@ -173,14 +174,14 @@ fn waveform_zoom_by_wheel() {
     ui.scroll("wave.lane1", 120.0);
     let z1 = ui.app.decks.borrow().zoom[0];
     assert!((z1 - z0).abs() > 1e-6, "zoom changed: {z0} → {z1}");
-    assert_eq!(ui.app.decks.borrow().zoom[1], z0, "deck 2 untouched");
+    assert_eq!(ui.app.decks.borrow().zoom[1], z1, "deck 2 follows: one scale for all lanes");
     ui.scroll("wave.lane1", -240.0);
     assert!(
         (ui.app.decks.borrow().zoom[0] - z1).abs() > 1e-6,
         "zoom changes back the other way"
     );
     ui.double_click("wave.lane1");
-    assert_eq!(ui.app.decks.borrow().zoom[0], 1.0, "double-click resets");
+    assert_eq!(ui.app.decks.borrow().zoom, [1.0; crate::decks::DECKS], "double-click resets all lanes");
 }
 
 /// Splitters: dragging changes the pane size, it persists across a

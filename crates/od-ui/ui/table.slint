@@ -14,6 +14,17 @@ export global Columns {
     out property <length> state: 24px;
 }
 
+// The column whose right edge is being dragged and its live width: header
+// and rows follow it before the width is stored on release.
+global ColumnResize {
+    in-out property <string> id;
+    in-out property <length> width;
+    // Width of a column while (or as) shown: the live drag width, else its own.
+    public pure function of(c: ColumnView) -> length {
+        return c.id == self.id ? self.width : c.width;
+    }
+}
+
 // A header cell being dragged to a new place (column reorder).
 global ColumnDrag {
     in-out property <string> id;
@@ -29,6 +40,8 @@ component HeaderCell inherits Rectangle {
     callback sort(string, bool);
     // Dropped column `id` on this cell's place.
     callback moved-to(string, int);
+    // Dragged the right edge to a new width (0 = back to the default).
+    callback resized(string, float);
     // Right-click: open the column menu at (x, y) in window coordinates.
     callback menu(length, length);
     property <bool> over: ColumnDrag.id != ""
@@ -96,6 +109,35 @@ component HeaderCell inherits Rectangle {
             }
         }
     }
+    // Right edge: drag to resize, double-click for the default width. The
+    // grip reaches into the gap to the next column.
+    grip := TouchArea {
+        accessible-role: none;
+        x: parent.width - 4px; width: 10px;
+        mouse-cursor: col-resize;
+        property <length> start;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.down && ev.button == PointerEventButton.left) {
+                self.start = root.width;
+                ColumnResize.id = root.column.id;
+                ColumnResize.width = root.width;
+            }
+            if (ev.kind == PointerEventKind.up && ev.button == PointerEventButton.left && ColumnResize.id == root.column.id) {
+                // A plain click (or the first of a double-click) stores nothing.
+                if (abs(ColumnResize.width - self.start) >= 1px) {
+                    root.resized(root.column.id, ColumnResize.width / 1px);
+                }
+                ColumnResize.id = "";
+            }
+        }
+        moved => {
+            if (self.pressed) {
+                ColumnResize.width = max(24px, self.start + self.mouse-x - self.pressed-x);
+            }
+        }
+        double-clicked => { root.resized(root.column.id, 0); }
+    }
+    if grip.has-hover || ColumnResize.id == root.column.id: Rectangle { x: parent.width + 5px; width: 1px; background: Theme.bone-3; }
 }
 
 // Text size of the track table (Preferences > View > Browser); the row
@@ -284,10 +326,10 @@ component TrackLine inherits Rectangle {
             font-size: 12px;
         }
         for c in root.columns: Rectangle {
-            min-width: c.width > 0 ? c.width : 0px;
-            max-width: c.width > 0 ? c.width : 100000px;
-            preferred-width: c.width;
-            horizontal-stretch: c.width > 0 ? 0 : c.stretch;
+            min-width: ColumnResize.of(c) > 0 ? ColumnResize.of(c) : 0px;
+            max-width: ColumnResize.of(c) > 0 ? ColumnResize.of(c) : 100000px;
+            preferred-width: ColumnResize.of(c);
+            horizontal-stretch: ColumnResize.of(c) > 0 ? 0 : c.stretch;
             if c.id == "artwork": Rectangle {
                 x: 0; y: (parent.height - 22px) / 2; width: 22px; height: 22px;
                 border-radius: 2px;
@@ -372,6 +414,7 @@ export component TrackTable inherits Rectangle {
     callback sort-then(string);
     callback toggle-column(string);
     callback move-column(string, int);
+    callback resize-column(string, float);
     callback reset-columns();
     callback toggle-filter();
     callback filter-edit(string, string);
@@ -414,14 +457,15 @@ export component TrackTable inherits Rectangle {
                 }
                 for c[i] in root.columns: HeaderCell {
                     accessible-label: "browser.header.\{c.id}"; accessible-role: button;
-                    min-width: c.width > 0 ? c.width : 0px;
-                    max-width: c.width > 0 ? c.width : 100000px;
-                    preferred-width: c.width;
-                    horizontal-stretch: c.width > 0 ? 0 : c.stretch;
+                    min-width: ColumnResize.of(c) > 0 ? ColumnResize.of(c) : 0px;
+                    max-width: ColumnResize.of(c) > 0 ? ColumnResize.of(c) : 100000px;
+                    preferred-width: ColumnResize.of(c);
+                    horizontal-stretch: ColumnResize.of(c) > 0 ? 0 : c.stretch;
                     column: c;
                     index: i;
                     sort(s, shift) => { if (shift) { root.sort-then(s); } else { root.sort(s); } }
                     moved-to(id, to) => { root.move-column(id, to); }
+                    resized(id, w) => { root.resize-column(id, w); }
                     menu(x, y) => { column-menu.show({ x: x - header.absolute-position.x, y: y - header.absolute-position.y }); }
                 }
                 // Attribute column: the analysis / file state of each row.

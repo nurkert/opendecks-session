@@ -865,6 +865,12 @@ fn request_stems(app: &App, track: TrackId, src: &TrackSource) {
 #[cfg(not(feature = "separation"))]
 fn request_stems(_app: &App, _track: TrackId, _src: &TrackSource) {}
 
+/// Separation of `track` is `fraction` (0..1) done: the decks holding it
+/// fill their part keys that far.
+pub(crate) fn set_stem_progress(app: &App, track: TrackId, fraction: f32) {
+    app.decks.borrow_mut().stem_progress.insert(track, fraction);
+}
+
 /// Separation events → progress, status and in-place stem swaps.
 #[cfg(feature = "separation")]
 pub(crate) fn poll_stems(app: &App) {
@@ -885,9 +891,7 @@ pub(crate) fn poll_stems(app: &App) {
             StemEvent::Started { track } => {
                 app.decks.borrow_mut().stem_progress.insert(track, 0.0);
             }
-            StemEvent::Progress { track, fraction } => {
-                app.decks.borrow_mut().stem_progress.insert(track, fraction);
-            }
+            StemEvent::Progress { track, fraction } => set_stem_progress(app, track, fraction),
             StemEvent::Done { track, .. } | StemEvent::AlreadyCached { track, .. } => {
                 stems_ready(app, track)
             }
@@ -952,12 +956,17 @@ pub(crate) struct DeckFields {
     pub tempo: SharedString,
     pub elapsed: SharedString,
     pub remaining: SharedString,
+    /// Remaining time at the current tempo (Preferences › View › deck time).
+    pub remaining_real: SharedString,
     pub progress: f32,
     pub playing: bool,
     pub master: bool,
     pub sync: bool,
     pub keylock: bool,
     pub looping: bool,
+    pub loop_in: f32,
+    pub loop_out: f32,
+    pub counter_mode: SharedString,
     pub loop_beats: SharedString,
     pub slip: bool,
     pub level: f32,
@@ -968,6 +977,8 @@ pub(crate) struct DeckFields {
     pub stems_available: bool,
     pub stems_busy: bool,
     pub split_text: SharedString,
+    /// Separation progress 0..1 while `stems_busy`.
+    pub split_progress: f32,
     pub mute_vocal: bool,
     pub mute_inst: bool,
     pub mute_drums: bool,
@@ -1085,6 +1096,7 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
             String::new()
         }
         .into(),
+        remaining_real: format::remaining_at_tempo(s.duration, s.position, s.tempo).into(),
         progress: if s.duration > 0.0 {
             (s.position / s.duration) as f32
         } else {
@@ -1095,6 +1107,10 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         sync: s.sync,
         keylock: s.keylock,
         looping: s.loop_state.active,
+        // A loop that is set (or an armed active loop) shows on the waveform.
+        loop_in: s.loop_state.start.zip(s.loop_state.end).or(s.active_loop).map(|(a, _)| a as f32).unwrap_or(0.0),
+        loop_out: s.loop_state.start.zip(s.loop_state.end).or(s.active_loop).map(|(_, b)| b as f32).unwrap_or(0.0),
+        counter_mode: i.bar_counter.into(),
         loop_beats: s
             .loop_state
             .beats
@@ -1110,6 +1126,7 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         stems_available: s.stems_available,
         stems_busy: i.stems_busy.is_some(),
         split_text: split_text(i.stems_busy).into(),
+        split_progress: i.stems_busy.unwrap_or(0.0).clamp(0.0, 1.0),
         mute_vocal: muted(od_engine::Stem::Vocals),
         mute_inst: muted(od_engine::Stem::Inst),
         mute_drums: muted(od_engine::Stem::Drums),
@@ -1227,12 +1244,16 @@ impl Lane {
             tempo: f.tempo,
             elapsed: f.elapsed,
             remaining: f.remaining,
+            remaining_real: f.remaining_real,
             progress: f.progress,
             playing: f.playing,
             master: f.master,
             sync: f.sync,
             keylock: f.keylock,
             looping: f.looping,
+            loop_in: f.loop_in,
+            loop_out: f.loop_out,
+            counter_mode: f.counter_mode,
             loop_beats: f.loop_beats,
             slip: f.slip,
             level: f.level,
@@ -1251,6 +1272,7 @@ impl Lane {
             stems_available: f.stems_available,
             stems_busy: f.stems_busy,
             split_text: f.split_text,
+            split_progress: f.split_progress,
             mute_vocal: f.mute_vocal,
             mute_inst: f.mute_inst,
             mute_drums: f.mute_drums,
@@ -1987,15 +2009,26 @@ pub(crate) fn wire(app: &Rc<App>) {
     }
     let ui = &app.ui;
     ui.set_lane_motion(ModelRc::from(app.decks.borrow().motion.clone()));
+    // One zoom for every lane: beats keep the same spacing on all decks, so
+    // lanes can be compared at a glance.
     ui.on_deck_zoom(handler!(app, |a, d: i32, delta: f32| {
         let i = (d as usize).saturating_sub(1).min(DECKS - 1);
         let mut decks = a.decks.borrow_mut();
-        decks.zoom[i] = zoom_by(decks.zoom[i], delta as f64);
+        let zoom = zoom_by(decks.zoom[i], delta as f64);
+        decks.zoom = [zoom; DECKS];
     }));
-    ui.on_deck_zoom_reset(handler!(app, |a, d: i32| {
-        let i = (d as usize).saturating_sub(1).min(DECKS - 1);
+    // The lanes' bar counter: to the phrase end → to the next memory cue →
+    // bars counted up (also in Preferences › View).
+    ui.on_cycle_bar_counter(handler!(app, |a| {
+        let modes = crate::settings::BAR_COUNTERS;
+        let now = a.state.borrow().settings.view.bar_counter.clone();
+        let next = modes[(modes.iter().position(|m| *m == now).unwrap_or(0) + 1) % modes.len()];
+        a.state.borrow_mut().change_settings(|s| s.view.bar_counter = next.to_string());
+        crate::preferences::refresh(&a);
+    }));
+    ui.on_deck_zoom_reset(handler!(app, |a, _d: i32| {
         let zoom = crate::preferences::default_deck_zoom(&a.state.borrow().settings);
-        a.decks.borrow_mut().zoom[i] = zoom;
+        a.decks.borrow_mut().zoom = [zoom; DECKS];
     }));
     // Deck callbacks carry 1-based deck numbers.
     let idx = |d: i32| (d as usize).saturating_sub(1).min(DECKS - 1);

@@ -174,6 +174,7 @@ pub(crate) fn library_action(app: &App, id: &str) {
         _ => return,
     };
     app.status(message);
+    crate::covers::spawn_backfill(app);
 }
 
 /// Writes the library as rekordbox-compatible XML.

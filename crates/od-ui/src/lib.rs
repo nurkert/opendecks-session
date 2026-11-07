@@ -20,6 +20,7 @@ mod browser;
 mod cdj;
 mod commands;
 mod controller;
+mod covers;
 mod decks;
 mod devices;
 mod engine;

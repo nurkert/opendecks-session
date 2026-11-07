@@ -583,3 +583,145 @@ fn closing_bottom_panels_restores_the_full_perform_layout() {
     assert_eq!(w.get_perform_crowd(), 0);
     assert!(ui.has("wave.lane1") && Rect::of(&ui.get("wave.lane1")).h >= 36.0);
 }
+
+/// Part keys: while the parts are separated they fill left to right like
+/// one progress bar with a small percentage; once ready they are lit
+/// (audible), and a click mutes a part (grey).
+#[test]
+fn stem_keys_fill_while_separating_then_lit_means_audible() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let (id, title) = ui.fx.tracks[0].clone();
+    crate::decks::load_track(&ui.app, 0, id, None);
+    assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.title == title.as_str())));
+    // 60 % separated: VOCAL and INST full, DRUMS 40 %, BASS empty.
+    crate::decks::set_stem_progress(&ui.app, id, 0.6);
+    assert!(ui.wait_until(5.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.stems_busy && (d.split_progress - 0.6).abs() < 1e-3)));
+    ui.pump(50);
+    assert_eq!(ui.value("deck1.stem.vocal.progress"), "100 %");
+    assert_eq!(ui.value("deck1.stem.inst.progress"), "100 %");
+    assert_eq!(ui.value("deck1.stem.drums.progress"), "40 %");
+    assert_eq!(ui.value("deck1.stem.bass.progress"), "0 %");
+    assert_eq!(ui.value("deck1.stem.caption"), "60%");
+    let vocal = Rect::of(&ui.get("deck1.stem.vocal"));
+    let fill = Rect::of(&ui.get("deck1.stem.drums.progress"));
+    let drums = Rect::of(&ui.get("deck1.stem.drums"));
+    assert!((fill.w - (drums.w - 2.0) * 0.4).abs() < 1.0, "DRUMS filled to 40 %: {} of {}", fill.w, drums.w);
+    assert!(ui.get("deck1.stem.vocal").accessible_checked() != Some(true), "not playable while separating");
+    // Separated: the keys are lit (audible), no progress left.
+    let track = ui.fx.lib().track(id).unwrap();
+    let audio = od_decode::decode(&track.path, od_decode::Layout::Stereo).unwrap();
+    let n = audio.samples.len();
+    let stems = od_stems::Stems { sample_rate: audio.sample_rate, vocals: audio.samples, drums: vec![0.0; n], bass: vec![0.0; n] };
+    ui.app.decks.borrow().stem_cache().store(&track.content_hash, &stems).unwrap();
+    crate::decks::stems_ready(&ui.app, id);
+    assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.stems_available && !d.stems_busy)));
+    ui.pump(50);
+    assert!(!ui.has("deck1.stem.vocal.progress"));
+    assert_eq!(ui.value("deck1.stem.caption"), "PARTS");
+    for p in ["vocal", "inst", "drums", "bass"] {
+        assert_eq!(ui.get(&format!("deck1.stem.{p}")).accessible_checked(), Some(true), "{p} lit = audible");
+    }
+    // A click mutes VOCAL: grey (not checked) and gone from the audio.
+    ui.click("deck1.stem.vocal");
+    assert!(ui.wait_until(5.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.mute_vocal)));
+    ui.pump(50);
+    assert_eq!(ui.get("deck1.stem.vocal").accessible_checked(), Some(false));
+    assert_eq!(ui.get("deck1.stem.inst").accessible_checked(), Some(true));
+    assert_eq!(Rect::of(&ui.get("deck1.stem.vocal")).x, vocal.x, "the key stays in place");
+    let _ = ui.app.decks.borrow().stem_cache().remove(&track.content_hash);
+}
+
+/// Loading a track does not move the deck's controls: the overview and
+/// phrase strip keep their room while the deck is empty.
+#[test]
+fn deck_layout_is_the_same_before_and_after_loading() {
+    let mut problems = Vec::new();
+    for (size, decks, layout) in [((1440, 900), 2, "standard"), ((1280, 800), 2, "standard"), ((1440, 900), 4, "standard"), ((1440, 900), 2, "vertical"), ((1000, 700), 2, "standard"), ((2056, 1216), 2, "standard"), ((1920, 1080), 4, "standard"), ((1440, 900), 2, "browse"), ((1440, 900), 2, "standard+panels"), ((1920, 1080), 2, "standard+panels")] {
+        let ui = Ui::open(size);
+        perform(&ui);
+        ui.app.ui.invoke_set_deck_count(decks);
+        let panels = layout.ends_with("+panels");
+        let layout = layout.trim_end_matches("+panels");
+        slint::ComponentHandle::global::<crate::PerformLayout>(&ui.app.ui).set_layout(layout.into());
+        if panels {
+            ui.app.ui.invoke_toggle_fx_panel();
+            ui.app.ui.invoke_toggle_sampler_panel();
+        }
+        ui.pump(300);
+        let size = (size, decks, layout, panels, ui.app.ui.get_perform_crowd());
+        let labels = ["deck1.pad.A", "deck1.pad.H", "deck1.cue", "deck1.play", "deck1.platter", "deck1.stem.vocal", "deck1.overview", "deck1.loop.size", "deck1.pitch", "deck2.pad.A", "deck2.play", "global.xfader"];
+        let before: Vec<(String, Option<Rect>)> = labels.iter().map(|l| (l.to_string(), ui.find(l).map(|e| Rect::of(&e)))).collect();
+        let (id, title) = ui.fx.tracks[0].clone();
+        crate::decks::load_track(&ui.app, 0, id, None);
+        assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.loaded && d.title == title.as_str())));
+        ui.pump(300);
+        if ui.app.ui.get_perform_crowd() != size.4 {
+            problems.push(format!("{size:?}: crowding changed on load to {}", ui.app.ui.get_perform_crowd()));
+        }
+        for (l, r0) in before {
+            let r1 = ui.find(&l).map(|e| Rect::of(&e));
+            match (r0, r1) {
+                (Some(a), Some(b)) => {
+                    if !((a.x - b.x).abs() < 0.5 && (a.y - b.y).abs() < 0.5 && (a.w - b.w).abs() < 0.5 && (a.h - b.h).abs() < 0.5) {
+                        problems.push(format!(
+                            "{size:?} `{l}` moved on load: {:.0},{:.0} {:.0}×{:.0} → {:.0},{:.0} {:.0}×{:.0}",
+                            a.x, a.y, a.w, a.h, b.x, b.y, b.w, b.h
+                        ));
+                    }
+                }
+                (None, None) => {}
+                (a, b) => problems.push(format!("{size:?} `{l}` present before {} / after {}", a.is_some(), b.is_some())),
+            }
+        }
+    }
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}
+
+/// Remaining time at tempo: at +8 % the deck shows the real time left
+/// (track time / 1.08); "track" shows the file's time, "both" the real time
+/// with the track time small beside the elapsed time.
+#[test]
+fn remaining_time_follows_the_tempo() {
+    use slint::ComponentHandle;
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let (id, title) = ui.fx.tracks[0].clone();
+    crate::decks::load_track(&ui.app, 0, id, None);
+    assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.loaded && d.title == title.as_str())));
+    assert!(ui.wait_until(30.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].duration > 0.0)));
+    // +8 %: the fader's sign depends on the fader direction setting.
+    crate::engine::deck_cmd(&ui.app, 0, od_engine::DeckCommand::SetTempoFader(0.8));
+    ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| (s.decks[0].tempo - 1.0).abs() > 0.07));
+    if crate::engine::snapshot(&ui.app).unwrap().decks[0].tempo < 1.0 {
+        crate::engine::deck_cmd(&ui.app, 0, od_engine::DeckCommand::SetTempoFader(-0.8));
+    }
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| (s.decks[0].tempo - 1.08).abs() < 1e-3)), "tempo +8 %");
+    let s = crate::engine::snapshot(&ui.app).unwrap().decks[0];
+    let real = crate::format::remaining_at_tempo(s.duration, s.position, s.tempo);
+    let track = format!("-{}", crate::format::deck_time(s.duration - s.position));
+    assert_ne!(real, track);
+    let dt = ui.app.ui.global::<crate::DeckTime>();
+    // Default: real time at tempo.
+    assert_eq!(dt.get_mode(), "tempo");
+    assert!(ui.wait_until(5.0, |u| u.value("deck1.time-remaining") == real), "real time `{}` vs `{real}`", ui.value("deck1.time-remaining"));
+    assert!(!ui.has("deck1.time-track"));
+    dt.set_mode("track".into());
+    ui.pump(50);
+    assert_eq!(ui.value("deck1.time-remaining"), track);
+    dt.set_mode("both".into());
+    ui.pump(50);
+    assert_eq!(ui.value("deck1.time-remaining"), real);
+    assert_eq!(ui.value("deck1.time-track"), track);
+    assert!(ui.has("deck1.time-elapsed"));
+    // The second readout sits on the sub line: the header keeps its height.
+    let a = Rect::of(&ui.get("deck1.time-track"));
+    let b = Rect::of(&ui.get("deck1.time-elapsed"));
+    assert!((a.y - b.y).abs() < 0.5 && a.right() <= b.x + 0.5);
+    // The setting is stored and restored.
+    let mut st = crate::settings::Settings::default();
+    assert_eq!(st.view.deck_time, "tempo");
+    st.apply_values(&[("view.deck_time".to_string(), "both".to_string())]);
+    assert_eq!(st.view.deck_time, "both");
+    assert_eq!(crate::settings::Settings::from_json(&st.to_json()).view.deck_time, "both");
+}

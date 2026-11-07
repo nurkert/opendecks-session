@@ -145,6 +145,20 @@ fn fill(buf: &mut SharedPixelBuffer<Rgba8Pixel>, rgb: [u8; 3]) {
     }
 }
 
+/// A vertical line blended over what is drawn (`alpha` 0..1).
+fn vline_over(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, y0: u32, y1: u32, rgb: [u8; 3], alpha: f32) {
+    let (w, h) = (buf.width(), buf.height());
+    if x >= w {
+        return;
+    }
+    let px = buf.make_mut_slice();
+    let mix = |a: u8, b: u8| (a as f32 + (b as f32 - a as f32) * alpha).round() as u8;
+    for y in y0.min(h)..y1.min(h) {
+        let p = &mut px[(y * w + x) as usize];
+        *p = Rgba8Pixel { r: mix(p.r, rgb[0]), g: mix(p.g, rgb[1]), b: mix(p.b, rgb[2]), a: 255 };
+    }
+}
+
 fn vline(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, y0: u32, y1: u32, rgb: [u8; 3]) {
     let (w, h) = (buf.width(), buf.height());
     if x >= w {
@@ -415,7 +429,7 @@ fn draw_detail(
     let strip = (height / 18).max(3);
     let wave_h = height - strip - 1;
     // Waveform amplitude leaves a band free for the grid markers.
-    let mark_h = (wave_h / 9).max(4);
+    let mark_h = (wave_h / 7).max(5);
     let x_of = |t: f64| {
         let x = (t - start) / secs_per_px;
         Some(x.clamp(0.0, width as f64) as u32)
@@ -446,8 +460,10 @@ fn draw_detail(
             (c.peak as f32 / 255.0 * (wave_h as f32 / 2.0 - mark_h as f32 - 2.0)).max(1.0) as u32;
         column(&mut buf, x, mid, amp, &c, dim_before.is_some_and(|p| t < p));
     }
-    // Beatgrid on top of the waveform, as thin lines DJs read at a glance:
-    // beats, bar starts with markers top and bottom, 16-bar starts in amber.
+    // Beatgrid over the waveform: clear ticks along the top and bottom edge
+    // (every beat; bars longer and brighter; 16-bar starts amber and
+    // widest) and a translucent line through the wave, so the grid reads at
+    // a glance without hiding the waveform's colours.
     if !grid.beats.is_empty() {
         let first = grid.beat_index_at(start.max(0.0)).unwrap_or(0);
         for (i, b) in grid.beats.iter().enumerate().skip(first) {
@@ -460,31 +476,18 @@ fn draw_detail(
             let x = ((b.time - start) / secs_per_px) as u32;
             let downbeat = b.bar_position == 1;
             let phrase = downbeat && (i / 4) % 16 == 0;
-            let line = if phrase {
-                pal().phrase_line
+            let (color, through, tick, wide) = if phrase {
+                (pal().phrase_mark, 0.55, mark_h, 3u32)
             } else if downbeat {
-                pal().downbeat
+                (pal().downbeat_mark, 0.38, mark_h, 2)
             } else {
-                pal().beat
+                (pal().downbeat, 0.16, mark_h / 2 + 1, 1)
             };
-            vline(&mut buf, x, 0, wave_h, line);
-            if downbeat {
-                // Marker at the top: a 3 px wide block, strongest at 16 bars.
-                let mark = if phrase {
-                    pal().phrase_mark
-                } else {
-                    pal().downbeat_mark
-                };
-                for dx in 0..3u32 {
-                    vline(&mut buf, (x + dx).saturating_sub(1), 0, mark_h, mark);
-                    vline(
-                        &mut buf,
-                        (x + dx).saturating_sub(1),
-                        wave_h - mark_h,
-                        wave_h,
-                        mark,
-                    );
-                }
+            vline_over(&mut buf, x, tick, wave_h - tick, color, through);
+            for dx in 0..wide {
+                let xx = (x + dx).saturating_sub(wide / 2);
+                vline(&mut buf, xx, 0, tick, color);
+                vline(&mut buf, xx, wave_h - tick, wave_h, color);
             }
         }
     }
@@ -613,18 +616,22 @@ mod tests {
             let p = buf.as_slice()[(y * 400 + x) as usize];
             [p.r, p.g, p.b]
         };
-        // Beat 0 (bar 1, a 16-bar start) at x = 0; beat 8 (bar 3) centred at x = 200.
-        assert_eq!(px(0, 40), PHRASE_LINE);
+        // Ticks along the top and bottom edges: beat 0 (bar 1, a 16-bar
+        // start) amber at x = 0, beat 8 (bar 3) at x = 200, a plain beat 25 px
+        // later, the next bar at x = 300.
         assert_eq!(px(0, 2), PHRASE_MARK);
-        assert_eq!(px(200, 40), DOWNBEAT);
         assert_eq!(px(200, 2), DOWNBEAT_MARK);
         assert_eq!(px(200, 82), DOWNBEAT_MARK);
-        // Next beat (not a downbeat) 25 px later, full height.
-        assert_eq!(px(225, 40), BEAT);
-        assert_eq!(px(225, 75), BEAT);
-        // Bar start one bar (100 px) later.
-        assert_eq!(px(300, 40), DOWNBEAT);
+        assert_eq!(px(225, 2), DOWNBEAT);
         assert_eq!(px(300, 2), DOWNBEAT_MARK);
+        // Through the wave: translucent lines, bars stronger than beats,
+        // the ground between beats untouched.
+        let lum = |p: [u8; 3]| p[0] as u32 + p[1] as u32 + p[2] as u32;
+        let ground = lum(px(212, 40));
+        assert!(lum(px(225, 40)) > ground, "beat line over the ground");
+        assert!(lum(px(200, 40)) > lum(px(225, 40)), "bar line brighter than a beat line");
+        assert_ne!(px(0, 40), PHRASE_MARK, "the 16-bar line is translucent");
+        assert!(lum(px(0, 40)) > ground);
     }
 
     #[test]

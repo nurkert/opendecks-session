@@ -158,7 +158,9 @@ pub(crate) fn refresh(app: &App) {
     let st = app.state.borrow();
     // A folder of the Explorer: the reduced set that files on disk carry.
     // The touch screen leaves out TIME there (room for 44 px header keys).
-    let ids: Vec<String> = if st.explorer.open.is_some() {
+    // An Explorer folder shows the reduced set until you choose columns;
+    // then your choice (files in the collection fill every column).
+    let ids: Vec<String> = if st.explorer.open.is_some() && st.settings.browser.columns.is_empty() {
         EXPLORER_COLUMNS
             .iter()
             .filter(|c| !(st.config.kiosk && **c == "time"))
@@ -179,6 +181,7 @@ pub(crate) fn refresh(app: &App) {
     let b = &st.browser;
     let kiosk = st.config.kiosk;
     let then = &st.settings.browser.sort_then;
+    let widths = &st.settings.browser.widths;
     let views: Vec<ColumnView> = ids
         .iter()
         .filter_map(|id| column(id))
@@ -199,9 +202,10 @@ pub(crate) fn refresh(app: &App) {
                 width: if kiosk && c.id == "preview" {
                     60.0
                 } else {
-                    c.width
+                    widths.get(c.id).copied().filter(|_| !kiosk).unwrap_or(c.width)
                 },
-                stretch: c.stretch,
+                // A dragged column keeps its width; the others share the rest.
+                stretch: if !kiosk && widths.contains_key(c.id) { 0.0 } else { c.stretch },
                 right: c.right,
                 sort: c.sort.into(),
                 rank,

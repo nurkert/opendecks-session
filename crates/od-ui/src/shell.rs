@@ -102,6 +102,7 @@ pub(crate) fn setup_window(ui: &AppWindow, config: &AppConfig, settings: &Settin
     apply_theme(&ui.global::<crate::Theme>(), settings, config.lite);
     ui.set_show_phrases(settings.view.phrases);
     ui.set_show_phrases_overview(settings.view.phrases_overview);
+    ui.global::<crate::DeckTime>().set_mode(settings.view.deck_time.clone().into());
     apply_browser_style(ui, settings, config.kiosk);
     ui.set_ground_texture(crate::render::ground_texture());
     if config.kiosk {

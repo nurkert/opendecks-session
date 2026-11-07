@@ -435,8 +435,11 @@ impl Ui {
     }
 
     pub fn double_click_el(&self, e: &ElementHandle) {
+        self.double_click_at(Rect::of(e).centre());
+    }
+
+    pub fn double_click_at(&self, p: LogicalPosition) {
         self.step();
-        let p = Rect::of(e).centre();
         for _ in 0..2 {
             self.press_at(p, PointerEventButton::Left);
             self.pump(16);

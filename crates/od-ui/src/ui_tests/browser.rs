@@ -473,3 +473,79 @@ fn kiosk_list_keeps_title_and_artist_readable() {
         assert!(w >= min, "{col} column is {w} px wide");
     }
 }
+
+/// Tracks without a cover get one in the background from a cover image in
+/// their folder; it is stored and shows in the list without a refresh.
+#[test]
+fn covers_are_filled_in_from_the_folder() {
+    let fx = Fixture::new();
+    let track = fx.lib().track(fx.tracks[0].0).unwrap();
+    let mut png = Vec::new();
+    image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(32, 32, image::Rgba([10, 200, 40, 255])))
+        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+        .unwrap();
+    std::fs::write(track.path.parent().unwrap().join("Cover.png"), &png).unwrap();
+    let ui = Ui::start(fx, (1440, 900), false);
+    let id = ui.fx.tracks[0].0;
+    assert!(ui.wait_until(20.0, |u| u.fx.lib().artwork(id).unwrap().is_some()), "cover stored");
+    assert!(
+        // All fixture tracks share the folder, so all of them get it.
+        ui.wait_until(10.0, |u| u.app.ui.get_tracks().iter().all(|r| r.artwork.size().width > 0)),
+        "every track of the folder shows it"
+    );
+}
+
+/// An Explorer folder follows the chosen columns, and files already in the
+/// collection show their library data there (rating, genre, …).
+#[test]
+fn explorer_shows_chosen_columns_with_library_data() {
+    let ui = Ui::open((1440, 900));
+    let (id, title) = ui.fx.tracks[0].clone();
+    let lib = ui.fx.lib();
+    let mut tags = lib.track(id).unwrap().tags;
+    tags.rating = 4;
+    tags.genre = "Electro".into();
+    let mut lib = ui.fx.lib();
+    lib.set_tags(id, tags).unwrap();
+    let folder = lib.track(id).unwrap().path.parent().unwrap().to_path_buf();
+    // Choose RATING (it is not in the Explorer's reduced set).
+    ui.right_click_el(&ui.get("browser.header.title"));
+    assert!(ui.click_menu_item("ALBUM"));
+    crate::explorer::open_folder(&ui.app, folder);
+    assert!(
+        ui.wait_until(10.0, |u| u.has("browser.header.album") && u.has("browser.header.rating") && u.has("browser.header.genre")),
+        "the chosen columns show in the Explorer"
+    );
+    assert!(
+        ui.wait_until(10.0, |u| u.app.ui.get_tracks().iter().any(|r| r.title == title && r.rating == 4 && r.genre == "Electro")),
+        "library data of a file in the collection"
+    );
+}
+
+/// Dragging a header cell's right edge resizes the column (stored), and a
+/// double-click on the edge gives it back its default width.
+#[test]
+fn columns_resize_by_dragging_their_edge() {
+    let ui = Ui::open((1440, 900));
+    let bpm = Rect::of(&ui.get("browser.header.bpm"));
+    let edge = slint::LogicalPosition::new(bpm.right() + 1.0, bpm.centre().y);
+    ui.drag_points(edge, slint::LogicalPosition::new(edge.x + 60.0, edge.y));
+    assert!(
+        ui.wait_until(5.0, |u| (Rect::of(&u.get("browser.header.bpm")).w - (bpm.w + 60.0)).abs() < 2.0),
+        "BPM is 60 px wider: {} → {}",
+        bpm.w,
+        Rect::of(&ui.get("browser.header.bpm")).w
+    );
+    let width = stored(&ui).browser.widths.get("bpm").copied().unwrap_or(0.0);
+    assert!((width - (bpm.w + 60.0)).abs() < 2.0, "width stored: {width}");
+    // A row cell follows the header.
+    let title = Rect::of(&ui.get("browser.header.title"));
+    assert!(title.w > 50.0);
+    let now = Rect::of(&ui.get("browser.header.bpm"));
+    ui.double_click_at(slint::LogicalPosition::new(now.right() + 1.0, now.centre().y));
+    assert!(
+        ui.wait_until(5.0, |u| (Rect::of(&u.get("browser.header.bpm")).w - bpm.w).abs() < 1.0),
+        "double-click restores the default width"
+    );
+    assert!(!stored(&ui).browser.widths.contains_key("bpm"));
+}

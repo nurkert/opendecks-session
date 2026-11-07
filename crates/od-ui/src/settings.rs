@@ -138,6 +138,10 @@ pub struct ViewSettings {
     /// Bar counter on decks: "to-phrase" (bars left in the phrase, the
     /// default), "to-memory-cue" (bars left to the next memory cue) or "up".
     pub bar_counter: String,
+    /// Remaining time on the decks: "track" (time left in the file),
+    /// "tempo" (real time left at the current tempo, the default) or "both"
+    /// (real time, the track time small beside it).
+    pub deck_time: String,
     /// Seconds across the zoomed waveform at start (Prepare player; the
     /// decks start at the matching zoom).
     pub zoom_span: f32,
@@ -289,6 +293,9 @@ pub struct BrowserSettings {
     pub font_size: u32,
     /// Row height of the track table: "compact", "normal" or "roomy".
     pub line_spacing: String,
+    /// Widths (px) of columns the user dragged; the others keep their
+    /// default (fixed, or a share of the free width).
+    pub widths: std::collections::BTreeMap<String, f32>,
 }
 
 impl Default for BrowserSettings {
@@ -298,6 +305,7 @@ impl Default for BrowserSettings {
             sort_then: Vec::new(),
             font_size: 14,
             line_spacing: "normal".into(),
+            widths: Default::default(),
         }
     }
 }
@@ -384,6 +392,7 @@ impl Default for ViewSettings {
             phrases_overview: true,
             phrase_types: "names".into(),
             bar_counter: "to-phrase".into(),
+            deck_time: "tempo".into(),
             zoom_span: 8.0,
             tooltips: true,
         }
@@ -430,6 +439,8 @@ pub const SAMPLE_RATES: [u32; 3] = [0, 44_100, 48_000];
 pub const SCALES: [f32; 6] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 /// Bar counter modes of the decks, in the order Preferences lists them.
 pub const BAR_COUNTERS: [&str; 3] = ["to-phrase", "to-memory-cue", "up"];
+/// Remaining-time displays of the decks, in the order Preferences lists them.
+pub const DECK_TIMES: [&str; 3] = ["track", "tempo", "both"];
 /// How phrase types show on the phrase bar: names on the colour blocks, or
 /// colours only.
 pub const PHRASE_TYPES: [&str; 2] = ["names", "colors"];
@@ -464,6 +475,9 @@ impl Settings {
         }
         if !BAR_COUNTERS.contains(&v.bar_counter.as_str()) {
             v.bar_counter = "to-phrase".into();
+        }
+        if !DECK_TIMES.contains(&v.deck_time.as_str()) {
+            v.deck_time = "tempo".into();
         }
         if !APPEARANCES.contains(&v.appearance.as_str()) {
             v.appearance = "dark".into();
@@ -584,6 +598,10 @@ impl Settings {
                 "view.bar_counter" => BAR_COUNTERS
                     .contains(&v.as_str())
                     .then(|| self.view.bar_counter = v.clone())
+                    .is_some(),
+                "view.deck_time" => DECK_TIMES
+                    .contains(&v.as_str())
+                    .then(|| self.view.deck_time = v.clone())
                     .is_some(),
                 "analysis.bpm_min" => v.parse().map(|n| self.analysis.bpm_min = n).is_ok(),
                 "analysis.bpm_max" => v.parse().map(|n| self.analysis.bpm_max = n).is_ok(),

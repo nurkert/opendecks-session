@@ -366,6 +366,7 @@ pub(crate) fn refresh(app: &App) {
             &crate::settings::BAR_COUNTERS,
             &s.view.bar_counter.as_str(),
         ));
+        w.set_deck_time(index_of(&crate::settings::DECK_TIMES, &s.view.deck_time.as_str()));
         w.set_appearance(index_of(
             &crate::settings::APPEARANCES,
             &s.view.appearance.as_str(),
@@ -886,6 +887,8 @@ const PAGE_TERMS: &[(&str, &[&str])] = &[
             "waveform",
             "zoom",
             "bar counter",
+            "remaining",
+            "tempo",
             "colour",
             "color",
             "contrast",
@@ -1070,6 +1073,9 @@ fn apply_live(app: &App) {
     app.ui.set_show_phrases(settings.view.phrases);
     app.ui
         .set_show_phrases_overview(settings.view.phrases_overview);
+    app.ui
+        .global::<crate::DeckTime>()
+        .set_mode(settings.view.deck_time.clone().into());
     crate::player::refresh_detail(app);
     shell::apply_browser_style(&app.ui, &settings, app.state.borrow().config.kiosk);
     crate::recorder::apply_gain(app);
@@ -1176,6 +1182,12 @@ fn choose(app: &App, key: &str, i: i32) {
         }),
         "view.scale" => change(app, |s| {
             s.view.scale = SCALES.get(i).copied().unwrap_or(1.0)
+        }),
+        "view.deck-time" => change(app, |s| {
+            s.view.deck_time = crate::settings::DECK_TIMES
+                .get(i)
+                .unwrap_or(&"tempo")
+                .to_string()
         }),
         "view.bar-counter" => change(app, |s| {
             s.view.bar_counter = crate::settings::BAR_COUNTERS
