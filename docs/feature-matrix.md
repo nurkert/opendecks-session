@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 138 DONE (67 %), 25 PARTIAL, 19 ENGINE-ONLY, 24 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 143 DONE (69 %), 26 PARTIAL, 15 ENGINE-ONLY, 22 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -115,7 +115,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Memory cues: delete, move (Prepare) | DONE | Cue list (ALL / MEMORY / HOT CUE): select a cue to edit it: name, colour, move to the cursor (beat-snapped, loops keep their length), make a memory cue a hot cue, delete | 2 | **P1** |
 | Memory cues: call prev/next (Perform) | DONE | `MemoryCueJump` via controller | — |  |
 | Memory cue set/delete from controller | DONE | `decks.rs::memory_cue`; `deck.memory_cue_set` / `_delete` edit the library cue list (one undo step) and update the deck without a gap | 1 | **P1** |
-| Saved loops (memory/hot-cue loops) | PARTIAL | Model, import, export and playback exist (`Cue.loop_end`); cannot be created in Prepare; loop hot cues made in Perform are not persisted | 1 | **P1** |
+| Saved loops (memory/hot-cue loops) | DONE | Loop hot cues and memory loops (MEMORY while a loop plays) are stored with their loop end; the Prepare cue editor moves loops keeping their length; import / export / playback carry them | 3 | **P1** |
 | Active loop (auto-engaged saved loop) | MISSING | — | — | P3 |
 | Cue colours | PARTIAL | Eight cue colours in the cue editor; shown on the overview, the cue list and the Prepare pads; Perform pads still use the slot colour | 1 | **P1** |
 | Cue comments / labels | DONE | Double-click a cue in the list, type the name, Return; names show on pads and in the list | 2 | **P1** |
@@ -162,8 +162,8 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Deck header: title, artist, artwork, BPM, remaining / elapsed time | PARTIAL | `crates/od-ui/src/format.rs`; Artwork not shown (see `browser-artwork`); (SPEC §10.1; UX §1.3) | 4 | P2 |
 | Jog / platter readout in the UI: position, remaining, phrase and bar counter | PARTIAL | Bar counter and phrase readout not verified in the rebuilt UI; (SPEC §10.1; UX §1.3) | — | P2 |
 | Full-width enlarged waveform zone, one stacked lane per deck (2 and 4 decks), centre playhead | DONE | `crates/od-ui/src/decks.rs`; One full-width lane per deck (2 and 4 decks), stacked, playhead at the centre. The zone column (collapse / zoom buttons / expand) is tracked by the view test; (SPEC §10.1; UX §1.3, §4 P1.1) | 1 |  |
-| Pad mode: Stems (part mutes and stem FX on pads) | MISSING | (UX §2.4) | — | P2 |
-| Pad mode: Memory Cue | MISSING | (UX §1.3) | — | P3 |
+| Pad mode: Stems (part mutes and stem FX on pads) | DONE | (UX §2.4) | 2 | P2 |
+| Pad mode: Memory Cue | DONE | (UX §1.3) | 2 | P3 |
 | Pad mode: Sequence Call | MISSING | (UX §1.3) | — | P3 |
 | Pad mode: Active Censor | MISSING | (UX §1.3) | — | P3 |
 | CDJ practice mode: CDJ-3000-like screens and behaviour driven by the controller | PARTIAL | CDJ toggle (Alt+J): player screens per deck (waveform, overview needle search, jog display with remaining time / bar counter / phrase, hot cues with hold, memory cue call, loop in / out / reloop, beat jump, search, tempo range, master tempo), player cue rules, sync off, self-ticking checklist; a player-style browse screen is missing (the app browser is used); (SPEC §10.3c) | 3 | P2 |
@@ -201,7 +201,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Release FX | DONE | `fx.slint::FxUnit`; BRAKE / BACKSPIN / ECHO OUT per unit while held (panel, keyboard); controller release button = echo out | 2 | P2 |
 | Pad FX | DONE | `fx.rs::pad_fx_preset`; Two pages of eight presets (beat and release FX) on the deck pads | 3 | P2 |
 | Stem FX (FX on one part) | MISSING | — | — | P3 |
-| FX panel (FX1 \| FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row) | PARTIAL | `crates/od-ui/ui/fx.slint`; FX1 \| FX2 above the waveforms with effect, beat, assign, level, parameter, ON, TAP and Release FX; CFX selector in the mixer. One effect per unit (no three-slot chain); (SPEC §10.2; UX §1.5) | 4 | **P1** |
+| FX panel (FX1 \| FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row) | PARTIAL | `crates/od-ui/ui/fx.slint`; FX1 \| FX2 with effect, beat, assign, level, parameter, ON, TAP, Release FX, and ×3 multi mode with three chained slots (effect, beat, depth, ON each); no sampler assign and no AUTO key yet; (SPEC §10.2; UX §1.5) | 2 | **P1** |
 | Colour FX: pitch, dub echo, sweep | DONE | `settings.rs::COLOR_FX`; Pitch, dub echo and sweep selectable like the others; (SPEC §10.2) | 2 | P3 |
 
 ## 7. Stems / track separation
@@ -210,7 +210,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 |---|---|---|---|---|
 | Offline separation (vocals, drums, bass, inst), cache, background | DONE | `od-stems` (`worker.rs`, `cache.rs`), `perform.rs::request_stems/poll_stems` | 5 |  |
 | Part mute toggles in UI | DONE | `on_deck_stem` → `SetStemLevel` | 2 |  |
-| Stem levels / part isolator knobs | ENGINE-ONLY | `SetStemLevel` is continuous; controller `StemLevel` dropped; FLX10 part-iso knobs mapped to `ignore` (controller coverage) | 2 | **P1** |
+| Stem levels / part isolator knobs | DONE | Part keys on each deck: click mutes, the wheel sets the level (level line under the key); FLX10 part isolator knobs drive the same levels (mapping marked verify until checked on hardware) | 2 | **P1** |
 | Stem buttons on the controller | ENGINE-ONLY | `DeckAction::StemMuteToggle` exists; FLX10 part buttons mapped to `ignore` (`flx10.toml` "Mix point / part buttons") (controller coverage) | — | **P1** |
 | Separate ahead of time (Prepare, batch) | PARTIAL | `od-cli stems`; UI only separates on load | — | P2 |
 | Separation model downloaded once on demand, nothing leaves the machine | DONE | `crates/od-stems/src/model.rs`; (SPEC §10.3) | 1 |  |
@@ -299,9 +299,9 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
-| DMX outputs: FLX10 DMX port, Enttec USB-DMX, Art-Net, sACN, several universes | ENGINE-ONLY | (SPEC §10.5) | 4 | P2 |
-| Fixture library (OFL), patch, groups, moving heads / bars / PARs / strobes / lasers / fog | ENGINE-ONLY | (SPEC §10.5) | 5 | P2 |
-| Automatic light show from beat, phrase, energy and the mix (crossfade-aware) | ENGINE-ONLY | (SPEC §10.5) | 4 | P2 |
+| DMX outputs: FLX10 DMX port, Enttec USB-DMX, Art-Net, sACN, several universes | PARTIAL | Art-Net, sACN and USB-DMX (Enttec Pro) from the LIGHTING view or od-cli, several universes; the FLX10 DMX port needs a USB capture; (SPEC §10.5) | 4 | P2 |
+| Fixture library (OFL), patch, groups, moving heads / bars / PARs / strobes / lasers / fog | PARTIAL | Built-in PAR / mover / bar / strobe types patched from the LIGHTING view, OFL files via od-cli, groups; no OFL import in the UI yet, no laser / fog / blinder types; (SPEC §10.5) | 5 | P2 |
+| Automatic light show from beat, phrase, energy and the mix (crossfade-aware) | DONE | AUTO follows phrase, beat and energy; looks of both decks blend by their share of the mix; phrase changes crossfade over one bar; the LIGHTING view and the Perform strip show what it follows; (SPEC §10.5) | 5 | P2 |
 | Easy manual mode: scene pads, dimmer, strobe, blackout, tap/sync, controller pad mode | PARTIAL | (SPEC §10.5) | 2 | P2 |
 | Pro mode: programmer, effects engine, cue stacks, per-track lighting cues, MIDI mapping | PARTIAL | (SPEC §10.5) | 1 | P2 |
 | LIGHTING tab, split view in Perform, detachable window, 2D visualiser | PARTIAL | (SPEC §10.5) | 3 | P2 |
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 138 |
-| PARTIAL | 25 |
-| ENGINE-ONLY | 19 |
-| MISSING | 24 |
+| DONE | 143 |
+| PARTIAL | 26 |
+| ENGINE-ONLY | 15 |
+| MISSING | 22 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |

@@ -403,6 +403,17 @@ fn build() -> Vec<Action> {
     b.add("devices.sync", "Sync USB sticks now", None, g, Global, &["Mod+S"]);
     b.add("devices.eject", "Eject the selected stick", None, g, Global, &["Mod+E"]);
     b.add("perform.quantize", "Quantize on / off", None, g, Perform, &["Mod+K"]);
+    b.add_split("view.layout.player", "Prepare layout: player and browser", None, g, Global, &["Mod+Alt+4"], &["Alt+4"]);
+    b.add_split("view.layout.browser", "Prepare layout: full browser", None, g, Global, &["Mod+Alt+5"], &["Alt+5"]);
+    b.add_split("view.panel.info", "Show / hide the info panel", None, g, Global, &["Mod+Alt+I"], &["Alt+I"]);
+    b.add_split("view.panel.related", "Show / hide related tracks", None, g, Global, &["Mod+Alt+E"], &["Alt+E"]);
+    b.add_split("view.panel.my-tag", "Show / hide My Tag", None, g, Global, &["Mod+Alt+G"], &["Alt+G"]);
+    b.add_split("library.import.xml", "Import a library XML (rekordbox-compatible)", None, g, Global, &["Mod+Alt+Shift+X"], &["Alt+Shift+X"]);
+    b.add_split("library.export.xml", "Export the library as XML (rekordbox-compatible)", None, g, Global, &["Mod+Alt+X"], &["Alt+X"]);
+    b.add_split("library.export.archive", "Export a library archive", None, g, Global, &["Mod+Alt+A"], &["Alt+A"]);
+    b.add_split("library.restore.archive", "Restore a library archive", None, g, Global, &["Mod+Alt+Shift+A"], &["Alt+Shift+A"]);
+    b.add_split("library.consolidate", "Consolidate the library", None, g, Global, &["Mod+Alt+C"], &["Alt+C"]);
+    b.add_split("library.import.rekordbox-settings", "Import rekordbox preferences and shortcuts", None, g, Global, &["Mod+Alt+Shift+I"], &["Alt+Shift+I"]);
 
     // ── Browser ──
     let g = Group::Browser;
@@ -428,6 +439,7 @@ fn build() -> Vec<Action> {
     b.add("browser.find.moved", "Find moved files", None, g, Global, &["Mod+Shift+L"]);
     b.add_split("browser.taglist.add", "Add the selected tracks to the tag list", None, g, Global, &["Mod+Alt+T"], &["Alt+T"]);
     b.add("browser.filter", "Show / hide the filter bar", None, g, Global, &["Mod+J"]);
+    b.add_split("browser.duplicates", "Show duplicate tracks", None, g, Global, &["Mod+Alt+Y"], &["Alt+Y"]);
 
     // ── Prepare player ──
     let g = Group::Player;
@@ -453,6 +465,7 @@ fn build() -> Vec<Action> {
     b.add("player.grid.half", "Beatgrid half tempo", None, g, Prepare, &["Mod+Down"]);
     b.add("player.grid.downbeat", "Set the downbeat at the cursor", None, g, Prepare, &["D"]);
     b.add("player.grid.lock", "Lock / unlock the beatgrid", None, g, Prepare, &["L"]);
+    b.add("player.grid.tap", "Tap the tempo", None, g, Prepare, &["B"]);
     b.add("player.analyse", "Analyse the track", None, g, Prepare, &["Mod+Shift+A"]);
 
     // ── Decks 1 and 2: left / right keyboard halves ──

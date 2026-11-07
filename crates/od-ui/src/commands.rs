@@ -168,6 +168,22 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "player.grid.downbeat" => ui.invoke_grid_downbeat(),
         "player.grid.lock" => ui.invoke_grid_lock(),
         "player.analyse" => ui.invoke_analyse_selected(),
+        "player.grid.tap" => player::tap(app),
+        "view.layout.player" => shell::set_prepare_layout(app, "player"),
+        "view.layout.browser" => shell::set_prepare_layout(app, "browser"),
+        "view.panel.info" => ui.set_info_open(!ui.get_info_open()),
+        "view.panel.related" => {
+            ui.set_related_open(!ui.get_related_open());
+            ui.invoke_panels_changed();
+        }
+        "view.panel.my-tag" => {
+            ui.set_my_tag_open(!ui.get_my_tag_open());
+            ui.invoke_panels_changed();
+        }
+        "browser.duplicates" => browser::open_duplicates(app),
+        "library.export.xml" | "library.import.xml" | "library.export.archive" | "library.restore.archive" | "library.consolidate" | "library.import.rekordbox-settings" => {
+            crate::import::library_action(app, id)
+        }
         _ => {
             if let Some(l) = id.strip_prefix("player.hotcue.clear.") {
                 ui.invoke_remove_hot_cue(slot(l));

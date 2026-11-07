@@ -65,6 +65,8 @@ pub(crate) enum Special {
     TagList,
     Related,
     History(String),
+    /// Duplicate tracks of the collection, group after group.
+    Duplicates,
 }
 
 impl Default for BrowserState {
@@ -240,6 +242,61 @@ pub(crate) fn remove_selected(app: &App) {
     if app.report(r).is_some() {
         app.state.borrow_mut().browser.selection.clear();
         app.after_edit(&format!("Removed {} track(s) — ⌘Z to undo", entry_positions.len()));
+    }
+}
+
+/// Opens the duplicate tracks of the collection in the list.
+pub(crate) fn open_duplicates(app: &App) {
+    sources::open(app, sources::DUPLICATES);
+}
+
+/// Planned start time of the open set ("23:30"; empty clears it).
+pub(crate) fn set_planned_start(app: &App, text: &str) {
+    if app.guard_read_only() {
+        return;
+    }
+    let Some(n) = app.state.borrow().browser.node else { return };
+    let Ok(node) = app.state.borrow().lib.node(n) else { return };
+    if node.kind != NodeKind::Set {
+        return;
+    }
+    let mut meta = node.set_meta.unwrap_or_default();
+    let t = text.trim();
+    meta.planned_start = (!t.is_empty()).then(|| t.to_string());
+    let r = app.state.borrow_mut().lib.set_set_meta(n, meta);
+    if app.report(r).is_some() {
+        app.after_edit("Planned start saved");
+    }
+}
+
+/// Backup tracks of the selected set position: "from-tag-list" takes the
+/// tracks of the tag list, "clear" removes them.
+pub(crate) fn set_backups(app: &App, action: &str) {
+    if app.guard_read_only() {
+        return;
+    }
+    let (node, pos, tag_list) = {
+        let st = app.state.borrow();
+        (st.browser.node, st.browser.flow_selected, st.browser.tag_list.clone())
+    };
+    let (Some(n), Some(p)) = (node, pos) else {
+        app.status("Select a position of the set first");
+        return;
+    };
+    let backups = match action {
+        "from-tag-list" => {
+            if tag_list.is_empty() {
+                app.status("The tag list is empty — collect the backup tracks there first");
+                return;
+            }
+            tag_list
+        }
+        _ => Vec::new(),
+    };
+    let count = backups.len();
+    let r = app.state.borrow_mut().lib.set_entry_backups(n, p, backups);
+    if app.report(r).is_some() {
+        app.after_edit(&if count == 0 { "Backup tracks removed".to_string() } else { format!("{count} backup track(s) set") });
     }
 }
 
@@ -491,6 +548,9 @@ pub(crate) fn wire(app: &Rc<App>) {
             }
         }
     }));
+    ui.on_duplicates_action(handler!(app, |a, action: SharedString| sources::duplicates_action(&a, action.as_str())));
+    ui.on_save_planned_start(handler!(app, |a, text: SharedString| set_planned_start(&a, text.as_str())));
+    ui.on_backups_action(handler!(app, |a, action: SharedString| set_backups(&a, action.as_str())));
     ui.on_find_moved_files(handler!(app, |a| {
         let Some(dirs) = rfd::FileDialog::new().set_title("Where are the moved files?").pick_folders() else { return };
         let found = a.state.borrow().lib.find_relocations(&dirs, od_decode::content_hash);

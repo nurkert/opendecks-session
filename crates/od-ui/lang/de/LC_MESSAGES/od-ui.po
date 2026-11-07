@@ -3093,3 +3093,392 @@ msgstr "Diesen Cue löschen"
 msgctxt "PreparePlayer"
 msgid "ALL"
 msgstr "ALLE"
+
+#: ui/perform.slint
+msgctxt "PadModes"
+msgid "STEMS"
+msgstr "STEMS"
+
+#: ui/perform.slint
+msgctxt "PadModes"
+msgid "MEMORY CUE"
+msgstr "MEMORY CUE"
+
+#: ui/perform.slint
+msgctxt "StemKey"
+msgid "Click: mute / unmute · wheel: level"
+msgstr "Klick: stumm / laut · Mausrad: Pegel"
+
+#: ui/fx.slint
+msgctxt "FxUnit"
+msgid "Single effect or three effects in a chain"
+msgstr "Ein Effekt oder drei Effekte in Reihe"
+
+#: ui/fx.slint
+msgctxt "FxUnit"
+msgid "Effect of this slot"
+msgstr "Effekt dieses Slots"
+
+msgctxt "AppWindow"
+msgid "Import rekordbox Preferences and Shortcuts…"
+msgstr "rekordbox-Einstellungen und -Tastenkürzel importieren…"
+
+msgctxt "AppWindow"
+msgid "Import Library XML (rekordbox-compatible)…"
+msgstr "Bibliotheks-XML importieren (rekordbox-kompatibel)…"
+
+msgctxt "AppWindow"
+msgid "Export Library XML (rekordbox-compatible)…"
+msgstr "Bibliotheks-XML exportieren (rekordbox-kompatibel)…"
+
+msgctxt "AppWindow"
+msgid "Export Library Archive…"
+msgstr "Bibliotheksarchiv exportieren…"
+
+msgctxt "AppWindow"
+msgid "Restore Library Archive…"
+msgstr "Bibliotheksarchiv wiederherstellen…"
+
+msgctxt "AppWindow"
+msgid "Consolidate Library…"
+msgstr "Bibliothek zusammenführen…"
+
+msgctxt "AppWindow"
+msgid "Find Duplicate Tracks"
+msgstr "Doppelte Tracks finden"
+
+msgctxt "AppWindow"
+msgid "Prepare Layout"
+msgstr "Prepare-Layout"
+
+msgctxt "AppWindow"
+msgid "Player and Browser"
+msgstr "Player und Browser"
+
+msgctxt "AppWindow"
+msgid "Full Browser"
+msgstr "Ganzer Browser"
+
+msgctxt "AppWindow"
+msgid "Info Panel"
+msgstr "Info-Bereich"
+
+msgctxt "AppWindow"
+msgid "Related Tracks"
+msgstr "Passende Tracks"
+
+msgctxt "AppWindow"
+msgid "My Tag"
+msgstr "My Tag"
+
+msgctxt "AppWindow"
+msgid "Filter Bar"
+msgstr "Filterleiste"
+
+msgctxt "AppWindow"
+msgid "Library"
+msgstr "Bibliothek"
+
+msgctxt "AppWindow"
+msgid "USB Sticks"
+msgstr "USB-Sticks"
+
+msgctxt "AppWindow"
+msgid "Recordings"
+msgstr "Aufnahmen"
+
+msgctxt "AppWindow"
+msgid "{} GROUPS"
+msgstr "{} GRUPPEN"
+
+msgctxt "AppWindow"
+msgid "REMOVE SELECTED"
+msgstr "AUSGEWÄHLTE ENTFERNEN"
+
+msgctxt "AppWindow"
+msgid "Remove the selected tracks from the collection (the files stay on disk)"
+msgstr "Ausgewählte Tracks aus der Sammlung entfernen (die Dateien bleiben erhalten)"
+
+msgctxt "AppWindow"
+msgid "KEEP ONE OF EACH"
+msgstr "JE EINEN BEHALTEN"
+
+msgctxt "AppWindow"
+msgid "Remove every copy but the oldest of each group from the collection (the files stay on disk)"
+msgstr "Alle Kopien außer der ältesten jeder Gruppe aus der Sammlung entfernen (die Dateien bleiben erhalten)"
+
+msgctxt "AppWindow"
+msgid "PLANNED START, E.G. 23:30"
+msgstr "GEPLANTER START, Z. B. 23:30"
+
+msgctxt "AppWindow"
+msgid "NO BACKUP TRACKS FOR THIS POSITION"
+msgstr "KEINE ERSATZ-TRACKS FÜR DIESE POSITION"
+
+msgctxt "AppWindow"
+msgid "BACKUPS: {}"
+msgstr "ERSATZ: {}"
+
+msgctxt "AppWindow"
+msgid "BACKUPS FROM TAG LIST"
+msgstr "ERSATZ AUS TAG-LISTE"
+
+msgctxt "AppWindow"
+msgid "The tracks of the tag list become the backups of the selected position"
+msgstr "Die Tracks der Tag-Liste werden zu Ersatz-Tracks der gewählten Position"
+
+msgctxt "AppWindow"
+msgid "Remove the backup tracks of the selected position"
+msgstr "Ersatz-Tracks der gewählten Position entfernen"
+
+msgctxt "AppWindow"
+msgid "No duplicates: every track is in the collection once."
+msgstr "Keine Duplikate: jeder Track ist nur einmal in der Sammlung."
+
+msgctxt "PreparePlayer"
+msgid "TAP"
+msgstr "TAP"
+
+msgctxt "PreparePlayer"
+msgid "Tap along with the beat: from the fourth tap the grid takes the tapped tempo"
+msgstr "Im Takt tippen: ab dem vierten Tippen übernimmt das Grid das getippte Tempo"
+
+msgctxt "PreferencesWindow"
+msgid "Browser"
+msgstr "Browser"
+
+msgctxt "PreferencesWindow"
+msgid "Text size"
+msgstr "Schriftgröße"
+
+msgctxt "PreferencesWindow"
+msgid "Line spacing"
+msgstr "Zeilenabstand"
+
+msgctxt "PreferencesWindow"
+msgid "COMPACT"
+msgstr "KOMPAKT"
+
+msgctxt "PreferencesWindow"
+msgid "NORMAL"
+msgstr "NORMAL"
+
+msgctxt "PreferencesWindow"
+msgid "ROOMY"
+msgstr "LUFTIG"
+
+msgctxt "PreferencesWindow"
+msgid "Waveform zoom"
+msgstr "Waveform-Zoom"
+
+msgctxt "PreferencesWindow"
+msgid "4 S"
+msgstr "4 S"
+
+msgctxt "PreferencesWindow"
+msgid "8 S"
+msgstr "8 S"
+
+msgctxt "PreferencesWindow"
+msgid "16 S"
+msgstr "16 S"
+
+msgctxt "PreferencesWindow"
+msgid "32 S"
+msgstr "32 S"
+
+msgctxt "PreferencesWindow"
+msgid "Seconds shown across the zoomed waveform when a track opens; the wheel still zooms each waveform."
+msgstr "Sekunden, die die vergrößerte Waveform beim Öffnen eines Tracks zeigt; das Mausrad zoomt jede Waveform weiterhin."
+
+msgctxt "PreferencesWindow"
+msgid "Decks"
+msgstr "Decks"
+
+msgctxt "PreferencesWindow"
+msgid "Tempo range"
+msgstr "Tempobereich"
+
+msgctxt "PreferencesWindow"
+msgid "WIDE"
+msgstr "WEIT"
+
+msgctxt "PreferencesWindow"
+msgid "Quantize"
+msgstr "Quantisieren"
+
+msgctxt "PreferencesWindow"
+msgid "Quantize cues, loops and jumps to the beat"
+msgstr "Cues, Loops und Sprünge auf den Beat quantisieren"
+
+msgctxt "PreferencesWindow"
+msgid "Sync"
+msgstr "Sync"
+
+msgctxt "PreferencesWindow"
+msgid "BEAT SYNC (TEMPO + PHASE)"
+msgstr "BEAT SYNC (TEMPO + PHASE)"
+
+msgctxt "PreferencesWindow"
+msgid "Jog wheel"
+msgstr "Jogwheel"
+
+msgctxt "PreferencesWindow"
+msgid "VINYL"
+msgstr "VINYL"
+
+msgctxt "PreferencesWindow"
+msgid "PITCH BEND"
+msgstr "PITCH BEND"
+
+msgctxt "PreferencesWindow"
+msgid "Auto cue"
+msgstr "Auto Cue"
+
+msgctxt "PreferencesWindow"
+msgid "A loaded track waits at its first sound"
+msgstr "Ein geladener Track wartet am ersten Ton"
+
+msgctxt "PreferencesWindow"
+msgid "Mixer"
+msgstr "Mixer"
+
+msgctxt "PreferencesWindow"
+msgid "EQ"
+msgstr "EQ"
+
+msgctxt "PreferencesWindow"
+msgid "ISOLATOR"
+msgstr "ISOLATOR"
+
+msgctxt "PreferencesWindow"
+msgid "CLASSIC EQ"
+msgstr "KLASSISCHER EQ"
+
+msgctxt "PreferencesWindow"
+msgid "Channel fader curve"
+msgstr "Kanalfader-Kurve"
+
+msgctxt "PreferencesWindow"
+msgid "LINEAR"
+msgstr "LINEAR"
+
+msgctxt "PreferencesWindow"
+msgid "SMOOTH"
+msgstr "WEICH"
+
+msgctxt "PreferencesWindow"
+msgid "SHARP"
+msgstr "STEIL"
+
+msgctxt "PreferencesWindow"
+msgid "Crossfader curve"
+msgstr "Crossfader-Kurve"
+
+msgctxt "PreferencesWindow"
+msgid "CONSTANT POWER"
+msgstr "KONSTANTE LEISTUNG"
+
+msgctxt "PreferencesWindow"
+msgid "CUT"
+msgstr "CUT"
+
+msgctxt "PreferencesWindow"
+msgid "Auto gain"
+msgstr "Auto Gain"
+
+msgctxt "PreferencesWindow"
+msgid "Level tracks by their analysed loudness"
+msgstr "Tracks nach ihrer analysierten Lautheit angleichen"
+
+msgctxt "PreferencesWindow"
+msgid "Deck and mixer settings apply at once and every time audio starts."
+msgstr "Deck- und Mixer-Einstellungen gelten sofort und bei jedem Audiostart."
+
+msgctxt "PreferencesWindow"
+msgid "File name"
+msgstr "Dateiname"
+
+msgctxt "PreferencesWindow"
+msgid "{{date}}, {{time}} and {{n}} (number of the day) are filled in; Return saves. Example: {}"
+msgstr "{{date}}, {{time}} und {{n}} (Nummer des Tages) werden eingesetzt; Return speichert. Beispiel: {}"
+
+msgctxt "PreferencesWindow"
+msgid "Recording level"
+msgstr "Aufnahmepegel"
+
+msgctxt "PreferencesWindow"
+msgid "Stop"
+msgstr "Stopp"
+
+msgctxt "PreferencesWindow"
+msgid "Stop recording after 30 seconds of silence"
+msgstr "Aufnahme nach 30 Sekunden Stille beenden"
+
+msgctxt "PreferencesWindow"
+msgid "With automatic start, recording begins once the master carries sound for two seconds; stopping it by hand disarms it until the next start of the app."
+msgstr "Mit automatischem Start beginnt die Aufnahme, sobald der Master zwei Sekunden lang Ton führt; ein Stopp von Hand schaltet die Automatik bis zum nächsten App-Start aus."
+
+msgctxt "PreferencesWindow"
+msgid "rekordbox"
+msgstr "rekordbox"
+
+msgctxt "PreferencesWindow"
+msgid "Preferences and keyboard shortcuts"
+msgstr "Einstellungen und Tastenkürzel"
+
+msgctxt "PreferencesWindow"
+msgid "IMPORT"
+msgstr "IMPORTIEREN"
+
+msgctxt "PreferencesWindow"
+msgid "Take over the preferences and shortcuts of a rekordbox installation (rekordbox itself is not changed)"
+msgstr "Einstellungen und Tastenkürzel einer rekordbox-Installation übernehmen (rekordbox selbst wird nicht verändert)"
+
+msgctxt "RecStrip"
+msgid "MASTER"
+msgstr "MASTER"
+
+msgctxt "RecPanel"
+msgid "STOP"
+msgstr "STOPP"
+
+msgctxt "RecPanel"
+msgid "RECORD"
+msgstr "AUFNEHMEN"
+
+msgctxt "RecPanel"
+msgid "Stop recording"
+msgstr "Aufnahme beenden"
+
+msgctxt "RecPanel"
+msgid "Record the master output"
+msgstr "Den Master-Ausgang aufnehmen"
+
+msgctxt "RecPanel"
+msgid "MASTER"
+msgstr "MASTER"
+
+msgctxt "RecPanel"
+msgid "Armed: recording starts when the master carries sound"
+msgstr "Bereit: die Aufnahme startet, sobald der Master Ton führt"
+
+msgctxt "RecPanel"
+msgid "The tracklist grows here as tracks become audible."
+msgstr "Die Trackliste wächst hier, sobald Tracks hörbar werden."
+
+msgctxt "TopBar"
+msgid "FULL BROWSER"
+msgstr "GANZER BROWSER"
+
+msgctxt "TopBar"
+msgid "PLAYER"
+msgstr "PLAYER"
+
+msgctxt "TopBar"
+msgid "Show the player above the browser"
+msgstr "Den Player über dem Browser zeigen"
+
+msgctxt "TopBar"
+msgid "Give the whole window to the browser"
+msgstr "Dem Browser das ganze Fenster geben"

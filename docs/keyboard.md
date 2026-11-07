@@ -3,7 +3,7 @@
 Every user action of OpenDecks Session is a command in one registry
 (`crates/od-ui/src/keymap.rs`) with an id, a default binding per platform
 and optional user bindings (SPEC §12.2). The registry currently holds
-**219 actions**; every one has a default binding, and no two defaults
+**232 actions**; every one has a default binding, and no two defaults
 collide where they apply (checked by tests, together with this table).
 
 ## Changing bindings
@@ -60,7 +60,15 @@ Perform). Text fields keep the keys they type.
 - **Prepare**: Space previews,
   1–8 set or jump to hot cues A–H, ⇧⌘1–8 clear them, M adds a memory cue,
   R / T step through cues, ← → move the cursor, ⌘← ⌘→ shift the grid by
-  10 ms, ⌘↑ ⌘↓ double / halve it, D sets the downbeat, L locks the grid.
+  10 ms, ⌘↑ ⌘↓ double / halve it, D sets the downbeat, L locks the grid,
+  B taps the tempo (from the fourth tap the grid takes it).
+- **View and library** (also in the View and File menus): ⌥⌘4 / ⌥⌘5 switch
+  the Prepare layout (player and browser / full browser), ⌥⌘I, ⌥⌘E and ⌥⌘G
+  show or hide the info panel, related tracks and My Tag, ⌥⌘Y lists
+  duplicate tracks, ⌥⌘X / ⇧⌥⌘X export / import a rekordbox-compatible
+  library XML, ⌥⌘A / ⇧⌥⌘A export / restore a library archive, ⌥⌘C
+  consolidates the library and ⇧⌥⌘I takes over rekordbox preferences and
+  shortcuts (Alt+… on Linux).
 - On Linux, mode and section switches use Alt+1 / Alt+2 and Alt+L / D / R,
   because Ctrl+Alt combinations are taken by most desktops.
 
@@ -83,6 +91,17 @@ Perform). Text fields keep the keys they type.
 | Sync USB sticks now | `devices.sync` | both | `⌘S` | `Ctrl+S` |
 | Eject the selected stick | `devices.eject` | both | `⌘E` | `Ctrl+E` |
 | Quantize on / off | `perform.quantize` | Perform | `⌘K` | `Ctrl+K` |
+| Prepare layout: player and browser | `view.layout.player` | both | `⌥⌘4` | `Alt+4` |
+| Prepare layout: full browser | `view.layout.browser` | both | `⌥⌘5` | `Alt+5` |
+| Show / hide the info panel | `view.panel.info` | both | `⌥⌘I` | `Alt+I` |
+| Show / hide related tracks | `view.panel.related` | both | `⌥⌘E` | `Alt+E` |
+| Show / hide My Tag | `view.panel.my-tag` | both | `⌥⌘G` | `Alt+G` |
+| Import a library XML (rekordbox-compatible) | `library.import.xml` | both | `⌥⇧⌘X` | `Alt+Shift+X` |
+| Export the library as XML (rekordbox-compatible) | `library.export.xml` | both | `⌥⌘X` | `Alt+X` |
+| Export a library archive | `library.export.archive` | both | `⌥⌘A` | `Alt+A` |
+| Restore a library archive | `library.restore.archive` | both | `⌥⇧⌘A` | `Alt+Shift+A` |
+| Consolidate the library | `library.consolidate` | both | `⌥⌘C` | `Alt+C` |
+| Import rekordbox preferences and shortcuts | `library.import.rekordbox-settings` | both | `⌥⇧⌘I` | `Alt+Shift+I` |
 | **Browser** | | | | |
 | Search | `browser.search` | both | `⌘F` `⌃F` | `Ctrl+F` |
 | Previous track | `browser.up` | both | `↑` | `↑` |
@@ -106,6 +125,7 @@ Perform). Text fields keep the keys they type.
 | Find moved files | `browser.find.moved` | both | `⇧⌘L` | `Ctrl+Shift+L` |
 | Add the selected tracks to the tag list | `browser.taglist.add` | both | `⌥⌘T` | `Alt+T` |
 | Show / hide the filter bar | `browser.filter` | both | `⌘J` | `Ctrl+J` |
+| Show duplicate tracks | `browser.duplicates` | both | `⌥⌘Y` | `Alt+Y` |
 | **Prepare player** | | | | |
 | Preview play / pause | `player.preview` | Prepare | `Space` | `Space` |
 | Back to the cue point | `player.cue` | Prepare | `C` | `C` |
@@ -139,6 +159,7 @@ Perform). Text fields keep the keys they type.
 | Beatgrid half tempo | `player.grid.half` | Prepare | `⌘↓` | `Ctrl+↓` |
 | Set the downbeat at the cursor | `player.grid.downbeat` | Prepare | `D` | `D` |
 | Lock / unlock the beatgrid | `player.grid.lock` | Prepare | `L` | `L` |
+| Tap the tempo | `player.grid.tap` | Prepare | `B` | `B` |
 | Analyse the track | `player.analyse` | Prepare | `⇧⌘A` | `Ctrl+Shift+A` |
 | **Deck 1** | | | | |
 | Play / pause | `deck1.play` | Perform | `Z` | `Z` |

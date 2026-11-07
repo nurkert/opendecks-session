@@ -9,7 +9,8 @@ import { TooltipLayer } from "tooltip.slint";
 import { Sidebar } from "sidebar.slint";
 import { TopBar } from "topbar.slint";
 import { PreparePlayer } from "player.slint";
-import { TrackTable } from "table.slint";
+import { TrackTable, TableStyle } from "table.slint";
+export { TableStyle }
 import { MyTagPanel, SuggestionPanel } from "mytag.slint";
 import { ColumnView, ColumnChoice, FilterView, MyTagChip, SuggestionRow } from "structs.slint";
 export { ColumnView, ColumnChoice, FilterView, MyTagChip, SuggestionRow }
@@ -20,17 +21,21 @@ import { LightingView, Lighting, LightFixtureView, LightGroupView } from "lighti
 import { Cdj, CdjStep } from "cdj.slint";
 export { Cdj, CdjStep }
 import { Mic } from "mic.slint";
+import { Rec, RecTrack, RecPanel } from "rec.slint";
+export { Rec, RecTrack }
 export { Mic }
 import { CueEdit } from "player.slint";
 export { CueEdit }
+import { FxSlots } from "fx.slint";
+export { FxSlots }
 export { Lighting, LightFixtureView, LightGroupView }
 import { PreferencesWindow, KeyRow } from "preferences.slint";
 import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget } from "structs.slint";
 
 export { PreferencesWindow, KeyRow }
 // Perform panels (FX, sampler, pad modes).
-import { FxUnitView, SamplerPadView, SamplerView } from "structs.slint";
-export { FxUnitView, SamplerPadView, SamplerView }
+import { FxUnitView, FxSlotView, SamplerPadView, SamplerView } from "structs.slint";
+export { FxUnitView, FxSlotView, SamplerPadView, SamplerView }
 export { Theme, TooltipState, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget, TrackInfo }
 
 export struct ProposalRow {
@@ -134,6 +139,12 @@ export component AppWindow inherits Window {
     in property <string> flow-total;
     in property <int> flow-selected: -1;
     in property <string> transition-note;
+    // Sets: planned start and the backup tracks of the selected position.
+    in property <string> set-planned-start;
+    in property <string> set-backups-text;
+    callback save-planned-start(string);
+    // "from-tag-list" or "clear".
+    callback backups-action(string);
 
     // Devices.
     in property <[DeviceRow]> devices;
@@ -148,6 +159,17 @@ export component AppWindow inherits Window {
 
     // Recordings.
     in property <[RecordingRow]> recordings;
+    // Prepare layout: "player" (player above the browser) or "browser"
+    // (full browser); persisted in the library meta.
+    in-out property <string> prepare-layout: "player";
+    callback cycle-layout();
+    // Menu bar items and other commands by keymap action id.
+    callback menu-action(string);
+    // Status band: summary of the open list (tracks, time, size).
+    in property <string> list-summary;
+    // Duplicates view: groups found.
+    in property <int> duplicate-groups;
+    callback duplicates-action(string);
 
     // Perform.
     in property <[DeckView]> decks;
@@ -304,6 +326,8 @@ export component AppWindow inherits Window {
     callback grid-scale(float);
     callback grid-downbeat();
     callback grid-lock();
+    callback grid-tap();
+    callback grid-bpm(string);
     callback analyse-selected();
     callback toggle-preview();
     callback flow-select(int);
@@ -356,6 +380,7 @@ export component AppWindow inherits Window {
     callback deck-slip(int);
     callback deck-tempo(int, float);
     callback deck-stem(int, string);
+    callback deck-stem-level(int, string, float);
     callback deck-loop(int, float);
     callback deck-loop-exit(int);
     callback deck-loop-scale(int, float);
@@ -380,14 +405,39 @@ export component AppWindow inherits Window {
             title: @tr("File");
             MenuItem { title: @tr("Preferences…"); shortcut: @keys(Control + ","); activated => { root.open-preferences(); } }
             MenuItem { title: @tr("Check for Updates…"); activated => { root.check-updates(); } }
+            MenuSeparator { }
             MenuItem { title: @tr("Add Music Folder…"); activated => { root.import-folder(); } }
             MenuItem { title: @tr("Import from rekordbox…"); activated => { root.import-rekordbox(); } }
+            MenuItem { title: @tr("Import rekordbox Preferences and Shortcuts…"); activated => { root.menu-action("library.import.rekordbox-settings"); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Import Library XML (rekordbox-compatible)…"); activated => { root.menu-action("library.import.xml"); } }
+            MenuItem { title: @tr("Export Library XML (rekordbox-compatible)…"); activated => { root.menu-action("library.export.xml"); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Export Library Archive…"); activated => { root.menu-action("library.export.archive"); } }
+            MenuItem { title: @tr("Restore Library Archive…"); activated => { root.menu-action("library.restore.archive"); } }
+            MenuItem { title: @tr("Consolidate Library…"); activated => { root.menu-action("library.consolidate"); } }
+            MenuItem { title: @tr("Find Duplicate Tracks"); activated => { root.menu-action("browser.duplicates"); } }
         }
         Menu {
             title: @tr("View");
             MenuItem { title: @tr("Prepare"); activated => { root.set-mode("prepare"); } }
             MenuItem { title: @tr("Perform"); activated => { root.set-mode("perform"); } }
             MenuItem { title: @tr("Lighting"); activated => { root.set-mode("lighting"); } }
+            MenuSeparator { }
+            Menu {
+                title: @tr("Prepare Layout");
+                MenuItem { title: @tr("Player and Browser"); checkable: true; checked: root.prepare-layout == "player"; activated => { root.menu-action("view.layout.player"); } }
+                MenuItem { title: @tr("Full Browser"); checkable: true; checked: root.prepare-layout == "browser"; activated => { root.menu-action("view.layout.browser"); } }
+            }
+            MenuSeparator { }
+            MenuItem { title: @tr("Info Panel"); checkable: true; checked: root.info-open; activated => { root.menu-action("view.panel.info"); } }
+            MenuItem { title: @tr("Related Tracks"); checkable: true; checked: root.related-open; activated => { root.menu-action("view.panel.related"); } }
+            MenuItem { title: @tr("My Tag"); checkable: true; checked: root.my-tag-open; activated => { root.menu-action("view.panel.my-tag"); } }
+            MenuItem { title: @tr("Filter Bar"); checkable: true; checked: root.filter-open; activated => { root.menu-action("browser.filter"); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Library"); activated => { root.select-section("library"); } }
+            MenuItem { title: @tr("USB Sticks"); activated => { root.select-section("devices"); } }
+            MenuItem { title: @tr("Recordings"); activated => { root.select-section("recordings"); } }
         }
     }
 
@@ -412,6 +462,8 @@ export component AppWindow inherits Window {
                 cycle-appearance => { root.cycle-appearance(); }
                 mode: root.mode;
                 kiosk: root.kiosk;
+                prepare-layout: root.prepare-layout;
+                cycle-layout => { root.cycle-layout(); }
                 show-record: root.mode != "perform";
                 show-panels: root.mode == "perform";
                 fx-panel: root.fx-panel;
@@ -438,8 +490,8 @@ export component AppWindow inherits Window {
             // ── Upper half: player (Prepare) or decks + mixer (Perform) ──
             upper := VerticalLayout {
             vertical-stretch: root.kiosk ? 1 : 0;
-            preferred-height: root.upper-height > 0 ? root.upper-height : (root.mode == "prepare" ? 280px : 560px);
-            if root.mode == "prepare": PreparePlayer {
+            preferred-height: root.mode == "prepare" && root.prepare-layout == "browser" ? 0px : root.upper-height > 0 ? root.upper-height : (root.mode == "prepare" ? 280px : 560px);
+            if root.mode == "prepare" && root.prepare-layout != "browser": PreparePlayer {
                 phrases: root.show-phrases ? root.track-phrases : [];
                 info-width: root.sidebar-width;
                 info-dragged(d) => { root.sidebar-width = clamp(root.sidebar-width + d, 180px, 480px); }
@@ -470,6 +522,8 @@ export component AppWindow inherits Window {
                 grid-scale(f) => { root.grid-scale(f); }
                 grid-downbeat => { root.grid-downbeat(); }
                 grid-lock => { root.grid-lock(); }
+                grid-tap => { root.grid-tap(); }
+                grid-bpm(t) => { root.grid-bpm(t); }
                 analyse => { root.analyse-selected(); }
                 toggle-preview => { root.toggle-preview(); }
                 jump-start => { root.jump-start(); }
@@ -545,6 +599,7 @@ export component AppWindow inherits Window {
                 key-shift(d, x) => { root.deck-key-shift(d, x); }
                 tempo(d, v) => { root.deck-tempo(d, v); }
                 stem(d, s) => { root.deck-stem(d, s); }
+                stem-level(d, s, v) => { root.deck-stem-level(d, s, v); }
                 loop(d, b) => { root.deck-loop(d, b); }
                 loop-exit(d) => { root.deck-loop-exit(d); }
                 loop-scale(d, f) => { root.deck-loop-scale(d, f); }
@@ -561,7 +616,7 @@ export component AppWindow inherits Window {
                 set-headphone-level(v) => { root.set-headphone-level(v); }
             }
             }
-            if !root.kiosk: Splitter {
+            if !root.kiosk && !(root.mode == "prepare" && root.prepare-layout == "browser"): Splitter {
                 accessible-label: "browser.upper-splitter"; accessible-role: slider;
                 horizontal: true;
                 tooltip: @tr("Drag to resize, double-click to reset");
@@ -667,6 +722,9 @@ export component AppWindow inherits Window {
                                 clicked => { root.related-source-set(d); }
                             }
                         }
+                        if root.node-kind == "duplicates" && !root.kiosk: Caps { accessible-label: "browser.duplicates.groups"; accessible-role: text; accessible-value: root.duplicate-groups; text: @tr("{} GROUPS", root.duplicate-groups); vertical-alignment: center; }
+                        if root.node-kind == "duplicates" && !root.kiosk && root.has-selection: PlateButton { accessible-label: "browser.duplicates.remove"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("REMOVE SELECTED"); tone: Theme.fault; tooltip: @tr("Remove the selected tracks from the collection (the files stay on disk)"); clicked => { root.duplicates-action("remove-selected"); } }
+                        if root.node-kind == "duplicates" && !root.kiosk && root.duplicate-groups > 0: PlateButton { accessible-label: "browser.duplicates.keep-first"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("KEEP ONE OF EACH"); tone: Theme.fault; tooltip: @tr("Remove every copy but the oldest of each group from the collection (the files stay on disk)"); clicked => { root.duplicates-action("keep-first"); } }
                         if root.node-kind == "taglist" && !root.kiosk: PlateButton { accessible-label: "browser.tag-list.save"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("SAVE AS PLAYLIST"); tone: Theme.live; tooltip: @tr("Make a playlist of the tag list"); clicked => { root.tag-list-action("save"); } }
                         if root.node-kind == "taglist" && !root.kiosk: PlateButton { accessible-label: "browser.tag-list.clear"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("CLEAR"); tone: Theme.fault; tooltip: @tr("Empty the tag list"); clicked => { root.tag-list-action("clear"); } }
                         if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && root.node-kind != "related" && root.node-kind != "history" && root.node-kind != "taglist" && !root.read-only && !root.kiosk: PlateButton { accessible-label: "browser.delete-list"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; tooltip: @tr("Delete the open list"); command: "browser.delete.list"; clicked => { root.delete-node(); } }
@@ -727,6 +785,37 @@ export component AppWindow inherits Window {
                         selected: root.flow-selected;
                         select(i) => { root.flow-select(i); }
                     }
+                    if root.section == "library" && root.node-kind == "set" && root.mode == "prepare" && !root.read-only: HorizontalLayout {
+                        spacing: 8px;
+                        height: 32px;
+                        Field {
+                            accessible-label: "browser.set.planned-start"; accessible-role: text-input; accessible-value: self.text;
+                            width: 200px;
+                            placeholder: @tr("PLANNED START, E.G. 23:30");
+                            text: root.set-planned-start;
+                            tone: Theme.attention;
+                            accepted(t) => { root.save-planned-start(t); }
+                        }
+                        if root.flow-selected >= 0: Caps {
+                            accessible-label: "browser.set.backups"; accessible-role: text; accessible-value: root.set-backups-text;
+                            horizontal-stretch: 1;
+                            text: root.set-backups-text == "" ? @tr("NO BACKUP TRACKS FOR THIS POSITION") : @tr("BACKUPS: {}", root.set-backups-text);
+                            vertical-alignment: center; overflow: elide;
+                        }
+                        if root.flow-selected < 0: Rectangle { horizontal-stretch: 1; }
+                        if root.flow-selected >= 0: PlateButton {
+                            accessible-label: "browser.set.backups-from-tag-list"; accessible-role: button;
+                            horizontal-stretch: 0; compact: true; label: @tr("BACKUPS FROM TAG LIST"); tone: Theme.attention;
+                            tooltip: @tr("The tracks of the tag list become the backups of the selected position");
+                            clicked => { root.backups-action("from-tag-list"); }
+                        }
+                        if root.flow-selected >= 0 && root.set-backups-text != "": PlateButton {
+                            accessible-label: "browser.set.backups-clear"; accessible-role: button;
+                            horizontal-stretch: 0; compact: true; label: @tr("CLEAR"); tone: Theme.fault;
+                            tooltip: @tr("Remove the backup tracks of the selected position");
+                            clicked => { root.backups-action("clear"); }
+                        }
+                    }
                     if root.section == "library" && root.node-kind == "set" && root.flow-selected >= 0 && root.mode == "prepare": Field {
                         accessible-label: "browser.transition-note"; accessible-role: text-input; accessible-value: self.text;
                         placeholder: @tr("TRANSITION NOTE FOR THE SELECTED POSITION — ENTER TO SAVE");
@@ -750,6 +839,8 @@ export component AppWindow inherits Window {
                             ? @tr("Nothing fits yet: load an analysed track on a deck (or select one) and open this list again.")
                             : root.node-kind == "taglist"
                             ? @tr("The tag list is empty. Collect tracks here with + next to TAG LIST or the row menu.")
+                            : root.node-kind == "duplicates"
+                            ? @tr("No duplicates: every track is in the collection once.")
                             : root.filter.active
                             ? @tr("No track matches the filter.")
                             : @tr("No tracks here yet. Select tracks in All tracks and press + next to this list in the sidebar.");
@@ -855,6 +946,7 @@ export component AppWindow inherits Window {
 
                     // ── Recordings section ──
                     if root.section == "recordings": SectionTitle { title: @tr("RECORDINGS"); sub: @tr("{} MIXES", root.recordings.length); }
+                    if root.section == "recordings": RecPanel { }
                     if root.section == "recordings": VerticalLayout {
                         vertical-stretch: 1;
                         spacing: 4px;
@@ -918,11 +1010,16 @@ export component AppWindow inherits Window {
                         text: root.analysis-text; vertical-alignment: center;
                     }
                     Text {
-                        accessible-label: "status.summary"; accessible-role: text; accessible-value: root.status-text;
+                        accessible-label: "status.message"; accessible-role: text; accessible-value: root.status-text;
                         horizontal-stretch: 1;
                         text: root.status-text;
                         font-family: Theme.family; font-size: 12px; color: Theme.bone-2;
                         vertical-alignment: center; overflow: elide;
+                    }
+                    Caps {
+                        accessible-label: "status.summary"; accessible-role: text; accessible-value: root.list-summary;
+                        horizontal-stretch: 0;
+                        text: root.list-summary; vertical-alignment: center;
                     }
                 }
             }

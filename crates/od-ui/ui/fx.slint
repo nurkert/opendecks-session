@@ -6,7 +6,16 @@
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, Knob, Toggle, Stepper, HoldButton, TipArea } from "controls.slint";
-import { FxUnitView } from "structs.slint";
+import { FxUnitView, FxSlotView } from "structs.slint";
+
+// Multi mode controls (unit 1-based, slot 2 or 3).
+export global FxSlots {
+    callback multi(int);
+    callback kind-step(int, int, int);
+    callback beats-step(int, int, int);
+    callback level(int, int, float);
+    callback on(int, int);
+}
 
 // Effect names, in engine order (Beat FX) and settings order (Colour FX).
 export global FxNames {
@@ -98,6 +107,13 @@ component FxUnit inherits Rectangle {
                 bp := Text { visible: false; text: "000.0"; font-family: Theme.family; font-size: 11px; font-weight: 600; }
             }
             Caps { text: root.u.tapped ? @tr("TAP") : "BPM"; font-size: 9px; }
+            Toggle {
+                accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.multi;
+                accessible-label: "fx.unit\{root.u.unit}.menu";
+                size: 20px; label: root.u.multi ? "×3" : "×1"; on: root.u.multi; tone: root.tone;
+                tooltip: @tr("Single effect or three effects in a chain");
+                clicked => { FxSlots.multi(root.u.unit); }
+            }
         }
         VerticalLayout {
             width: root.narrow ? 140px : 168px;
@@ -165,6 +181,51 @@ component FxUnit inherits Rectangle {
                     command: "fx" + root.u.unit + (k == 0 ? ".release.brake" : k == 1 ? ".release.backspin" : ".release.echo");
                     pressed => { root.release(k, true); }
                     released => { root.release(k, false); }
+                }
+            }
+        }
+        // Slots 2 and 3 (multi mode): effect, beat, depth, on.
+        if root.u.multi: HorizontalLayout {
+            spacing: 10px;
+            for sl in root.u.slots: VerticalLayout {
+                width: root.narrow ? 112px : 132px;
+                spacing: 4px; alignment: center;
+                HorizontalLayout {
+                    spacing: 4px;
+                    Stepper {
+                        accessible-role: combobox;
+                        accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.type";
+                        accessible-value: self.value;
+                        horizontal-stretch: 1; size: 22px; font-size: 10px;
+                        value: FxNames.beat[sl.kind]; template: "PING PONG"; lit: sl.on; tone: root.tone;
+                        tooltip: @tr("Effect of this slot");
+                        step(d) => { FxSlots.kind-step(root.u.unit, sl.slot, d); }
+                    }
+                    Toggle {
+                        accessible-role: checkbox; accessible-checkable: true; accessible-checked: sl.on;
+                        accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.on";
+                        size: 22px; width: 30px; label: "ON"; on: sl.on; tone: root.tone;
+                        clicked => { FxSlots.on(root.u.unit, sl.slot); }
+                    }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    Stepper {
+                        a11y-prev: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats-down";
+                        a11y-value: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats";
+                        a11y-next: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats-up";
+                        horizontal-stretch: 1; size: 22px; font-size: 10px;
+                        value: sl.beats; template: "1/16";
+                        step(d) => { FxSlots.beats-step(root.u.unit, sl.slot, d); }
+                    }
+                    Knob {
+                        accessible-role: slider;
+                        accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.depth";
+                        accessible-value: sl.level;
+                        label: ""; size: 22px; minimum: 0; maximum: 1; default-value: 0.5;
+                        value: sl.level; tone: root.tone;
+                        changed(v) => { FxSlots.level(root.u.unit, sl.slot, v); }
+                    }
                 }
             }
         }

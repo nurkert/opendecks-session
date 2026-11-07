@@ -192,6 +192,21 @@ export component PreferencesWindow inherits Window {
     in property <int> bar-counter;
     in property <int> waveform;
     in property <bool> phrases;
+    // Index into the zoom spans (4, 8, 16, 32 s), text sizes (12–18 px)
+    // and line spacings (compact, normal, roomy).
+    in property <int> zoom-span;
+    in property <int> font-size;
+    in property <int> line-spacing;
+
+    // Controller > Decks and Mixer (indices into the option lists).
+    in property <int> tempo-range;
+    in property <bool> deck-quantize;
+    in property <int> jog-mode;
+    in property <bool> auto-cue;
+    in property <int> eq-mode;
+    in property <int> fader-curve;
+    in property <int> crossfader-curve;
+    in property <bool> auto-gain;
 
     // Analysis.
     in property <[string]> bpm-options;
@@ -224,7 +239,13 @@ export component PreferencesWindow inherits Window {
     in property <string> rec-folder;
     in property <bool> auto-split;
     in property <bool> silence-start;
+    in property <bool> silence-stop;
     in property <string> rec-note;
+    in property <string> rec-pattern;
+    // The file name the pattern gives (example).
+    in property <string> rec-example;
+    in property <[string]> rec-gain-options;
+    in property <int> rec-gain;
 
     // Advanced.
     in property <string> library-path;
@@ -240,6 +261,8 @@ export component PreferencesWindow inherits Window {
     callback choose(string, int);
     callback flag(string, bool);
     callback act(string);
+    // A typed setting by key ("rec.pattern"), on Return.
+    callback text(string, string);
     callback search-keys(string);
     callback record-key(string);
     callback reset-key(string);
@@ -342,6 +365,9 @@ export component PreferencesWindow inherits Window {
                         Heading { text: @tr("Language and keys"); }
                         Row { label: @tr("Language"); Choice { accessible-label: "prefs.view.language"; options: [@tr("SYSTEM"), "ENGLISH", "DEUTSCH"]; selected: root.language; picked(i) => { root.choose("view.language", i); } } }
                         Row { label: @tr("Key notation"); Choice { accessible-label: "prefs.analysis.key-notation"; options: [@tr("CAMELOT  8A"), @tr("OPEN KEY  1M"), @tr("MUSICAL  Am")]; selected: root.notation; picked(i) => { root.choose("view.notation", i); } } }
+                        Heading { text: @tr("Browser"); }
+                        Row { label: @tr("Text size"); Choice { accessible-label: "prefs.view.font-size"; options: ["12", "14", "16", "18"]; selected: root.font-size; picked(i) => { root.choose("view.font-size", i); } } }
+                        Row { label: @tr("Line spacing"); Choice { accessible-label: "prefs.view.line-space"; options: [@tr("COMPACT"), @tr("NORMAL"), @tr("ROOMY")]; selected: root.line-spacing; picked(i) => { root.choose("view.line-spacing", i); } } }
                         Heading { text: @tr("Display"); note: root.scale-pending ? @tr("UI SCALE APPLIES AFTER RESTART") : ""; }
                         Row { label: @tr("Appearance"); Choice { accessible-label: "prefs.view.appearance"; options: [@tr("DARK"), @tr("LIGHT"), @tr("SYSTEM")]; selected: root.appearance; picked(i) => { root.choose("view.appearance", i); } } }
                         Row { label: @tr("UI scale"); Choice { accessible-label: "prefs.view.scale"; options: root.scale-options; selected: root.scale; picked(i) => { root.choose("view.scale", i); } } }
@@ -356,7 +382,9 @@ export component PreferencesWindow inherits Window {
                                 picked(i) => { root.choose("view.bar-counter", i); }
                             }
                         }
-                        Row { label: @tr("Phrases"); Switch { accessible-label: "prefs.view.phrases"; label: @tr("Show phrases on the waveforms"); on: root.phrases; toggled(v) => { root.flag("view.phrases", v); } } }
+                        Row { label: @tr("Phrases"); Switch { accessible-label: "prefs.view.phrase-enlarged"; label: @tr("Show phrases on the waveforms"); on: root.phrases; toggled(v) => { root.flag("view.phrases", v); } } }
+                        Row { label: @tr("Waveform zoom"); Choice { accessible-label: "prefs.view.zoom"; options: [@tr("4 S"), @tr("8 S"), @tr("16 S"), @tr("32 S")]; selected: root.zoom-span; picked(i) => { root.choose("view.zoom", i); } } }
+                        Note { text: @tr("Seconds shown across the zoomed waveform when a track opens; the wheel still zooms each waveform."); }
                         Heading { text: @tr("Accessibility"); }
                         Row { label: @tr("Colour"); Switch { accessible-label: "prefs.view.colour-blind"; label: @tr("Colour-blind-safe palette"); on: root.colorblind; toggled(v) => { root.flag("view.colorblind", v); } } }
                         Row { label: @tr("Contrast"); Switch { accessible-label: "prefs.view.high-contrast"; label: @tr("High contrast (bright light)"); on: root.high-contrast; toggled(v) => { root.flag("view.contrast", v); } } }
@@ -390,6 +418,18 @@ export component PreferencesWindow inherits Window {
                         width: parent.width;
                         alignment: start;
                         spacing: 8px;
+                        Heading { text: @tr("Decks"); }
+                        Row { label: @tr("Tempo range"); Choice { accessible-label: "prefs.controller.tempo-range"; options: ["±6 %", "±10 %", "±16 %", @tr("WIDE")]; selected: root.tempo-range; picked(i) => { root.choose("deck.tempo-range", i); } } }
+                        Row { label: @tr("Quantize"); Switch { accessible-label: "prefs.controller.quantize"; label: @tr("Quantize cues, loops and jumps to the beat"); on: root.deck-quantize; toggled(v) => { root.flag("deck.quantize", v); } } }
+                        Row { label: @tr("Sync"); Choice { accessible-label: "prefs.controller.sync-mode"; options: [@tr("BEAT SYNC (TEMPO + PHASE)")]; selected: 0; } }
+                        Row { label: @tr("Jog wheel"); Choice { accessible-label: "prefs.controller.jog-mode"; options: [@tr("VINYL"), @tr("PITCH BEND")]; selected: root.jog-mode; picked(i) => { root.choose("deck.jog-mode", i); } } }
+                        Row { label: @tr("Auto cue"); Switch { accessible-label: "prefs.controller.auto-cue"; label: @tr("A loaded track waits at its first sound"); on: root.auto-cue; toggled(v) => { root.flag("deck.auto-cue", v); } } }
+                        Heading { text: @tr("Mixer"); }
+                        Row { label: @tr("EQ"); Choice { accessible-label: "prefs.controller.eq-mode"; options: [@tr("ISOLATOR"), @tr("CLASSIC EQ")]; selected: root.eq-mode; picked(i) => { root.choose("mixer.eq-mode", i); } } }
+                        Row { label: @tr("Channel fader curve"); Choice { accessible-label: "prefs.controller.fader-curve"; options: [@tr("LINEAR"), @tr("SMOOTH"), @tr("SHARP")]; selected: root.fader-curve; picked(i) => { root.choose("mixer.fader-curve", i); } } }
+                        Row { label: @tr("Crossfader curve"); Choice { accessible-label: "prefs.controller.crossfader-curve"; options: [@tr("CONSTANT POWER"), @tr("LINEAR"), @tr("CUT")]; selected: root.crossfader-curve; picked(i) => { root.choose("mixer.crossfader-curve", i); } } }
+                        Row { label: @tr("Auto gain"); Switch { accessible-label: "prefs.controller.auto-gain"; label: @tr("Level tracks by their analysed loudness"); on: root.auto-gain; toggled(v) => { root.flag("mixer.auto-gain", v); } } }
+                        Note { text: @tr("Deck and mixer settings apply at once and every time audio starts."); }
                         Heading { text: @tr("Detected"); }
                         if root.controllers.length == 0: Note { text: @tr("No MIDI controller found. Connect a DDJ-FLX10 or DDJ-FLX4 by USB; it is picked up within a few seconds."); }
                         for c in root.controllers: Text { text: c; font-family: Theme.family; font-size: 14px; color: Theme.bone; height: 24px; vertical-alignment: center; }
@@ -514,10 +554,25 @@ export component PreferencesWindow inherits Window {
                             Text { horizontal-stretch: 1; text: root.rec-folder; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
                             Button { a11y-label: "prefs.recording.folder"; label: @tr("CHOOSE…"); tooltip: @tr("Pick the folder for recordings"); clicked => { root.act("rec.folder"); } }
                         }
+                        Row {
+                            label: @tr("File name");
+                            Field {
+                                accessible-role: text-input;
+                                accessible-label: "prefs.recording.name-pattern";
+                                accessible-value: self.text;
+                                horizontal-stretch: 1;
+                                text: root.rec-pattern;
+                                placeholder: "Mix {date} {time}";
+                                accepted(t) => { root.text("rec.pattern", t); }
+                            }
+                        }
+                        Note { text: @tr("{{date}}, {{time}} and {{n}} (number of the day) are filled in; Return saves. Example: {}", root.rec-example); }
+                        Row { label: @tr("Recording level"); Choice { accessible-label: "prefs.recording.level"; options: root.rec-gain-options; selected: root.rec-gain; picked(i) => { root.choose("rec.gain", i); } } }
                         Heading { text: @tr("Automation"); }
                         Row { label: @tr("Split"); Switch { accessible-label: "prefs.recording.auto-split"; label: @tr("Split into one file per track when recording stops"); on: root.auto-split; toggled(v) => { root.flag("rec.split", v); } } }
                         Row { label: @tr("Start"); Switch { accessible-label: "prefs.recording.silence-start"; label: @tr("Start recording when sound starts"); on: root.silence-start; toggled(v) => { root.flag("rec.silence", v); } } }
-                        Note { text: @tr("With automatic start, recording begins as soon as the master is no longer silent; stopping it by hand disarms it until the next start of the app."); }
+                        Row { label: @tr("Stop"); Switch { accessible-label: "prefs.recording.silence-stop"; label: @tr("Stop recording after 30 seconds of silence"); on: root.silence-stop; toggled(v) => { root.flag("rec.silence-stop", v); } } }
+                        Note { text: @tr("With automatic start, recording begins once the master carries sound for two seconds; stopping it by hand disarms it until the next start of the app."); }
                     }
                 }
 
@@ -537,6 +592,11 @@ export component PreferencesWindow inherits Window {
                             Button { a11y-label: "prefs.advanced.library-show"; label: @tr("SHOW"); tooltip: @tr("Show the library file in the file manager"); clicked => { root.act("library.show"); } }
                         }
                         Note { text: @tr("Choose the library file (library.sqlite) to open from the next start. The command-line option --library still wins."); }
+                        Row {
+                            label: @tr("rekordbox");
+                            Text { horizontal-stretch: 1; text: @tr("Preferences and keyboard shortcuts"); font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
+                            Button { a11y-label: "prefs.advanced.rekordbox-settings"; label: @tr("IMPORT"); tooltip: @tr("Take over the preferences and shortcuts of a rekordbox installation (rekordbox itself is not changed)"); clicked => { root.act("rekordbox.settings"); } }
+                        }
                         Heading { text: @tr("Backups"); }
                         Row { label: @tr("At start"); Switch { accessible-label: "prefs.advanced.backup-on-start"; label: @tr("Back up the library every time the app starts"); on: root.backup-on-start; toggled(v) => { root.flag("adv.backup", v); } } }
                         Row {

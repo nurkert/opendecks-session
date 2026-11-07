@@ -52,6 +52,15 @@ pub(crate) struct Loaded {
     source: TrackSource,
 }
 
+impl Loaded {
+    /// Memory cue starts in seconds, in track order.
+    pub(crate) fn memory_starts(&self, duration: f64) -> Vec<f64> {
+        let mut v: Vec<f64> = self.cues.iter().filter(|c| c.slot < 0).map(|c| c.pos as f64 * duration).collect();
+        v.sort_by(f64::total_cmp);
+        v
+    }
+}
+
 /// File and analysis of a loaded track, kept to reload it with stems.
 #[derive(Clone)]
 struct TrackSource {
@@ -559,6 +568,10 @@ pub(crate) struct DeckFields {
     pub mute_inst: bool,
     pub mute_drums: bool,
     pub mute_bass: bool,
+    pub level_vocal: f32,
+    pub level_inst: f32,
+    pub level_drums: f32,
+    pub level_bass: f32,
     pub loop_size: SharedString,
     pub phrase: SharedString,
     pub jog_angle: f32,
@@ -664,6 +677,10 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         mute_inst: muted(od_engine::Stem::Inst),
         mute_drums: muted(od_engine::Stem::Drums),
         mute_bass: muted(od_engine::Stem::Bass),
+        level_vocal: s.stem_levels[od_engine::Stem::Vocals.index()],
+        level_inst: s.stem_levels[od_engine::Stem::Inst.index()],
+        level_drums: s.stem_levels[od_engine::Stem::Drums.index()],
+        level_bass: s.stem_levels[od_engine::Stem::Bass.index()],
         loop_size: format::beats(s.loop_state.beats.filter(|_| s.loop_state.active).unwrap_or(i.loop_size)).into(),
         phrase: meta.map(|m| phrase_now(&m.phrases, s.beat)).unwrap_or_default().into(),
         // 33⅓ rpm: 200° per second of audio.
@@ -770,6 +787,10 @@ impl Lane {
             mute_inst: f.mute_inst,
             mute_drums: f.mute_drums,
             mute_bass: f.mute_bass,
+            level_vocal: f.level_vocal,
+            level_inst: f.level_inst,
+            level_drums: f.level_drums,
+            level_bass: f.level_bass,
             loop_size: f.loop_size,
             phrases: self.phrases.clone(),
             phrase: f.phrase,
@@ -801,7 +822,7 @@ impl DeckViews {
             *lane = Lane::default();
             // Empty decks show their hot cue pads and mode too.
             let s = DeckState::default();
-            let ctx = pads::PadCtx { deck: d, mode: PadMode::HotCue, sampler_bank: 0, keyboard_cue: 0, slicer_beats: 8.0, labels: &[], sampler_slots: &[] };
+            let ctx = pads::PadCtx { deck: d, mode: PadMode::HotCue, sampler_bank: 0, keyboard_cue: 0, slicer_beats: 8.0, labels: &[], sampler_slots: &[], memory: &[] };
             let rows = pads::pad_views(&s, &Default::default(), &[], &ctx);
             lane.pads.sync_eq(rows.clone());
             lane.pads_left.sync_eq(rows[..4].to_vec());
@@ -882,6 +903,7 @@ pub(crate) fn project(app: &App, state: &EngineState) {
         if let Some(row) = d.scroll[i].update(&input) {
             d.motion.set_row_data(i, row);
         }
+        let memory = meta.map(|m| m.memory_starts(s.duration)).unwrap_or_default();
         let ctx = pads::PadCtx {
             deck: i,
             mode: d.pad_mode[i],
@@ -890,6 +912,7 @@ pub(crate) fn project(app: &App, state: &EngineState) {
             slicer_beats: d.slicer_beats[i],
             labels: meta.map(|m| m.labels.as_slice()).unwrap_or(&[]),
             sampler_slots: &sampler_slots,
+            memory: &memory,
         };
         let rows = pads::pad_views(s, &state.channels[i], &state.sampler, &ctx);
         let pad_param = pads::param_label(s, &ctx);
@@ -1016,6 +1039,7 @@ fn with_pads<R>(app: &App, d: usize, f: impl FnOnce(&DeckState, &pads::PadCtx) -
     let slots = app.sampler.slots.borrow();
     let dk = app.decks.borrow();
     let labels = dk.loaded(d).map(|m| m.labels.clone()).unwrap_or_default();
+    let memory = dk.loaded(d).map(|m| m.memory_starts(s.duration)).unwrap_or_default();
     let ctx = pads::PadCtx {
         deck: d,
         mode: dk.pad_mode[d],
@@ -1024,6 +1048,7 @@ fn with_pads<R>(app: &App, d: usize, f: impl FnOnce(&DeckState, &pads::PadCtx) -
         slicer_beats: dk.slicer_beats[d],
         labels: &labels,
         sampler_slots: &slots,
+        memory: &memory,
     };
     f(&s, &ctx)
 }
@@ -1033,6 +1058,7 @@ pub(crate) fn pad_rows(app: &App, d: usize, state: &EngineState) -> Vec<PadView>
     let slots = app.sampler.slots.borrow();
     let dk = app.decks.borrow();
     let labels = dk.loaded(d).map(|m| m.labels.as_slice()).unwrap_or(&[]);
+    let memory = dk.loaded(d).map(|m| m.memory_starts(state.decks[d].duration)).unwrap_or_default();
     let ctx = pads::PadCtx {
         deck: d,
         mode: dk.pad_mode[d],
@@ -1041,6 +1067,7 @@ pub(crate) fn pad_rows(app: &App, d: usize, state: &EngineState) -> Vec<PadView>
         slicer_beats: dk.slicer_beats[d],
         labels,
         sampler_slots: &slots,
+        memory: &memory,
     };
     pads::pad_views(&state.decks[d], &state.channels[d], &state.sampler, &ctx)
 }
@@ -1105,7 +1132,7 @@ pub(crate) fn pad_param(app: &App, d: usize, delta: i32) {
                 engine::deck_cmd(app, d, DeckCommand::Slicer(od_engine::SlicerCommand::Enable { beats, loop_mode: s.slicer.loop_mode }));
             }
         }
-        PadMode::BeatLoop => {}
+        PadMode::BeatLoop | PadMode::Stems | PadMode::MemoryCue => {}
     }
 }
 
@@ -1159,6 +1186,13 @@ pub(crate) fn edit_memory_cue(mut cues: Vec<od_core::Cue>, pos: f64, add: bool) 
     cues
 }
 
+/// Makes the memory cue at `start` a saved loop ending at `end`.
+pub(crate) fn set_memory_loop_end(cues: &mut [od_core::Cue], start: f64, end: f64) {
+    if let Some(c) = cues.iter_mut().find(|c| c.kind == CueKind::Memory && (c.start - start).abs() < 0.05) {
+        c.loop_end = Some(end);
+    }
+}
+
 /// Gives the engine a fresh build of deck `d`'s track (new cues or grid)
 /// without a gap.
 fn reload_engine_data(app: &App, d: usize) {
@@ -1184,9 +1218,15 @@ fn editable(app: &App, d: usize) -> Option<TrackId> {
 /// one at the playhead; saved to the library like any cue edit.
 pub(crate) fn memory_cue(app: &App, d: usize, add: bool) {
     let Some(id) = editable(app, d) else { return };
-    let Some(pos) = deck_state(app, d).map(|s| s.position) else { return };
+    let Some(st) = deck_state(app, d) else { return };
+    // While a loop plays, MEMORY stores the loop (a saved memory loop).
+    let looped = st.loop_state.start.zip(st.loop_state.end).filter(|_| st.loop_state.active);
+    let pos = looped.map_or(st.position, |(a, _)| a);
     let current = app.state.borrow().lib.cues(id).unwrap_or_default();
-    let next = edit_memory_cue(current.clone(), pos, add);
+    let mut next = edit_memory_cue(current.clone(), pos, add);
+    if add && let Some((_, end)) = looped {
+        set_memory_loop_end(&mut next, pos, end);
+    }
     if next == current {
         return;
     }
@@ -1234,6 +1274,17 @@ pub(crate) fn tap_bpm(app: &App, d: usize) {
 
 thread_local! {
     static TAP_EPOCH: Instant = Instant::now();
+}
+
+/// A part by its UI name ("vocal", "inst", "drums", "bass").
+pub(crate) fn stem_of_ui(name: &str) -> Option<od_engine::Stem> {
+    match name {
+        "vocal" | "vocals" => Some(od_engine::Stem::Vocals),
+        "drums" => Some(od_engine::Stem::Drums),
+        "bass" => Some(od_engine::Stem::Bass),
+        "inst" => Some(od_engine::Stem::Inst),
+        _ => None,
+    }
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
@@ -1304,6 +1355,12 @@ pub(crate) fn wire(app: &Rc<App>) {
         let level = deck_state(&a, d).map(|st| st.stem_levels[s.index()]).unwrap_or(1.0);
         engine::deck_cmd(&a, d, DeckCommand::SetStemLevel { stem: s, level: if level < 0.5 { 1.0 } else { 0.0 } });
     }));
+    ui.on_deck_stem_level(handler!(app, |a, d: i32, stem: SharedString, level: f32| {
+        engine::ensure_engine(&a);
+        if let Some(s) = stem_of_ui(stem.as_str()) {
+            engine::deck_cmd(&a, idx(d), DeckCommand::SetStemLevel { stem: s, level: level.clamp(0.0, 1.0) });
+        }
+    }));
     ui.on_deck_loop(handler!(app, |a, d: i32, beats: f32| {
         engine::ensure_engine(&a);
         let d = idx(d);
@@ -1334,7 +1391,7 @@ pub(crate) fn wire(app: &Rc<App>) {
         let mode = pads::step_mode(a.decks.borrow().pad_mode[idx(d)], x);
         set_pad_mode(&a, idx(d), mode);
     }));
-    ui.on_deck_pad_mode_set(handler!(app, |a, d: i32, i: i32| set_pad_mode(&a, idx(d), pads::UI_MODES[(i.max(0) as usize).min(7)])));
+    ui.on_deck_pad_mode_set(handler!(app, |a, d: i32, i: i32| set_pad_mode(&a, idx(d), pads::UI_MODES[(i.max(0) as usize).min(pads::UI_MODES.len() - 1)])));
     ui.on_deck_pad_param(handler!(app, |a, d: i32, x: i32| pad_param(&a, idx(d), x)));
     ui.on_deck_key_sync(handler!(app, |a, d: i32| toggle_key_sync(&a, idx(d))));
     ui.on_deck_key_shift(handler!(app, |a, d: i32, x: i32| key_shift(&a, idx(d), x)));
@@ -1380,6 +1437,11 @@ mod tests {
         let removed = edit_memory_cue(added, 10.4, false);
         assert!(!removed.iter().any(|c| c.kind == CueKind::Memory && c.start == 10.0));
         assert_eq!(edit_memory_cue(removed.clone(), 1.0, false), removed);
+        // MEMORY while looping saves the loop.
+        let mut with_loop = edit_memory_cue(Vec::new(), 32.0, true);
+        set_memory_loop_end(&mut with_loop, 32.0, 36.0);
+        assert_eq!(with_loop[0].loop_end, Some(36.0));
+        assert!(with_loop[0].is_loop());
     }
 
     #[test]

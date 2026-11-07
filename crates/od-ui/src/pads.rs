@@ -1,5 +1,5 @@
 //! Deck pad modes (SPEC §10.1): Hot Cue, Pad FX, Beat Jump, Sampler,
-//! Keyboard, Key Shift, Beat Loop and Slicer.
+//! Keyboard, Key Shift, Beat Loop, Slicer, Stems and Memory Cue.
 //!
 //! The eight pads of a deck show and do what the deck's pad mode says. The
 //! functions here are pure: they project the engine state into pad rows and
@@ -15,7 +15,7 @@ use od_engine::{
 
 /// Pad modes offered on screen, in selector order (Pad FX page 2 is
 /// reached with the ‹ › of the Pad FX mode).
-pub(crate) const UI_MODES: [PadMode; 8] = [
+pub(crate) const UI_MODES: [PadMode; 10] = [
     PadMode::HotCue,
     PadMode::PadFx1,
     PadMode::BeatJump,
@@ -24,7 +24,12 @@ pub(crate) const UI_MODES: [PadMode; 8] = [
     PadMode::KeyShift,
     PadMode::BeatLoop,
     PadMode::Slicer,
+    PadMode::Stems,
+    PadMode::MemoryCue,
 ];
+
+/// Parts of the Stems pads: A–D (mute) and E–H (solo) in this order.
+pub(crate) const STEM_PADS: [od_engine::Stem; 4] = [od_engine::Stem::Vocals, od_engine::Stem::Inst, od_engine::Stem::Drums, od_engine::Stem::Bass];
 
 /// Semitones of the Keyboard and Key Shift pads: A–D = −3 … 0 (left
 /// column), E–H = +1 … +4 (right column).
@@ -62,6 +67,8 @@ pub(crate) struct PadCtx<'a> {
     pub labels: &'a [String],
     /// Sampler slot contents (names).
     pub sampler_slots: &'a [Option<SlotInfo>],
+    /// Memory cue starts (seconds, track order).
+    pub memory: &'a [f64],
 }
 
 /// Hot cue letter of library index `i`: A … Z, then AA, AB, …
@@ -121,6 +128,8 @@ pub(crate) fn param_label(s: &DeckState, ctx: &PadCtx) -> String {
         PadMode::KeyShift => format!("KEY {}", key_shift_label(s.key_shift)),
         PadMode::BeatLoop => String::new(),
         PadMode::Slicer => format!("{} BEATS", beats_label(ctx.slicer_beats)),
+        PadMode::Stems => if s.stems_available { "MUTE · SOLO".into() } else { "NO PARTS".into() },
+        PadMode::MemoryCue => format!("{} CUES", ctx.memory.len()),
     }
 }
 
@@ -175,6 +184,24 @@ pub(crate) fn pad_views(s: &DeckState, ch: &ChannelState, sampler: &[SamplerSlot
                 let lit = s.slicer.active && (s.slicer.held == Some(i as u8) || (s.slicer.held.is_none() && s.slicer.current as usize == i));
                 pad(i, format!("{}", i + 1), "SLICE", s.slicer.active, lit, -1)
             }
+            PadMode::Stems => {
+                let part = STEM_PADS[i % 4];
+                let name = part.name().to_uppercase();
+                if i < 4 {
+                    let on = s.stem_levels[part.index()] >= 0.5;
+                    pad(i, name, if on { "ON" } else { "MUTED" }, s.stems_available, on, -1)
+                } else {
+                    let solo = soloed(s) == Some(part);
+                    pad(i, name, "SOLO", s.stems_available, solo, -1)
+                }
+            }
+            PadMode::MemoryCue => match ctx.memory.get(i) {
+                Some(&t) => {
+                    let lit = (s.cue_point - t).abs() < 0.01;
+                    pad(i, format!("M{}", i + 1), crate::format::deck_time(t), true, lit, -1)
+                }
+                None => pad(i, format!("M{}", i + 1), "", false, false, -1),
+            },
         })
         .collect()
 }
@@ -202,6 +229,19 @@ pub(crate) fn press_commands(s: &DeckState, ctx: &PadCtx, index: usize, pressed:
             let same = s.loop_state.active && s.loop_state.beats.is_some_and(|x| (x - b).abs() < 1e-6);
             vec![deck(if same { DeckCommand::LoopExit } else { DeckCommand::AutoLoop { beats: b } })]
         }
+        PadMode::Stems if pressed && s.stems_available => {
+            let part = STEM_PADS[i % 4];
+            let set = |p: od_engine::Stem, level: f32| deck(DeckCommand::SetStemLevel { stem: p, level });
+            if i < 4 {
+                let on = s.stem_levels[part.index()] >= 0.5;
+                vec![set(part, if on { 0.0 } else { 1.0 })]
+            } else if soloed(s) == Some(part) {
+                STEM_PADS.iter().map(|p| set(*p, 1.0)).collect()
+            } else {
+                STEM_PADS.iter().map(|p| set(*p, if *p == part { 1.0 } else { 0.0 })).collect()
+            }
+        }
+        PadMode::MemoryCue if pressed && i < ctx.memory.len() => vec![deck(DeckCommand::MemoryCue(od_engine::MemoryCueJump::Index(i)))],
         PadMode::Slicer => {
             let mut v = Vec::new();
             if pressed && !s.slicer.active {
@@ -212,6 +252,12 @@ pub(crate) fn press_commands(s: &DeckState, ctx: &PadCtx, index: usize, pressed:
         }
         _ => Vec::new(),
     }
+}
+
+/// The only audible part, if exactly one is.
+fn soloed(s: &DeckState) -> Option<od_engine::Stem> {
+    let on: Vec<od_engine::Stem> = STEM_PADS.iter().copied().filter(|p| s.stem_levels[p.index()] >= 0.5).collect();
+    (on.len() == 1).then(|| on[0])
 }
 
 /// Commands when a deck changes from `old` to `new` pad mode: the slicer
@@ -244,7 +290,7 @@ mod tests {
     use od_engine::{HotCue, LoopState, SAMPLER_TOTAL};
 
     fn ctx<'a>(mode: PadMode, labels: &'a [String], slots: &'a [Option<SlotInfo>]) -> PadCtx<'a> {
-        PadCtx { deck: 1, mode, sampler_bank: 0, keyboard_cue: 0, slicer_beats: 8.0, labels, sampler_slots: slots }
+        PadCtx { deck: 1, mode, sampler_bank: 0, keyboard_cue: 0, slicer_beats: 8.0, labels, sampler_slots: slots, memory: &[] }
     }
 
     #[test]
@@ -267,9 +313,10 @@ mod tests {
     #[test]
     fn modes_cycle_on_screen() {
         assert_eq!(step_mode(PadMode::HotCue, 1), PadMode::PadFx1);
-        assert_eq!(step_mode(PadMode::HotCue, -1), PadMode::Slicer);
+        assert_eq!(step_mode(PadMode::HotCue, -1), PadMode::MemoryCue);
         assert_eq!(step_mode(PadMode::PadFx2, 1), PadMode::BeatJump);
-        assert_eq!(step_mode(PadMode::Slicer, 1), PadMode::HotCue);
+        assert_eq!(step_mode(PadMode::Slicer, 1), PadMode::Stems);
+        assert_eq!(step_mode(PadMode::MemoryCue, 1), PadMode::HotCue);
     }
 
     #[test]
@@ -340,5 +387,39 @@ mod tests {
         assert!(matches!(v[..], [Command::Deck(0, DeckCommand::Slicer(SlicerCommand::Disable))]));
         assert_eq!(mode_change_commands(0, PadMode::PadFx1, PadMode::HotCue, 8.0).len(), 1);
         assert!(mode_change_commands(0, PadMode::HotCue, PadMode::HotCue, 8.0).is_empty());
+    }
+
+    #[test]
+    fn stems_pads_mute_and_solo() {
+        let mut s = DeckState { stems_available: true, stem_levels: [1.0; 4], ..Default::default() };
+        let c = ctx(PadMode::Stems, &[], &[]);
+        let v = pad_views(&s, &ChannelState::default(), &[], &c);
+        assert_eq!((v[0].caption.as_str(), v[0].lit), ("VOCALS", true));
+        // A mutes vocals.
+        let cmds = press_commands(&s, &c, 0, true);
+        assert!(matches!(cmds[..], [Command::Deck(1, DeckCommand::SetStemLevel { stem: od_engine::Stem::Vocals, level })] if level == 0.0));
+        // G solos drums: the other parts go to 0.
+        let cmds = press_commands(&s, &c, 6, true);
+        assert_eq!(cmds.len(), 4);
+        s.stem_levels = [0.0, 1.0, 0.0, 0.0]; // drums only (index 1)
+        assert!(pad_views(&s, &ChannelState::default(), &[], &c)[6].lit, "drums solo shown");
+        // Pressing the solo again brings everything back.
+        assert!(press_commands(&s, &c, 6, true).iter().all(|c| matches!(c, Command::Deck(_, DeckCommand::SetStemLevel { level, .. }) if *level == 1.0)));
+        // No parts: nothing happens.
+        s.stems_available = false;
+        assert!(press_commands(&s, &c, 0, true).is_empty());
+        assert_eq!(param_label(&s, &c), "NO PARTS");
+    }
+
+    #[test]
+    fn memory_cue_pads_call_cues_in_order() {
+        let memory = [12.0, 64.5];
+        let s = DeckState { cue_point: 64.5, ..Default::default() };
+        let c = PadCtx { memory: &memory, ..ctx(PadMode::MemoryCue, &[], &[]) };
+        let v = pad_views(&s, &ChannelState::default(), &[], &c);
+        assert_eq!((v[0].set, v[1].lit, v[2].set), (true, true, false));
+        assert!(matches!(press_commands(&s, &c, 1, true)[..], [Command::Deck(1, DeckCommand::MemoryCue(od_engine::MemoryCueJump::Index(1)))]));
+        assert!(press_commands(&s, &c, 5, true).is_empty());
+        assert_eq!(param_label(&s, &c), "2 CUES");
     }
 }

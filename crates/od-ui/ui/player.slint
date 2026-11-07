@@ -90,6 +90,9 @@ export component PreparePlayer inherits Rectangle {
     callback grid-scale(float);
     callback grid-downbeat();
     callback grid-lock();
+    // TAP tempo and a typed BPM (Return).
+    callback grid-tap();
+    callback grid-bpm(string);
     callback analyse();
     callback toggle-preview();
     callback jump-start();
@@ -225,6 +228,16 @@ export component PreparePlayer inherits Rectangle {
                     horizontal-stretch: 1;
                     spacing: 4px;
                     padding-top: 9px; padding-bottom: 9px;
+                    Field {
+                        accessible-role: text-input; accessible-label: "player1.grid.bpm"; accessible-value: self.text;
+                        width: 84px; height: 26px;
+                        text: root.bpm; placeholder: "BPM";
+                        // Follows the track's tempo (also after typing).
+                        property <string> track-bpm: root.bpm;
+                        changed track-bpm => { self.text = self.track-bpm; }
+                        accepted(t) => { root.grid-bpm(t); self.text = root.bpm; }
+                    }
+                    Toggle { accessible-role: button; accessible-label: "player1.grid.tap"; label: @tr("TAP"); command: "player.grid.tap"; tooltip: @tr("Tap along with the beat: from the fourth tap the grid takes the tapped tempo"); enabled: !root.grid-locked && !root.read-only && root.has-track; clicked => { root.grid-tap(); } }
                     Toggle { accessible-role: button; accessible-label: "player1.grid.shift-left"; label: "−10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(-10); } }
                     Toggle { accessible-role: button; accessible-label: "player1.grid.shift-right"; label: "+10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(10); } }
                     Toggle { accessible-role: button; accessible-label: "player1.grid.halve"; label: @tr("HALF"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(0.5); } }

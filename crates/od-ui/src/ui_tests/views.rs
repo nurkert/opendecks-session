@@ -83,6 +83,10 @@ fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String> {
             if !w.get_fx_panel() {
                 w.invoke_toggle_fx_panel();
             }
+            // The view lists all three slots: multi mode on both units.
+            for u in 0..2 {
+                crate::fx::toggle_multi(&ui.app, u);
+            }
         }
         "panel.sampler" => {
             perform(2);

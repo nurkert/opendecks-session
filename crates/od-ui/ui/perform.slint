@@ -152,8 +152,8 @@ global PadLetters {
 
 // Pad modes, in selector order (ids as in DeckView.pad-mode).
 global PadModes {
-    out property <[string]> ids: ["hot_cue", "pad_fx1", "beat_jump", "sampler", "keyboard", "key_shift", "beat_loop", "slicer"];
-    out property <[string]> names: [@tr("HOT CUE"), @tr("PAD FX"), @tr("BEAT JUMP"), @tr("SAMPLER"), @tr("KEYBOARD"), @tr("KEY SHIFT"), @tr("BEAT LOOP"), @tr("SLICER")];
+    out property <[string]> ids: ["hot_cue", "pad_fx1", "beat_jump", "sampler", "keyboard", "key_shift", "beat_loop", "slicer", "stems", "memory_cue"];
+    out property <[string]> names: [@tr("HOT CUE"), @tr("PAD FX"), @tr("BEAT JUMP"), @tr("SAMPLER"), @tr("KEYBOARD"), @tr("KEY SHIFT"), @tr("BEAT LOOP"), @tr("SLICER"), @tr("STEMS"), @tr("MEMORY CUE")];
     public pure function index(id: string) -> int {
         if (id == "pad_fx1" || id == "pad_fx2") { return 1; }
         if (id == "beat_jump") { return 2; }
@@ -162,6 +162,8 @@ global PadModes {
         if (id == "key_shift") { return 5; }
         if (id == "beat_loop") { return 6; }
         if (id == "slicer") { return 7; }
+        if (id == "stems") { return 8; }
+        if (id == "memory_cue") { return 9; }
         return 0;
     }
     // Pad colour of a mode (hot cues use their cue colours).
@@ -172,6 +174,8 @@ global PadModes {
         if (id == "keyboard" || id == "key_shift") { return Theme.w589; }
         if (id == "beat_loop") { return Theme.w615; }
         if (id == "slicer") { return Theme.w486; }
+        if (id == "stems") { return Theme.w656; }
+        if (id == "memory_cue") { return Theme.bone; }
         return Theme.bone-2;
     }
 }
@@ -391,6 +395,40 @@ component TempoColumn inherits VerticalLayout {
     }
 }
 
+// Part mute key with its level: click mutes / unmutes, the wheel sets the
+// level (part isolation), the line under it shows the level.
+component StemKey inherits Rectangle {
+    in property <int> deck;
+    in property <string> stem;
+    in property <string> label;
+    in property <bool> muted;
+    in property <float> level: 1;
+    in property <color> tone;
+    in property <bool> enabled;
+    callback toggle();
+    callback set-level(float);
+    width: 64px; height: 22px;
+    TouchArea {
+        enabled: root.enabled;
+        scroll-event(e) => {
+            root.set-level(clamp(root.level + (e.delta-y > 0 ? 0.1 : -0.1), 0, 1));
+            accept
+        }
+    }
+    Toggle {
+        accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.muted;
+        accessible-label: "deck\{root.deck}.stem.\{root.stem}";
+        size: 22px; width: 64px; label: root.label; on: root.muted; tone: root.tone; enabled: root.enabled;
+        tooltip: @tr("Click: mute / unmute · wheel: level");
+        clicked => { root.toggle(); }
+    }
+    if root.enabled && root.level > 0.01 && root.level < 0.99: Rectangle {
+        accessible-role: slider; accessible-label: "deck\{root.deck}.stem.\{root.stem}.level"; accessible-value: Math.round(root.level * 100) + " %";
+        x: 2px; y: parent.height - 3px; height: 2px; width: (parent.width - 4px) * root.level;
+        background: root.tone;
+    }
+}
+
 export component DeckPanel inherits Rectangle {
     in property <DeckView> deck;
     in property <bool> compact;
@@ -416,6 +454,7 @@ export component DeckPanel inherits Rectangle {
     callback key-shift(int);
     callback tempo(float);
     callback stem(string);
+    callback stem-level(string, float);
     callback loop(float);
     callback loop-exit();
     callback loop-scale(float);
@@ -521,10 +560,10 @@ export component DeckPanel inherits Rectangle {
             if root.mirror || root.compact: Caps { text: root.deck.stems-busy ? @tr("SPLIT…") : "MUTE"; font-size: 10px; vertical-alignment: center; color: root.deck.stems-busy ? Theme.attention : Theme.bone-3; }
             if !root.mirror && !root.compact: Rectangle { horizontal-stretch: 1; }
             if !root.mirror && !root.compact: Caps { text: root.deck.stems-busy ? @tr("SPLIT…") : "MUTE"; font-size: 10px; vertical-alignment: center; color: root.deck.stems-busy ? Theme.attention : Theme.bone-3; }
-            Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.deck.mute-vocal; accessible-label: "deck\{root.deck.deck}.stem.vocal"; size: 22px; width: 64px; label: "VOCAL"; on: root.deck.mute-vocal; tone: Theme.w546; enabled: root.deck.stems-available; clicked => { root.stem("vocal"); } }
-            Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.deck.mute-inst; accessible-label: "deck\{root.deck.deck}.stem.inst"; size: 22px; width: 64px; label: "INST"; on: root.deck.mute-inst; tone: Theme.w656; enabled: root.deck.stems-available; clicked => { root.stem("inst"); } }
-            Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.deck.mute-drums; accessible-label: "deck\{root.deck.deck}.stem.drums"; size: 22px; width: 64px; label: "DRUMS"; on: root.deck.mute-drums; tone: Theme.w486; enabled: root.deck.stems-available; clicked => { root.stem("drums"); } }
-            Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.deck.mute-bass; accessible-label: "deck\{root.deck.deck}.stem.bass"; size: 22px; width: 64px; label: "BASS"; on: root.deck.mute-bass; tone: Theme.w405; enabled: root.deck.stems-available; clicked => { root.stem("bass"); } }
+            StemKey { deck: root.deck.deck; stem: "vocal"; label: "VOCAL"; muted: root.deck.mute-vocal; level: root.deck.level-vocal; tone: Theme.w546; enabled: root.deck.stems-available; toggle => { root.stem("vocal"); } set-level(v) => { root.stem-level("vocal", v); } }
+            StemKey { deck: root.deck.deck; stem: "inst"; label: "INST"; muted: root.deck.mute-inst; level: root.deck.level-inst; tone: Theme.w656; enabled: root.deck.stems-available; toggle => { root.stem("inst"); } set-level(v) => { root.stem-level("inst", v); } }
+            StemKey { deck: root.deck.deck; stem: "drums"; label: "DRUMS"; muted: root.deck.mute-drums; level: root.deck.level-drums; tone: Theme.w486; enabled: root.deck.stems-available; toggle => { root.stem("drums"); } set-level(v) => { root.stem-level("drums", v); } }
+            StemKey { deck: root.deck.deck; stem: "bass"; label: "BASS"; muted: root.deck.mute-bass; level: root.deck.level-bass; tone: Theme.w405; enabled: root.deck.stems-available; toggle => { root.stem("bass"); } set-level(v) => { root.stem-level("bass", v); } }
             if root.mirror || root.compact: Rectangle { horizontal-stretch: 1; }
         }
 
@@ -842,6 +881,7 @@ export component PerformView inherits Rectangle {
     callback key-shift(int, int);
     callback tempo(int, float);
     callback stem(int, string);
+    callback stem-level(int, string, float);
     callback loop(int, float);
     callback loop-exit(int);
     callback loop-scale(int, float);
@@ -932,6 +972,7 @@ export component PerformView inherits Rectangle {
                     key-shift(x) => { root.key-shift(d.deck, x); }
                     tempo(v) => { root.tempo(d.deck, v); }
                     stem(s) => { root.stem(d.deck, s); }
+                    stem-level(s, v) => { root.stem-level(d.deck, s, v); }
                     loop(b) => { root.loop(d.deck, b); }
                     loop-exit => { root.loop-exit(d.deck); }
                     loop-scale(f) => { root.loop-scale(d.deck, f); }
@@ -995,6 +1036,7 @@ export component PerformView inherits Rectangle {
                     key-shift(x) => { root.key-shift(d.deck, x); }
                     tempo(v) => { root.tempo(d.deck, v); }
                     stem(s) => { root.stem(d.deck, s); }
+                    stem-level(s, v) => { root.stem-level(d.deck, s, v); }
                     loop(b) => { root.loop(d.deck, b); }
                     loop-exit => { root.loop-exit(d.deck); }
                     loop-scale(f) => { root.loop-scale(d.deck, f); }

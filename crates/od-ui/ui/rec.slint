@@ -1,0 +1,175 @@
+// Recording (SPEC §11): the recording level, the meter of what goes into the
+// file, elapsed time, file size and the tracklist as it grows. `RecStrip`
+// is the compact row for the global bar (source, level, meter); `RecPanel`
+// is the full panel (Recordings section). Both read the `Rec` global, which
+// `recorder.rs` keeps up to date every frame.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps, PlateButton } from "controls.slint";
+
+export struct RecTrack {
+    // 1-based position in the recording.
+    index: int,
+    // Offset from the start, "00:12:34".
+    time: string,
+    title: string,
+    artist: string,
+}
+
+export global Rec {
+    in property <bool> recording;
+    // Automatic start is armed (Preferences > Recording).
+    in property <bool> armed;
+    // Meter position 0..=1 (−48 … 0 dBFS) of the recorded signal.
+    in property <float> level;
+    in property <bool> clip;
+    // "" while not recording.
+    in property <string> elapsed;
+    in property <string> size;
+    in property <string> file;
+    in property <[RecTrack]> tracks;
+    // Recording level steps ("−6 dB" …) and the selected one.
+    in property <[string]> gain-options;
+    in property <int> gain;
+    callback toggle();
+    callback set-gain(int);
+    // −1 / +1: one step down / up.
+    callback step-gain(int);
+}
+
+// The level meter: a hairline track with the level as a solid line, red at
+// clip.
+component Meter inherits Rectangle {
+    in property <float> level;
+    in property <bool> clipping;
+    height: 10px;
+    HLine { y: (parent.height - self.height) / 2; width: parent.width; tone: Theme.rule-strong; form: "dashed"; }
+    Rectangle {
+        x: 0; y: (parent.height - 4px) / 2; height: 4px;
+        width: parent.width * clamp(root.level, 0, 1);
+        background: root.clipping ? Theme.fault : root.level > 0.875 ? Theme.attention : Theme.live;
+    }
+    // 0 dB mark.
+    VLine { x: parent.width - 1px; height: parent.height; tone: Theme.rule-strong; }
+}
+
+// The recording level: click the left half for one step down, the right half
+// for one step up; the wheel steps too.
+component Level inherits Rectangle {
+    in property <bool> tall;
+    accessible-role: spinbox;
+    accessible-value: Rec.gain >= 0 && Rec.gain < Rec.gain-options.length ? Rec.gain-options[Rec.gain] : "";
+    accessible-action-increment => { Rec.step-gain(1); }
+    accessible-action-decrement => { Rec.step-gain(-1); }
+    min-width: 72px;
+    height: root.tall ? 44px : 26px;
+    border-width: 1px;
+    border-color: ta.has-hover ? Theme.rule-strong : Theme.rule;
+    Text { x: 6px; height: parent.height; text: "−"; font-family: Theme.family; font-size: 14px; color: Theme.bone-3; vertical-alignment: center; }
+    Text {
+        width: parent.width; height: parent.height;
+        text: Rec.gain >= 0 && Rec.gain < Rec.gain-options.length ? Rec.gain-options[Rec.gain] : "";
+        font-family: Theme.family; font-size: 12px; font-weight: 500; color: Theme.bone;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+    Text { x: parent.width - 14px; height: parent.height; text: "+"; font-family: Theme.family; font-size: 14px; color: Theme.bone-3; vertical-alignment: center; }
+    ta := TouchArea {
+        mouse-cursor: pointer;
+        clicked => { Rec.step-gain(self.mouse-x < self.width / 2 ? -1 : 1); }
+        scroll-event(e) => {
+            if (e.delta-y > 0) { Rec.step-gain(1); } else if (e.delta-y < 0) { Rec.step-gain(-1); }
+            accept
+        }
+    }
+}
+
+// Compact recording row for the global bar: source, level, meter. The REC
+// button and the time stay where they are (rec.toggle, rec.time).
+export component RecStrip inherits HorizontalLayout {
+    // Kiosk: 44 px touch targets.
+    in property <bool> tall;
+    spacing: 8px;
+    alignment: end;
+    Caps {
+        accessible-role: text; accessible-label: "rec.source"; accessible-value: self.text;
+        text: @tr("MASTER"); vertical-alignment: center;
+    }
+    VerticalLayout {
+        alignment: center;
+        Level { accessible-label: "rec.level"; tall: root.tall; }
+    }
+    VerticalLayout {
+        alignment: center;
+        Meter { accessible-role: progress-indicator; accessible-label: "rec.meter"; accessible-value: round(Rec.level * 100) + "%"; width: 72px; level: Rec.level; clipping: Rec.clip; }
+    }
+}
+
+// The recording panel: REC, level, meter, elapsed time, file size and the
+// live tracklist.
+export component RecPanel inherits VerticalLayout {
+    spacing: 6px;
+    HorizontalLayout {
+        spacing: 12px;
+        height: 32px;
+        PlateButton {
+            accessible-role: button; accessible-label: "rec.panel.toggle";
+            accessible-checkable: true; accessible-checked: Rec.recording;
+            horizontal-stretch: 0; compact: true;
+            label: Rec.recording ? @tr("STOP") : @tr("RECORD");
+            active: Rec.recording; tone: Theme.fault;
+            tooltip: Rec.recording ? @tr("Stop recording") : @tr("Record the master output");
+            command: "record.toggle";
+            clicked => { Rec.toggle(); }
+        }
+        Caps { accessible-role: text; accessible-label: "rec.panel.source"; accessible-value: self.text; text: @tr("MASTER"); vertical-alignment: center; }
+        VerticalLayout { alignment: center; Level { accessible-label: "rec.panel.level"; } }
+        VerticalLayout {
+            alignment: center;
+            horizontal-stretch: 1;
+            Meter { accessible-role: progress-indicator; accessible-label: "rec.panel.meter"; accessible-value: round(Rec.level * 100) + "%"; min-width: 120px; level: Rec.level; clipping: Rec.clip; }
+        }
+        Text {
+            accessible-role: text; accessible-label: "rec.panel.time"; accessible-value: Rec.elapsed;
+            min-width: 70px;
+            text: Rec.recording ? Rec.elapsed : "--:--:--";
+            font-family: Theme.family; font-size: 18px; font-weight: 600;
+            color: Rec.recording ? Theme.bone : Theme.bone-3;
+            vertical-alignment: center; horizontal-alignment: right;
+        }
+        Text {
+            accessible-role: text; accessible-label: "rec.size"; accessible-value: Rec.size;
+            min-width: 64px;
+            text: Rec.recording ? Rec.size : "";
+            font-family: Theme.family; font-size: 13px; color: Theme.bone-2;
+            vertical-alignment: center; horizontal-alignment: right;
+        }
+    }
+    if Rec.recording || Rec.armed: HorizontalLayout {
+        spacing: 10px;
+        VLine { weight: 2px; tone: Theme.fault; form: Rec.recording ? "solid" : "dashed"; }
+        Text {
+            accessible-role: text; accessible-label: "rec.file"; accessible-value: self.text;
+            horizontal-stretch: 1;
+            text: Rec.recording ? Rec.file : @tr("Armed: recording starts when the master carries sound");
+            font-family: Theme.family; font-size: 12px; color: Theme.bone-2; overflow: elide;
+        }
+    }
+    if Rec.recording: VerticalLayout {
+        accessible-role: list; accessible-label: "rec.tracklist";
+        spacing: 2px;
+        if Rec.tracks.length == 0: Text {
+            text: @tr("The tracklist grows here as tracks become audible.");
+            font-family: Theme.family; font-size: 12px; color: Theme.bone-3;
+        }
+        for t in Rec.tracks: HorizontalLayout {
+            accessible-role: list-item; accessible-label: "rec.tracklist.row\{t.index}"; accessible-value: t.title;
+            spacing: 10px;
+            height: 22px;
+            Text { width: 22px; text: t.index; font-family: Theme.family; font-size: 12px; color: Theme.bone-3; horizontal-alignment: right; vertical-alignment: center; }
+            Text { width: 64px; text: t.time; font-family: Theme.family; font-size: 12px; color: Theme.bone-2; vertical-alignment: center; }
+            Text { horizontal-stretch: 1; text: t.artist == "" ? t.title : t.artist + " — " + t.title; font-family: Theme.family; font-size: 13px; color: Theme.bone; vertical-alignment: center; overflow: elide; }
+        }
+    }
+    HLine { tone: Theme.rule; }
+}

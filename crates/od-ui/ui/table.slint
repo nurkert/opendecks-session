@@ -98,10 +98,16 @@ component HeaderCell inherits Rectangle {
     }
 }
 
+// Text size of the track table (Preferences > View > Browser); the row
+// height is `Theme.row-height`.
+export global TableStyle {
+    in-out property <length> text: 14px;
+}
+
 component Cell inherits Text {
     horizontal-alignment: left;
     font-family: Theme.family;
-    font-size: Theme.body;
+    font-size: TableStyle.text;
     vertical-alignment: center;
     overflow: elide;
 }
@@ -300,7 +306,7 @@ component TrackLine inherits Rectangle {
                 horizontal-alignment: c.right ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;
                 color: c.id == "title" || c.id == "bpm" ? root.ink : c.id == "artist" && root.item.selected ? Theme.bone-2 : Theme.bone-3;
                 font-weight: c.id == "title" && root.item.selected ? 500 : 400;
-                font-size: c.id == "title" || c.id == "artist" || c.id == "bpm" ? Theme.body : 13px;
+                font-size: c.id == "title" || c.id == "artist" || c.id == "bpm" ? TableStyle.text : TableStyle.text - 1px;
             }
         }
         // Analysis state: nothing when analysed, half-height pending, struck missing file.

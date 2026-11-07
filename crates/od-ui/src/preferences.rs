@@ -7,7 +7,11 @@
 use crate::app::{App, handler};
 use crate::keymap::{self, Chord, Group, Layout, Platform};
 use crate::models::model;
-use crate::settings::{BPM_RANGES, BUFFER_SIZES, GlobalConfig, SAMPLE_RATES, SCALES, Settings};
+use crate::settings::{
+    BPM_RANGES, BUFFER_SIZES, CROSSFADER_CURVES, EQ_MODES, FADER_CURVES, FONT_SIZES, GlobalConfig, JOG_MODES, LINE_SPACINGS, REC_GAINS, SAMPLE_RATES, SCALES,
+    Settings, TEMPO_RANGES, ZOOM_SPANS,
+};
+use od_engine::{ChannelCommand, Command, CrossfaderCurve, DeckCommand, EqMode, FaderCurve, JogMode, MixerCommand, TempoRange};
 use crate::workers::AnalysisControl;
 use crate::{KeyRow, PreferencesWindow, shell};
 use slint::{ComponentHandle, SharedString};
@@ -51,6 +55,99 @@ impl Default for Prefs {
 /// The analysis worker's settings.
 pub(crate) fn analysis_control(s: &Settings, lite: bool) -> AnalysisControl {
     AnalysisControl { options: s.analysis_options(lite), detect_key: s.analysis.detect_key, auto: s.analysis.auto_analyse, requested: Vec::new() }
+}
+
+/// Deck defaults (Preferences > Controller > Decks) as commands for one
+/// deck: tempo range, jog mode and auto cue. Quantize is global, see
+/// [`engine_settings`].
+pub(crate) fn deck_defaults(s: &Settings) -> Vec<DeckCommand> {
+    let range = match s.deck.tempo_range.as_str() {
+        "six" => TempoRange::Six,
+        "sixteen" => TempoRange::Sixteen,
+        "wide" => TempoRange::Wide,
+        _ => TempoRange::Ten,
+    };
+    let jog = if s.deck.jog_mode == "bend" { JogMode::Bend } else { JogMode::Vinyl };
+    vec![DeckCommand::SetTempoRange(range), DeckCommand::SetJogMode(jog), DeckCommand::SetAutoCue(s.deck.auto_cue)]
+}
+
+/// Mixer settings (Preferences > Controller > Mixer) for `channels`
+/// channels and the master section.
+pub(crate) fn mixer_settings(s: &Settings, channels: usize) -> Vec<Command> {
+    let eq = if s.mixer.eq_mode == "classic" { EqMode::Classic } else { EqMode::Isolator };
+    let fader = match s.mixer.fader_curve.as_str() {
+        "linear" => FaderCurve::Linear,
+        "sharp" => FaderCurve::Sharp,
+        _ => FaderCurve::Smooth,
+    };
+    let xf = match s.mixer.crossfader_curve.as_str() {
+        "linear" => CrossfaderCurve::Linear,
+        "cut" => CrossfaderCurve::Cut,
+        _ => CrossfaderCurve::ConstantPower,
+    };
+    let mut out = Vec::new();
+    for c in 0..channels {
+        out.push(Command::Channel(c, ChannelCommand::SetEqMode(eq)));
+        out.push(Command::Channel(c, ChannelCommand::SetFaderCurve(fader)));
+        out.push(Command::Channel(c, ChannelCommand::SetAutoGain(s.mixer.auto_gain)));
+    }
+    out.push(Command::Mixer(MixerCommand::SetCrossfaderCurve(xf)));
+    out
+}
+
+/// Every engine setting of the preferences for `decks` decks: deck
+/// defaults, global quantize and the mixer.
+pub(crate) fn engine_settings(s: &Settings, decks: usize) -> Vec<Command> {
+    let mut out: Vec<Command> = Vec::new();
+    for d in 0..decks {
+        out.extend(deck_defaults(s).into_iter().map(|c| Command::Deck(d, c)));
+    }
+    out.push(Command::SetQuantize(s.deck.quantize));
+    out.extend(mixer_settings(s, decks));
+    out
+}
+
+/// Starting zoom of the deck waveforms (`decks.zoom`, 1 = 8 s across) for
+/// Preferences > View > Waveform zoom.
+pub(crate) fn default_deck_zoom(s: &Settings) -> f64 {
+    s.view.zoom_span as f64 / 8.0
+}
+
+/// Sends the deck defaults and mixer settings to the engine, if it runs.
+/// Call once right after the engine starts (`engine::ensure_engine`).
+pub(crate) fn apply_engine_settings(app: &App) {
+    if app.engine.borrow().engine.is_none() {
+        return;
+    }
+    let s = app.state.borrow().settings.clone();
+    for c in engine_settings(&s, crate::decks::DECKS) {
+        crate::engine::send(app, c);
+    }
+}
+
+/// Sends only the commands of one changed deck / mixer setting (so a live
+/// change does not reset what the DJ changed on the decks since).
+fn apply_engine_key(app: &App, key: &str) {
+    if app.engine.borrow().engine.is_none() {
+        return;
+    }
+    let s = app.state.borrow().settings.clone();
+    let decks = crate::decks::DECKS;
+    let all = engine_settings(&s, decks);
+    let wanted = |c: &Command| match (key, c) {
+        ("deck.tempo-range", Command::Deck(_, DeckCommand::SetTempoRange(_))) => true,
+        ("deck.jog-mode", Command::Deck(_, DeckCommand::SetJogMode(_))) => true,
+        ("deck.auto-cue", Command::Deck(_, DeckCommand::SetAutoCue(_))) => true,
+        ("deck.quantize", Command::SetQuantize(_)) => true,
+        ("mixer.eq-mode", Command::Channel(_, ChannelCommand::SetEqMode(_))) => true,
+        ("mixer.fader-curve", Command::Channel(_, ChannelCommand::SetFaderCurve(_))) => true,
+        ("mixer.auto-gain", Command::Channel(_, ChannelCommand::SetAutoGain(_))) => true,
+        ("mixer.crossfader-curve", Command::Mixer(MixerCommand::SetCrossfaderCurve(_))) => true,
+        _ => false,
+    };
+    for c in all.into_iter().filter(wanted) {
+        crate::engine::send(app, c);
+    }
 }
 
 /// Callbacks of the main window are wired in `shell`; the Preferences
@@ -174,6 +271,18 @@ pub(crate) fn refresh(app: &App) {
         w.set_appearance(index_of(&crate::settings::APPEARANCES, &s.view.appearance.as_str()));
         w.set_waveform(index_of(&["3band", "blue"], &s.view.waveform.as_str()));
         w.set_phrases(s.view.phrases);
+        w.set_zoom_span(index_of(&ZOOM_SPANS, &s.view.zoom_span));
+        w.set_font_size(index_of(&FONT_SIZES, &s.browser.font_size));
+        w.set_line_spacing(index_of(&LINE_SPACINGS, &s.browser.line_spacing.as_str()));
+        // Controller > Decks and Mixer.
+        w.set_tempo_range(index_of(&TEMPO_RANGES, &s.deck.tempo_range.as_str()));
+        w.set_deck_quantize(s.deck.quantize);
+        w.set_jog_mode(index_of(&JOG_MODES, &s.deck.jog_mode.as_str()));
+        w.set_auto_cue(s.deck.auto_cue);
+        w.set_eq_mode(index_of(&EQ_MODES, &s.mixer.eq_mode.as_str()));
+        w.set_fader_curve(index_of(&FADER_CURVES, &s.mixer.fader_curve.as_str()));
+        w.set_crossfader_curve(index_of(&CROSSFADER_CURVES, &s.mixer.crossfader_curve.as_str()));
+        w.set_auto_gain(s.mixer.auto_gain);
         // Analysis.
         w.set_bpm_options(strings(BPM_RANGES.iter().map(|(a, b)| format!("{a}–{b}")).collect()));
         w.set_bpm_range(index_of(&BPM_RANGES, &(s.analysis.bpm_min, s.analysis.bpm_max)));
@@ -197,6 +306,11 @@ pub(crate) fn refresh(app: &App) {
         w.set_rec_folder(s.recordings_dir().display().to_string().into());
         w.set_auto_split(s.recording.auto_split);
         w.set_silence_start(s.recording.silence_start);
+        w.set_silence_stop(s.recording.silence_stop);
+        w.set_rec_pattern(s.recording.name_pattern.clone().into());
+        w.set_rec_example(crate::recorder::recording_name(&s.recording.name_pattern, "2026-11-07T21:30:00Z", 1).into());
+        w.set_rec_gain_options(strings(REC_GAINS.iter().map(|g| if *g == 0.0 { "0 dB".to_string() } else { format!("{g:+} dB") }).collect()));
+        w.set_rec_gain(index_of(&REC_GAINS, &s.recording.gain_db));
         w.set_rec_note(
             match s.recording.format.as_str() {
                 "wav" => "",
@@ -445,6 +559,8 @@ fn apply_live(app: &App) {
     shell::apply_theme(&app.ui.global::<crate::Theme>(), &settings, lite);
     with_window(app, |w| shell::apply_theme(&w.global::<crate::Theme>(), &settings, lite));
     app.ui.set_show_phrases(settings.view.phrases);
+    shell::apply_browser_style(&app.ui, &settings, app.state.borrow().config.kiosk);
+    crate::recorder::apply_gain(app);
     {
         let mut c = app.analysis.control.lock().unwrap_or_else(|e| e.into_inner());
         let requested = std::mem::take(&mut c.requested);
@@ -461,6 +577,19 @@ fn change(app: &App, f: impl Fn(&mut Settings)) {
     app.state.borrow_mut().change_settings(f);
     apply_live(app);
     refresh(app);
+}
+
+/// Applies settings changed outside the window (an import) everywhere.
+pub(crate) fn apply_all(app: &App) {
+    apply_live(app);
+    apply_engine_settings(app);
+    refresh(app);
+}
+
+/// A deck or mixer setting: stored, then sent to the running engine.
+fn change_engine(app: &App, key: &str, f: impl Fn(&mut Settings)) {
+    change(app, f);
+    apply_engine_key(app, key);
 }
 
 fn choose(app: &App, key: &str, i: i32) {
@@ -493,6 +622,15 @@ fn choose(app: &App, key: &str, i: i32) {
             })
         }
         "rec.format" => change(app, |s| s.recording.format = ["wav", "flac", "wav+mp3"].get(i).unwrap_or(&"wav").to_string()),
+        "rec.gain" => change(app, |s| s.recording.gain_db = REC_GAINS.get(i).copied().unwrap_or(0.0)),
+        "view.zoom" => change(app, |s| s.view.zoom_span = ZOOM_SPANS.get(i).copied().unwrap_or(8.0)),
+        "view.font-size" => change(app, |s| s.browser.font_size = FONT_SIZES.get(i).copied().unwrap_or(14)),
+        "view.line-spacing" => change(app, |s| s.browser.line_spacing = LINE_SPACINGS.get(i).unwrap_or(&"normal").to_string()),
+        "deck.tempo-range" => change_engine(app, key, |s| s.deck.tempo_range = TEMPO_RANGES.get(i).unwrap_or(&"ten").to_string()),
+        "deck.jog-mode" => change_engine(app, key, |s| s.deck.jog_mode = JOG_MODES.get(i).unwrap_or(&"vinyl").to_string()),
+        "mixer.eq-mode" => change_engine(app, key, |s| s.mixer.eq_mode = EQ_MODES.get(i).unwrap_or(&"isolator").to_string()),
+        "mixer.fader-curve" => change_engine(app, key, |s| s.mixer.fader_curve = FADER_CURVES.get(i).unwrap_or(&"smooth").to_string()),
+        "mixer.crossfader-curve" => change_engine(app, key, |s| s.mixer.crossfader_curve = CROSSFADER_CURVES.get(i).unwrap_or(&"constant_power").to_string()),
         _ => tracing::warn!(key, "unknown choice"),
     }
 }
@@ -507,6 +645,10 @@ fn flag(app: &App, key: &str, v: bool) {
         "analysis.phrases" => change(app, |s| s.analysis.detect_phrases = v),
         "analysis.auto" => change(app, |s| s.analysis.auto_analyse = v),
         "rec.split" => change(app, |s| s.recording.auto_split = v),
+        "rec.silence-stop" => change(app, |s| s.recording.silence_stop = v),
+        "deck.quantize" => change_engine(app, key, |s| s.deck.quantize = v),
+        "deck.auto-cue" => change_engine(app, key, |s| s.deck.auto_cue = v),
+        "mixer.auto-gain" => change_engine(app, key, |s| s.mixer.auto_gain = v),
         "rec.silence" => {
             change(app, |s| s.recording.silence_start = v);
             crate::recorder::arm(app, v);
@@ -515,6 +657,14 @@ fn flag(app: &App, key: &str, v: bool) {
         "update.auto" => change(app, |s| s.update.auto_check = v),
         "update.pre" => change(app, |s| s.update.prereleases = v),
         _ => tracing::warn!(key, "unknown flag"),
+    }
+}
+
+/// A typed setting (Return in a field).
+fn text(app: &App, key: &str, v: &str) {
+    match key {
+        "rec.pattern" => change(app, |s| s.recording.name_pattern = v.to_string()),
+        _ => tracing::warn!(key, "unknown text setting"),
     }
 }
 
@@ -535,9 +685,17 @@ fn act(app: &App, what: &str) {
                 let d = Settings::default();
                 match page.as_str() {
                     "audio" => s.audio = d.audio.clone(),
-                    "view" => s.view = d.view.clone(),
+                    "view" => {
+                        s.view = d.view.clone();
+                        s.browser.font_size = d.browser.font_size;
+                        s.browser.line_spacing = d.browser.line_spacing.clone();
+                    }
                     "analysis" => s.analysis = d.analysis.clone(),
-                    "controller" => s.controller = d.controller.clone(),
+                    "controller" => {
+                        s.controller = d.controller.clone();
+                        s.deck = d.deck.clone();
+                        s.mixer = d.mixer.clone();
+                    }
                     "recording" => s.recording = d.recording.clone(),
                     "advanced" => {
                         s.advanced = d.advanced.clone();
@@ -547,6 +705,9 @@ fn act(app: &App, what: &str) {
                     _ => {}
                 }
             });
+            if page == "controller" {
+                apply_engine_settings(app);
+            }
         }
         "mapping.choose" => {
             if let Some(f) = rfd::FileDialog::new().set_title(od_i18n::tr("Controller mapping file")).add_filter("TOML", &["toml"]).pick_file() {
@@ -587,6 +748,10 @@ fn act(app: &App, what: &str) {
             }
         }
         "update.check" => crate::update::check_now(app, true),
+        "rekordbox.settings" => {
+            let m = crate::import::import_rekordbox_settings(app, None);
+            app.status(m);
+        }
         "keys.reset-all" => {
             {
                 let mut st = app.state.borrow_mut();
@@ -692,6 +857,7 @@ fn wire_window(app: &Rc<App>, w: &PreferencesWindow) {
         set_message(&a, od_i18n::trf("{} is back to its default", &[&title]));
     }));
     w.on_clear_key(handler!(app, |a, id: SharedString| clear_binding(&a, &id)));
+    w.on_text(handler!(app, |a, k: SharedString, v: SharedString| text(&a, k.as_str(), v.as_str())));
     let weak = Rc::downgrade(app);
     w.on_key_event(move |text, control, meta, alt, shift| {
         let Some(app) = weak.upgrade() else { return false };
@@ -728,11 +894,46 @@ mod tests {
     }
 
     #[test]
+    fn engine_settings_cover_every_deck_and_channel() {
+        let mut s = Settings::default();
+        let cmds = engine_settings(&s, 4);
+        // 3 per deck, quantize, 3 per channel, crossfader curve.
+        assert_eq!(cmds.len(), 4 * 3 + 1 + 4 * 3 + 1);
+        assert!(cmds.iter().any(|c| matches!(c, Command::SetQuantize(true))));
+        assert!(cmds.iter().any(|c| matches!(c, Command::Deck(3, DeckCommand::SetTempoRange(TempoRange::Ten)))));
+        assert!(cmds.iter().any(|c| matches!(c, Command::Channel(0, ChannelCommand::SetEqMode(EqMode::Isolator)))));
+        s.deck.tempo_range = "wide".into();
+        s.deck.jog_mode = "bend".into();
+        s.deck.auto_cue = false;
+        s.mixer.eq_mode = "classic".into();
+        s.mixer.fader_curve = "sharp".into();
+        s.mixer.crossfader_curve = "cut".into();
+        s.mixer.auto_gain = false;
+        assert_eq!(
+            format!("{:?}", deck_defaults(&s)),
+            format!("{:?}", vec![DeckCommand::SetTempoRange(TempoRange::Wide), DeckCommand::SetJogMode(JogMode::Bend), DeckCommand::SetAutoCue(false)])
+        );
+        let m = mixer_settings(&s, 2);
+        assert!(m.iter().any(|c| matches!(c, Command::Channel(1, ChannelCommand::SetEqMode(EqMode::Classic)))));
+        assert!(m.iter().any(|c| matches!(c, Command::Channel(1, ChannelCommand::SetFaderCurve(FaderCurve::Sharp)))));
+        assert!(m.iter().any(|c| matches!(c, Command::Channel(0, ChannelCommand::SetAutoGain(false)))));
+        assert!(m.iter().any(|c| matches!(c, Command::Mixer(MixerCommand::SetCrossfaderCurve(CrossfaderCurve::Cut)))));
+        assert_eq!(default_deck_zoom(&s), 1.0);
+        s.view.zoom_span = 16.0;
+        assert_eq!(default_deck_zoom(&s), 2.0);
+    }
+
+    #[test]
     fn settings_tables_hold_the_defaults() {
         let d = Settings::default();
         assert!(BUFFER_SIZES.contains(&d.audio.buffer));
         assert!(SAMPLE_RATES.contains(&d.audio.sample_rate));
         assert!(SCALES.contains(&d.view.scale));
         assert!(BPM_RANGES.contains(&(d.analysis.bpm_min, d.analysis.bpm_max)));
+        assert!(TEMPO_RANGES.contains(&d.deck.tempo_range.as_str()) && JOG_MODES.contains(&d.deck.jog_mode.as_str()));
+        assert!(EQ_MODES.contains(&d.mixer.eq_mode.as_str()) && FADER_CURVES.contains(&d.mixer.fader_curve.as_str()));
+        assert!(CROSSFADER_CURVES.contains(&d.mixer.crossfader_curve.as_str()));
+        assert!(FONT_SIZES.contains(&d.browser.font_size) && LINE_SPACINGS.contains(&d.browser.line_spacing.as_str()));
+        assert!(ZOOM_SPANS.contains(&d.view.zoom_span) && REC_GAINS.contains(&d.recording.gain_db));
     }
 }

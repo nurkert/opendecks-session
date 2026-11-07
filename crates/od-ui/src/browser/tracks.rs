@@ -369,7 +369,13 @@ fn refresh_list(app: &App) {
         super::Special::TagList => (od_i18n::tr("Tag list").to_string(), "taglist"),
         super::Special::Related => (related_title(&st), "related"),
         super::Special::History(name) => (name.clone(), "history"),
+        super::Special::Duplicates => (od_i18n::tr("Duplicate tracks").to_string(), "duplicates"),
     });
+    if b.special == Some(super::Special::Duplicates) {
+        ui.set_duplicate_groups(st.lib.find_duplicates().map(|g| g.len() as i32).unwrap_or(0));
+    }
+    let size: u64 = b.rows.iter().map(|t| t.file_size).sum();
+    ui.set_list_summary(crate::shell::list_summary(b.rows.len(), total, size, b.selection.len()).into());
     let (title, kind_str) = match (b.node.and_then(|n| st.src().node(n).ok()), &b.stick) {
         _ if special.is_some() => special.clone().unwrap_or_default(),
         (Some(n), _) => (n.name.clone(), n.kind.as_str()),
@@ -396,6 +402,14 @@ fn refresh_list(app: &App) {
         ui.set_flow_selected(b.flow_selected.map(|i| i as i32).unwrap_or(-1));
         let note = b.flow_selected.and_then(|i| entries.get(i)).map(|e| e.note.clone()).unwrap_or_default();
         ui.set_transition_note(note.into());
+        let backups: Vec<String> = b
+            .flow_selected
+            .and_then(|i| entries.get(i))
+            .map(|e| e.backups.iter().filter_map(|t| st.src().track(*t).ok()).map(|t| t.tags.title).collect())
+            .unwrap_or_default();
+        ui.set_set_backups_text(if backups.is_empty() { SharedString::new() } else { backups.join("  ·  ").into() });
+        let start = st.src().node(n).ok().and_then(|n| n.set_meta).and_then(|m| m.planned_start).unwrap_or_default();
+        ui.set_set_planned_start(start.into());
     }
 }
 

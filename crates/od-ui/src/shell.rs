@@ -20,6 +20,39 @@ const META_CDJ: &str = "ui.cdj";
 const META_MODE: &str = "ui.mode";
 const META_SIDEBAR: &str = "ui.sidebar_width";
 const META_UPPER: &str = "ui.upper_height";
+const META_LAYOUT: &str = "ui.prepare_layout";
+
+/// Prepare layouts: the player above the browser, or the full browser.
+pub(crate) const PREPARE_LAYOUTS: [&str; 2] = ["player", "browser"];
+
+/// Switches the Prepare layout (and to Prepare); unknown names are ignored.
+pub(crate) fn set_prepare_layout(app: &App, layout: &str) {
+    if !PREPARE_LAYOUTS.contains(&layout) {
+        return;
+    }
+    app.ui.set_prepare_layout(layout.into());
+    if app.ui.get_mode() != "prepare" && !app.state.borrow().config.kiosk {
+        app.ui.set_mode("prepare".into());
+    }
+    let _ = app.state.borrow_mut().lib.set_meta(META_LAYOUT, layout);
+}
+
+/// The next Prepare layout (the top-bar switch).
+pub(crate) fn next_layout(current: &str) -> &'static str {
+    let i = PREPARE_LAYOUTS.iter().position(|l| *l == current).unwrap_or(0);
+    PREPARE_LAYOUTS[(i + 1) % PREPARE_LAYOUTS.len()]
+}
+
+/// Status band summary of the open list: "12 TRACKS · 1:02:03 · 84.2 MB"
+/// and the selection count when more than one row is selected.
+pub(crate) fn list_summary(count: usize, seconds: f64, bytes: u64, selected: usize) -> String {
+    let mut s = od_i18n::trf("{} TRACKS  ·  {}  ·  {}", &[&count, &crate::format::time(seconds), &crate::format::bytes(bytes)]);
+    if selected > 1 {
+        s.push_str("  ·  ");
+        s.push_str(&od_i18n::trf("{} SELECTED", &[&selected]));
+    }
+    s
+}
 
 /// Theme, language, kiosk and window size.
 pub(crate) fn setup_window(ui: &AppWindow, config: &AppConfig, settings: &Settings) {
@@ -27,9 +60,7 @@ pub(crate) fn setup_window(ui: &AppWindow, config: &AppConfig, settings: &Settin
     ui.set_kiosk(config.kiosk);
     apply_theme(&ui.global::<crate::Theme>(), settings, config.lite);
     ui.set_show_phrases(settings.view.phrases);
-    if config.kiosk {
-        ui.global::<crate::Theme>().set_row_height(44.0);
-    }
+    apply_browser_style(ui, settings, config.kiosk);
     ui.set_ground_texture(crate::render::ground_texture());
     if config.kiosk {
         ui.set_mode("perform".into());
@@ -65,6 +96,15 @@ pub(crate) fn apply_language(lang: &str) {
         let _ = slint::select_bundled_translation("en");
         od_i18n::set_language(od_i18n::Language::English);
     }
+}
+
+/// Track table text size and row height (Preferences > View > Browser);
+/// the kiosk keeps its 44 px touch rows.
+pub(crate) fn apply_browser_style(ui: &AppWindow, settings: &Settings, kiosk: bool) {
+    let size = settings.browser.font_size as f32;
+    ui.global::<crate::TableStyle>().set_text(size);
+    let row = if kiosk { 44.0 } else { settings.row_height().max(size + 10.0) };
+    ui.global::<crate::Theme>().set_row_height(row);
 }
 
 /// Palette, contrast and motion of one window's theme.
@@ -108,6 +148,10 @@ pub(crate) fn restore_view(app: &App) {
     }
     if let Some(m) = mode.filter(|_| !app.state.borrow().config.kiosk) {
         app.ui.set_mode(m.into());
+    }
+    let layout = app.state.borrow().lib.meta(META_LAYOUT).ok().flatten();
+    if let Some(l) = layout.filter(|l| PREPARE_LAYOUTS.contains(&l.as_str())) {
+        app.ui.set_prepare_layout(l.into());
     }
     let cdj = app.state.borrow().lib.meta(META_CDJ).ok().flatten();
     if cdj.as_deref() == Some("1") {
@@ -211,6 +255,16 @@ pub(crate) fn wire(app: &Rc<App>) {
     });
     ui.on_key_released(handler!(app, |a, text: SharedString| crate::commands::release(&a, text.as_str())));
     ui.on_open_preferences(handler!(app, |a| crate::preferences::open(&a)));
+    ui.on_cycle_layout(handler!(app, |a| {
+        let next = next_layout(a.ui.get_prepare_layout().as_str());
+        set_prepare_layout(&a, next);
+    }));
+    let weak = Rc::downgrade(app);
+    ui.on_menu_action(move |id| {
+        if let Some(app) = weak.upgrade() {
+            crate::commands::run(&app, id.as_str());
+        }
+    });
 }
 
 #[cfg(test)]
@@ -229,6 +283,22 @@ mod tests {
         k.set("deck1.play", Vec::new());
         assert_eq!(shortcut_text(&k, "deck1.play"), "");
         assert_eq!(shortcut_text(&k, "no.such"), "");
+    }
+
+    #[test]
+    fn layouts_cycle() {
+        assert_eq!(next_layout("player"), "browser");
+        assert_eq!(next_layout("browser"), "player");
+        assert_eq!(next_layout("unknown"), "browser");
+    }
+
+    #[test]
+    fn list_summary_counts_time_size_and_selection() {
+        // Language-neutral checks (other tests may switch the language).
+        let s = list_summary(12, 3723.0, 84_200_000, 1);
+        assert!(s.starts_with("12 ") && s.contains("1:02:03") && s.ends_with("84 MB"), "{s}");
+        let sel = list_summary(3, 60.0, 0, 2);
+        assert!(sel.len() > list_summary(3, 60.0, 0, 1).len() && sel.contains(" 2 "), "{sel}");
     }
 
     #[test]

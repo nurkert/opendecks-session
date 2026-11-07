@@ -17,6 +17,99 @@ pub(crate) struct PlayerState {
     pub cursor: f64,
     /// The preview deck is playing the selected track.
     pub previewing: bool,
+    /// TAP in the grid editor: times of the taps so far (seconds).
+    pub taps: Vec<f64>,
+}
+
+/// Taps further apart than this start a new count (seconds).
+const TAP_GAP: f64 = 2.0;
+/// Taps needed before a tempo is set.
+pub(crate) const TAPS_NEEDED: usize = 4;
+
+/// Adds a tap at `t` (seconds) and returns the tapped tempo once there are
+/// enough taps: the mean interval of the last 16 taps (pure).
+pub(crate) fn register_tap(taps: &mut Vec<f64>, t: f64) -> Option<f64> {
+    if taps.last().is_some_and(|l| t - l > TAP_GAP || t <= *l) {
+        taps.clear();
+    }
+    taps.push(t);
+    if taps.len() > 16 {
+        taps.remove(0);
+    }
+    if taps.len() < TAPS_NEEDED {
+        return None;
+    }
+    let span = taps[taps.len() - 1] - taps[0];
+    let bpm = 60.0 * (taps.len() - 1) as f64 / span;
+    (30.0..=300.0).contains(&bpm).then(|| (bpm * 100.0).round() / 100.0)
+}
+
+/// A typed tempo ("128", "127,5", "124.00 BPM"), 30–300 BPM (pure).
+pub(crate) fn parse_bpm(text: &str) -> Option<f64> {
+    let t = text.trim().trim_end_matches(|c: char| c.is_alphabetic() || c.is_whitespace()).replace(',', ".");
+    let bpm: f64 = t.parse().ok()?;
+    (30.0..=300.0).contains(&bpm).then(|| (bpm * 100.0).round() / 100.0)
+}
+
+/// A constant grid at `bpm` that keeps the first downbeat of `grid` (an
+/// empty grid starts at 0 s) and its lock (pure).
+pub(crate) fn grid_at_bpm(grid: &Beatgrid, bpm: f64, duration: f64) -> Beatgrid {
+    let anchor = grid.beats.iter().find(|b| b.bar_position == 1).or(grid.beats.first()).map(|b| b.time).unwrap_or(0.0);
+    let mut g = Beatgrid::constant(bpm, anchor, 1, duration.max(anchor + 1.0));
+    g.locked = grid.locked;
+    g
+}
+
+/// Seconds since the first call (monotonic), for the tap tempo.
+fn now_secs() -> f64 {
+    static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
+    START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64()
+}
+
+/// TAP in the grid editor: after four taps the grid takes the tapped tempo
+/// (keeping its first downbeat); every further tap refines it.
+pub(crate) fn tap(app: &App) {
+    tap_at(app, now_secs());
+}
+
+pub(crate) fn tap_at(app: &App, t: f64) {
+    let bpm = register_tap(&mut app.state.borrow_mut().player.taps, t);
+    let n = app.state.borrow().player.taps.len();
+    match bpm {
+        Some(bpm) => set_grid_bpm(app, bpm, &od_i18n::trf("Tapped tempo: {} BPM", &[&format!("{bpm:.2}")])),
+        None => app.status(od_i18n::trf("Tap {} of {}", &[&n, &TAPS_NEEDED])),
+    }
+}
+
+/// The BPM field of the grid editor (Return).
+pub(crate) fn type_bpm(app: &App, text: &str) {
+    match parse_bpm(text) {
+        Some(bpm) => set_grid_bpm(app, bpm, &od_i18n::trf("Beatgrid set to {} BPM", &[&format!("{bpm:.2}")])),
+        None => {
+            app.status("Type a tempo between 30 and 300 BPM");
+            refresh_detail(app);
+        }
+    }
+}
+
+/// Replaces the current track's grid by a constant one at `bpm`.
+fn set_grid_bpm(app: &App, bpm: f64, label: &str) {
+    if app.guard_read_only() {
+        return;
+    }
+    let Some(id) = app.state.borrow().player.current else { return };
+    let (grid, duration) = {
+        let st = app.state.borrow();
+        (st.lib.beatgrid(id).ok().flatten().unwrap_or_default(), st.lib.track(id).map(|t| t.duration).unwrap_or(0.0))
+    };
+    if grid.locked {
+        app.status("The beatgrid is locked — unlock it to edit");
+        return;
+    }
+    let r = app.state.borrow_mut().lib.set_beatgrid(id, grid_at_bpm(&grid, bpm, duration));
+    if app.report(r).is_some() {
+        app.after_edit(label);
+    }
 }
 
 /// Cue markers as fractions of the track; `with_time` adds the cue time.
@@ -211,19 +304,19 @@ fn render_detail(app: &App) {
     let ui = &app.ui;
     let scale = ui.window().scale_factor();
     let width = ((ui.window().size().width as f32 / scale - 680.0).max(300.0) * scale) as u32;
-    let (cursor, current) = {
+    let (cursor, current, span) = {
         let st = app.state.borrow();
-        (st.player.cursor, st.player.current)
+        (st.player.cursor, st.player.current, st.settings.view.zoom_span as f64)
     };
     DETAIL_SRC.with(|d| {
         let mut d = d.borrow_mut();
         let Some(src) = d.as_mut().filter(|s| Some(s.track) == current) else { return };
-        let px = (cursor / 8.0 * width as f64).round() as i64;
+        let px = (cursor / span * width as f64).round() as i64;
         if src.last_px == Some(px) {
             return;
         }
         src.last_px = Some(px);
-        ui.set_track_detail(render::detail(&src.waveform, &src.grid, &src.phrases, cursor, 8.0, width, (150.0 * scale) as u32));
+        ui.set_track_detail(render::detail(&src.waveform, &src.grid, &src.phrases, cursor, span, width, (150.0 * scale) as u32));
     });
 }
 
@@ -421,6 +514,8 @@ pub(crate) fn wire(app: &Rc<App>) {
         }
     })));
     ui.on_grid_lock(handler!(app, |a| edit_grid(&a, |g, _| g.locked = !g.locked)));
+    ui.on_grid_tap(handler!(app, |a| tap(&a)));
+    ui.on_grid_bpm(handler!(app, |a, t: SharedString| type_bpm(&a, t.as_str())));
     ui.on_analyse_selected(handler!(app, |a| {
         if a.guard_read_only() {
             return;
@@ -484,6 +579,51 @@ mod tests {
         assert_eq!(next_cue(starts.into_iter(), 20.0, false), Some(10.0));
         assert_eq!(next_cue(starts.into_iter(), 30.0, true), None);
         assert_eq!(next_cue(starts.into_iter(), 5.0, false), None);
+    }
+
+    #[test]
+    fn tap_tempo_needs_four_taps_and_restarts_after_a_pause() {
+        let mut taps = Vec::new();
+        assert_eq!(register_tap(&mut taps, 10.0), None);
+        assert_eq!(register_tap(&mut taps, 10.5), None);
+        assert_eq!(register_tap(&mut taps, 11.0), None);
+        assert_eq!(register_tap(&mut taps, 11.5), Some(120.0));
+        // Uneven taps average out.
+        assert_eq!(register_tap(&mut taps, 11.98), Some(121.21));
+        // A pause starts over.
+        assert_eq!(register_tap(&mut taps, 20.0), None);
+        assert_eq!(taps, vec![20.0]);
+        // Never more than 16 taps count.
+        let mut many = Vec::new();
+        for i in 0..40 {
+            register_tap(&mut many, i as f64 * 0.469);
+        }
+        assert_eq!(many.len(), 16);
+        assert!((register_tap(&mut many, 40.0 * 0.469).unwrap() - 127.93).abs() < 0.01);
+    }
+
+    #[test]
+    fn typed_bpm() {
+        assert_eq!(parse_bpm("128"), Some(128.0));
+        assert_eq!(parse_bpm(" 127,5 "), Some(127.5));
+        assert_eq!(parse_bpm("124.004 BPM"), Some(124.0));
+        assert_eq!(parse_bpm("12"), None);
+        assert_eq!(parse_bpm("fast"), None);
+        assert_eq!(parse_bpm(""), None);
+    }
+
+    #[test]
+    fn grid_at_bpm_keeps_the_downbeat_and_lock() {
+        let mut g = Beatgrid::constant(120.0, 0.25, 3, 60.0);
+        g.locked = true;
+        let down = g.beats.iter().find(|b| b.bar_position == 1).unwrap().time;
+        let t = grid_at_bpm(&g, 125.0, 60.0);
+        assert!(t.beats.iter().any(|b| b.bar_position == 1 && (b.time - down).abs() < 1e-9));
+        assert!((t.dominant_bpm().unwrap() - 125.0).abs() < 1e-6);
+        assert!(t.locked);
+        let fresh = grid_at_bpm(&Beatgrid::default(), 100.0, 30.0);
+        assert_eq!(fresh.beats[0].time, 0.0);
+        assert!((fresh.beats[1].time - 0.6).abs() < 1e-9);
     }
 
     #[test]

@@ -15,6 +15,7 @@ use std::rc::Rc;
 /// Tree ids of the fixed rows and the history sessions.
 pub(crate) const TAG_LIST: i32 = -3;
 pub(crate) const RELATED: i32 = -4;
+pub(crate) const DUPLICATES: i32 = -5;
 pub(crate) const HISTORY_BASE: i32 = -2000;
 const HISTORY_MAX: usize = 900_000;
 
@@ -29,6 +30,7 @@ pub(crate) fn decode(id: i32, sessions: &[String]) -> Option<Special> {
     match id {
         TAG_LIST => Some(Special::TagList),
         RELATED => Some(Special::Related),
+        DUPLICATES => Some(Special::Duplicates),
         _ if id <= HISTORY_BASE && id > HISTORY_BASE - HISTORY_MAX as i32 => {
             sessions.get((HISTORY_BASE - id) as usize).cloned().map(Special::History)
         }
@@ -54,7 +56,60 @@ pub(crate) fn rows(lib: &od_library::Library, special: &Special, tag_list: &[Tra
             let ids: Vec<TrackId> = lib.history(Some(s), 100_000).unwrap_or_default().into_iter().filter_map(|p| p.track).collect();
             tracks_in_order(lib, &ids)
         }
+        Special::Duplicates => tracks_in_order(lib, &duplicate_ids(&lib.find_duplicates().unwrap_or_default())),
     }
+}
+
+/// The tracks of the duplicate groups, group after group, each track once
+/// (pure).
+pub(crate) fn duplicate_ids(groups: &[od_library::duplicates::DuplicateGroup]) -> Vec<TrackId> {
+    let mut out = Vec::new();
+    for g in groups {
+        add_unique(&mut out, &g.tracks);
+    }
+    out
+}
+
+/// The tracks "keep one of each" removes: every track of a group but its
+/// first (oldest), never a track another group keeps (pure).
+pub(crate) fn extra_copies(groups: &[od_library::duplicates::DuplicateGroup]) -> Vec<TrackId> {
+    let kept: Vec<TrackId> = groups.iter().filter_map(|g| g.tracks.first().copied()).collect();
+    let mut out = Vec::new();
+    for g in groups {
+        let extra: Vec<TrackId> = g.tracks.iter().skip(1).filter(|t| !kept.contains(t)).copied().collect();
+        add_unique(&mut out, &extra);
+    }
+    out
+}
+
+/// Duplicates view: "remove-selected" or "keep-first" remove tracks from
+/// the collection (their files stay on disk).
+pub(crate) fn duplicates_action(app: &App, action: &str) {
+    if app.guard_read_only() {
+        return;
+    }
+    let ids = match action {
+        "remove-selected" => app.state.borrow().selected_ids(),
+        "keep-first" => extra_copies(&app.state.borrow().lib.find_duplicates().unwrap_or_default()),
+        _ => return,
+    };
+    if ids.is_empty() {
+        return;
+    }
+    let mut removed = 0;
+    for id in &ids {
+        let r = app.state.borrow_mut().lib.remove_track(*id);
+        if app.report(r).is_some() {
+            removed += 1;
+        }
+    }
+    {
+        let mut st = app.state.borrow_mut();
+        st.browser.selection.clear();
+        st.browser.tag_list.retain(|t| !ids.contains(t));
+    }
+    app.refresh_library();
+    app.status(od_i18n::trf("Removed {} track(s) from the collection — the files stay on disk", &[&removed]));
 }
 
 /// Adds tracks to the tag list (each track once, in order of adding).
@@ -380,6 +435,17 @@ mod tests {
     use super::*;
 
     #[test]
+    fn duplicate_rows_and_extra_copies() {
+        use od_library::duplicates::{DuplicateGroup, DuplicateKind};
+        let g = |ids: &[i64]| DuplicateGroup { kind: DuplicateKind::SameRelease, tracks: ids.iter().map(|i| TrackId(*i)).collect() };
+        let groups = vec![g(&[1, 4]), g(&[2, 5, 6]), g(&[4, 7])];
+        assert_eq!(duplicate_ids(&groups), [1, 4, 2, 5, 6, 7].map(TrackId));
+        // 4 is kept by the third group, so the first group does not remove it.
+        assert_eq!(extra_copies(&groups), [5, 6, 7].map(TrackId));
+        assert!(extra_copies(&[]).is_empty());
+    }
+
+    #[test]
     fn tag_list_and_ids() {
         let mut list = vec![TrackId(1)];
         assert_eq!(add_unique(&mut list, &[TrackId(1), TrackId(2), TrackId(3), TrackId(2)]), 2);
@@ -387,6 +453,7 @@ mod tests {
         let sessions = vec!["a".to_string(), "b".to_string()];
         assert_eq!(decode(TAG_LIST, &sessions), Some(Special::TagList));
         assert_eq!(decode(RELATED, &sessions), Some(Special::Related));
+        assert_eq!(decode(DUPLICATES, &sessions), Some(Special::Duplicates));
         assert_eq!(decode(history_id(1), &sessions), Some(Special::History("b".into())));
         assert_eq!(decode(history_id(5), &sessions), None);
         assert_eq!(decode(-1, &sessions), None);

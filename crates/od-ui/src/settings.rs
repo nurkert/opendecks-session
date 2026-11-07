@@ -23,7 +23,65 @@ pub struct Settings {
     pub update: UpdateSettings,
     pub perform: PerformSettings,
     pub browser: BrowserSettings,
+    /// Deck defaults applied when audio starts (Preferences > Controller).
+    pub deck: DeckSettings,
+    /// Mixer behaviour (Preferences > Controller > Mixer).
+    pub mixer: MixerSettings,
 }
+
+/// Deck defaults: sent to every deck when the engine starts and when they
+/// change (`preferences::deck_defaults`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DeckSettings {
+    /// Tempo fader range: "six", "ten", "sixteen" or "wide".
+    pub tempo_range: String,
+    /// Quantize on at start.
+    pub quantize: bool,
+    /// Jog wheel: "vinyl" (touch holds and scratches) or "bend".
+    pub jog_mode: String,
+    /// Auto cue: a loaded track waits at its first sound / first memory cue.
+    pub auto_cue: bool,
+}
+
+impl Default for DeckSettings {
+    fn default() -> Self {
+        Self { tempo_range: "ten".into(), quantize: true, jog_mode: "vinyl".into(), auto_cue: true }
+    }
+}
+
+/// Mixer behaviour: EQ type, curves and auto gain.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct MixerSettings {
+    /// "isolator" (full kill) or "classic" (−26 dB shelf EQ).
+    pub eq_mode: String,
+    /// Channel fader curve: "linear", "smooth" or "sharp".
+    pub fader_curve: String,
+    /// Crossfader curve: "constant_power", "linear" or "cut".
+    pub crossfader_curve: String,
+    /// Level every track by its analysed loudness.
+    pub auto_gain: bool,
+}
+
+impl Default for MixerSettings {
+    fn default() -> Self {
+        Self { eq_mode: "isolator".into(), fader_curve: "smooth".into(), crossfader_curve: "constant_power".into(), auto_gain: true }
+    }
+}
+
+pub const TEMPO_RANGES: [&str; 4] = ["six", "ten", "sixteen", "wide"];
+pub const JOG_MODES: [&str; 2] = ["vinyl", "bend"];
+pub const EQ_MODES: [&str; 2] = ["isolator", "classic"];
+pub const FADER_CURVES: [&str; 3] = ["linear", "smooth", "sharp"];
+pub const CROSSFADER_CURVES: [&str; 3] = ["constant_power", "linear", "cut"];
+/// Track table text sizes (px) and row heights (px) of Preferences > View.
+pub const FONT_SIZES: [u32; 4] = [12, 14, 16, 18];
+pub const LINE_SPACINGS: [&str; 3] = ["compact", "normal", "roomy"];
+/// Seconds across the Prepare player's zoomed waveform (Preferences > View).
+pub const ZOOM_SPANS: [f32; 4] = [4.0, 8.0, 16.0, 32.0];
+/// Recording gain steps (dB) of Preferences > Recording.
+pub const REC_GAINS: [f32; 7] = [-12.0, -6.0, -3.0, 0.0, 3.0, 6.0, 12.0];
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -59,6 +117,9 @@ pub struct ViewSettings {
     /// Bar counter on decks: "to-phrase" (bars left in the phrase, the
     /// default), "to-memory-cue" (bars left to the next memory cue) or "up".
     pub bar_counter: String,
+    /// Seconds across the zoomed waveform at start (Prepare player; the
+    /// decks start at the matching zoom).
+    pub zoom_span: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -90,6 +151,13 @@ pub struct RecordingSettings {
     pub auto_split: bool,
     /// Start recording when sound starts after silence.
     pub silence_start: bool,
+    /// Stop recording after this long silence (with automatic start).
+    pub silence_stop: bool,
+    /// File name pattern: `{date}` (2026-11-07), `{time}` (21-30-00),
+    /// `{n}` (number of the recording that day); empty = "Mix {date} {time}".
+    pub name_pattern: String,
+    /// Recording level in dB (−12 … +12).
+    pub gain_db: f32,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -120,7 +188,7 @@ impl Default for PerformSettings {
 }
 
 /// The track table: shown columns in order and the secondary sort.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct BrowserSettings {
     /// Column ids in display order (`browser::columns::COLUMNS`); empty =
@@ -128,6 +196,16 @@ pub struct BrowserSettings {
     pub columns: Vec<String>,
     /// Secondary sort columns (⇧-click in the header), in order.
     pub sort_then: Vec<SortSpec>,
+    /// Text size of the track table in px (0 = the default, 14).
+    pub font_size: u32,
+    /// Row height of the track table: "compact", "normal" or "roomy".
+    pub line_spacing: String,
+}
+
+impl Default for BrowserSettings {
+    fn default() -> Self {
+        Self { columns: Vec::new(), sort_then: Vec::new(), font_size: 14, line_spacing: "normal".into() }
+    }
 }
 
 /// One sort column and its direction.
@@ -173,6 +251,8 @@ impl Default for Settings {
             update: UpdateSettings::default(),
             perform: PerformSettings::default(),
             browser: BrowserSettings::default(),
+            deck: DeckSettings::default(),
+            mixer: MixerSettings::default(),
         }
     }
 }
@@ -196,6 +276,7 @@ impl Default for ViewSettings {
             waveform: "3band".into(),
             phrases: true,
             bar_counter: "to-phrase".into(),
+            zoom_span: 8.0,
         }
     }
 }
@@ -209,7 +290,7 @@ impl Default for AnalysisSettings {
 
 impl Default for RecordingSettings {
     fn default() -> Self {
-        Self { format: "wav".into(), folder: String::new(), auto_split: false, silence_start: false }
+        Self { format: "wav".into(), folder: String::new(), auto_split: false, silence_start: false, silence_stop: false, name_pattern: String::new(), gain_db: 0.0 }
     }
 }
 
@@ -277,7 +358,93 @@ impl Settings {
         }
         self.browser.sort_then.retain(|s| crate::browser::sort_key_known(&s.column));
         self.browser.sort_then.truncate(3);
+        if !FONT_SIZES.contains(&self.browser.font_size) {
+            self.browser.font_size = 14;
+        }
+        if !LINE_SPACINGS.contains(&self.browser.line_spacing.as_str()) {
+            self.browser.line_spacing = "normal".into();
+        }
+        if !ZOOM_SPANS.contains(&self.view.zoom_span) {
+            self.view.zoom_span = 8.0;
+        }
+        let d = &mut self.deck;
+        if !TEMPO_RANGES.contains(&d.tempo_range.as_str()) {
+            d.tempo_range = "ten".into();
+        }
+        if !JOG_MODES.contains(&d.jog_mode.as_str()) {
+            d.jog_mode = "vinyl".into();
+        }
+        let m = &mut self.mixer;
+        if !EQ_MODES.contains(&m.eq_mode.as_str()) {
+            m.eq_mode = "isolator".into();
+        }
+        if !FADER_CURVES.contains(&m.fader_curve.as_str()) {
+            m.fader_curve = "smooth".into();
+        }
+        if !CROSSFADER_CURVES.contains(&m.crossfader_curve.as_str()) {
+            m.crossfader_curve = "constant_power".into();
+        }
+        let r = &mut self.recording;
+        r.gain_db = if r.gain_db.is_finite() { r.gain_db.clamp(-12.0, 12.0) } else { 0.0 };
+        r.name_pattern = r.name_pattern.trim().chars().filter(|c| !matches!(c, '/' | '\\' | ':') && !c.is_control()).collect();
         self
+    }
+
+    /// Row height of the track table (px) for the line spacing.
+    pub fn row_height(&self) -> f32 {
+        match self.browser.line_spacing.as_str() {
+            "compact" => 22.0,
+            "roomy" => 34.0,
+            _ => 28.0,
+        }
+    }
+
+    /// Applies preference values read from another application's settings
+    /// (`(json path, value)` as `od_import_rekordbox::settings` writes
+    /// them). Unknown keys and values are skipped; returns the keys applied.
+    pub fn apply_values(&mut self, values: &[(String, String)]) -> Vec<String> {
+        let mut applied = Vec::new();
+        let flag = |v: &str| match v {
+            "true" => Some(true),
+            "false" => Some(false),
+            _ => None,
+        };
+        for (k, v) in values {
+            // Per-deck values: the first deck that carries one wins.
+            let key = match k.split_once('.') {
+                Some((d, rest)) if d.starts_with("deck") && d[4..].parse::<u8>().is_ok() => format!("deck.{rest}"),
+                _ => k.clone(),
+            };
+            if key.starts_with("deck.") && applied.contains(&key) {
+                continue;
+            }
+            let ok = match key.as_str() {
+                "view.language" => ["en", "de"].contains(&v.as_str()).then(|| self.view.language = v.clone()).is_some(),
+                "view.key_notation" => ["camelot", "openkey", "musical"].contains(&v.as_str()).then(|| self.view.key_notation = v.clone()).is_some(),
+                "view.waveform" => ["3band", "blue"].contains(&v.as_str()).then(|| self.view.waveform = v.clone()).is_some(),
+                "view.phrases" => flag(v).map(|b| self.view.phrases = b).is_some(),
+                "view.bar_counter" => BAR_COUNTERS.contains(&v.as_str()).then(|| self.view.bar_counter = v.clone()).is_some(),
+                "analysis.bpm_min" => v.parse().map(|n| self.analysis.bpm_min = n).is_ok(),
+                "analysis.bpm_max" => v.parse().map(|n| self.analysis.bpm_max = n).is_ok(),
+                "analysis.detect_key" => flag(v).map(|b| self.analysis.detect_key = b).is_some(),
+                "analysis.detect_phrases" => flag(v).map(|b| self.analysis.detect_phrases = b).is_some(),
+                "analysis.auto_analyse" => flag(v).map(|b| self.analysis.auto_analyse = b).is_some(),
+                "recording.folder" => (!v.is_empty()).then(|| self.recording.folder = v.clone()).is_some(),
+                "recording.auto_split" => flag(v).map(|b| self.recording.auto_split = b).is_some(),
+                "perform.quantize" => flag(v).map(|b| self.deck.quantize = b).is_some(),
+                "deck.tempo_range" => TEMPO_RANGES.contains(&v.as_str()).then(|| self.deck.tempo_range = v.clone()).is_some(),
+                "deck.auto_cue" => flag(v).map(|b| self.deck.auto_cue = b).is_some(),
+                "mixer.eq_mode" => EQ_MODES.contains(&v.as_str()).then(|| self.mixer.eq_mode = v.clone()).is_some(),
+                "mixer.fader_curve" => FADER_CURVES.contains(&v.as_str()).then(|| self.mixer.fader_curve = v.clone()).is_some(),
+                "mixer.crossfader_curve" => CROSSFADER_CURVES.contains(&v.as_str()).then(|| self.mixer.crossfader_curve = v.clone()).is_some(),
+                _ => false,
+            };
+            if ok {
+                applied.push(key);
+            }
+        }
+        *self = self.clone().sanitized();
+        applied
     }
 
     pub fn key_notation(&self) -> KeyNotation {
@@ -427,7 +594,22 @@ mod tests {
         s.perform.color_fx = "dub_echo".into();
         s.browser.columns = vec!["title".into(), "album".into(), "bpm".into()];
         s.browser.sort_then = vec![SortSpec { column: "bpm".into(), descending: true }];
+        s.browser.font_size = 16;
+        s.browser.line_spacing = "roomy".into();
+        s.view.zoom_span = 16.0;
+        s.deck.tempo_range = "sixteen".into();
+        s.deck.quantize = false;
+        s.deck.jog_mode = "bend".into();
+        s.deck.auto_cue = false;
+        s.mixer.eq_mode = "classic".into();
+        s.mixer.fader_curve = "linear".into();
+        s.mixer.crossfader_curve = "cut".into();
+        s.mixer.auto_gain = false;
+        s.recording.silence_stop = true;
+        s.recording.name_pattern = "Club {date}".into();
+        s.recording.gain_db = -6.0;
         assert_eq!(Settings::from_json(&s.to_json()), s);
+        assert_eq!(Settings::from_json(&Settings::default().to_json()), Settings::default());
     }
 
     #[test]
@@ -450,6 +632,55 @@ mod tests {
         // Panels start closed; an unknown colour FX falls back to the filter.
         assert!(!s.perform.fx_panel && !s.perform.sampler_panel);
         assert_eq!(Settings::from_json(r#"{"perform": {"color_fx": "laser"}}"#).perform.color_fx, "filter");
+    }
+
+    #[test]
+    fn new_values_fall_back_and_row_heights() {
+        let s = Settings::from_json(r#"{"deck": {"tempo_range": "huge", "jog_mode": "spin"}, "mixer": {"eq_mode": "x", "fader_curve": "y", "crossfader_curve": "z"}, "browser": {"font_size": 99, "line_spacing": "airy"}, "view": {"zoom_span": 3.0}, "recording": {"gain_db": 40.0, "name_pattern": " a/b:c "}}"#);
+        assert_eq!((s.deck.tempo_range.as_str(), s.deck.jog_mode.as_str()), ("ten", "vinyl"));
+        assert_eq!((s.mixer.eq_mode.as_str(), s.mixer.fader_curve.as_str(), s.mixer.crossfader_curve.as_str()), ("isolator", "smooth", "constant_power"));
+        assert_eq!((s.browser.font_size, s.browser.line_spacing.as_str(), s.view.zoom_span), (14, "normal", 8.0));
+        assert_eq!(s.recording.gain_db, 12.0);
+        assert_eq!(s.recording.name_pattern, "abc");
+        // Settings stored before these existed keep the defaults.
+        let old = Settings::from_json(r#"{"view": {"language": "de"}}"#);
+        assert!(old.deck.quantize && old.deck.auto_cue && old.mixer.auto_gain);
+        let mut r = Settings::default();
+        assert_eq!(r.row_height(), 28.0);
+        r.browser.line_spacing = "compact".into();
+        assert_eq!(r.row_height(), 22.0);
+        r.browser.line_spacing = "roomy".into();
+        assert_eq!(r.row_height(), 34.0);
+    }
+
+    #[test]
+    fn values_from_other_software_are_applied() {
+        let mut s = Settings::default();
+        let v = |k: &str, x: &str| (k.to_string(), x.to_string());
+        let applied = s.apply_values(&[
+            v("view.key_notation", "musical"),
+            v("view.phrases", "false"),
+            v("analysis.bpm_min", "78"),
+            v("analysis.bpm_max", "155"),
+            v("perform.quantize", "false"),
+            v("deck1.tempo_range", "six"),
+            v("deck2.tempo_range", "wide"),
+            v("deck1.auto_cue", "false"),
+            v("deck1.keylock", "true"),
+            v("mixer.eq_mode", "classic"),
+            v("mixer.fader_curve", "sharp"),
+            v("mixer.crossfader_curve", "cut"),
+            v("recording.auto_split", "maybe"),
+            v("view.time_display", "remain"),
+        ]);
+        assert_eq!(s.view.key_notation, "musical");
+        assert!(!s.view.phrases && !s.deck.quantize && !s.deck.auto_cue);
+        assert_eq!((s.analysis.bpm_min, s.analysis.bpm_max), (78, 155));
+        assert_eq!(s.deck.tempo_range, "six", "the first deck wins");
+        assert_eq!((s.mixer.eq_mode.as_str(), s.mixer.fader_curve.as_str(), s.mixer.crossfader_curve.as_str()), ("classic", "sharp", "cut"));
+        assert!(!applied.contains(&"recording.auto_split".to_string()), "broken values are skipped");
+        assert!(!applied.iter().any(|k| k.contains("keylock") || k.contains("time_display")), "unknown keys are skipped");
+        assert_eq!(applied.len(), 10);
     }
 
     #[test]

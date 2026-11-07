@@ -59,6 +59,9 @@ export component TopBar inherits Rectangle {
     in property <string> recording-time;
     in property <string> undo-label;
     in property <bool> kiosk;
+    // Prepare layout ("player" or "browser") and its switch.
+    in property <string> prepare-layout: "player";
+    callback cycle-layout();
     // In Perform, recording lives in the global bar under the decks.
     in property <bool> show-record: true;
     // Perform panel switches (shown in Perform only).
@@ -114,6 +117,16 @@ export component TopBar inherits Rectangle {
             accessible-item-selectable: true; accessible-item-selected: self.current;
             label: @tr("LIGHTING"); tooltip: @tr("Lighting: DMX rig and light show"); command: "mode.lighting"; current: root.mode == "lighting"; clicked => { root.set-mode("lighting"); } }
         Rectangle { width: 24px; }
+        if root.mode == "prepare" && !root.kiosk: PanelToggle {
+            accessible-label: "topbar.layout"; accessible-role: button;
+            accessible-value: root.prepare-layout;
+            label: root.prepare-layout == "browser" ? @tr("FULL BROWSER") : @tr("PLAYER");
+            on: root.prepare-layout == "browser";
+            tooltip: root.prepare-layout == "browser" ? @tr("Show the player above the browser") : @tr("Give the whole window to the browser");
+            command: root.prepare-layout == "browser" ? "view.layout.player" : "view.layout.browser";
+            clicked => { root.cycle-layout(); }
+        }
+        if root.mode == "prepare" && !root.kiosk: Rectangle { width: 12px; }
         Caps { text: root.status; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
         if root.show-panels: PanelToggle {
             accessible-label: "topbar.toggle.cdj"; accessible-role: button;

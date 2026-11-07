@@ -269,6 +269,11 @@ export struct DeckView {
     mute-inst: bool,
     mute-drums: bool,
     mute-bass: bool,
+    // Stem levels 0..1 (part isolation).
+    level-vocal: float,
+    level-inst: float,
+    level-drums: float,
+    level-bass: float,
     loop-size: string,
     phrases: [PhraseMark],
     // Current phrase and bars left in it, e.g. "CHORUS · 8".
@@ -293,6 +298,16 @@ export struct ChannelView {
     peak: float,
 }
 
+// Slot 2 or 3 of a Beat FX unit in multi mode.
+export struct FxSlotView {
+    // 2 or 3.
+    slot: int,
+    kind: int,
+    beats: string,
+    level: float,
+    on: bool,
+}
+
 // One Beat FX unit in the FX panel.
 export struct FxUnitView {
     // 1 or 2.
@@ -315,7 +330,11 @@ export struct FxUnitView {
     tapped: bool,
     // Engaged Release FX: -1 none, 0 vinyl brake, 1 backspin, 2 echo out.
     release: int,
+    // Multi mode: slots 2 and 3 chained after the unit's effect.
+    multi: bool,
+    slots: [FxSlotView],
 }
+
 
 // One sampler pad of the shown bank.
 export struct SamplerPadView {

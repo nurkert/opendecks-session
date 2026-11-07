@@ -117,6 +117,7 @@ pub(crate) fn refresh_tree(app: &App) {
         match sp {
             super::Special::TagList => super::sources::TAG_LIST,
             super::Special::Related => super::sources::RELATED,
+            super::Special::Duplicates => super::sources::DUPLICATES,
             super::Special::History(name) => b.histories.iter().position(|h| h == name).map(super::sources::history_id).unwrap_or(ALL_TRACKS),
         }
     } else {

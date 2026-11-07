@@ -20,5 +20,7 @@ mod browser;
 mod features;
 mod flows;
 pub(crate) mod harness;
+mod perform;
+mod session;
 mod stage;
 mod views;
