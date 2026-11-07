@@ -3532,3 +3532,28 @@ msgstr "EQ-Regler steuern die Parts: HI Vocals, MID Inst, LOW Drums"
 msgctxt "PadModes"
 msgid "LIGHTING"
 msgstr "LIGHTING"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "BROWSE"
+msgstr "BROWSE"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "Browse the source and load a track, as on the player"
+msgstr "Quelle durchsuchen und einen Track laden, wie am Player"
+
+#: ui/cdj.slint
+msgctxt "CdjPlayer"
+msgid "BACK"
+msgstr "ZURÜCK"
+
+#: ui/perform.slint
+msgctxt "PadModes"
+msgid "CENSOR"
+msgstr "CENSOR"
+
+#: ui/perform.slint
+msgctxt "PadModes"
+msgid "SEQ CALL"
+msgstr "SEQ CALL"

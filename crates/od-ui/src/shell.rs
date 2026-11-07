@@ -22,8 +22,10 @@ const META_SIDEBAR: &str = "ui.sidebar_width";
 const META_UPPER: &str = "ui.upper_height";
 const META_LAYOUT: &str = "ui.prepare_layout";
 
-/// Prepare layouts: the player above the browser, or the full browser.
-pub(crate) const PREPARE_LAYOUTS: [&str; 2] = ["player", "browser"];
+/// Prepare layouts: the player above the browser, 2 players (a compact
+/// second player below), dual (two compact players side by side), simple
+/// (one compact player) and the full browser.
+pub(crate) const PREPARE_LAYOUTS: [&str; 5] = ["player", "two", "dual", "simple", "browser"];
 
 /// Switches the Prepare layout (and to Prepare); unknown names are ignored.
 pub(crate) fn set_prepare_layout(app: &App, layout: &str) {
@@ -35,6 +37,7 @@ pub(crate) fn set_prepare_layout(app: &App, layout: &str) {
         app.ui.set_mode("prepare".into());
     }
     let _ = app.state.borrow_mut().lib.set_meta(META_LAYOUT, layout);
+    crate::player::refresh_minis(app);
 }
 
 /// The next Prepare layout (the top-bar switch).
@@ -324,9 +327,12 @@ mod tests {
 
     #[test]
     fn layouts_cycle() {
-        assert_eq!(next_layout("player"), "browser");
+        assert_eq!(next_layout("player"), "two");
+        assert_eq!(next_layout("two"), "dual");
+        assert_eq!(next_layout("dual"), "simple");
+        assert_eq!(next_layout("simple"), "browser");
         assert_eq!(next_layout("browser"), "player");
-        assert_eq!(next_layout("unknown"), "browser");
+        assert_eq!(next_layout("unknown"), "two");
     }
 
     #[test]

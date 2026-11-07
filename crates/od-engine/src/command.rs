@@ -265,6 +265,9 @@ pub enum DeckCommand {
     /// Censor: plays in reverse while held (`true`) and resumes on release
     /// where normal playback would be (slip), whether or not slip is on.
     Censor(bool),
+    /// Active censor: censors for `beats` beats of the deck's tempo, then
+    /// returns where normal playback would be (slip).
+    CensorFor { beats: f64 },
     /// SEARCH buttons (FF / REW): while non-zero the playhead runs at this
     /// many times real time (positive forward, negative backward), audibly,
     /// whether or not the deck plays; 0 releases. Keylock is bypassed.

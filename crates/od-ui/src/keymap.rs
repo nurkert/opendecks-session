@@ -405,6 +405,9 @@ fn build() -> Vec<Action> {
     b.add("perform.quantize", "Quantize on / off", None, g, Perform, &["Mod+K"]);
     b.add_split("view.layout.player", "Prepare layout: player and browser", None, g, Global, &["Mod+Alt+4"], &["Alt+4"]);
     b.add_split("view.layout.browser", "Prepare layout: full browser", None, g, Global, &["Mod+Alt+5"], &["Alt+5"]);
+    b.add_split("view.layout.two", "Prepare layout: 2 players", None, g, Global, &["Mod+Alt+6"], &["Alt+6"]);
+    b.add_split("view.layout.dual", "Prepare layout: dual player", None, g, Global, &["Mod+Alt+7"], &["Alt+7"]);
+    b.add_split("view.layout.simple", "Prepare layout: simple player", None, g, Global, &["Mod+Alt+8"], &["Alt+8"]);
     b.add_split("view.panel.info", "Show / hide the info panel", None, g, Global, &["Mod+Alt+I"], &["Alt+I"]);
     b.add_split("view.panel.related", "Show / hide related tracks", None, g, Global, &["Mod+Alt+E"], &["Alt+E"]);
     b.add_split("view.panel.my-tag", "Show / hide My Tag", None, g, Global, &["Mod+Alt+G"], &["Alt+G"]);
@@ -443,6 +446,7 @@ fn build() -> Vec<Action> {
     b.add_split("browser.taglist.add", "Add the selected tracks to the tag list", None, g, Global, &["Mod+Alt+T"], &["Alt+T"]);
     b.add("browser.filter", "Show / hide the filter bar", None, g, Global, &["Mod+J"]);
     b.add_split("browser.duplicates", "Show duplicate tracks", None, g, Global, &["Mod+Alt+Y"], &["Alt+Y"]);
+    b.add_split("browser.stems", "Separate the parts of the selected tracks", None, g, Global, &["Mod+Alt+Shift+S"], &["Alt+Shift+S"]);
 
     // ── Prepare player ──
     let g = Group::Player;

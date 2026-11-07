@@ -65,10 +65,14 @@ pub enum PadMode {
     MemoryCue,
     /// The light show: A–F looks, G strobe and H flash while held.
     Lighting,
+    /// Active censor: each pad censors for a beat length (¼ … 32 beats).
+    ActiveCensor,
+    /// Sequence call: pads store and recall sampler sequences.
+    SeqCall,
 }
 
 impl PadMode {
-    pub const ALL: [PadMode; 12] = [
+    pub const ALL: [PadMode; 14] = [
         PadMode::HotCue,
         PadMode::BeatLoop,
         PadMode::BeatJump,
@@ -81,6 +85,8 @@ impl PadMode {
         PadMode::Stems,
         PadMode::MemoryCue,
         PadMode::Lighting,
+        PadMode::ActiveCensor,
+        PadMode::SeqCall,
     ];
 
     pub fn name(self) -> &'static str {
@@ -97,6 +103,8 @@ impl PadMode {
             PadMode::Stems => "stems",
             PadMode::MemoryCue => "memory_cue",
             PadMode::Lighting => "lighting",
+            PadMode::ActiveCensor => "active_censor",
+            PadMode::SeqCall => "seq_call",
         }
     }
 

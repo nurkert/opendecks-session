@@ -948,6 +948,9 @@ pub(crate) fn project(app: &App, state: &EngineState) {
         if d.pad_mode[i] == PadMode::Lighting {
             crate::lighting::light_pads(app, &mut rows);
         }
+        if d.pad_mode[i] == PadMode::SeqCall {
+            crate::sampler::seq_pads(app, state, &mut rows);
+        }
         if d.pad_mode[i] == PadMode::HotCue && let Some(m) = meta {
             // Hot cue pads in their stored colours.
             let bank = s.hot_cue_bank * od_engine::HOT_CUES;
@@ -1116,9 +1119,18 @@ pub(crate) fn pad_rows(app: &App, d: usize, state: &EngineState) -> Vec<PadView>
 
 /// Pad `index` (0..8) of deck `d` pressed or released, in the deck's mode.
 pub(crate) fn pad(app: &App, d: usize, index: usize, pressed: bool) {
-    if app.decks.borrow().pad_mode[d] == PadMode::Lighting {
-        crate::lighting::pad(app, index, pressed);
-        return;
+    match app.decks.borrow().pad_mode[d] {
+        PadMode::Lighting => {
+            crate::lighting::pad(app, index, pressed);
+            return;
+        }
+        PadMode::SeqCall => {
+            if pressed && engine::ensure_engine(app) && let Some(st) = engine::snapshot(app) {
+                crate::sampler::seq_call(app, index, &st);
+            }
+            return;
+        }
+        _ => {}
     }
     let cmds = with_pads(app, d, |s, ctx| pads::press_commands(s, ctx, index, pressed));
     for c in cmds {
@@ -1136,6 +1148,7 @@ pub(crate) fn pad_alt(app: &App, d: usize, index: usize) {
             let slot = pads::sampler_slot(d, app.sampler.bank.get(), index);
             engine::send(app, Command::Sampler(od_engine::SamplerCommand::Stop { slot }));
         }
+        PadMode::SeqCall => crate::sampler::seq_clear(app, index),
         _ => {}
     }
 }
@@ -1178,7 +1191,7 @@ pub(crate) fn pad_param(app: &App, d: usize, delta: i32) {
                 engine::deck_cmd(app, d, DeckCommand::Slicer(od_engine::SlicerCommand::Enable { beats, loop_mode: s.slicer.loop_mode }));
             }
         }
-        PadMode::BeatLoop | PadMode::Stems | PadMode::MemoryCue | PadMode::Lighting => {}
+        PadMode::BeatLoop | PadMode::Stems | PadMode::MemoryCue | PadMode::Lighting | PadMode::ActiveCensor | PadMode::SeqCall => {}
     }
 }
 

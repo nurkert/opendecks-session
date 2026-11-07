@@ -155,6 +155,23 @@ fn hot_cue_banks() {
 }
 
 #[test]
+fn active_censor_ends_after_its_beats() {
+    let mut rig = Rig::new(2);
+    rig.deck(0, DeckCommand::Load(ramp_track(1, 20.0, 120.0)));
+    rig.deck(0, DeckCommand::Play);
+    rig.render(375); // 48 000 frames
+    // Two beats at 120 BPM = 1 s = 48 000 frames.
+    rig.deck(0, DeckCommand::CensorFor { beats: 2.0 });
+    rig.render(370); // 47 360 frames: still censoring
+    assert!(rig.state().decks[0].censor);
+    rig.render(10);
+    let st = rig.state().decks[0];
+    assert!(!st.censor && !st.reverse, "ended after two beats");
+    // Resumed where playback would be (slip).
+    assert!((st.position * 48_000.0 - (48_000.0 + 380.0 * 128.0)).abs() < 200.0, "position {}", st.position * 48_000.0);
+}
+
+#[test]
 fn censor_reverses_and_resumes_where_playback_would_be() {
     let mut rig = Rig::new(2);
     rig.deck(0, DeckCommand::Load(ramp_track(1, 20.0, 120.0)));

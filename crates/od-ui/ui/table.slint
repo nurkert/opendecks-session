@@ -190,6 +190,7 @@ component TrackLine inherits Rectangle {
                 MenuItem { title: @tr("No rating"); activated => { root.menu("rating:0"); } }
             }
             MenuItem { title: @tr("Analyse"); activated => { root.menu("analyse"); } }
+            MenuItem { title: @tr("Separate parts"); activated => { root.menu("stems"); } }
             MenuItem { title: @tr("Show in file manager"); activated => { root.menu("reveal"); } }
             MenuItem { title: @tr("Remove from this list"); activated => { root.menu("remove"); } }
         }

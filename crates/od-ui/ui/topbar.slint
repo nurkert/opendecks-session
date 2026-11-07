@@ -128,10 +128,9 @@ export component TopBar inherits Rectangle {
         if root.mode == "prepare" && !root.kiosk: PanelToggle {
             accessible-label: "topbar.layout"; accessible-role: button;
             accessible-value: root.prepare-layout;
-            label: root.prepare-layout == "browser" ? @tr("FULL BROWSER") : @tr("PLAYER");
-            on: root.prepare-layout == "browser";
-            tooltip: root.prepare-layout == "browser" ? @tr("Show the player above the browser") : @tr("Give the whole window to the browser");
-            command: root.prepare-layout == "browser" ? "view.layout.player" : "view.layout.browser";
+            label: root.prepare-layout == "browser" ? @tr("FULL BROWSER") : root.prepare-layout == "two" ? @tr("2 PLAYERS") : root.prepare-layout == "dual" ? @tr("DUAL") : root.prepare-layout == "simple" ? @tr("SIMPLE") : @tr("PLAYER");
+            on: root.prepare-layout != "player";
+            tooltip: @tr("Next Prepare layout: player, 2 players, dual, simple, full browser");
             clicked => { root.cycle-layout(); }
         }
         if root.mode == "prepare" && !root.kiosk: Rectangle { width: 12px; }

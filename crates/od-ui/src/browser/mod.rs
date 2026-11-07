@@ -510,6 +510,18 @@ pub(crate) fn wire(app: &Rc<App>) {
             DropTarget::Tree(id) => return drop_on_tree(&a, i as usize, id),
             DropTarget::Deck => {}
         }
+        // Onto the second Prepare player.
+        if target == -2 {
+            let track = {
+                let st = a.state.borrow();
+                if st.explorer.open.is_some() { st.explorer.track_at(i as usize) } else { st.browser.rows.get(i as usize).map(|t| t.id) }
+            };
+            match track {
+                Some(t) => crate::player::load_second(&a, t),
+                None => a.status("Add the file to the collection first"),
+            }
+            return;
+        }
         select_row(&a, i as usize, false, false);
         if target < 0 {
             if a.state.borrow().explorer.open.is_some() {
@@ -808,6 +820,7 @@ fn row_menu(app: &App, i: usize, action: &str) {
         }
         "remove" => remove_selected(app),
         "taglist" => sources::add_selected_to_tag_list(app),
+        "stems" => crate::stems_batch::separate_selected(app),
         "related" => {
             let track = app.state.borrow().player.current;
             sources::open(app, sources::RELATED);

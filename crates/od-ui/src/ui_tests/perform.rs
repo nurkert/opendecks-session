@@ -157,3 +157,25 @@ fn fx_sampler_assign_and_auto() {
     assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.beat_fx[1].tap_bpm.is_none())), "AUTO");
     assert!(ui.has("fx.unit2.beat-fx"));
 }
+
+/// Sequence Call: an empty pad stores the sampler patterns, a stored pad
+/// recalls them and starts the sequencer; the shifted pad clears it.
+#[test]
+fn sequence_call_stores_and_recalls() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    ui.app.ui.invoke_deck_pad_mode_set(1, 12);
+    ui.pump(100);
+    assert_eq!(ui.app.decks.borrow().pad_mode[0], od_controller::PadMode::SeqCall);
+    let send = |c| crate::engine::send(&ui.app, od_engine::Command::Sampler(c));
+    send(od_engine::SamplerCommand::SeqPattern { slot: 0, mask: 0b1000_1000_1000_1000 });
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.sampler[0].pattern != 0)));
+    crate::decks::pad(&ui.app, 0, 0, true); // store
+    assert!(ui.app.sampler.sequences.borrow()[0].is_some());
+    send(od_engine::SamplerCommand::SeqClear);
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.sampler[0].pattern == 0)));
+    crate::decks::pad(&ui.app, 0, 0, true); // recall
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.sampler[0].pattern == 0b1000_1000_1000_1000 && s.sequencer.playing)));
+    crate::decks::pad_alt(&ui.app, 0, 0);
+    assert!(ui.app.sampler.sequences.borrow()[0].is_none());
+}

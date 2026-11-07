@@ -9,7 +9,9 @@ use od_engine::{DeckCommand, EngineState, TempoRange};
 use slint::{ComponentHandle, ModelRc, VecModel};
 
 use crate::app::{App, handler};
-use crate::{CdjStep, engine};
+use crate::{CdjItem, CdjStep, engine};
+use od_core::TrackId;
+use od_library::{Library, NodeId, NodeKind};
 
 /// Seconds both decks must stay beat-aligned for the last step.
 const ALIGNED_FOR: f64 = 4.0;
@@ -81,6 +83,94 @@ impl Checklist {
 pub struct CdjRuntime {
     pub checklist: Checklist,
     shown: Option<[bool; STEPS.len()]>,
+    /// Browse screen: deck (1-based) and the levels opened so far.
+    browse: Option<(i32, Vec<Level>)>,
+    /// What the rows of the current level open.
+    targets: Vec<Target>,
+}
+
+/// One level of the browse screen.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Level {
+    /// Sources: all tracks, the playlist tree.
+    Root,
+    /// Folders and lists under a parent (`None` = top level).
+    Tree(Option<NodeId>),
+    /// Tracks of a list (`None` = all tracks).
+    Tracks(Option<NodeId>),
+}
+
+/// What a browse row does.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum Target {
+    Open(LevelRef),
+    Load(TrackId),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum LevelRef {
+    Tree(Option<NodeId>),
+    Tracks(Option<NodeId>),
+}
+
+/// Rows and their targets for one level (pure on the library).
+pub fn browse_rows(lib: &Library, level: &Level) -> (String, Vec<(String, String, Target)>) {
+    match level {
+        Level::Root => (
+            "SOURCE".into(),
+            vec![
+                ("All tracks".into(), String::new(), Target::Open(LevelRef::Tracks(None))),
+                ("Playlists".into(), String::new(), Target::Open(LevelRef::Tree(None))),
+            ],
+        ),
+        Level::Tree(parent) => {
+            let nodes = lib.children(*parent).unwrap_or_default();
+            let rows = nodes
+                .into_iter()
+                .map(|n| {
+                    let target = if n.kind == NodeKind::Folder { LevelRef::Tree(Some(n.id)) } else { LevelRef::Tracks(Some(n.id)) };
+                    (n.name, n.kind.as_str().to_uppercase(), Target::Open(target))
+                })
+                .collect();
+            ("PLAYLISTS".into(), rows)
+        }
+        Level::Tracks(node) => {
+            let tracks = match node {
+                Some(id) => lib.node_tracks(*id).unwrap_or_default(),
+                None => lib.tracks(od_library::SortKey::Artist, false).unwrap_or_default(),
+            };
+            let rows = tracks
+                .into_iter()
+                .map(|t| {
+                    let sub = format!("{} {}", t.bpm.map(|b| format!("{b:.1}")).unwrap_or_default(), t.key.map(|k| k.to_string()).unwrap_or_default());
+                    (format!("{} — {}", t.tags.artist, t.tags.title), sub.trim().to_string(), Target::Load(t.id))
+                })
+                .collect();
+            ("TRACKS".into(), rows)
+        }
+    }
+}
+
+fn show_browse(app: &App) {
+    let g = app.ui.global::<crate::Cdj>();
+    let mut rt = app.cdj.borrow_mut();
+    let Some((deck, levels)) = rt.browse.clone() else {
+        g.set_browse_deck(0);
+        return;
+    };
+    let level = levels.last().cloned().unwrap_or(Level::Root);
+    let (title, rows) = {
+        let st = app.state.borrow();
+        browse_rows(st.src(), &level)
+    };
+    rt.targets = rows.iter().map(|r| r.2).collect();
+    let items: Vec<CdjItem> = rows
+        .into_iter()
+        .map(|(t, s, target)| CdjItem { title: od_i18n::tr(&t).to_string().into(), sub: s.into(), folder: matches!(target, Target::Open(_)) })
+        .collect();
+    g.set_browse_title(od_i18n::tr(&title).to_string().into());
+    g.set_browse_items(ModelRc::new(VecModel::from(items)));
+    g.set_browse_deck(deck);
 }
 
 /// The next tempo range of the player's range button.
@@ -117,6 +207,50 @@ pub(crate) fn toggle(app: &App) {
 pub(crate) fn wire(app: &Rc<App>) {
     let g = app.ui.global::<crate::Cdj>();
     g.on_set_enabled(handler!(app, |a, on: bool| set_enabled(&a, on)));
+    g.on_browse(handler!(app, |a, d: i32| {
+        {
+            let mut rt = a.cdj.borrow_mut();
+            rt.browse = match rt.browse.take() {
+                Some((open, _)) if open == d => None,
+                _ => Some((d, vec![Level::Root])),
+            };
+        }
+        show_browse(&a);
+    }));
+    g.on_browse_back(handler!(app, |a| {
+        {
+            let mut rt = a.cdj.borrow_mut();
+            if let Some((_, levels)) = rt.browse.as_mut() {
+                if levels.len() > 1 {
+                    levels.pop();
+                } else {
+                    rt.browse = None;
+                }
+            }
+        }
+        show_browse(&a);
+    }));
+    g.on_browse_open(handler!(app, |a, i: i32| {
+        let target = a.cdj.borrow().targets.get(i.max(0) as usize).copied();
+        match target {
+            Some(Target::Open(r)) => {
+                if let Some((_, levels)) = a.cdj.borrow_mut().browse.as_mut() {
+                    levels.push(match r {
+                        LevelRef::Tree(p) => Level::Tree(p),
+                        LevelRef::Tracks(n) => Level::Tracks(n),
+                    });
+                }
+                show_browse(&a);
+            }
+            Some(Target::Load(id)) => {
+                let deck = a.cdj.borrow().browse.as_ref().map(|b| b.0).unwrap_or(1);
+                a.cdj.borrow_mut().browse = None;
+                show_browse(&a);
+                crate::decks::load_track(&a, (deck - 1).max(0) as usize, id, None);
+            }
+            None => {}
+        }
+    }));
     g.on_action(handler!(app, |a, d: i32, action: slint::SharedString| crate::commands::run(&a, &format!("deck{d}.{action}"))));
     g.on_cue(handler!(app, |a, d: i32, down: bool| deck(&a, d, DeckCommand::Cue(down))));
     g.on_hot_cue(handler!(app, |a, d: i32, slot: i32, down: bool| deck(&a, d, DeckCommand::HotCue { slot: slot.clamp(0, 7) as usize, pressed: down })));

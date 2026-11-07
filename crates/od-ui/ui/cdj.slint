@@ -21,8 +21,22 @@ export struct CdjStep {
     done: bool,
 }
 
+export struct CdjItem {
+    title: string,
+    sub: string,
+    // A folder or list to open (else a track to load).
+    folder: bool,
+}
+
 export global Cdj {
     in-out property <bool> enabled;
+    // Browse screen: deck it belongs to (0 = closed), where it is, rows.
+    in property <int> browse-deck;
+    in property <string> browse-title;
+    in property <[CdjItem]> browse-items;
+    callback browse(int);
+    callback browse-open(int);
+    callback browse-back();
     in property <[CdjStep]> steps;
     in-out property <bool> show-steps: true;
     // Player actions by keymap id without the deck prefix ("memory.next",
@@ -137,6 +151,12 @@ export component CdjPlayer inherits Rectangle {
                 Text { text: root.deck.artist; font-family: Theme.family; font-size: 11px; color: Theme.bone-2; overflow: elide; }
             }
             Caps { text: root.deck.key; vertical-alignment: center; color: Theme.bone; }
+            Key {
+                accessible-label: "deck\{root.n}.cdj.browse"; accessible-role: button;
+                label: @tr("BROWSE"); on: Cdj.browse-deck == root.n;
+                tooltip: @tr("Browse the source and load a track, as on the player");
+                clicked => { Cdj.browse(root.n); }
+            }
             if root.deck.master: Caps { text: "MASTER"; vertical-alignment: center; color: Theme.attention; }
         }
         WaveLane {
@@ -245,6 +265,38 @@ export component CdjPlayer inherits Rectangle {
                         value: (1 - root.deck.tempo-value) / 2;
                         tooltip: @tr("Tempo (up = slower, like a player)");
                         changed(v) => { Cdj.tempo(root.n, 1 - v * 2); }
+                    }
+                }
+            }
+        }
+    }
+    // Browse screen over the player: source → list → track.
+    if Cdj.browse-deck == root.n: Rectangle {
+        x: 0; y: 46px; width: parent.width; height: parent.height - 46px;
+        background: Theme.ground-band;
+        accessible-role: list; accessible-label: "deck\{root.n}.cdj.browse-list";
+        VerticalLayout {
+            padding: 8px; spacing: 4px;
+            HorizontalLayout {
+                height: 28px; spacing: 8px;
+                Key { accessible-label: "deck\{root.n}.cdj.browse-back"; accessible-role: button; label: @tr("BACK"); clicked => { Cdj.browse-back(); } }
+                Caps { text: Cdj.browse-title; vertical-alignment: center; color: Theme.attention; overflow: elide; }
+            }
+            Flickable {
+                vertical-stretch: 1;
+                VerticalLayout {
+                    alignment: start;
+                    for it[i] in Cdj.browse-items: Rectangle {
+                        accessible-role: list-item; accessible-label: "deck\{root.n}.cdj.browse-row\{i}"; accessible-value: it.title;
+                        height: 30px;
+                        background: ta.has-hover ? Theme.plate-raised : transparent;
+                        HorizontalLayout {
+                            padding-left: 8px; padding-right: 8px; spacing: 10px;
+                            Text { text: it.folder ? "▸" : "♪"; width: 14px; color: it.folder ? Theme.attention : Theme.bone-3; vertical-alignment: center; font-family: Theme.family; }
+                            Text { text: it.title; horizontal-stretch: 1; overflow: elide; color: Theme.bone; vertical-alignment: center; font-family: Theme.family; font-size: 13px; }
+                            Text { text: it.sub; color: Theme.bone-2; vertical-alignment: center; font-family: Theme.family; font-size: 11px; }
+                        }
+                        ta := TouchArea { mouse-cursor: pointer; clicked => { Cdj.browse-open(i); } }
                     }
                 }
             }

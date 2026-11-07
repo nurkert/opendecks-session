@@ -495,7 +495,7 @@ export component PreferencesWindow inherits Window {
                         Row {
                             label: @tr("Control");
                             Text {
-                                accessible-role: text; accessible-label: "prefs.controller.learn-result"; accessible-value: self.text;
+                                accessible-role: AccessibleRole.text; accessible-label: "prefs.controller.learn-result"; accessible-value: self.text;
                                 horizontal-stretch: 1;
                                 text: root.learn-result != "" ? root.learn-result : root.learn-active ? @tr("Move or press the control now …") : @tr("Press LEARN, then move the control");
                                 font-family: Theme.family; font-size: 14px; color: root.learn-result != "" ? Theme.bone : Theme.bone-3; vertical-alignment: center; overflow: elide;
@@ -504,7 +504,7 @@ export component PreferencesWindow inherits Window {
                             Button { a11y-label: "prefs.controller.learn-save"; label: @tr("ADD TO MY MAPPING"); tone: Theme.live; tooltip: @tr("Write the learned control into your own mapping file"); clicked => { root.act("learn.save"); } }
                         }
                         if root.learn-entry != "": Text {
-                            accessible-role: text; accessible-label: "prefs.controller.learn-entry"; accessible-value: self.text;
+                            accessible-role: AccessibleRole.text; accessible-label: "prefs.controller.learn-entry"; accessible-value: self.text;
                             text: root.learn-entry; font-family: "Menlo"; font-size: 11px; color: Theme.bone-2; wrap: word-wrap;
                         }
                         Note { text: @tr("Learned controls go into {} and are used from the next start.", root.learn-file); }
@@ -523,7 +523,7 @@ export component PreferencesWindow inherits Window {
                             Button { a11y-label: "prefs.controller.flx10-apply"; label: @tr("WRITE TO DDJ-FLX10"); tone: Theme.live; tooltip: @tr("Send these settings to the connected DDJ-FLX10 over USB"); clicked => { root.act("flx10.apply"); } }
                             Rectangle { horizontal-stretch: 1; }
                         }
-                        Note { accessible-role: text; accessible-label: "prefs.controller.flx10-wire"; accessible-value: self.text; text: root.flx10-wire; font-family: "Menlo"; }
+                        Note { accessible-role: AccessibleRole.text; accessible-label: "prefs.controller.flx10-wire"; accessible-value: self.text; text: root.flx10-wire; font-family: "Menlo"; }
                     }
                 }
 

@@ -212,9 +212,10 @@ fn view_menu_layouts_and_panels() {
     press_action(&ui, "view.layout.player");
     ui.pump(200);
     assert!(ui.has("player1.play"), "the layout key brings the player back");
-    // The top-bar switch cycles, also from Perform the keys switch to Prepare.
+    // The top-bar switch cycles (player → 2 players → …), also from Perform
+    // the keys switch to Prepare.
     ui.click("topbar.layout");
-    assert_eq!(ui.app.ui.get_prepare_layout(), "browser");
+    assert_eq!(ui.app.ui.get_prepare_layout(), "two");
     ui.app.ui.invoke_set_mode("perform".into());
     press_action(&ui, "view.layout.player");
     assert_eq!(ui.app.ui.get_mode(), "prepare");

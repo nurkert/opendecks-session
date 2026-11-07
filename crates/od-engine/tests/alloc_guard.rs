@@ -246,6 +246,7 @@ fn process_never_allocates() {
         vec![
             Command::Deck(3, DeckCommand::Keyboard { slot: 4, semitones: -5.0, pressed: false }),
             Command::Deck(0, DeckCommand::Censor(true)),
+            Command::Deck(1, DeckCommand::CensorFor { beats: 0.5 }),
         ],
         vec![
             Command::Deck(0, DeckCommand::Censor(false)),

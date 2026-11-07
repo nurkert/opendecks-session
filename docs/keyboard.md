@@ -3,7 +3,7 @@
 Every user action of OpenDecks Session is a command in one registry
 (`crates/od-ui/src/keymap.rs`) with an id, a default binding per platform
 and optional user bindings (SPEC §12.2). The registry currently holds
-**235 actions**; every one has a default binding, and no two defaults
+**239 actions**; every one has a default binding, and no two defaults
 collide where they apply (checked by tests, together with this table).
 
 ## Changing bindings
@@ -93,6 +93,9 @@ Perform). Text fields keep the keys they type.
 | Quantize on / off | `perform.quantize` | Perform | `⌘K` | `Ctrl+K` |
 | Prepare layout: player and browser | `view.layout.player` | both | `⌥⌘4` | `Alt+4` |
 | Prepare layout: full browser | `view.layout.browser` | both | `⌥⌘5` | `Alt+5` |
+| Prepare layout: 2 players | `view.layout.two` | both | `⌥⌘6` | `Alt+6` |
+| Prepare layout: dual player | `view.layout.dual` | both | `⌥⌘7` | `Alt+7` |
+| Prepare layout: simple player | `view.layout.simple` | both | `⌥⌘8` | `Alt+8` |
 | Show / hide the info panel | `view.panel.info` | both | `⌥⌘I` | `Alt+I` |
 | Show / hide related tracks | `view.panel.related` | both | `⌥⌘E` | `Alt+E` |
 | Show / hide My Tag | `view.panel.my-tag` | both | `⌥⌘G` | `Alt+G` |
@@ -129,6 +132,7 @@ Perform). Text fields keep the keys they type.
 | Add the selected tracks to the tag list | `browser.taglist.add` | both | `⌥⌘T` | `Alt+T` |
 | Show / hide the filter bar | `browser.filter` | both | `⌘J` | `Ctrl+J` |
 | Show duplicate tracks | `browser.duplicates` | both | `⌥⌘Y` | `Alt+Y` |
+| Separate the parts of the selected tracks | `browser.stems` | both | `⌥⇧⌘S` | `Alt+Shift+S` |
 | **Prepare player** | | | | |
 | Preview play / pause | `player.preview` | Prepare | `Space` | `Space` |
 | Back to the cue point | `player.cue` | Prepare | `C` | `C` |

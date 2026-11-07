@@ -361,3 +361,87 @@ export component PreparePlayer inherits Rectangle {
     DropZone { width: parent.width; height: parent.height; id: -1; }
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
 }
+
+// A compact player: title line, readings and the overview with its cursor,
+// CUE / PLAY on the left. Used for player 2 in the 2-player layouts, for
+// both players in DUAL and for player 1 in SIMPLE.
+export struct MiniView {
+    has-track: bool,
+    title: string,
+    artist: string,
+    bpm: string,
+    key: string,
+    position: string,
+    overview: image,
+    cursor: float,
+    previewing: bool,
+}
+
+export component MiniPlayer inherits Rectangle {
+    // 1 or 2: the accessible labels are `player<index>.*`.
+    in property <int> index: 2;
+    in property <MiniView> view;
+    // Player 2 offers LOAD (the selected track of the browser).
+    in property <bool> can-load: root.index == 2;
+    callback seek(float);
+    // "play", "cue" or "load".
+    callback act(string);
+    property <string> p: "player\{root.index}";
+    background: Theme.ground;
+    min-height: 110px;
+    HorizontalLayout {
+        VerticalLayout {
+            width: 84px;
+            padding: 8px;
+            spacing: 8px;
+            alignment: center;
+            HorizontalLayout { alignment: center; Transport { accessible-label: root.p + ".cue"; accessible-role: button; kind: "cue"; tone: Theme.attention; size: 36px; clicked => { root.act("cue"); } } }
+            HorizontalLayout { alignment: center; Transport { accessible-label: root.p + ".play"; accessible-role: button; accessible-checkable: true; accessible-checked: root.view.previewing; kind: "play"; on: root.view.previewing; tone: Theme.live; size: 36px; clicked => { root.act("play"); } } }
+        }
+        VLine { weight: 1px; tone: Theme.rule; }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            padding-left: 12px; padding-right: 12px; padding-top: 6px; padding-bottom: 8px;
+            spacing: 6px;
+            HorizontalLayout {
+                height: 28px;
+                spacing: 14px;
+                Caps { text: "\{root.index}"; color: Theme.deck-color(root.index); vertical-alignment: center; }
+                Text {
+                    accessible-role: text; accessible-label: root.p + ".title"; accessible-value: self.text;
+                    horizontal-stretch: 2;
+                    text: root.view.has-track ? root.view.title : (root.can-load ? @tr("Empty — select a track and press LOAD, or drag it here") : @tr("No track selected"));
+                    font-family: Theme.family; font-size: 15px; font-weight: 600; vertical-alignment: center;
+                    color: root.view.has-track ? Theme.bone : Theme.bone-3; overflow: elide;
+                }
+                Text { accessible-role: text; accessible-label: root.p + ".artist"; accessible-value: self.text; horizontal-stretch: 1; text: root.view.artist; font-family: Theme.family; font-size: 12px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
+                Reading { a11y-label: root.p + ".time-elapsed"; label: @tr("POS"); template: "00:00.000"; value: root.view.position; }
+                Reading { a11y-label: root.p + ".bpm"; label: "BPM"; template: "000.00"; value: root.view.bpm; }
+                Reading { a11y-label: root.p + ".key"; label: @tr("KEY"); template: "12A"; value: root.view.key; }
+                if root.can-load: PlateButton {
+                    accessible-label: root.p + ".load"; accessible-role: button; horizontal-stretch: 0; compact: true;
+                    label: @tr("LOAD"); tone: Theme.deck-color(root.index);
+                    tooltip: @tr("Load the selected track into this player");
+                    clicked => { root.act("load"); }
+                }
+            }
+            Rectangle {
+                accessible-role: slider; accessible-label: root.p + ".overview";
+                accessible-value: round(root.view.cursor * 100) + "%";
+                vertical-stretch: 1;
+                min-height: 36px;
+                background: Theme.ground-band;
+                Image { width: parent.width; height: parent.height; source: root.view.overview; image-fit: fill; }
+                if root.view.has-track: Rectangle { x: parent.width * root.view.cursor - 1px; width: 2px; height: parent.height; background: Theme.bone; }
+                TouchArea {
+                    mouse-cursor: crosshair;
+                    clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); }
+                    moved => { if (self.pressed) { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
+                }
+            }
+        }
+    }
+    // Tracks dragged from the list load here (player 2) or show (player 1).
+    DropZone { width: parent.width; height: parent.height; id: -root.index; }
+    HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+}

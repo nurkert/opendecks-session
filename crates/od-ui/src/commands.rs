@@ -180,6 +180,9 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "player.grid.tap" => player::tap(app),
         "view.layout.player" => shell::set_prepare_layout(app, "player"),
         "view.layout.browser" => shell::set_prepare_layout(app, "browser"),
+        "view.layout.two" => shell::set_prepare_layout(app, "two"),
+        "view.layout.dual" => shell::set_prepare_layout(app, "dual"),
+        "view.layout.simple" => shell::set_prepare_layout(app, "simple"),
         "view.panel.info" => ui.set_info_open(!ui.get_info_open()),
         "view.panel.related" => {
             ui.set_related_open(!ui.get_related_open());
@@ -193,6 +196,7 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "perform.mpl.panel" => shell::toggle_panel(app, "mpl"),
         "view.panel.rec" => shell::toggle_panel(app, "rec"),
         "browser.duplicates" => browser::open_duplicates(app),
+        "browser.stems" => crate::stems_batch::separate_selected(app),
         "library.export.xml" | "library.import.xml" | "library.export.archive" | "library.restore.archive" | "library.consolidate" | "library.import.rekordbox-settings" => {
             crate::import::library_action(app, id)
         }

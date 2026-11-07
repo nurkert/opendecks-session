@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 172 DONE (83 %), 18 PARTIAL, 3 ENGINE-ONLY, 13 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 175 DONE (85 %), 17 PARTIAL, 3 ENGINE-ONLY, 11 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -164,9 +164,9 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Full-width enlarged waveform zone, one stacked lane per deck (2 and 4 decks), centre playhead | DONE | `crates/od-ui/src/decks.rs`; One full-width lane per deck (2 and 4 decks), stacked, playhead at the centre. The zone column (collapse / zoom buttons / expand) is tracked by the view test; (SPEC §10.1; UX §1.3, §4 P1.1) | 1 |  |
 | Pad mode: Stems (part mutes and stem FX on pads) | DONE | (UX §2.4) | 2 | P2 |
 | Pad mode: Memory Cue | DONE | (UX §1.3) | 2 | P3 |
-| Pad mode: Sequence Call | MISSING | (UX §1.3) | — | P3 |
-| Pad mode: Active Censor | MISSING | (UX §1.3) | — | P3 |
-| CDJ practice mode: CDJ-3000-like screens and behaviour driven by the controller | PARTIAL | CDJ toggle (Alt+J): player screens per deck (waveform, overview needle search, jog display with remaining time / bar counter / phrase, hot cues with hold, memory cue call, loop in / out / reloop, beat jump, search, tempo range, master tempo), player cue rules, sync off, self-ticking checklist; a player-style browse screen is missing (the app browser is used); (SPEC §10.3c) | 3 | P2 |
+| Pad mode: Sequence Call | DONE | Pad mode SEQ CALL: an empty pad stores the sampler sequence patterns, a stored pad recalls them and starts the sequencer, the shifted pad clears it; (UX §1.3) | 1 | P3 |
+| Pad mode: Active Censor | DONE | Pad mode CENSOR: each pad censors (reverse with slip) for ¼ … 32 beats of the deck tempo, then playback continues where it would be; (UX §1.3) | 2 | P3 |
+| CDJ practice mode: CDJ-3000-like screens and behaviour driven by the controller | DONE | CDJ toggle (Alt+J): player screens per deck (waveform, overview needle search, jog display with remaining time / bar counter / phrase, hot cues with hold, memory cue call, loop in / out / reloop, beat jump, search, tempo range, master tempo), BROWSE screen (source → playlists → tracks, from the library or a stick), player cue rules, sync off, self-ticking checklist; (SPEC §10.3c) | 4 | P2 |
 
 ## 5. Mixer
 
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 172 |
-| PARTIAL | 18 |
+| DONE | 175 |
+| PARTIAL | 17 |
 | ENGINE-ONLY | 3 |
-| MISSING | 13 |
+| MISSING | 11 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |

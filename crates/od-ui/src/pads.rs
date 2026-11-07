@@ -15,7 +15,7 @@ use od_engine::{
 
 /// Pad modes offered on screen, in selector order (Pad FX page 2 is
 /// reached with the ‹ › of the Pad FX mode).
-pub(crate) const UI_MODES: [PadMode; 11] = [
+pub(crate) const UI_MODES: [PadMode; 13] = [
     PadMode::HotCue,
     PadMode::PadFx1,
     PadMode::BeatJump,
@@ -27,6 +27,8 @@ pub(crate) const UI_MODES: [PadMode; 11] = [
     PadMode::Stems,
     PadMode::MemoryCue,
     PadMode::Lighting,
+    PadMode::ActiveCensor,
+    PadMode::SeqCall,
 ];
 
 /// Looks of the Lighting pads A–F (G strobe, H flash).
@@ -142,6 +144,8 @@ pub(crate) fn param_label(s: &DeckState, ctx: &PadCtx) -> String {
         PadMode::Stems => if s.stems_available { "MUTE · SOLO".into() } else { "NO PARTS".into() },
         PadMode::MemoryCue => format!("{} CUES", ctx.memory.len()),
         PadMode::Lighting => "LIGHTS".into(),
+        PadMode::ActiveCensor => "CENSOR".into(),
+        PadMode::SeqCall => "SEQUENCES".into(),
     }
 }
 
@@ -207,6 +211,9 @@ pub(crate) fn pad_views(s: &DeckState, ch: &ChannelState, sampler: &[SamplerSlot
                     pad(i, name, "SOLO", s.stems_available, solo, -1)
                 }
             }
+            PadMode::ActiveCensor => pad(i, beats_label(pad_beats(i)), "CENSOR", true, s.censor, -1),
+            // Stored sequences are filled in by the sampler (see `sampler::seq_pads`).
+            PadMode::SeqCall => pad(i, format!("S{}", i + 1), "", false, false, -1),
             PadMode::Lighting => match i {
                 0..=5 => pad(i, format!("{:?}", LIGHT_LOOKS[i]).to_uppercase(), "LOOK", true, false, -1),
                 6 => pad(i, "STROBE", "HOLD", true, false, -1),
@@ -258,6 +265,7 @@ pub(crate) fn press_commands(s: &DeckState, ctx: &PadCtx, index: usize, pressed:
                 STEM_PADS.iter().map(|p| set(*p, if *p == part { 1.0 } else { 0.0 })).collect()
             }
         }
+        PadMode::ActiveCensor if pressed => vec![deck(DeckCommand::CensorFor { beats: pad_beats(i) })],
         PadMode::MemoryCue if pressed && i < ctx.memory.len() => vec![deck(DeckCommand::MemoryCue(od_engine::MemoryCueJump::Index(i)))],
         PadMode::Slicer => {
             let mut v = Vec::new();
@@ -330,11 +338,12 @@ mod tests {
     #[test]
     fn modes_cycle_on_screen() {
         assert_eq!(step_mode(PadMode::HotCue, 1), PadMode::PadFx1);
-        assert_eq!(step_mode(PadMode::HotCue, -1), PadMode::Lighting);
+        assert_eq!(step_mode(PadMode::HotCue, -1), PadMode::SeqCall);
         assert_eq!(step_mode(PadMode::PadFx2, 1), PadMode::BeatJump);
         assert_eq!(step_mode(PadMode::Slicer, 1), PadMode::Stems);
         assert_eq!(step_mode(PadMode::MemoryCue, 1), PadMode::Lighting);
-        assert_eq!(step_mode(PadMode::Lighting, 1), PadMode::HotCue);
+        assert_eq!(step_mode(PadMode::Lighting, 1), PadMode::ActiveCensor);
+        assert_eq!(step_mode(PadMode::SeqCall, 1), PadMode::HotCue);
     }
 
     #[test]
@@ -439,5 +448,14 @@ mod tests {
         assert!(matches!(press_commands(&s, &c, 1, true)[..], [Command::Deck(1, DeckCommand::MemoryCue(od_engine::MemoryCueJump::Index(1)))]));
         assert!(press_commands(&s, &c, 5, true).is_empty());
         assert_eq!(param_label(&s, &c), "2 CUES");
+    }
+
+    #[test]
+    fn active_censor_pads_censor_for_their_beats() {
+        let s = DeckState::default();
+        let c = ctx(PadMode::ActiveCensor, &[], &[]);
+        assert_eq!(pad_views(&s, &ChannelState::default(), &[], &c)[4].caption, "4");
+        assert!(matches!(press_commands(&s, &c, 4, true)[..], [Command::Deck(1, DeckCommand::CensorFor { beats })] if beats == 4.0));
+        assert!(press_commands(&s, &c, 4, false).is_empty());
     }
 }

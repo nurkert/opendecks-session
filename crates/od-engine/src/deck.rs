@@ -116,6 +116,8 @@ pub(crate) struct Deck {
     auto_cue: bool,
     beat_jump_size: f64,
     censor: bool,
+    /// Seconds left of a timed censor ([`DeckCommand::CensorFor`]).
+    censor_left: Option<f64>,
     /// Search speed while a SEARCH button is held (0 = off).
     search: f64,
     /// Armed active loop (frames).
@@ -201,6 +203,7 @@ impl Deck {
             auto_cue: true,
             beat_jump_size: 4.0,
             censor: false,
+            censor_left: None,
             search: 0.0,
             active_loop: None,
             slicer: None,
@@ -544,7 +547,15 @@ impl Deck {
                     self.hot_bank = b;
                 }
             }
-            DeckCommand::Censor(on) => self.set_censor(on),
+            DeckCommand::Censor(on) => {
+                self.censor_left = None;
+                self.set_censor(on)
+            }
+            DeckCommand::CensorFor { beats } => {
+                let bpm = self.bpm().unwrap_or(120.0).max(1.0);
+                self.censor_left = Some(beats.max(0.0) * 60.0 / bpm);
+                self.set_censor(true);
+            }
             DeckCommand::Search(rate) => self.search = rate.clamp(-16.0, 16.0),
             DeckCommand::SavedLoop(dir) => self.memory_cue(dir, true, ctx),
             DeckCommand::SetActiveLoop(range) => {
@@ -1212,6 +1223,15 @@ impl Deck {
     /// Updates sync tempo/phase correction and computes the block's speed.
     pub fn prepare(&mut self, frames: usize, sync: Option<SyncTarget>, is_master: bool) {
         let block_s = frames as f64 / self.sr;
+        if let Some(left) = self.censor_left {
+            let left = left - block_s;
+            if left <= 0.0 {
+                self.censor_left = None;
+                self.set_censor(false);
+            } else {
+                self.censor_left = Some(left);
+            }
+        }
         // Jog bend in bend mode / outer ring: proportional to turn speed.
         let v = self.jog_bend_accum / block_s.max(1e-6); // rev/s
         self.jog_bend_accum = 0.0;

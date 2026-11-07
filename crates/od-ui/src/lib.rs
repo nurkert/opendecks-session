@@ -44,6 +44,7 @@ mod settings;
 mod shell;
 mod smart_text;
 mod state;
+mod stems_batch;
 mod update;
 mod workers;
 

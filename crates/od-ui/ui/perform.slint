@@ -153,8 +153,8 @@ global PadLetters {
 
 // Pad modes, in selector order (ids as in DeckView.pad-mode).
 global PadModes {
-    out property <[string]> ids: ["hot_cue", "pad_fx1", "beat_jump", "sampler", "keyboard", "key_shift", "beat_loop", "slicer", "stems", "memory_cue", "lighting"];
-    out property <[string]> names: [@tr("HOT CUE"), @tr("PAD FX"), @tr("BEAT JUMP"), @tr("SAMPLER"), @tr("KEYBOARD"), @tr("KEY SHIFT"), @tr("BEAT LOOP"), @tr("SLICER"), @tr("STEMS"), @tr("MEMORY CUE"), @tr("LIGHTING")];
+    out property <[string]> ids: ["hot_cue", "pad_fx1", "beat_jump", "sampler", "keyboard", "key_shift", "beat_loop", "slicer", "stems", "memory_cue", "lighting", "active_censor", "seq_call"];
+    out property <[string]> names: [@tr("HOT CUE"), @tr("PAD FX"), @tr("BEAT JUMP"), @tr("SAMPLER"), @tr("KEYBOARD"), @tr("KEY SHIFT"), @tr("BEAT LOOP"), @tr("SLICER"), @tr("STEMS"), @tr("MEMORY CUE"), @tr("LIGHTING"), @tr("CENSOR"), @tr("SEQ CALL")];
     public pure function index(id: string) -> int {
         if (id == "pad_fx1" || id == "pad_fx2") { return 1; }
         if (id == "beat_jump") { return 2; }
@@ -166,6 +166,8 @@ global PadModes {
         if (id == "stems") { return 8; }
         if (id == "memory_cue") { return 9; }
         if (id == "lighting") { return 10; }
+        if (id == "active_censor") { return 11; }
+        if (id == "seq_call") { return 12; }
         return 0;
     }
     // Pad colour of a mode (hot cues use their cue colours).
@@ -179,6 +181,8 @@ global PadModes {
         if (id == "stems") { return Theme.w656; }
         if (id == "memory_cue") { return Theme.bone; }
         if (id == "lighting") { return Theme.w589; }
+        if (id == "active_censor") { return Theme.w656; }
+        if (id == "seq_call") { return Theme.w546; }
         return Theme.bone-2;
     }
 }

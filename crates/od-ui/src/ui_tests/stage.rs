@@ -163,3 +163,26 @@ fn lighting_pad_mode_drives_the_show() {
     crate::decks::pad(&ui.app, 0, 6, false);
     assert!(!slint::ComponentHandle::global::<crate::Lighting>(&ui.app.ui).get_strobe());
 }
+
+/// CDJ browse screen: BROWSE → All tracks → a track loads into that deck;
+/// Playlists lists the tree.
+#[test]
+fn cdj_browse_screen_loads_a_track() {
+    let ui = Ui::open((1440, 900));
+    ui.app.ui.invoke_set_mode("perform".into());
+    crate::engine::ensure_engine(&ui.app);
+    ui.pump(200);
+    slint::ComponentHandle::global::<crate::Cdj>(&ui.app.ui).invoke_set_enabled(true);
+    ui.pump(200);
+    ui.click("deck2.cdj.browse");
+    assert!(ui.wait_until(5.0, |u| u.has("deck2.cdj.browse-row1")), "sources shown");
+    ui.click("deck2.cdj.browse-row1"); // Playlists
+    assert!(ui.wait_until(5.0, |u| u.by_value("deck2.cdj.browse-row", "Warm-up").is_some()), "playlist tree");
+    ui.click("deck2.cdj.browse-back");
+    ui.click("deck2.cdj.browse-row0"); // All tracks
+    let title = ui.fx.tracks[2].1.clone();
+    let (_, row) = ui.by_value("deck2.cdj.browse-row", &format!("Test Artist — {title}")).expect("track row");
+    ui.click_el(&row);
+    assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).get(1).is_some_and(|d| d.title == title)), "deck 2 loads {title}");
+    assert!(!ui.has("deck2.cdj.browse-list"), "browse closes after loading");
+}

@@ -262,3 +262,135 @@ fn controller_browses_tree_and_list() {
     go(B::ViewToggle);
     assert_eq!(ui.app.ui.get_upper_height(), crate::browser::navigate::ENLARGED_UPPER, "Perform: VIEW enlarges the browser");
 }
+
+fn prefs_el(w: &crate::PreferencesWindow, label: &str) -> i_slint_backend_testing::ElementHandle {
+    i_slint_backend_testing::ElementHandle::find_by_accessible_label(w, label).next().unwrap_or_else(|| panic!("no `{label}` in Preferences"))
+}
+
+/// Preferences ▸ Controller: the MIDI monitor lists incoming messages,
+/// MIDI learn turns a moved control into a mapping entry that is written to
+/// the own mapping file (which then loads), and the DDJ-FLX10 settings are
+/// stored with the transfers they write.
+#[test]
+fn controller_page_monitor_learn_and_flx10() {
+    use i_slint_backend_testing::ElementHandle;
+    use od_controller::monitor::{Direction, MidiMonitor};
+    use slint::platform::PointerEventButton;
+    let ui = Ui::open((1440, 900));
+    let m = MidiMonitor::new(256);
+    ui.app.prefs.borrow_mut().midi.monitor = Some(m.clone());
+    ui.click("topbar.settings");
+    let w = ui.app.prefs.borrow().window.as_ref().map(|w| w.clone_strong()).expect("Preferences open");
+    w.set_page("controller".into());
+    w.window().set_size(slint::LogicalSize::new(900.0, 2600.0));
+    ui.pump(200);
+    prefs_el(&w, "prefs.controller.midi-monitor").mock_single_click(PointerEventButton::Left);
+    ui.pump(50);
+    assert!(w.get_midi_monitor());
+    m.record("DDJ-TEST", Direction::In, &[0x90, 0x0B, 0x7F], Vec::new());
+    assert!(ui.wait_until(5.0, |_| w.get_midi_lines().row_count() >= 1), "the monitor shows the message");
+    assert!(ElementHandle::find_by_accessible_label(&w, "prefs.controller.midi-log").next().is_some());
+    // Learn: a jog-like encoder on CC 0x21.
+    let deck_play = od_controller::templates::ACTION_NAMES.iter().position(|a| *a == "browse.rotate").unwrap();
+    w.invoke_choose("learn.action".into(), deck_play as i32);
+    prefs_el(&w, "prefs.controller.learn").mock_single_click(PointerEventButton::Left);
+    ui.pump(50);
+    assert!(w.get_learn_active());
+    for v in [0x41u8, 0x42, 0x41, 0x3F] {
+        m.record("DDJ-TEST", Direction::In, &[0xB0, 0x21, v], Vec::new());
+    }
+    assert!(ui.wait_until(5.0, |_| w.get_learn_result() != ""), "the learned control is described");
+    assert!(w.get_learn_entry().contains("cc = 0x21") && w.get_learn_entry().contains("browse.rotate"), "{}", w.get_learn_entry());
+    prefs_el(&w, "prefs.controller.learn-save").mock_single_click(PointerEventButton::Left);
+    ui.pump(100);
+    let file = crate::midi_tools::default_learn_file(&ui.fx.library);
+    let mapping = od_controller::Mapping::load(&file).expect("the learned mapping loads");
+    assert!(mapping.matches_port("DDJ-TEST"));
+    assert_eq!(stored(&ui).controller.mapping_file, file.display().to_string(), "it becomes the own mapping file");
+    assert!(!w.get_learn_active());
+    // FLX10.
+    w.invoke_choose("flx10.fader-start".into(), 0);
+    w.invoke_choose("flx10.boost".into(), 3);
+    prefs_el(&w, "prefs.controller.flx10-virtual-deck").mock_single_click(PointerEventButton::Left);
+    ui.pump(50);
+    let f = stored(&ui).controller.flx10;
+    assert_eq!((f.fader_start.as_str(), f.boost_db, f.virtual_deck), ("off", 9, false));
+    assert_eq!(w.get_flx10_wire(), crate::midi_tools::flx10_wire_text(&f).as_str(), "the transfers to write are shown");
+    prefs_el(&w, "prefs.controller.flx10-apply").mock_single_click(PointerEventButton::Left);
+    ui.pump(50);
+    assert!(ui.app.ui.get_status_text().contains("FLX10"), "the write reports back: {}", ui.app.ui.get_status_text());
+}
+
+/// Separate parts ahead of time: the row menu queues the selected tracks
+/// on the background separation worker (stem cache of the decks) and the
+/// status line reports the batch. Headless runs have no model, so every
+/// job ends as failed — the batch still completes and says why.
+#[test]
+fn separate_parts_for_selected_tracks() {
+    let ui = Ui::open((1440, 900));
+    let rows: Vec<_> = ui.fx.tracks.iter().map(|(_, t)| ui.by_value("browser.row", t).unwrap().1).collect();
+    ui.click_el(&rows[0]);
+    ui.app.ui.invoke_row_clicked(1, true, false);
+    ui.pump(50);
+    ui.right_click_el(&rows[1]);
+    assert!(ui.click_menu_item("Separate parts"), "row menu offers Separate parts");
+    let c = crate::stems_batch::count();
+    assert_eq!(c.total, 2, "both selected tracks queued");
+    assert!(ui.wait_until(30.0, |_| crate::stems_batch::count().finished()), "the batch completes: {:?}", crate::stems_batch::count());
+    let c = crate::stems_batch::count();
+    assert_eq!(c.done + c.failed, 2);
+    assert!(ui.wait_until(5.0, |u| u.app.ui.get_status_text().contains('2')), "status reports the batch: {}", ui.app.ui.get_status_text());
+}
+
+/// Prepare layouts: 2 players (the full player plus a compact second one),
+/// dual (two compact players side by side) and simple (one compact player);
+/// the second player takes the selected track with LOAD or a dragged row,
+/// plays on the preview deck and seeks from its overview; the layout is
+/// stored.
+#[test]
+fn prepare_layouts_two_dual_and_simple() {
+    let ui = Ui::open((1440, 900));
+    let a = ui.fx.tracks[0].1.clone();
+    let b = ui.fx.tracks[1].1.clone();
+    ui.click_el(&ui.by_value("browser.row", &a).unwrap().1);
+    ui.app.ui.invoke_menu_action("view.layout.two".into());
+    ui.pump(200);
+    assert!(ui.has("player1.enlarged") && ui.has("player2.overview"), "full player 1 and compact player 2");
+    assert_eq!(ui.fx.lib().meta("ui.prepare_layout").unwrap().as_deref(), Some("two"));
+    // LOAD takes the selected track.
+    ui.click_el(&ui.by_value("browser.row", &b).unwrap().1);
+    ui.click("player2.load");
+    assert_eq!(ui.value("player2.title"), b);
+    // A row dragged onto player 2.
+    let target = Rect::of(&ui.get("player2.overview")).centre();
+    ui.drag_el(&ui.by_value("browser.row", &a).unwrap().1, target);
+    assert!(ui.wait_until(5.0, |u| u.value("player2.title") == a), "dragged row loads player 2, got `{}`", ui.value("player2.title"));
+    // Seek and play on the preview deck.
+    let ov = Rect::of(&ui.get("player2.overview"));
+    ui.click_at(LogicalPosition::new(ov.x + ov.w * 0.5, ov.centre().y), slint::platform::PointerEventButton::Left);
+    assert!(ui.value("player2.time-elapsed").starts_with("0:04"), "seek to the middle: {}", ui.value("player2.time-elapsed"));
+    ui.click("player2.play");
+    let id_a = ui.fx.tracks[0].0;
+    let playing = ui.wait_until(20.0, |u| {
+        crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[crate::decks::PREVIEW_DECK].track == Some(id_a) && s.decks[crate::decks::PREVIEW_DECK].playing)
+    });
+    assert!(playing, "player 2 plays on the preview deck");
+    assert_eq!(ui.get("player2.play").accessible_checked(), Some(true));
+    ui.click("player2.play");
+    // Dual: two compact players.
+    ui.app.ui.invoke_menu_action("view.layout.dual".into());
+    ui.pump(200);
+    let (p1, p2) = (Rect::of(&ui.get("player1.overview")), Rect::of(&ui.get("player2.overview")));
+    assert!(p1.right() <= p2.x + 1.0 && (p1.y - p2.y).abs() < 1.0, "side by side: {p1:?} {p2:?}");
+    assert!(!ui.has("player1.enlarged"));
+    assert_eq!(ui.value("player1.title"), a, "player 1 shows the selected track (the row pressed last)");
+    // Simple: one compact player.
+    ui.app.ui.invoke_menu_action("view.layout.simple".into());
+    ui.pump(200);
+    assert!(ui.has("player1.overview") && !ui.has("player2.overview") && !ui.has("player1.enlarged"));
+    // The top-bar switch moves on to the full browser and back to the player.
+    ui.click("topbar.layout");
+    assert_eq!(ui.app.ui.get_prepare_layout(), "browser");
+    ui.click("topbar.layout");
+    assert_eq!(ui.app.ui.get_prepare_layout(), "player");
+}

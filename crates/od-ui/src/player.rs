@@ -19,6 +19,11 @@ pub(crate) struct PlayerState {
     pub previewing: bool,
     /// TAP in the grid editor: times of the taps so far (seconds).
     pub taps: Vec<f64>,
+    /// The second player of the 2-player and dual layouts, its cursor.
+    pub second: Option<TrackId>,
+    pub second_cursor: f64,
+    /// The player the preview deck plays for (1 or 2).
+    pub preview_slot: u8,
 }
 
 /// Taps further apart than this start a new count (seconds).
@@ -247,10 +252,14 @@ pub(crate) fn refresh_detail(app: &App) {
     let st = app.state.borrow();
     let Some(id) = st.player.current else {
         app.ui.set_has_track(false);
+        drop(st);
+        refresh_minis(app);
         return;
     };
     let Ok(t) = st.src().track(id) else {
         app.ui.set_has_track(false);
+        drop(st);
+        refresh_minis(app);
         return;
     };
     let ui = &app.ui;
@@ -281,6 +290,137 @@ pub(crate) fn refresh_detail(app: &App) {
     DETAIL_SRC.with(|d| *d.borrow_mut() = Some(DetailSrc { track: id, waveform: analysis.waveform, grid: analysis.beatgrid, phrases, last_px: None }));
     drop(st);
     render_detail(app);
+    refresh_minis(app);
+}
+
+// ── Compact players (2 players, dual, simple) ───────────────────────────
+
+thread_local! {
+    /// Overview of the second player's track, rendered once per track.
+    static SECOND_OVERVIEW: std::cell::RefCell<Option<(TrackId, slint::Image)>> = const { std::cell::RefCell::new(None) };
+}
+
+/// The compact player views: 1 = the selected track, 2 = the second player.
+pub(crate) fn refresh_minis(app: &App) {
+    let st = app.state.borrow();
+    let p = &st.player;
+    let view = |id: Option<TrackId>, cursor: f64, previewing: bool, overview: Option<slint::Image>| -> crate::MiniView {
+        let Some(t) = id.and_then(|id| st.src().track(id).ok()) else { return crate::MiniView::default() };
+        let overview = overview.unwrap_or_else(|| {
+            let a = st.src().analysis(t.id).unwrap_or_default();
+            render::overview(&a.waveform, &a.beatgrid, t.duration, 900, 48)
+        });
+        crate::MiniView {
+            has_track: true,
+            title: t.tags.title.clone().into(),
+            artist: t.tags.artist.clone().into(),
+            bpm: t.bpm.map(|b| format!("{b:.2}")).unwrap_or_default().into(),
+            key: st.key_text(&t).into(),
+            position: format::cue_time(cursor).into(),
+            overview,
+            cursor: (cursor / t.duration.max(0.001)) as f32,
+            previewing,
+        }
+    };
+    let one = view(p.current, p.cursor, p.previewing && p.preview_slot != 2, Some(app.ui.get_track_overview()));
+    let cached = SECOND_OVERVIEW.with(|c| c.borrow().as_ref().filter(|(t, _)| Some(*t) == p.second).map(|(_, i)| i.clone()));
+    let two = view(p.second, p.second_cursor, p.previewing && p.preview_slot == 2, cached);
+    if let Some(t) = p.second {
+        SECOND_OVERVIEW.with(|c| *c.borrow_mut() = Some((t, two.overview.clone())));
+    }
+    drop(st);
+    app.ui.set_mini1(if one.has_track { one } else { crate::MiniView::default() });
+    app.ui.set_mini2(two);
+}
+
+/// Loads `track` into the second player.
+pub(crate) fn load_second(app: &App, track: TrackId) {
+    {
+        let mut st = app.state.borrow_mut();
+        if st.player.previewing && st.player.preview_slot == 2 {
+            drop(st);
+            engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Pause);
+            set_previewing(app, false);
+            st = app.state.borrow_mut();
+        }
+        st.player.second = Some(track);
+        st.player.second_cursor = 0.0;
+    }
+    refresh_minis(app);
+}
+
+/// The selected track of the browser (library tracks only).
+fn selected_track(app: &App) -> Option<TrackId> {
+    let st = app.state.borrow();
+    let i = st.browser.selection.iter().next_back().copied()?;
+    if st.explorer.open.is_some() { st.explorer.track_at(i) } else { st.browser.rows.get(i).map(|t| t.id) }
+}
+
+/// Play / pause the second player on the preview deck.
+fn toggle_second(app: &App) {
+    let (track, cursor, playing) = {
+        let st = app.state.borrow();
+        (st.player.second, st.player.second_cursor, st.player.previewing && st.player.preview_slot == 2)
+    };
+    let Some(track) = track else { return };
+    if playing {
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Pause);
+        set_previewing(app, false);
+        return;
+    }
+    if app.state.borrow().player.previewing {
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Pause);
+    }
+    app.state.borrow_mut().player.preview_slot = 2;
+    if app.decks.borrow().loaded_id(decks::PREVIEW_DECK) == Some(track) {
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Seek { seconds: cursor });
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Play);
+    } else {
+        decks::load_track(app, decks::PREVIEW_DECK, track, Some(cursor));
+    }
+    set_previewing(app, true);
+    engine::send(app, Command::Channel(decks::PREVIEW_DECK, ChannelCommand::SetFader(1.0)));
+}
+
+/// Moves the second player's cursor (and the preview deck when it plays it).
+fn seek_second(app: &App, seconds: f64) {
+    let playing = {
+        let mut st = app.state.borrow_mut();
+        st.player.second_cursor = seconds.max(0.0);
+        st.player.previewing && st.player.preview_slot == 2
+    };
+    if playing {
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Seek { seconds });
+    }
+    refresh_minis(app);
+}
+
+/// A compact player button: "play", "cue" or "load" on player `n`.
+pub(crate) fn mini_act(app: &App, n: i32, what: &str) {
+    match (n, what) {
+        (1, "play") => toggle_preview(app),
+        (1, "cue") => app.ui.invoke_jump_start(),
+        (2, "play") => toggle_second(app),
+        (2, "cue") => seek_second(app, 0.0),
+        (2, "load") => match selected_track(app) {
+            Some(t) => load_second(app, t),
+            None => app.status("Select a track in the list first"),
+        },
+        _ => {}
+    }
+}
+
+/// A click on a compact player's overview (0..1).
+pub(crate) fn mini_seek(app: &App, n: i32, p: f32) {
+    if n == 1 {
+        app.ui.invoke_seek(p);
+        return;
+    }
+    let d = {
+        let st = app.state.borrow();
+        st.player.second.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0)
+    };
+    seek_second(app, p as f64 * d);
 }
 
 /// What the zoomed waveform is drawn from, kept so playback can scroll it
@@ -322,7 +462,12 @@ fn render_detail(app: &App) {
 
 /// Space / play button: start or pause the preview of the selected track.
 pub(crate) fn toggle_preview(app: &App) {
-    let previewing = app.state.borrow().player.previewing;
+    let previewing = app.state.borrow().player.previewing && app.state.borrow().player.preview_slot != 2;
+    if app.state.borrow().player.preview_slot == 2 && app.state.borrow().player.previewing {
+        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Pause);
+        set_previewing(app, false);
+    }
+    app.state.borrow_mut().player.preview_slot = 1;
     if previewing {
         engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Pause);
         set_previewing(app, false);
@@ -347,7 +492,9 @@ pub(crate) fn toggle_preview(app: &App) {
 
 fn set_previewing(app: &App, on: bool) {
     app.state.borrow_mut().player.previewing = on;
-    app.ui.set_previewing(on);
+    let slot = app.state.borrow().player.preview_slot;
+    app.ui.set_previewing(on && slot != 2);
+    refresh_minis(app);
 }
 
 /// Follows the cursor to the preview deck after a seek.
@@ -367,6 +514,17 @@ pub(crate) fn follow_preview(app: &App, state: &od_engine::EngineState) {
         return;
     }
     let d = &state.decks[decks::PREVIEW_DECK];
+    if app.state.borrow().player.preview_slot == 2 {
+        let second = app.state.borrow().player.second;
+        if d.track == second && d.track.is_some() {
+            app.state.borrow_mut().player.second_cursor = d.position;
+            refresh_minis(app);
+        }
+        if d.at_end {
+            set_previewing(app, false);
+        }
+        return;
+    }
     let current = app.state.borrow().player.current;
     if d.track == current && d.track.is_some() {
         app.state.borrow_mut().player.cursor = d.position;
@@ -455,6 +613,8 @@ fn edit_cues(app: &App, label: &str, f: impl FnOnce(&mut Vec<Cue>, f64)) {
 
 pub(crate) fn wire(app: &Rc<App>) {
     let ui = &app.ui;
+    ui.on_mini_act(handler!(app, |a, n: i32, w: SharedString| mini_act(&a, n, w.as_str())));
+    ui.on_mini_seek(handler!(app, |a, n: i32, p: f32| mini_seek(&a, n, p)));
     let ce = ui.global::<crate::CueEdit>();
     ce.set_palette(model(CUE_PALETTE.iter().map(|c| cue_tone(Some(*c))).collect()));
     ce.on_label(handler!(app, |a, i: i32, t: SharedString| cue_edit(&a, i, "Cue named", CueEditOp::Label(t.to_string()))));

@@ -1633,23 +1633,28 @@ id = "pad-mode-seq-call"
 area = "deck"
 name = "Pad mode: Sequence Call"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
+tests = [
+  "od-ui::ui_tests::perform::sequence_call_stores_and_recalls",
+]
 spec = "UX §1.3"
-
+note = "Pad mode SEQ CALL: an empty pad stores the sampler sequence patterns, a stored pad recalls them and starts the sequencer, the shifted pad clears it"
 [[feature]]
 id = "pad-mode-active-censor"
 area = "deck"
 name = "Pad mode: Active Censor"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
+tests = [
+  "od-ui::pads::tests::active_censor_pads_censor_for_their_beats",
+  "od-engine::deck_features::active_censor_ends_after_its_beats",
+]
 spec = "UX §1.3"
 
 # ---- Mixer ----
-
+note = "Pad mode CENSOR: each pad censors (reverse with slip) for ¼ … 32 beats of the deck tempo, then playback continues where it would be"
 [[feature]]
 id = "mixer-trim"
 area = "mixer"
@@ -2888,15 +2893,16 @@ id = "perform-cdj-mode"
 area = "deck"
 name = "CDJ practice mode: CDJ-3000-like screens and behaviour driven by the controller"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-ui::ui_tests::stage::cdj_browse_screen_loads_a_track",
   "od-ui::ui_tests::stage::cdj_mode_player_screens",
   "od-ui::cdj::tests::checklist_follows_the_workflow",
   "od-ui::cdj::tests::sync_does_not_count_and_drift_resets",
 ]
 evidence = []
-note = "CDJ toggle (Alt+J): player screens per deck (waveform, overview needle search, jog display with remaining time / bar counter / phrase, hot cues with hold, memory cue call, loop in / out / reloop, beat jump, search, tempo range, master tempo), player cue rules, sync off, self-ticking checklist; a player-style browse screen is missing (the app browser is used)"
+note = "CDJ toggle (Alt+J): player screens per deck (waveform, overview needle search, jog display with remaining time / bar counter / phrase, hot cues with hold, memory cue call, loop in / out / reloop, beat jump, search, tempo range, master tempo), BROWSE screen (source → playlists → tracks, from the library or a stick), player cue rules, sync off, self-ticking checklist"
 spec = "SPEC §10.3c"
 
 [[feature]]

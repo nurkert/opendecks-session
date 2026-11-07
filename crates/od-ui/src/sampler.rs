@@ -61,6 +61,8 @@ pub(crate) struct SamplerRuntime {
     pub slots: RefCell<Vec<Option<SlotInfo>>>,
     pub pads: Rows<SamplerPadView>,
     pub steps: Rows<bool>,
+    /// Sequences stored on the Sequence Call pads (one pattern per slot).
+    pub sequences: RefCell<[Option<Vec<u16>>; 8]>,
     quantize: Cell<bool>,
     restored: Cell<bool>,
     tx: Sender<Result<Decoded, String>>,
@@ -76,6 +78,7 @@ impl Default for SamplerRuntime {
             slots: RefCell::new(vec![None; SAMPLER_TOTAL]),
             pads: Rows::default(),
             steps: Rows::default(),
+            sequences: RefCell::new(Default::default()),
             quantize: Cell::new(false),
             restored: Cell::new(false),
             tx,
@@ -481,6 +484,42 @@ pub(crate) fn wire(app: &Rc<App>) {
         cmd(&a, SamplerCommand::SeqPattern { slot, mask: 0 });
         save_soon(&a);
     }));
+}
+
+/// Sequence Call pad `index`: stores the current patterns on an empty pad,
+/// recalls them on a stored one (and starts the sequencer).
+pub(crate) fn seq_call(app: &App, index: usize, state: &od_engine::EngineState) {
+    let mut seqs = app.sampler.sequences.borrow_mut();
+    let Some(slot) = seqs.get_mut(index) else { return };
+    match slot {
+        Some(patterns) => {
+            for (s, mask) in patterns.iter().enumerate() {
+                engine::send(app, Command::Sampler(SamplerCommand::SeqPattern { slot: s, mask: *mask }));
+            }
+            engine::send(app, Command::Sampler(SamplerCommand::SeqPlay(true)));
+        }
+        None => *slot = Some(state.sampler.iter().map(|s| s.pattern).collect()),
+    }
+}
+
+/// Clears Sequence Call pad `index` (the shifted pad).
+pub(crate) fn seq_clear(app: &App, index: usize) {
+    if let Some(s) = app.sampler.sequences.borrow_mut().get_mut(index) {
+        *s = None;
+    }
+}
+
+/// Stored / playing state of the Sequence Call pads.
+pub(crate) fn seq_pads(app: &App, state: &od_engine::EngineState, rows: &mut [crate::PadView]) {
+    let seqs = app.sampler.sequences.borrow();
+    let current: Vec<u16> = state.sampler.iter().map(|s| s.pattern).collect();
+    for r in rows.iter_mut() {
+        if let Some(Some(p)) = seqs.get(r.index as usize) {
+            r.set = true;
+            r.sub = format!("{} STEPS", p.iter().map(|m| m.count_ones()).sum::<u32>()).into();
+            r.lit = state.sequencer.playing && *p == current;
+        }
+    }
 }
 
 #[cfg(test)]
