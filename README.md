@@ -45,10 +45,20 @@ specification.
   DJ export (`export.pdb` + ANLZ) for club players and the OpenDecks format
   for OpenDecks itself. Cues set on players and their history are read back
   and offered for review instead of being overwritten.
-- **Perform** — 2 or 4 decks, sync and quantize, keylock (Rubber Band), hot
-  and memory cues, loops, slip, beat jump, beat FX and colour FX, sampler,
-  controller mappings for the DDJ-FLX10 and DDJ-FLX4 with LED feedback,
-  microphone / aux input with talkover.
+- **Prepare** — beatgrid editor with tap / typed BPM and tempo markers,
+  phrase editor, cue editor (names, colours, saved and active loops), one
+  or two players, a sub-browser for moving tracks between lists, an edit
+  mode that cuts, trims or repeats a section into a new track, and stem
+  separation ahead of time.
+- **Perform** — 2 or 4 decks in standard, vertical-waveform or browse
+  layouts, sync (beat or tempo only) and quantize, keylock (Rubber Band),
+  hot and memory cues, loops, slip, beat jump, pad modes (hot cue, pad FX,
+  beat jump / loop, sampler, keyboard, key shift, slicer, stems, memory cue,
+  censor, sequence call, lighting), Beat FX with three-slot multi mode and
+  Stem FX on a single part, colour FX incl. Smart CFX, Smart Fader, part
+  isolation on the mixer, sampler with sequencer, vocal position from the
+  separated parts, controller mappings for the DDJ-FLX10 and DDJ-FLX4 with
+  LED feedback, microphone / aux input with talkover.
 - **Club-player practice (CDJ mode)** — one switch turns each deck into a
   player-style screen with the players' cue rules, no on-screen sync, and a
   checklist that ticks itself off while you load, cue and beatmatch by ear,
@@ -56,9 +66,12 @@ specification.
 - **Lighting** — a DMX light show that follows the music: an automatic mode
   that reads phrases, beat and energy and blends the looks of both tracks
   during a mix, an easy mode with looks and colours, and a pro mode with
-  per-group programs and a cue stack. Moving heads, LED bars, PARs and
-  strobes (built-in or Open Fixture Library files), Art-Net, sACN and
-  USB-DMX interfaces, with a live stage preview.
+  per-group programs, beat-synced effects, an XY programmer, a cue stack and
+  lighting cues stored with each track. Moving heads, LED bars, PARs,
+  strobes, blinders, lasers and fog (built-in or Open Fixture Library
+  files), Art-Net, sACN and USB-DMX interfaces, a live stage preview in its
+  own tab, inside Perform or in a window on a second screen, and every
+  control mappable to MIDI.
 - **Recording** — one button; WAV, FLAC or MP3 with an automatic tracklist
   as `.cue` and as text for Mixcloud/SoundCloud, optional split into one
   file per track.
@@ -169,8 +182,11 @@ four-deck soak without dropouts and sync to FAT32/exFAT sticks) and what needs h
 - Vendor USB settings and jog displays of the DDJ-FLX10 (milestone M4) need a
   USB capture with the controller connected.
 - OneLibrary (`exportLibrary.db`) and LAN sync are planned for M5.
-- The DDJ-FLX10's own DMX port needs the same USB capture; until then the
+- The DDJ-FLX10's own DMX port, its jog displays and the assignment of its
+  part buttons need the same USB capture (milestone M4); until then the
   lighting runs through Art-Net, sACN or a USB-DMX interface.
+- `exportExt.pdb` (My Tag on players) is only partly documented publicly and
+  waits for a player to verify against (milestone M6).
 
 ## Trademarks and independence
 
