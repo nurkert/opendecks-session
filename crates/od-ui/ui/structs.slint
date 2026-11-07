@@ -249,6 +249,8 @@ export struct DeckView {
     // Remaining time at the current tempo (track time / tempo).
     remaining-real: string,
     progress: float,
+    // Track length in seconds (to place cue markers on the lanes).
+    length: float,
     playing: bool,
     master: bool,
     sync: bool,
@@ -419,4 +421,21 @@ export global DeckTime {
     public pure function main(d: DeckView) -> string { return root.mode == "track" ? d.remaining : d.remaining-real; }
     public pure function track(d: DeckView) -> string { return root.mode == "both" && d.remaining != d.remaining-real ? d.remaining : ""; }
     public pure function label() -> string { return root.mode == "track" ? @tr("REMAIN") : @tr("REAL TIME"); }
+}
+
+// The beatgrid editing session of the Prepare player (EDIT GRID): on while
+// it runs; positions are fractions of the enlarged waveform (its span).
+export global GridEdit {
+    in-out property <bool> active;
+    callback start();
+    callback done();
+    callback cancel();
+    // Perform: open deck N's track in the player, editing its grid.
+    callback open-deck(int);
+    // Shift-drag: the grid shown shifted by `frac` of the span (live), then
+    // stored on release.
+    callback preview(float);
+    callback commit(float);
+    // A click `frac` of the span from the cursor: the beat there becomes 1.
+    callback downbeat-at(float);
 }

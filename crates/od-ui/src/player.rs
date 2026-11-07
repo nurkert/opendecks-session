@@ -713,6 +713,9 @@ struct DetailSrc {
 
 thread_local! {
     static DETAIL_SRC: std::cell::RefCell<Option<DetailSrc>> = const { std::cell::RefCell::new(None) };
+    /// Live preview of a grid drag (seconds the grid is shown shifted by;
+    /// not stored until the drag ends, `grid_edit`).
+    static GRID_PREVIEW: std::cell::Cell<f64> = const { std::cell::Cell::new(0.0) };
 }
 
 /// Renders the zoomed waveform around the cursor (only when it moved by at
@@ -721,27 +724,40 @@ fn render_detail(app: &App) {
     let ui = &app.ui;
     let scale = ui.window().scale_factor();
     let width = ((ui.window().size().width as f32 / scale - 680.0).max(300.0) * scale) as u32;
-    let (cursor, current, span) = {
+    let (cursor, current, span, duration) = {
         let st = app.state.borrow();
         (
             st.player.cursor,
             st.player.current,
             st.settings.view.zoom_span as f64 / 2f64.powi(st.player.zoom),
+            st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0),
         )
     };
+    // Cue markers over the enlarged waveform need its span.
+    ui.set_track_span(if duration > 0.0 { (span / duration) as f32 } else { 0.0 });
     DETAIL_SRC.with(|d| {
         let mut d = d.borrow_mut();
         let Some(src) = d.as_mut().filter(|s| Some(s.track) == current) else {
             return;
         };
         let px = (cursor / span * width as f64).round() as i64;
-        if src.last_px == Some(px) {
+        let shift = GRID_PREVIEW.with(|p| p.get());
+        if src.last_px == Some(px) && shift == 0.0 {
             return;
         }
-        src.last_px = Some(px);
+        src.last_px = if shift == 0.0 { Some(px) } else { None };
+        let shifted;
+        let grid = if shift != 0.0 {
+            let mut g = src.grid.clone();
+            g.shift(shift);
+            shifted = g;
+            &shifted
+        } else {
+            &src.grid
+        };
         ui.set_track_detail(render::detail(
             &src.waveform,
-            &src.grid,
+            grid,
             &src.phrases,
             cursor,
             span,
@@ -849,7 +865,25 @@ fn move_cursor(app: &App, f: impl FnOnce(&mut crate::state::AppState)) {
     refresh_detail(app);
 }
 
-fn edit_grid(app: &App, f: impl FnOnce(&mut Beatgrid, f64)) {
+/// Shows the grid shifted by `secs` on the enlarged waveform (a drag in
+/// progress); 0 ends the preview.
+pub(crate) fn preview_grid_shift(app: &App, secs: f64) {
+    GRID_PREVIEW.with(|p| p.set(secs));
+    DETAIL_SRC.with(|d| {
+        if let Some(src) = d.borrow_mut().as_mut() {
+            src.last_px = None;
+        }
+    });
+    render_detail(app);
+}
+
+/// The enlarged waveform's span in seconds.
+pub(crate) fn detail_span(app: &App) -> f64 {
+    let st = app.state.borrow();
+    st.settings.view.zoom_span as f64 / 2f64.powi(st.player.zoom)
+}
+
+pub(crate) fn edit_grid(app: &App, f: impl FnOnce(&mut Beatgrid, f64)) {
     if app.guard_read_only() {
         return;
     }
@@ -1113,6 +1147,7 @@ fn edit_cues(app: &App, label: &str, f: impl FnOnce(&mut Vec<Cue>, f64)) {
 
 pub(crate) fn wire(app: &Rc<App>) {
     crate::phrase_edit::wire(app);
+    crate::grid_edit::wire(app);
     crate::track_edit::wire(app);
     let ui = &app.ui;
     ui.on_mini_act(handler!(app, |a, n: i32, w: SharedString| mini_act(

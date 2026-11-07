@@ -485,3 +485,86 @@ fn phrases_edit_on_the_strip() {
     ui.click("player1.tab.phrase");
     assert!(ui.has("player1.phrase.hint") && ui.has("player1.phrase.merge"));
 }
+
+/// The Prepare player's enlarged waveform shows the cues too: hot cue A at
+/// 1 s left of the cursor at 2 s, the memory cue at the cursor.
+#[test]
+fn cues_show_on_the_enlarged_waveform() {
+    use PhraseKind::*;
+    let fx = Fixture::new();
+    let id = analysed_track(&fx, "Cue Marks", 40.0, &[(0, 20, Intro)]);
+    fx.lib().set_cues(id, vec![od_core::Cue::hot(0, 1.0), od_core::Cue::memory(2.0)]).unwrap();
+    let ui = Ui::start(fx, (1440, 900), false);
+    show(&ui, id);
+    seek(&ui, id, 2.0);
+    ui.pump(100);
+    let wave = Rect::of(&ui.get("player1.enlarged"));
+    let a = Rect::of(&ui.get("player1.wave.cue.A"));
+    let m = Rect::of(&ui.get("player1.wave.memory.1"));
+    let centre = wave.x + wave.w / 2.0;
+    assert!((m.x - centre).abs() < 1.5, "memory cue at the cursor: {} vs {centre}", m.x);
+    assert!(a.x < centre - 5.0 && a.x > wave.x, "hot cue A left of the cursor, inside: {}", a.x);
+}
+
+/// EDIT GRID: a grid 30 ms late with the wrong downbeat is corrected in
+/// three steps (EDIT GRID, one Shift-drag with live preview, a click on the
+/// 1), DONE ends it; each change is one undo step and CANCEL restores the
+/// grid the session started with.
+#[test]
+fn beatgrid_is_corrected_in_three_steps() {
+    use PhraseKind::*;
+    use slint::platform::{Key, WindowEvent};
+    let fx = Fixture::new();
+    let id = analysed_track(&fx, "Grid Edit", 40.0, &[(0, 20, Intro)]);
+    // 30 ms late and counted from beat 3.
+    fx.lib().set_beatgrid(id, Beatgrid::constant(120.0, 0.03, 3, 40.0)).unwrap();
+    let ui = Ui::start(fx, (1440, 900), false);
+    show(&ui, id);
+    seek(&ui, id, 4.03);
+    ui.click("player1.tab.grid");
+    let grid = |u: &Ui| u.fx.lib().beatgrid(id).unwrap().unwrap();
+    ui.steps.set(0);
+    // 1: EDIT GRID — the hint says what to do.
+    ui.click("player1.grid.edit");
+    assert!(ui.app.ui.global::<crate::GridEdit>().get_active());
+    assert!(ui.value("player1.grid.edit-hint").contains("Shift"), "hint: {}", ui.value("player1.grid.edit-hint"));
+    // 2: Shift-drag the waveform 30 ms to the left.
+    let wave = Rect::of(&ui.get("player1.enlarged"));
+    let span = crate::player::detail_span(&ui.app) as f32;
+    let dx = -0.03 / span * wave.w;
+    let y = wave.y + wave.h * 0.7;
+    let from = slint::LogicalPosition::new(wave.x + wave.w * 0.3, y);
+    let w = ui.app.ui.window();
+    w.dispatch_event(WindowEvent::KeyPressed { text: Key::Shift.into() });
+    ui.drag_points(from, slint::LogicalPosition::new(from.x + dx, y));
+    w.dispatch_event(WindowEvent::KeyReleased { text: Key::Shift.into() });
+    ui.pump(50);
+    let g = grid(&ui);
+    assert!(g.beats[0].time.abs() < 0.002, "grid moved onto the kicks: first beat {}", g.beats[0].time);
+    // 3: click the 1 (the beat at the cursor, 4 s = beat 8).
+    let centre = slint::LogicalPosition::new(wave.x + wave.w / 2.0, y);
+    ui.click_at(centre, slint::platform::PointerEventButton::Left);
+    ui.pump(50);
+    let g = grid(&ui);
+    let i = g.beat_index_at(4.0).unwrap();
+    assert_eq!(g.beats[i].bar_position, 1, "the clicked beat is the downbeat");
+    assert!(ui.steps.get() <= 3, "{} steps", ui.steps.get());
+    // DONE ends the session and keeps the grid.
+    ui.click("player1.grid.done");
+    assert!(!ui.app.ui.global::<crate::GridEdit>().get_active());
+    assert_eq!(grid(&ui).beats[i].bar_position, 1);
+    // Undo: one step per change (the downbeat, then the shift).
+    ui.app.undo();
+    assert_ne!(grid(&ui).beats[i].bar_position, 1, "undo takes back the downbeat");
+    assert!(grid(&ui).beats[0].time.abs() < 0.002, "and keeps the shift");
+    ui.app.undo();
+    assert!((grid(&ui).beats[0].time - 0.03).abs() < 0.002, "undo takes back the shift");
+    // CANCEL restores the start of the session.
+    ui.click("player1.grid.edit");
+    ui.click("player1.grid.nudge-right");
+    ui.click("player1.grid.shift-right");
+    assert!((grid(&ui).beats[0].time - 0.041).abs() < 0.002);
+    ui.click("player1.grid.cancel");
+    assert!((grid(&ui).beats[0].time - 0.03).abs() < 0.002, "cancel restores");
+    assert!(!ui.app.ui.global::<crate::GridEdit>().get_active());
+}

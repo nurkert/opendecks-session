@@ -761,3 +761,72 @@ fn deck_switches_survive_loads_and_restarts() {
     );
     assert_eq!(ui.get("deck1.master-tempo").accessible_checked(), Some(true));
 }
+
+/// Cues on the zoomed lane: hot cue A at 1 s as a flag with its letter and
+/// a memory cue at 2 s as a triangle, inside the lane, each at its time's
+/// x relative to the playhead.
+#[test]
+fn cues_show_on_the_waveform_lane() {
+    use od_core::Cue;
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let (id, title) = ui.fx.tracks[0].clone();
+    ui.fx.lib().set_cues(id, vec![Cue::hot(0, 1.0), Cue::memory(2.0)]).unwrap();
+    crate::decks::load_track(&ui.app, 0, id, None);
+    assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.loaded && d.title == title.as_str() && slint::Model::row_count(&d.cues) == 2)));
+    assert!(ui.wait_until(10.0, |u| u.has("wave.cue1.A") && u.has("wave.memory1.1")));
+    ui.pump(100);
+    let lane = Rect::of(&ui.get("wave.lane1"));
+    let motion = slint::Model::row_data(&ui.app.ui.get_lane_motion(), 0).unwrap();
+    let pos = motion.pos as f32;
+    let area = lane.w - 44.0;
+    let playhead = lane.x + 44.0 + area / 2.0;
+    for (label, t) in [("wave.cue1.A", 1.0f32), ("wave.memory1.1", 2.0)] {
+        let m = ui.get(label);
+        let r = Rect::of(&m);
+        let want = playhead + (t - pos) / motion.span * area;
+        assert!((r.x - want).abs() < 1.5, "{label} at x {} (want {want})", r.x);
+        assert!(r.y >= lane.y - 0.5 && r.bottom() <= lane.bottom() + 0.5 && r.x >= lane.x + 44.0 - 0.5 && r.x <= lane.right(), "{label} inside the lane");
+    }
+    // The hot cue's flag carries its letter; the memory cue has none.
+    let flag: Vec<_> = ui.get("wave.cue1.A").query_descendants().match_predicate(|e| e.accessible_label().is_some_and(|l| l == "A")).find_all();
+    assert!(!flag.is_empty(), "flag with A");
+}
+
+/// From Perform, a lane's GRID key opens the deck's track in the Prepare
+/// player in EDIT GRID.
+#[test]
+fn lane_grid_key_opens_edit_grid() {
+    use slint::ComponentHandle;
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let (id, title) = ui.fx.tracks[0].clone();
+    crate::decks::load_track(&ui.app, 0, id, None);
+    assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.loaded && d.title == title.as_str())));
+    assert!(ui.wait_until(30.0, |u| u.fx.lib().beatgrid(id).ok().flatten().is_some_and(|g| !g.beats.is_empty())), "analysed");
+    assert!(ui.wait_until(5.0, |u| u.has("wave.grid-edit1")));
+    ui.click("wave.grid-edit1");
+    assert_eq!(ui.app.ui.get_mode(), "prepare");
+    assert_eq!(ui.app.state.borrow().player.current, Some(id));
+    assert!(ui.app.ui.global::<crate::GridEdit>().get_active());
+    assert!(ui.wait_until(5.0, |u| u.has("player1.grid.edit-hint") && u.has("player1.grid.done")));
+}
+
+/// Short lanes (crowded Perform) have no GRID key; a right-click on the
+/// waveform offers "Edit beatgrid…" instead.
+#[test]
+fn lane_context_menu_opens_edit_grid() {
+    use slint::ComponentHandle;
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let (id, title) = ui.fx.tracks[0].clone();
+    crate::decks::load_track(&ui.app, 0, id, None);
+    assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.loaded && d.title == title.as_str())));
+    assert!(ui.wait_until(30.0, |u| u.fx.lib().beatgrid(id).ok().flatten().is_some_and(|g| !g.beats.is_empty())));
+    let lane = Rect::of(&ui.get("wave.lane1"));
+    ui.right_click_el(&ui.get("wave.lane1"));
+    let _ = lane;
+    assert!(ui.click_menu_item("Edit beatgrid…"), "menu item");
+    assert_eq!(ui.app.ui.get_mode(), "prepare");
+    assert!(ui.app.ui.global::<crate::GridEdit>().get_active());
+}

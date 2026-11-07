@@ -7,9 +7,10 @@ import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, PlateButton, Toggle, Transport, Splitter, Field, Stepper, Glyph, TipArea, PopupPlace } from "controls.slint";
 import { Pad } from "perform.slint";
+import { CueMarker } from "wave.slint";
 import { ChoiceList } from "fx.slint";
 import { DropZone } from "drag.slint";
-import { CueMark, HotCueSlot, PhraseMark } from "structs.slint";
+import { CueMark, HotCueSlot, PhraseMark, GridEdit } from "structs.slint";
 
 component Tab inherits Rectangle {
     in property <string> label;
@@ -234,6 +235,8 @@ export component PreparePlayer inherits Rectangle {
     in property <bool> read-only;
     in property <image> overview;
     in property <image> detail;
+    // Span of the enlarged waveform as a fraction of the track.
+    in property <float> detail-span;
     // Cover art thumbnail (empty: none).
     in property <bool> has-artwork;
     in property <image> artwork;
@@ -274,6 +277,9 @@ export component PreparePlayer inherits Rectangle {
     callback info-dragged(length);
     callback info-reset();
     property <string> tool-tab: "cue";
+    // EDIT GRID shows the GRID tools.
+    property <bool> grid-editing: GridEdit.active;
+    changed grid-editing => { if (self.grid-editing) { root.tool-tab = "grid"; } }
     property <string> list-tab: "all";
     // Cue list row being edited (index into `cues`), -1 = none.
     property <int> selected-cue: -1;
@@ -418,17 +424,70 @@ export component PreparePlayer inherits Rectangle {
                 min-height: 60px;
                 background: Theme.ground-band;
                 Image { width: parent.width; height: parent.height; source: root.detail; image-fit: fill; }
+                // Hot cues (flag with the letter) and memory cues (triangle).
+                for c[i] in root.cues: CueMarker {
+                    property <length> px: parent.width / 2 + (c.pos - root.cursor) / max(root.detail-span, 0.00001) * parent.width;
+                    property <length> lw: c.is-loop ? (c.end - c.pos) / max(root.detail-span, 0.00001) * parent.width : 0px;
+                    accessible-role: image;
+                    accessible-label: c.slot >= 0 ? "player1.wave.cue." + c.letter : "player1.wave.memory." + i;
+                    accessible-value: c.time;
+                    visible: root.has-track && root.detail-span > 0 && self.px + self.lw >= 0 && self.px <= parent.width;
+                    x: self.px; y: 0; height: parent.height;
+                    cue: c; loop-w: self.lw;
+                }
                 Rectangle { x: parent.width / 2 - 1px; width: 2px; height: parent.height; background: Theme.bone; }
-                TouchArea {
-                    mouse-cursor: ew-resize;
+                wave-touch := TouchArea {
+                    mouse-cursor: GridEdit.active ? (self.grid-drag ? ew-resize : pointer) : ew-resize;
                     // Drag the zoomed waveform to nudge the cursor (8 s across).
+                    // EDIT GRID: Shift-drag moves the grid (live), a click
+                    // makes the beat under the pointer the downbeat.
                     property <length> last;
-                    pointer-event(ev) => { if (ev.kind == PointerEventKind.down) { self.last = self.mouse-x; } }
+                    property <length> from;
+                    property <bool> grid-drag;
+                    property <bool> dragged;
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.down) {
+                            self.last = self.mouse-x; self.from = self.mouse-x; self.dragged = false;
+                            self.grid-drag = GridEdit.active && ev.modifiers.shift;
+                        }
+                        if (ev.kind == PointerEventKind.up) {
+                            if (self.grid-drag && self.dragged) {
+                                GridEdit.commit((self.mouse-x - self.from) / self.width);
+                            } else if (GridEdit.active && !self.dragged) {
+                                GridEdit.downbeat-at(self.mouse-x / self.width - 0.5);
+                            }
+                            self.grid-drag = false;
+                        }
+                    }
                     moved => {
                         if (self.pressed) {
-                            root.nudge((self.last - self.mouse-x) / self.width * 8.0);
-                            self.last = self.mouse-x;
+                            if (abs(self.mouse-x - self.from) > 3px) { self.dragged = true; }
+                            if (self.grid-drag) {
+                                GridEdit.preview((self.mouse-x - self.from) / self.width);
+                            } else {
+                                root.nudge((self.last - self.mouse-x) / self.width * 8.0);
+                                self.last = self.mouse-x;
+                            }
                         }
+                    }
+                }
+                // EDIT GRID: what to do, and the way out.
+                if GridEdit.active && root.has-track: Rectangle {
+                    accessible-role: text; accessible-label: "player1.grid.edit-hint"; accessible-value: hint.text;
+                    x: 6px; y: 6px; width: parent.width - 12px; height: 30px;
+                    border-radius: 4px;
+                    background: Theme.ground.with-alpha(0.88);
+                    border-width: 1px; border-color: Theme.attention;
+                    HorizontalLayout {
+                        padding-left: 10px; padding-right: 4px; spacing: 8px;
+                        Caps { text: @tr("EDIT GRID"); color: Theme.attention; vertical-alignment: center; }
+                        hint := Text {
+                            horizontal-stretch: 1;
+                            text: @tr("Shift-drag the waveform until the lines sit on the kicks · click the 1 of a bar · fine-tune below");
+                            font-family: Theme.family; font-size: 11px; color: Theme.bone; vertical-alignment: center; overflow: elide;
+                        }
+                        VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton { accessible-role: button; accessible-label: "player1.grid.cancel"; horizontal-stretch: 0; compact: true; label: @tr("CANCEL"); tone: Theme.fault; tooltip: @tr("Back to the grid before editing"); clicked => { GridEdit.cancel(); } } }
+                        VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton { accessible-role: button; accessible-label: "player1.grid.done"; horizontal-stretch: 0; compact: true; label: @tr("DONE"); tone: Theme.live; command: "player.grid.edit"; clicked => { GridEdit.done(); } } }
                     }
                 }
                 if !root.has-track: Text { text: @tr("Select a track to prepare it"); font-family: Theme.family; font-size: 14px; color: Theme.bone-3; }
@@ -515,15 +574,18 @@ export component PreparePlayer inherits Rectangle {
                         }
                         Toggle { accessible-role: button; accessible-label: "player1.grid.marker"; label: @tr("+ MARKER"); tooltip: @tr("Tempo change: the typed BPM from the beat at the cursor on"); enabled: !root.grid-locked && !root.read-only && root.has-track; clicked => { root.grid-marker(bpm-field.text); } }
                         Toggle { accessible-role: button; accessible-label: "player1.grid.tap"; label: @tr("TAP"); command: "player.grid.tap"; tooltip: @tr("Tap along with the beat: from the fourth tap the grid takes the tapped tempo"); enabled: !root.grid-locked && !root.read-only && root.has-track; clicked => { root.grid-tap(); } }
-                        Toggle { accessible-role: button; accessible-label: "player1.grid.shift-left"; label: "−10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(-10); } }
-                        Toggle { accessible-role: button; accessible-label: "player1.grid.shift-right"; label: "+10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(10); } }
-                        Toggle { accessible-role: button; accessible-label: "player1.grid.double"; label: @tr("DOUBLE"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(2.0); } }
-                        Toggle { accessible-role: button; accessible-label: "player1.grid.halve"; label: @tr("HALF"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(0.5); } }
-                        Toggle { accessible-role: button; accessible-label: "player1.grid.downbeat"; label: @tr("DOWNBEAT AT CURSOR"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-downbeat(); } }
+                        Toggle { accessible-role: checkbox; accessible-label: "player1.grid.edit"; accessible-checkable: true; accessible-checked: GridEdit.active; label: GridEdit.active ? @tr("EDITING") : @tr("EDIT GRID"); on: GridEdit.active; command: "player.grid.edit"; tooltip: @tr("Guided grid editing on the waveform: Shift-drag the grid, click the downbeat; DONE / CANCEL"); enabled: !root.grid-locked && !root.read-only && root.has-track; clicked => { if (GridEdit.active) { GridEdit.done(); } else { GridEdit.start(); } } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.shift-left"; label: "−10"; tooltip: @tr("Grid 10 ms earlier"); command: "player.grid.earlier"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(-10); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.nudge-left"; label: "−1"; tooltip: @tr("Grid 1 ms earlier"); command: "player.grid.earlier-fine"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(-1); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.nudge-right"; label: "+1"; tooltip: @tr("Grid 1 ms later"); command: "player.grid.later-fine"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(1); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.shift-right"; label: "+10"; tooltip: @tr("Grid 10 ms later"); command: "player.grid.later"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(10); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.double"; label: "×2"; tooltip: @tr("Double the tempo"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(2.0); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.halve"; label: "½"; tooltip: @tr("Halve the tempo"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(0.5); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.downbeat"; label: @tr("1 AT CURSOR"); tooltip: @tr("The beat at the cursor becomes the downbeat (or click it in EDIT GRID)"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-downbeat(); } }
                         Rectangle { horizontal-stretch: 1; }
                         Caps { accessible-role: text; accessible-label: "player1.grid.source"; accessible-value: self.text; text: root.grid-source; font-size: 10px; vertical-alignment: center; }
-                        Toggle { accessible-role: button; accessible-label: "player1.grid.undo"; label: "↶"; tooltip: @tr("Undo the last change"); command: "library.undo"; enabled: !root.read-only; clicked => { root.act("undo"); } }
-                        Toggle { accessible-role: button; accessible-label: "player1.grid.redo"; label: "↷"; tooltip: @tr("Redo"); command: "library.redo"; enabled: !root.read-only; clicked => { root.act("redo"); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.undo"; label: @tr("UNDO"); tooltip: @tr("Undo the last change"); command: "library.undo"; enabled: !root.read-only; clicked => { root.act("undo"); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.redo"; label: @tr("REDO"); tooltip: @tr("Redo"); command: "library.redo"; enabled: !root.read-only; clicked => { root.act("redo"); } }
                         Toggle { accessible-role: checkbox; accessible-label: "player1.grid.lock"; accessible-checkable: true; accessible-checked: root.grid-locked; label: root.grid-locked ? @tr("GRID LOCKED") : @tr("LOCK GRID"); on: root.grid-locked; tone: Theme.attention; enabled: !root.read-only; clicked => { root.grid-lock(); } }
                     }
                 }

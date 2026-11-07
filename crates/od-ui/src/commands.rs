@@ -199,6 +199,15 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "player.nudge.fwd.coarse" => ui.invoke_nudge(2.0),
         "player.grid.earlier" => ui.invoke_grid_shift(-10),
         "player.grid.later" => ui.invoke_grid_shift(10),
+        "player.grid.earlier-fine" => ui.invoke_grid_shift(-1),
+        "player.grid.later-fine" => ui.invoke_grid_shift(1),
+        "player.grid.edit" => {
+            if slint::ComponentHandle::global::<crate::GridEdit>(ui).get_active() {
+                crate::grid_edit::done(app);
+            } else {
+                crate::grid_edit::start(app);
+            }
+        }
         "player.grid.double" => ui.invoke_grid_scale(2.0),
         "player.grid.half" => ui.invoke_grid_scale(0.5),
         "player.grid.downbeat" => ui.invoke_grid_downbeat(),

@@ -1089,6 +1089,30 @@ fn build() -> Vec<Action> {
         &["Mod+Right"],
     );
     b.add(
+        "player.grid.earlier-fine",
+        "Beatgrid 1 ms earlier",
+        None,
+        g,
+        Prepare,
+        &["Mod+Shift+Left"],
+    );
+    b.add(
+        "player.grid.later-fine",
+        "Beatgrid 1 ms later",
+        None,
+        g,
+        Prepare,
+        &["Mod+Shift+Right"],
+    );
+    b.add(
+        "player.grid.edit",
+        "Edit the beatgrid on the waveform (again: done)",
+        None,
+        g,
+        Prepare,
+        &["Shift+G"],
+    );
+    b.add(
         "player.grid.double",
         "Beatgrid double tempo",
         None,

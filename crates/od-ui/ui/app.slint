@@ -4,7 +4,7 @@ import { UpdateBar } from "update.slint";
 import { DragGhost, DragState } from "drag.slint";
 export { DragState }
 export { PopupPlace }
-export { DeckTime } from "structs.slint";
+export { DeckTime, GridEdit } from "structs.slint";
 import { InfoPanel, TrackInfo } from "info.slint";
 import { Caps, PlateButton, Field, LineToggle, Splitter, TooltipState, PopupPlace } from "controls.slint";
 import { TooltipLayer } from "tooltip.slint";
@@ -143,6 +143,8 @@ export component AppWindow inherits Window {
     in-out property <length> upper-height: 0px;
     in property <[HotCueSlot]> hot-cues;
     in property <image> track-detail;
+    // The enlarged waveform's span as a fraction of the track (cue markers).
+    in property <float> track-span;
     in property <string> track-position;
     in property <float> cursor;
     in property <bool> previewing;
@@ -634,6 +636,7 @@ export component AppWindow inherits Window {
                 read-only: root.read-only;
                 overview: root.track-overview;
                 detail: root.track-detail;
+                detail-span: root.track-span;
                 has-artwork: root.track-info.has-artwork;
                 artwork: root.track-info.artwork;
                 cues: root.track-cues;

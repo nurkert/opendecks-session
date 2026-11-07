@@ -4199,6 +4199,82 @@ msgctxt "CdjPlayer"
 msgid "Master tempo: the key stays when the tempo changes"
 msgstr "Master Tempo: die Tonart bleibt, wenn sich das Tempo ändert"
 
+msgctxt "PreparePlayer"
+msgid "EDIT GRID"
+msgstr "GRID BEARBEITEN"
+
+msgctxt "PreparePlayer"
+msgid "Shift-drag the waveform until the lines sit on the kicks · click the 1 of a bar · fine-tune below"
+msgstr "Wellenform mit Shift ziehen, bis die Linien auf den Kicks liegen · die 1 eines Takts anklicken · unten fein justieren"
+
+msgctxt "PreparePlayer"
+msgid "CANCEL"
+msgstr "ABBRECHEN"
+
+msgctxt "PreparePlayer"
+msgid "Back to the grid before editing"
+msgstr "Zurück zum Grid vor der Bearbeitung"
+
+msgctxt "PreparePlayer"
+msgid "DONE"
+msgstr "FERTIG"
+
+msgctxt "PreparePlayer"
+msgid "EDITING"
+msgstr "BEARBEITUNG"
+
+msgctxt "PreparePlayer"
+msgid "Guided grid editing on the waveform: Shift-drag the grid, click the downbeat; DONE / CANCEL"
+msgstr "Geführte Grid-Bearbeitung an der Wellenform: Grid mit Shift ziehen, den Downbeat anklicken; FERTIG / ABBRECHEN"
+
+msgctxt "PreparePlayer"
+msgid "Grid 10 ms earlier"
+msgstr "Grid 10 ms früher"
+
+msgctxt "PreparePlayer"
+msgid "Grid 1 ms earlier"
+msgstr "Grid 1 ms früher"
+
+msgctxt "PreparePlayer"
+msgid "Grid 1 ms later"
+msgstr "Grid 1 ms später"
+
+msgctxt "PreparePlayer"
+msgid "Grid 10 ms later"
+msgstr "Grid 10 ms später"
+
+msgctxt "PreparePlayer"
+msgid "Double the tempo"
+msgstr "Tempo verdoppeln"
+
+msgctxt "PreparePlayer"
+msgid "Halve the tempo"
+msgstr "Tempo halbieren"
+
+msgctxt "PreparePlayer"
+msgid "1 AT CURSOR"
+msgstr "1 AM CURSOR"
+
+msgctxt "PreparePlayer"
+msgid "The beat at the cursor becomes the downbeat (or click it in EDIT GRID)"
+msgstr "Der Beat am Cursor wird zum Downbeat (oder in GRID BEARBEITEN anklicken)"
+
+msgctxt "WaveLane"
+msgid "GRID"
+msgstr "GRID"
+
+msgctxt "WaveLane"
+msgid "Edit beatgrid…"
+msgstr "Beatgrid bearbeiten…"
+
+msgctxt "PreparePlayer"
+msgid "UNDO"
+msgstr "RÜCKG."
+
+msgctxt "PreparePlayer"
+msgid "REDO"
+msgstr "WIEDERH."
+
 #~ msgctxt "DeckPanel"
 #~ msgid "SPLIT…"
 #~ msgstr "TRENNEN…"

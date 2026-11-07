@@ -4,7 +4,64 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { DeckView, LaneMotion } from "structs.slint";
+import { DeckView, LaneMotion, CueMark, GridEdit } from "structs.slint";
+
+// A cue on a zoomed waveform, drawn so it reads on any waveform: a hot cue
+// is a line in its colour with a flag at the top carrying its letter (dark
+// on the colour), a hot loop also a band to its end; a memory cue is a red
+// triangle with a light rim at the bottom and a fine line. Each line has a
+// dark rim against bright waveform peaks. `x` is the cue's position; the
+// marker is as tall as the lane.
+export component CueMarker inherits Rectangle {
+    in property <CueMark> cue;
+    // The loop's length on screen (hot loops).
+    in property <length> loop-w;
+    // Vertical lanes: the cue runs across, flag on the left.
+    in property <bool> across;
+    property <bool> memory: root.cue.slot < 0;
+    property <color> tone: root.memory ? Theme.fault : Theme.cue-tone(root.cue.slot, root.cue.tone);
+    width: 0px;
+    if !root.across && !root.memory && root.cue.is-loop && root.loop-w > 0: Rectangle {
+        x: 0; width: root.loop-w; height: parent.height;
+        background: root.tone.with-alpha(0.16);
+        Rectangle { y: 0; height: 2px; background: root.tone; }
+        Rectangle { x: parent.width - 2px; width: 2px; background: root.tone.with-alpha(0.8); }
+    }
+    if !root.across: Rectangle {
+        x: -2px; width: 4px; height: parent.height;
+        background: Theme.ground.with-alpha(root.memory ? 0.4 : 0.55);
+        Rectangle { x: 1px; width: root.memory ? 1px : 2px; background: root.memory ? Theme.bone.with-alpha(0.75) : root.tone; }
+    }
+    if root.across: Rectangle {
+        y: -2px; height: 4px; width: parent.width;
+        background: Theme.ground.with-alpha(root.memory ? 0.4 : 0.55);
+        Rectangle { y: 1px; height: root.memory ? 1px : 2px; background: root.memory ? Theme.bone.with-alpha(0.75) : root.tone; }
+    }
+    // Hot cue: the flag with the letter.
+    if !root.memory: Rectangle {
+        x: root.across ? 0 : 0; y: root.across ? -7px : 0;
+        width: 14px; height: 14px;
+        border-radius: 2px;
+        background: root.tone;
+        border-width: 1px; border-color: Theme.ground;
+        Text {
+            text: root.cue.letter;
+            font-family: Theme.family; font-size: 10px; font-weight: 600;
+            color: Theme.ground;
+            horizontal-alignment: center; vertical-alignment: center;
+        }
+    }
+    // Memory cue: the triangle at the bottom (on the left when across).
+    if root.memory: Path {
+        x: root.across ? 0 : -6px; y: root.across ? -6px : parent.height - 10px;
+        width: root.across ? 10px : 12px; height: root.across ? 12px : 10px;
+        viewbox-width: root.across ? 10 : 12; viewbox-height: root.across ? 12 : 10;
+        fill: Theme.fault;
+        stroke: Theme.bone;
+        stroke-width: 1px;
+        commands: root.across ? "M 0 0 L 10 6 L 0 12 Z" : "M 6 0 L 12 10 L 0 10 Z";
+    }
+}
 
 export component WaveLane inherits Rectangle {
     in property <DeckView> deck;
@@ -47,6 +104,18 @@ export component WaveLane inherits Rectangle {
         if band.x0 >= root.gutter: Rectangle { x: 0; width: 2px; background: Theme.attention.with-alpha(band.strength); }
         if band.x1 <= root.width: Rectangle { x: parent.width - 2px; width: 2px; background: Theme.attention.with-alpha(band.strength); }
     }
+    // Hot cues (flag with the letter) and memory cues (triangle at the
+    // bottom) where they fall in the visible span.
+    for c[i] in root.deck.cues: CueMarker {
+        property <length> px: root.gutter + (c.pos * root.deck.length - root.left-t) / root.motion.span * root.area;
+        property <length> lw: c.is-loop ? (c.end - c.pos) * root.deck.length / root.motion.span * root.area : 0px;
+        accessible-role: image;
+        accessible-label: c.slot >= 0 ? "wave.cue\{root.deck.deck}." + c.letter : "wave.memory\{root.deck.deck}." + i;
+        accessible-value: c.time;
+        visible: root.motion.loaded && root.deck.length > 0 && self.px + self.lw >= root.gutter && self.px <= root.width;
+        x: self.px; y: 0; height: parent.height;
+        cue: c; loop-w: self.lw;
+    }
     Rectangle {
         x: 0; y: 0; width: root.gutter; height: parent.height;
         background: Theme.ground;
@@ -62,6 +131,16 @@ export component WaveLane inherits Rectangle {
             text: "M";
             font-family: Theme.family; font-size: 10px; font-weight: 600; color: Theme.attention;
             horizontal-alignment: center;
+        }
+        // Tall lanes: GRID opens the deck's track in EDIT GRID (Prepare).
+        if root.deck.loaded && parent.height >= 60px: Rectangle {
+            accessible-role: button; accessible-label: "wave.grid-edit\{root.deck.deck}";
+            x: 6px; y: 30px; width: root.gutter - 12px; height: 16px;
+            border-radius: 3px;
+            background: grid-key.has-hover ? Theme.plate-raised : Theme.plate;
+            border-width: 1px; border-color: Theme.rule;
+            Text { text: @tr("GRID"); font-family: Theme.family; font-size: 8px; font-weight: 600; letter-spacing: 0.8px; color: Theme.bone-2; horizontal-alignment: center; vertical-alignment: center; }
+            grid-key := TouchArea { mouse-cursor: pointer; clicked => { GridEdit.open-deck(root.deck.deck); } }
         }
         VLine { x: parent.width - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
     }
@@ -85,6 +164,14 @@ export component WaveLane inherits Rectangle {
             accept
         }
         double-clicked => { root.zoom-reset(); }
+    }
+    // Right-click on the waveform: edit this deck's beatgrid (any lane
+    // height; tall lanes also have the GRID key in the gutter).
+    if root.deck.loaded: ContextMenuArea {
+        x: root.gutter; width: root.area; height: parent.height;
+        Menu {
+            MenuItem { title: @tr("Edit beatgrid…"); activated => { GridEdit.open-deck(root.deck.deck); } }
+        }
     }
     // Bar counter: large and on a plate so it reads from a distance; what it
     // counts shows above the number, a click picks the next mode.
@@ -143,6 +230,17 @@ export component VerticalLane inherits Rectangle {
     if root.motion.loaded: Image { y: root.gutter + (root.motion.t2 - root.top-t) / root.motion.span * root.area; height: root.area; width: parent.width; source: root.motion.tile2; image-fit: fill; }
     // Played audio above the playhead is veiled.
     if root.motion.loaded: Rectangle { y: root.gutter; height: root.area / 2; width: parent.width; background: Theme.ground.with-alpha(0.45); }
+    // Cues across the lane: flag (hot) or triangle (memory) on the left.
+    for c[i] in root.deck.cues: CueMarker {
+        property <length> py: root.gutter + (c.pos * root.deck.length - root.top-t) / root.motion.span * root.area;
+        accessible-role: image;
+        accessible-label: c.slot >= 0 ? "wave.cue\{root.deck.deck}." + c.letter : "wave.memory\{root.deck.deck}." + i;
+        accessible-value: c.time;
+        visible: root.motion.loaded && root.deck.length > 0 && self.py >= root.gutter && self.py <= root.height;
+        across: true;
+        x: 0; y: self.py; width: parent.width; height: 0px;
+        cue: c;
+    }
     Rectangle {
         x: 0; y: 0; height: root.gutter; width: parent.width;
         background: Theme.ground;

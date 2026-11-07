@@ -1681,8 +1681,17 @@ mod tests {
     fn engine_settings_cover_every_deck_and_channel() {
         let mut s = Settings::default();
         let cmds = engine_settings(&s, 4);
-        // 4 per deck, quantize, 3 per channel, crossfader curve.
-        assert_eq!(cmds.len(), 4 * 4 + 1 + 4 * 3 + 1);
+        // 5 per deck (with the remembered master tempo), quantize, 3 per
+        // channel, crossfader curve.
+        assert_eq!(cmds.len(), 5 * 4 + 1 + 4 * 3 + 1);
+        // A deck's remembered switches win over the defaults.
+        let mut m = s.clone();
+        m.deck.decks[2].master_tempo = true;
+        m.deck.decks[2].tempo_range = "sixteen".into();
+        let d = engine_settings(&m, 4);
+        assert!(d.iter().any(|c| matches!(c, Command::Deck(2, DeckCommand::SetKeylock(true)))));
+        assert!(d.iter().any(|c| matches!(c, Command::Deck(2, DeckCommand::SetTempoRange(TempoRange::Sixteen)))));
+        assert!(d.iter().any(|c| matches!(c, Command::Deck(1, DeckCommand::SetKeylock(false)))));
         assert!(cmds.iter().any(|c| matches!(
             c,
             Command::Deck(0, DeckCommand::SetSyncMode(od_engine::SyncMode::Beat))
@@ -1712,7 +1721,8 @@ mod tests {
                     DeckCommand::SetTempoRange(TempoRange::Wide),
                     DeckCommand::SetJogMode(JogMode::Bend),
                     DeckCommand::SetAutoCue(false),
-                    DeckCommand::SetSyncMode(od_engine::SyncMode::Tempo)
+                    DeckCommand::SetSyncMode(od_engine::SyncMode::Tempo),
+                    DeckCommand::SetKeylock(false),
                 ]
             )
         );

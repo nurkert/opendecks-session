@@ -3,7 +3,7 @@
 Every user action of OpenDecks Session is a command in one registry
 (`crates/od-ui/src/keymap.rs`) with an id, a default binding per platform
 and optional user bindings (SPEC §12.2). The registry currently holds
-**253 actions**; every one has a default binding, and no two defaults
+**256 actions**; every one has a default binding, and no two defaults
 collide where they apply (checked by tests, together with this table).
 
 ## Changing bindings
@@ -164,6 +164,9 @@ Perform). Text fields keep the keys they type.
 | Cursor forward 2 s | `player.nudge.fwd.coarse` | Prepare | `⌥→` | `Alt+→` |
 | Beatgrid 10 ms earlier | `player.grid.earlier` | Prepare | `⌘←` | `Ctrl+←` |
 | Beatgrid 10 ms later | `player.grid.later` | Prepare | `⌘→` | `Ctrl+→` |
+| Beatgrid 1 ms earlier | `player.grid.earlier-fine` | Prepare | `⇧⌘←` | `Ctrl+Shift+←` |
+| Beatgrid 1 ms later | `player.grid.later-fine` | Prepare | `⇧⌘→` | `Ctrl+Shift+→` |
+| Edit the beatgrid on the waveform (again: done) | `player.grid.edit` | Prepare | `⇧G` | `Shift+G` |
 | Beatgrid double tempo | `player.grid.double` | Prepare | `⌘↑` | `Ctrl+↑` |
 | Beatgrid half tempo | `player.grid.half` | Prepare | `⌘↓` | `Ctrl+↓` |
 | Set the downbeat at the cursor | `player.grid.downbeat` | Prepare | `D` | `D` |

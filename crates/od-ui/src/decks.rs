@@ -959,6 +959,8 @@ pub(crate) struct DeckFields {
     /// Remaining time at the current tempo (Preferences › View › deck time).
     pub remaining_real: SharedString,
     pub progress: f32,
+    /// Track length in seconds (cue markers on the lanes).
+    pub length: f32,
     pub playing: bool,
     pub master: bool,
     pub sync: bool,
@@ -1097,6 +1099,7 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         }
         .into(),
         remaining_real: format::remaining_at_tempo(s.duration, s.position, s.tempo).into(),
+        length: s.duration.max(0.0) as f32,
         progress: if s.duration > 0.0 {
             (s.position / s.duration) as f32
         } else {
@@ -1246,6 +1249,7 @@ impl Lane {
             remaining: f.remaining,
             remaining_real: f.remaining_real,
             progress: f.progress,
+            length: f.length,
             playing: f.playing,
             master: f.master,
             sync: f.sync,
