@@ -154,15 +154,17 @@ export component SamplerPanel inherits Rectangle {
             // Pads 1–8 over 9–16.
             Rectangle {
                 horizontal-stretch: 1;
-                height: 2 * root.row-h + root.gap;
+                // Spans the row: both pad rows line up with the slot controls.
+                min-height: 2 * root.row-h + root.gap;
                 property <length> w: (self.width - 7 * root.gap) / 8;
+                property <length> h: (self.height - root.gap) / 2;
                 for p[i] in root.pads: SamplerPad {
                     accessible-role: button;
                     accessible-label: "sampler.slot\{p.pad}";
                     accessible-value: p.loaded ? p.name : "";
                     x: Math.mod(i, 8) * (parent.w + root.gap);
-                    y: Math.floor(i / 8) * (root.row-h + root.gap);
-                    width: parent.w; height: root.row-h;
+                    y: Math.floor(i / 8) * (parent.h + root.gap);
+                    width: parent.w; height: parent.h;
                     p: p;
                     press(down) => { root.pad(i, down); }
                     dropped => { root.select(i); root.load(i); }

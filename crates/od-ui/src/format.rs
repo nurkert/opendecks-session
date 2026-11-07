@@ -3,7 +3,11 @@
 /// "m:ss", or "h:mm:ss" from one hour on (lists, totals).
 pub fn time(secs: f64) -> String {
     let s = secs.max(0.0).round() as u64;
-    if s >= 3600 { format!("{}:{:02}:{:02}", s / 3600, s / 60 % 60, s % 60) } else { format!("{}:{:02}", s / 60, s % 60) }
+    if s >= 3600 {
+        format!("{}:{:02}:{:02}", s / 3600, s / 60 % 60, s % 60)
+    } else {
+        format!("{}:{:02}", s / 60, s % 60)
+    }
 }
 
 /// "m:ss.mmm" (cue points, player position).
@@ -22,12 +26,20 @@ pub fn deck_time(secs: f64) -> String {
 /// "1.2 GB" / "640 MB".
 pub fn bytes(b: u64) -> String {
     let gb = b as f64 / 1e9;
-    if gb >= 1.0 { format!("{gb:.1} GB") } else { format!("{:.0} MB", b as f64 / 1e6) }
+    if gb >= 1.0 {
+        format!("{gb:.1} GB")
+    } else {
+        format!("{:.0} MB", b as f64 / 1e6)
+    }
 }
 
 /// Loop length in beats: "1/4", "1", "16".
 pub fn beats(b: f64) -> String {
-    if b < 1.0 { format!("1/{}", (1.0 / b).round()) } else { format!("{b}") }
+    if b < 1.0 {
+        format!("1/{}", (1.0 / b).round())
+    } else {
+        format!("{b}")
+    }
 }
 
 /// Tempo ratio as pitch offset: 1.015 → "+1.5%".
@@ -37,7 +49,11 @@ pub fn tempo(ratio: f64) -> String {
 
 /// Bar.beat counter: beat 130 in bar position 3 → "33.3"; empty without grid.
 pub fn bar_beat(beat: f64, beat_in_bar: u8) -> String {
-    if beat_in_bar > 0 { format!("{}.{}", (beat.max(0.0) as u64) / 4 + 1, beat_in_bar) } else { String::new() }
+    if beat_in_bar > 0 {
+        format!("{}.{}", (beat.max(0.0) as u64) / 4 + 1, beat_in_bar)
+    } else {
+        String::new()
+    }
 }
 
 /// Countdown to a target beat as "-bars.beats", e.g. "-7.4" = 7 bars and

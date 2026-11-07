@@ -6,8 +6,8 @@ use crossbeam_channel::{Receiver, Sender, unbounded};
 use od_core::{DataSource, TrackId};
 use od_library::{Library, NewTrack};
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 #[derive(Clone, Debug)]
@@ -24,7 +24,9 @@ pub fn scan(root: &Path) -> Vec<PathBuf> {
     let mut out = Vec::new();
     let mut stack = vec![root.to_path_buf()];
     while let Some(dir) = stack.pop() {
-        let Ok(read) = std::fs::read_dir(&dir) else { continue };
+        let Ok(read) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for e in read.flatten() {
             let p = e.path();
             let name = e.file_name();
@@ -33,7 +35,9 @@ pub fn scan(root: &Path) -> Vec<PathBuf> {
             }
             match e.file_type() {
                 Ok(t) if t.is_dir() => stack.push(p),
-                Ok(t) if t.is_file() && od_core::AudioFormat::is_supported_extension(&p) => out.push(p),
+                Ok(t) if t.is_file() && od_core::AudioFormat::is_supported_extension(&p) => {
+                    out.push(p)
+                }
                 _ => {}
             }
         }
@@ -67,7 +71,12 @@ pub fn import_file(lib: &mut Library, path: &Path) -> anyhow::Result<TrackId> {
 }
 
 /// Adds every audio file below `roots` to the library (in a thread).
-pub fn spawn_import(library_path: PathBuf, roots: Vec<PathBuf>, events: Sender<WorkerEvent>, wake_analysis: Sender<()>) {
+pub fn spawn_import(
+    library_path: PathBuf,
+    roots: Vec<PathBuf>,
+    events: Sender<WorkerEvent>,
+    wake_analysis: Sender<()>,
+) {
     std::thread::spawn(move || {
         let mut lib = match Library::open(&library_path) {
             Ok(l) => l,
@@ -121,7 +130,11 @@ pub struct AnalysisWorker {
 }
 
 impl AnalysisWorker {
-    pub fn start(library_path: PathBuf, control: AnalysisControl, events: Sender<WorkerEvent>) -> Self {
+    pub fn start(
+        library_path: PathBuf,
+        control: AnalysisControl,
+        events: Sender<WorkerEvent>,
+    ) -> Self {
         let lite = control.options.lite;
         let control = Arc::new(Mutex::new(control));
         let control2 = control.clone();
@@ -131,14 +144,30 @@ impl AnalysisWorker {
         std::thread::Builder::new()
             .name("od-analysis".into())
             .spawn(move || {
-                let Ok(mut lib) = Library::open(&library_path) else { return };
-                let threads = if lite { 1 } else { std::thread::available_parallelism().map(|n| n.get().saturating_sub(2).max(1)).unwrap_or(2) };
-                let pool = rayon::ThreadPoolBuilder::new().num_threads(threads).build().expect("analysis pool");
+                let Ok(mut lib) = Library::open(&library_path) else {
+                    return;
+                };
+                let threads = if lite {
+                    1
+                } else {
+                    std::thread::available_parallelism()
+                        .map(|n| n.get().saturating_sub(2).max(1))
+                        .unwrap_or(2)
+                };
+                let pool = rayon::ThreadPoolBuilder::new()
+                    .num_threads(threads)
+                    .build()
+                    .expect("analysis pool");
                 while !stop2.load(Ordering::Relaxed) {
                     let (opts, detect_key, todo) = {
                         let mut c = control2.lock().unwrap_or_else(|e| e.into_inner());
                         let requested = std::mem::take(&mut c.requested);
-                        let todo = if c.auto { lib.tracks_needing_analysis(od_analysis::ANALYSIS_VERSION).unwrap_or_default() } else { requested };
+                        let todo = if c.auto {
+                            lib.tracks_needing_analysis(od_analysis::ANALYSIS_VERSION)
+                                .unwrap_or_default()
+                        } else {
+                            requested
+                        };
                         (c.options.clone(), c.detect_key, todo)
                     };
                     if todo.is_empty() {
@@ -152,10 +181,16 @@ impl AnalysisWorker {
                         if stop2.load(Ordering::Relaxed) {
                             return;
                         }
-                        let paths: Vec<_> = chunk.iter().filter_map(|id| lib.track(*id).ok().map(|t| (*id, t.path))).collect();
+                        let paths: Vec<_> = chunk
+                            .iter()
+                            .filter_map(|id| lib.track(*id).ok().map(|t| (*id, t.path)))
+                            .collect();
                         let results: Vec<_> = pool.install(|| {
                             use rayon::prelude::*;
-                            paths.par_iter().map(|(id, p)| (*id, od_analysis::analyze_file(p, &opts))).collect()
+                            paths
+                                .par_iter()
+                                .map(|(id, p)| (*id, od_analysis::analyze_file(p, &opts)))
+                                .collect()
                         });
                         for (id, r) in results {
                             match r {
@@ -167,11 +202,17 @@ impl AnalysisWorker {
                                 }
                                 Err(e) => {
                                     tracing::warn!(track = %id, error = %e, "analysis failed");
-                                    let _ = lib.set_missing(id, !lib.track(id).map(|t| t.path.exists()).unwrap_or(false));
+                                    let _ = lib.set_missing(
+                                        id,
+                                        !lib.track(id).map(|t| t.path.exists()).unwrap_or(false),
+                                    );
                                     // Mark as analysed with an empty result so it is not retried forever.
                                     let _ = lib.store_analysis(
                                         id,
-                                        &od_core::TrackAnalysis { analysis_version: od_analysis::ANALYSIS_VERSION, ..Default::default() },
+                                        &od_core::TrackAnalysis {
+                                            analysis_version: od_analysis::ANALYSIS_VERSION,
+                                            ..Default::default()
+                                        },
                                         DataSource::Analysis,
                                     );
                                 }
@@ -183,7 +224,11 @@ impl AnalysisWorker {
                 }
             })
             .expect("analysis thread");
-        Self { wake: wake_tx, control, stop }
+        Self {
+            wake: wake_tx,
+            control,
+            stop,
+        }
     }
 }
 
@@ -205,9 +250,18 @@ mod tests {
         crate::ui_tests::harness::write_wav(&path, 2.0, 440.0);
         let mut lib = od_library::Library::open(&dir.path().join("lib/library.sqlite")).unwrap();
         let id = super::import_file(&mut lib, &path).unwrap();
-        assert_eq!(super::import_file(&mut lib, &path).unwrap(), id, "a second import finds the track");
+        assert_eq!(
+            super::import_file(&mut lib, &path).unwrap(),
+            id,
+            "a second import finds the track"
+        );
         let t = lib.track(id).unwrap();
-        assert!(t.duration > 1.9 && t.sample_rate > 0, "duration and sample rate are read: {} s, {} Hz", t.duration, t.sample_rate);
+        assert!(
+            t.duration > 1.9 && t.sample_rate > 0,
+            "duration and sample rate are read: {} s, {} Hz",
+            t.duration,
+            t.sample_rate
+        );
         assert_eq!(lib.track_count().unwrap(), 1);
     }
 }

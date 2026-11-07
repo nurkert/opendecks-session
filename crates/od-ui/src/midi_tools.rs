@@ -6,7 +6,9 @@
 use crate::app::App;
 use crate::settings::Flx10Prefs;
 use crossbeam_channel::Receiver;
-use od_controller::flx10_settings::{BoostLevel, FaderStart, Flx10Setting, JogRingColor, RecOut, SlipButtonLed, TimeMode};
+use od_controller::flx10_settings::{
+    BoostLevel, FaderStart, Flx10Setting, JogRingColor, RecOut, SlipButtonLed, TimeMode,
+};
 use od_controller::learn::{LearnSession, LearnedInput};
 use od_controller::monitor::{Direction, MidiMonitor, MonitorEvent};
 use std::collections::VecDeque;
@@ -95,12 +97,17 @@ impl MidiTools {
     }
 
     pub fn action_name(&self) -> &'static str {
-        od_controller::templates::ACTION_NAMES.get(self.action).copied().unwrap_or("ignore")
+        od_controller::templates::ACTION_NAMES
+            .get(self.action)
+            .copied()
+            .unwrap_or("ignore")
     }
 
     /// The `[[input]]` entry for the learned control, if any.
     pub fn entry(&self) -> Option<String> {
-        self.suggestion.as_ref().map(|l| input_block(l, self.action_name(), (self.deck > 0).then_some(self.deck)))
+        self.suggestion
+            .as_ref()
+            .map(|l| input_block(l, self.action_name(), (self.deck > 0).then_some(self.deck)))
     }
 }
 
@@ -122,7 +129,10 @@ pub(crate) fn describe(l: &LearnedInput) -> String {
         InputMode::Absolute14 => od_i18n::tr("14-bit fader"),
         InputMode::Relative => od_i18n::tr("encoder / jog"),
     };
-    od_i18n::trf("{} · channel {} · {}", &[&kind, &(l.addr.channel + 1), &mode])
+    od_i18n::trf(
+        "{} · channel {} · {}",
+        &[&kind, &(l.addr.channel + 1), &mode],
+    )
 }
 
 /// The mapping entry of a learned control, with its deck when given.
@@ -130,7 +140,10 @@ pub(crate) fn input_block(l: &LearnedInput, action: &str, deck: Option<u8>) -> S
     let name = action.replace(['.', '_'], " ");
     let mut s = l.to_toml(action, &name);
     if let Some(d) = deck {
-        s = s.replace(&format!("action = {action:?}"), &format!("deck = {d}\naction = {action:?}"));
+        s = s.replace(
+            &format!("action = {action:?}"),
+            &format!("deck = {d}\naction = {action:?}"),
+        );
     }
     s
 }
@@ -184,7 +197,10 @@ pub(crate) fn save_entry(path: &Path, port: &str, entry: &str) -> Result<(), Str
 
 /// Where learned controls go when no own mapping file is set.
 pub(crate) fn default_learn_file(library: &Path) -> PathBuf {
-    library.parent().unwrap_or(Path::new(".")).join("mappings/learned.toml")
+    library
+        .parent()
+        .unwrap_or(Path::new("."))
+        .join("mappings/learned.toml")
 }
 
 // ── DDJ-FLX10 utility settings ──────────────────────────────────────────
@@ -218,12 +234,24 @@ pub(crate) fn flx10_settings(p: &Flx10Prefs) -> Vec<Flx10Setting> {
     };
     vec![
         Flx10Setting::SlipModeFlashing(p.slip_flashing),
-        Flx10Setting::SlipButtonLed(if p.slip_led == "blink" { SlipButtonLed::Blink } else { SlipButtonLed::Lit }),
+        Flx10Setting::SlipButtonLed(if p.slip_led == "blink" {
+            SlipButtonLed::Blink
+        } else {
+            SlipButtonLed::Lit
+        }),
         Flx10Setting::FaderStart(fader),
         Flx10Setting::JogRingColor(ring),
-        Flx10Setting::TimeMode(if p.time_mode == "elapsed" { TimeMode::Elapsed } else { TimeMode::Remaining }),
+        Flx10Setting::TimeMode(if p.time_mode == "elapsed" {
+            TimeMode::Elapsed
+        } else {
+            TimeMode::Remaining
+        }),
         Flx10Setting::VirtualDeckMode(p.virtual_deck),
-        Flx10Setting::RecOut(if p.rec_out == "without-mic" { RecOut::WithoutMic } else { RecOut::WithMic }),
+        Flx10Setting::RecOut(if p.rec_out == "without-mic" {
+            RecOut::WithoutMic
+        } else {
+            RecOut::WithMic
+        }),
         Flx10Setting::BoostLevel(boost),
     ]
 }
@@ -272,12 +300,19 @@ mod tests {
     #[test]
     fn monitor_lines_and_learning_from_the_stream() {
         let m = MidiMonitor::new(64);
-        let mut t = MidiTools { monitor: Some(m.clone()), ..Default::default() };
+        let mut t = MidiTools {
+            monitor: Some(m.clone()),
+            ..Default::default()
+        };
         t.set_monitoring(true);
         m.record("DDJ-TEST", Direction::In, &[0x90, 0x0B, 0x7F], Vec::new());
         assert!(t.poll());
         assert_eq!(t.lines.len(), 1);
-        assert!(t.lines[0].contains("90 0B 7F") || t.lines[0].to_uppercase().contains("90 0B 7F"), "{}", t.lines[0]);
+        assert!(
+            t.lines[0].contains("90 0B 7F") || t.lines[0].to_uppercase().contains("90 0B 7F"),
+            "{}",
+            t.lines[0]
+        );
         // Learn a 14-bit fader: CC 0x13 with its LSB 0x33.
         t.start_learn();
         for v in [10u8, 20, 30] {
@@ -289,10 +324,19 @@ mod tests {
         assert_eq!((s.addr.number, s.lsb), (0x13, Some(0x33)));
         assert_eq!(t.learn_port, "DDJ-TEST");
         assert!(describe(&s).contains("CC 0x13 / 0x33"));
-        t.action = od_controller::templates::ACTION_NAMES.iter().position(|a| *a == "mixer.fader").unwrap();
+        t.action = od_controller::templates::ACTION_NAMES
+            .iter()
+            .position(|a| *a == "mixer.fader")
+            .unwrap();
         t.deck = 2;
         let e = t.entry().unwrap();
-        assert!(e.contains("cc = 0x13") && e.contains("lsb = 0x33") && e.contains("deck = 2") && e.contains("action = \"mixer.fader\""), "{e}");
+        assert!(
+            e.contains("cc = 0x13")
+                && e.contains("lsb = 0x33")
+                && e.contains("deck = 2")
+                && e.contains("action = \"mixer.fader\""),
+            "{e}"
+        );
         t.stop_learn();
         t.set_monitoring(false);
         m.record("DDJ-TEST", Direction::In, &[0x90, 0x0C, 0x7F], Vec::new());
@@ -307,14 +351,24 @@ mod tests {
         s.feed(&[0x91, 0x0B, 0x7F]);
         s.feed(&[0x91, 0x0B, 0x00]);
         let l = s.suggest().unwrap();
-        save_entry(&path, "DDJ-TEST MIDI 1", &input_block(&l, "deck.play_pause", Some(2))).unwrap();
+        save_entry(
+            &path,
+            "DDJ-TEST MIDI 1",
+            &input_block(&l, "deck.play_pause", Some(2)),
+        )
+        .unwrap();
         let m = od_controller::Mapping::load(&path).expect("loads");
         assert!(m.matches_port("DDJ-TEST MIDI 1"));
         let mut s2 = LearnSession::new();
         s2.feed(&[0xB0, 0x40, 0x41]);
         s2.feed(&[0xB0, 0x40, 0x41]);
         s2.feed(&[0xB0, 0x40, 0x3F]);
-        save_entry(&path, "", &input_block(&s2.suggest().unwrap(), "browse.rotate", None)).unwrap();
+        save_entry(
+            &path,
+            "",
+            &input_block(&s2.suggest().unwrap(), "browse.rotate", None),
+        )
+        .unwrap();
         let text = std::fs::read_to_string(&path).unwrap();
         assert_eq!(text.matches("[[input]]").count(), 2);
         assert!(od_controller::Mapping::load(&path).is_ok());
@@ -329,12 +383,27 @@ mod tests {
         let d = Flx10Prefs::default();
         let got = flx10_settings(&d);
         // The defaults are the vendor utility's defaults (plus the boost level).
-        assert_eq!(&got[..7], &od_controller::flx10_settings::vendor_defaults()[..]);
+        assert_eq!(
+            &got[..7],
+            &od_controller::flx10_settings::vendor_defaults()[..]
+        );
         assert_eq!(got[7], Flx10Setting::BoostLevel(BoostLevel::ZeroDb));
-        let p = Flx10Prefs { fader_start: "off".into(), time_mode: "elapsed".into(), jog_ring: 3, boost_db: 9, ..Default::default() };
+        let p = Flx10Prefs {
+            fader_start: "off".into(),
+            time_mode: "elapsed".into(),
+            jog_ring: 3,
+            boost_db: 9,
+            ..Default::default()
+        };
         let s = flx10_settings(&p);
-        assert!(s.contains(&Flx10Setting::FaderStart(FaderStart::Off)) && s.contains(&Flx10Setting::TimeMode(TimeMode::Elapsed)));
-        assert!(s.contains(&Flx10Setting::JogRingColor(JogRingColor::Mode3)) && s.contains(&Flx10Setting::BoostLevel(BoostLevel::Plus9dB)));
+        assert!(
+            s.contains(&Flx10Setting::FaderStart(FaderStart::Off))
+                && s.contains(&Flx10Setting::TimeMode(TimeMode::Elapsed))
+        );
+        assert!(
+            s.contains(&Flx10Setting::JogRingColor(JogRingColor::Mode3))
+                && s.contains(&Flx10Setting::BoostLevel(BoostLevel::Plus9dB))
+        );
         assert_eq!(flx10_wire_text(&d).matches('←').count(), 8);
     }
 }

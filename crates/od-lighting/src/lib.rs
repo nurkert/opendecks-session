@@ -5,16 +5,19 @@
 //!   files) and the patch.
 //! * [`render`]: the attribute model ([`Look`]) rendered to DMX values.
 //! * [`show`]: automatic, easy and pro modes driven by the music.
+//! * [`rig`]: editing a rig from outside the app and its live inbox.
 //! * [`Lighting`]: patch + show + outputs, ticked by the app.
 
 pub mod fixture;
 pub mod output;
 pub mod render;
+pub mod rig;
 pub mod show;
 
 pub use fixture::{ChannelKind, FixtureDef, FixtureRole, Patch, Patched};
 pub use output::{Output, OutputKind, Universe};
 pub use render::{Look, render, render_fixture};
+pub use rig::{LiveCommand, add_fixture, parse_output};
 pub use show::{
     Attr, DeckMusic, Effect, GroupSettings, LightCue, Mode, Momentary, Program, Show, ShowSettings,
     TrackCue, Wave, hsv, hue_for_key,

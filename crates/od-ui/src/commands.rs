@@ -9,7 +9,8 @@ use std::rc::Rc;
 impl App {
     /// Shows a status message in the current language.
     pub(crate) fn status(&self, text: impl Into<String>) {
-        self.ui.set_status_text(od_i18n::translate_message(&text.into()).into());
+        self.ui
+            .set_status_text(od_i18n::translate_message(&text.into()).into());
     }
 
     /// Shows a library error and turns the result into an option.
@@ -56,14 +57,22 @@ impl App {
     pub(crate) fn undo(&self) {
         let r = self.state.borrow_mut().lib.undo();
         if let Some(label) = self.report(r) {
-            self.after_edit(&label.map(|l| format!("Undid: {}", od_i18n::translate_message(&l))).unwrap_or_else(|| "Nothing to undo".into()));
+            self.after_edit(
+                &label
+                    .map(|l| format!("Undid: {}", od_i18n::translate_message(&l)))
+                    .unwrap_or_else(|| "Nothing to undo".into()),
+            );
         }
     }
 
     pub(crate) fn redo(&self) {
         let r = self.state.borrow_mut().lib.redo();
         if let Some(label) = self.report(r) {
-            self.after_edit(&label.map(|l| format!("Redid: {}", od_i18n::translate_message(&l))).unwrap_or_else(|| "Nothing to redo".into()));
+            self.after_edit(
+                &label
+                    .map(|l| format!("Redid: {}", od_i18n::translate_message(&l)))
+                    .unwrap_or_else(|| "Nothing to redo".into()),
+            );
         }
     }
 }
@@ -73,7 +82,13 @@ impl App {
 pub(crate) fn run(app: &Rc<App>, id: &str) {
     use slint::SharedString as S;
     let ui = &app.ui;
-    let slot = |l: &str| l.bytes().next().map(|b| (b.saturating_sub(b'a')) as i32).unwrap_or(0).clamp(0, 7);
+    let slot = |l: &str| {
+        l.bytes()
+            .next()
+            .map(|b| (b.saturating_sub(b'a')) as i32)
+            .unwrap_or(0)
+            .clamp(0, 7)
+    };
     match id {
         "prefs.open" => crate::preferences::open(app),
         "app.check-updates" => crate::update::check_now(app, true),
@@ -127,7 +142,10 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "sampler.seq.play" => crate::sampler::toggle_seq_play(app),
         "sampler.stop.all" => {
             engine::ensure_engine(app);
-            engine::send(app, od_engine::Command::Sampler(od_engine::SamplerCommand::StopAll));
+            engine::send(
+                app,
+                od_engine::Command::Sampler(od_engine::SamplerCommand::StopAll),
+            );
         }
         "browser.search" => {
             if ui.get_section() != "library" {
@@ -141,7 +159,14 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "browser.list.next" => browser::cycle_list(app, true),
         "browser.select.all" => browser::select_all(app),
         "browser.load" => {
-            let row = app.state.borrow().browser.selection.iter().next_back().copied();
+            let row = app
+                .state
+                .borrow()
+                .browser
+                .selection
+                .iter()
+                .next_back()
+                .copied();
             if let Some(i) = row {
                 ui.invoke_row_activated(i as i32);
             }
@@ -208,9 +233,13 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "view.panel.sub-browser" => browser::sub::toggle(app),
         "browser.duplicates" => browser::open_duplicates(app),
         "browser.stems" => crate::stems_batch::separate_selected(app),
-        "library.export.xml" | "library.import.xml" | "library.export.archive" | "library.restore.archive" | "library.consolidate" | "library.import.rekordbox-settings" | "library.import.itunes" => {
-            crate::import::library_action(app, id)
-        }
+        "library.export.xml"
+        | "library.import.xml"
+        | "library.export.archive"
+        | "library.restore.archive"
+        | "library.consolidate"
+        | "library.import.rekordbox-settings"
+        | "library.import.itunes" => crate::import::library_action(app, id),
         _ => {
             if let Some(l) = id.strip_prefix("perform.layout.set.") {
                 crate::decks::set_perform_layout(app, l);
@@ -222,14 +251,24 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
                 if let Ok(n) = rest.parse::<i32>() {
                     ui.invoke_deck_load(n);
                 }
-            } else if let Some(n) = id.strip_prefix("sampler.slot").and_then(|n| n.parse::<usize>().ok()) {
+            } else if let Some(n) = id
+                .strip_prefix("sampler.slot")
+                .and_then(|n| n.parse::<usize>().ok())
+            {
                 engine::ensure_engine(app);
-                engine::send(app, od_engine::Command::Sampler(od_engine::SamplerCommand::Trigger { slot: n - 1 }));
-            } else if let Some((unit, action)) = id.strip_prefix("fx").and_then(|r| r.split_once('.')) {
+                engine::send(
+                    app,
+                    od_engine::Command::Sampler(od_engine::SamplerCommand::Trigger { slot: n - 1 }),
+                );
+            } else if let Some((unit, action)) =
+                id.strip_prefix("fx").and_then(|r| r.split_once('.'))
+            {
                 if let Ok(n) = unit.parse::<usize>() {
                     fx_action(app, id, n.saturating_sub(1), action);
                 }
-            } else if let Some((deck, action)) = id.strip_prefix("deck").and_then(|r| r.split_once('.')) {
+            } else if let Some((deck, action)) =
+                id.strip_prefix("deck").and_then(|r| r.split_once('.'))
+            {
                 if let Ok(n) = deck.parse::<usize>() {
                     deck_action(app, n, action);
                 }
@@ -267,7 +306,9 @@ fn fx_action(app: &App, id: &str, u: usize, action: &str) {
 /// Ends a held Release FX started by the keyboard action `id`.
 fn end_fx_release(app: &App, id: &str) {
     use od_engine::ReleaseFxKind as R;
-    let Some((unit, action)) = id.strip_prefix("fx").and_then(|r| r.split_once('.')) else { return };
+    let Some((unit, action)) = id.strip_prefix("fx").and_then(|r| r.split_once('.')) else {
+        return;
+    };
     let u = unit.parse::<usize>().unwrap_or(1).saturating_sub(1);
     let kind = match action {
         "release.brake" => R::VinylBrake,
@@ -283,7 +324,13 @@ fn deck_action(app: &App, n: usize, action: &str) {
     let ui = &app.ui;
     let d = n as i32;
     let i = n - 1;
-    let slot = |l: &str| l.bytes().next().map(|b| (b.saturating_sub(b'a')) as usize).unwrap_or(0).min(7);
+    let slot = |l: &str| {
+        l.bytes()
+            .next()
+            .map(|b| (b.saturating_sub(b'a')) as usize)
+            .unwrap_or(0)
+            .min(7)
+    };
     let state = || engine::snapshot(app).map(|s| s.decks[i]);
     match action {
         "play" => ui.invoke_deck_toggle_play(d),
@@ -294,24 +341,36 @@ fn deck_action(app: &App, n: usize, action: &str) {
         "loop.half" => ui.invoke_deck_loop_scale(d, 0.5),
         "loop.double" => ui.invoke_deck_loop_scale(d, 2.0),
         "loop.1_2" => ui.invoke_deck_loop(d, 0.5),
-        "loop.1" | "loop.2" | "loop.4" | "loop.8" => ui.invoke_deck_loop(d, action[5..].parse().unwrap_or(4.0)),
+        "loop.1" | "loop.2" | "loop.4" | "loop.8" => {
+            ui.invoke_deck_loop(d, action[5..].parse().unwrap_or(4.0))
+        }
         _ => {
             engine::ensure_engine(app);
             let cmd = match action {
                 "start" => Some(D::Seek { seconds: 0.0 }),
                 "bend.up" | "bend.down" => {
                     app.held.borrow_mut().push((action.to_string(), i));
-                    Some(D::SetPitchBend(if action == "bend.up" { 0.04 } else { -0.04 }))
+                    Some(D::SetPitchBend(if action == "bend.up" {
+                        0.04
+                    } else {
+                        -0.04
+                    }))
                 }
                 "tempo.up" | "tempo.down" => {
                     let v = state().map(|s| s.tempo_fader).unwrap_or(0.0);
-                    Some(D::SetTempoFader((v + if action == "tempo.up" { 0.01 } else { -0.01 }).clamp(-1.0, 1.0)))
+                    Some(D::SetTempoFader(
+                        (v + if action == "tempo.up" { 0.01 } else { -0.01 }).clamp(-1.0, 1.0),
+                    ))
                 }
                 "jump.fwd" => Some(D::BeatJumpStep { forward: true }),
                 "jump.back" => Some(D::BeatJumpStep { forward: false }),
                 "loop.in" => Some(D::LoopIn),
                 "loop.out" => Some(D::LoopOut),
-                "loop.exit" => Some(if state().is_some_and(|s| s.loop_state.active) { D::LoopExit } else { D::Reloop }),
+                "loop.exit" => Some(if state().is_some_and(|s| s.loop_state.active) {
+                    D::LoopExit
+                } else {
+                    D::Reloop
+                }),
                 "loop.auto" => {
                     if state().is_some_and(|s| s.loop_state.active) {
                         Some(D::LoopExit)
@@ -323,7 +382,10 @@ fn deck_action(app: &App, n: usize, action: &str) {
                 "memory.next" => Some(D::MemoryCue(MemoryCueJump::Next)),
                 "memory.prev" => Some(D::MemoryCue(MemoryCueJump::Previous)),
                 "padmode.next" | "padmode.prev" => {
-                    let mode = crate::pads::step_mode(app.decks.borrow().pad_mode[i], if action == "padmode.next" { 1 } else { -1 });
+                    let mode = crate::pads::step_mode(
+                        app.decks.borrow().pad_mode[i],
+                        if action == "padmode.next" { 1 } else { -1 },
+                    );
                     crate::decks::set_pad_mode(app, i, mode);
                     None
                 }
@@ -360,12 +422,26 @@ fn deck_action(app: &App, n: usize, action: &str) {
 
 /// Key release: ends held actions (pitch bend) started by that key.
 pub(crate) fn release(app: &App, text: &str) {
-    let Some(chord) = crate::keymap::Chord::from_event(text, false, false, false, false, crate::keymap::Layout::detect()) else { return };
+    let Some(chord) = crate::keymap::Chord::from_event(
+        text,
+        false,
+        false,
+        false,
+        false,
+        crate::keymap::Layout::detect(),
+    ) else {
+        return;
+    };
     let held: Vec<(String, usize)> = std::mem::take(&mut *app.held.borrow_mut());
     let keymap_hits: Vec<String> = {
         let st = app.state.borrow();
         held.iter()
-            .filter(|(a, deck)| st.keymap.bindings(&held_id(a, *deck)).iter().any(|c| c.key == chord.key))
+            .filter(|(a, deck)| {
+                st.keymap
+                    .bindings(&held_id(a, *deck))
+                    .iter()
+                    .any(|c| c.key == chord.key)
+            })
             .map(|(a, d)| format!("{d}{a}"))
             .collect()
     };
@@ -386,5 +462,9 @@ pub(crate) fn release(app: &App, text: &str) {
 
 /// The action id of a held entry.
 fn held_id(action: &str, deck: usize) -> String {
-    if deck == NO_DECK { action.to_string() } else { format!("deck{}.{action}", deck + 1) }
+    if deck == NO_DECK {
+        action.to_string()
+    } else {
+        format!("deck{}.{action}", deck + 1)
+    }
 }

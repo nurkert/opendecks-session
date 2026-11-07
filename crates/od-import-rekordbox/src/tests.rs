@@ -71,7 +71,7 @@ const SCHEMA: &str = "
 CREATE TABLE djmdContent (ID VARCHAR(255) PRIMARY KEY, FolderPath, FileNameL, Title, ArtistID, AlbumID,
   GenreID, LabelID, RemixerID, ComposerID, OrgArtistID, KeyID, Commnt, ReleaseYear INTEGER, TrackNo INTEGER,
   Rating INTEGER, ColorID, BPM INTEGER, Length INTEGER, SampleRate INTEGER, BitRate INTEGER, BitDepth INTEGER,
-  FileSize INTEGER, AnalysisDataPath, StockDate, created_at, ReleaseDate, DJPlayCount INTEGER,
+  FileSize INTEGER, AnalysisDataPath, StockDate, created_at, ReleaseDate, DJPlayCount INTEGER, ImagePath,
   rb_local_deleted TINYINT(1) DEFAULT 0);
 CREATE TABLE djmdArtist (ID PRIMARY KEY, Name, rb_local_deleted DEFAULT 0);
 CREATE TABLE djmdAlbum (ID PRIMARY KEY, Name, rb_local_deleted DEFAULT 0);
@@ -137,6 +137,13 @@ fn build_master(rb: &Path, music: &Path, reserve: bool) -> Vec<PathBuf> {
     add("2", &files[1], "Two", "g2", "k2", 12800, "", 0);
     add("3", &files[2], "Gone", "g1", "", 0, "", 0);
     add("4", &files[3], "Deleted", "g1", "", 0, "", 1);
+    // Track "One" has a cover in rekordbox's own artwork folder (thumbnail
+    // plus the larger `_m` variant).
+    let art = rb.join("share/PIONEER/Artwork/00001");
+    std::fs::create_dir_all(&art).unwrap();
+    std::fs::write(art.join("a1.jpg"), b"small").unwrap();
+    std::fs::write(art.join("a1_m.jpg"), b"\xFF\xD8medium").unwrap();
+    conn.execute("UPDATE djmdContent SET ImagePath = '/PIONEER/Artwork/00001/a1.jpg' WHERE ID = '1'", []).unwrap();
     conn.execute_batch(
         "INSERT INTO djmdCue VALUES ('c1','1',500,-1,1,255,36,'Drop',0);
          INSERT INTO djmdCue VALUES ('c2','1',1000,1500,5,255,43,'',0);
@@ -229,6 +236,9 @@ fn master_db_import() {
     assert_eq!(one.tags.track_number, Some(7));
     assert_eq!(one.tags.rating, 3);
     assert_eq!(one.tags.color, Some(TRACK_COLORS[1].1));
+    // The cover comes from rekordbox's artwork folder, larger variant first.
+    let (art, media) = lib.artwork(one.id).unwrap().expect("cover from PIONEER/Artwork");
+    assert_eq!((art.as_slice(), media.as_str()), (b"\xFF\xD8medium".as_slice(), "image/jpeg"));
     let (g, src) = lib.beatgrid_with_source(one.id).unwrap().unwrap();
     assert_eq!(src, DataSource::Imported);
     assert_eq!(g.beats.len(), 4);

@@ -24,7 +24,12 @@ pub struct MicRuntime {
 /// Input-capable devices of the default backend.
 fn input_devices() -> Vec<String> {
     od_audio_io::list_devices(Backend::Default)
-        .map(|d| d.into_iter().filter(|d| d.max_input_channels > 0).map(|d| d.name).collect())
+        .map(|d| {
+            d.into_iter()
+                .filter(|d| d.max_input_channels > 0)
+                .map(|d| d.name)
+                .collect()
+        })
         .unwrap_or_default()
 }
 
@@ -51,9 +56,20 @@ fn open(app: &App) -> Result<(), String> {
     }
     let rate = app.engine.borrow().sample_rate();
     let device = app.mic.borrow().device.clone();
-    let cfg = InputConfig { device: device.clone(), sample_rate: Some(rate), channels: Some(2), ring_seconds: Some(1), ..Default::default() };
-    let cfg_mono = InputConfig { channels: Some(1), ..cfg.clone() };
-    let (inp, ring) = AudioInput::start(&cfg).or_else(|_| AudioInput::start(&cfg_mono)).map_err(|e| e.to_string())?;
+    let cfg = InputConfig {
+        device: device.clone(),
+        sample_rate: Some(rate),
+        channels: Some(2),
+        ring_seconds: Some(1),
+        ..Default::default()
+    };
+    let cfg_mono = InputConfig {
+        channels: Some(1),
+        ..cfg.clone()
+    };
+    let (inp, ring) = AudioInput::start(&cfg)
+        .or_else(|_| AudioInput::start(&cfg_mono))
+        .map_err(|e| e.to_string())?;
     input(app, InputCommand::Attach(ring, inp.channels));
     app.mic.borrow_mut().input = Some(inp);
     Ok(())
@@ -70,7 +86,14 @@ fn refresh(app: &App) {
     g.set_on(m.on);
     g.set_talkover(m.talkover);
     g.set_level(m.level);
-    g.set_device(m.input.as_ref().map(|i| i.device_name.clone()).or_else(|| m.device.clone()).unwrap_or_default().into());
+    g.set_device(
+        m.input
+            .as_ref()
+            .map(|i| i.device_name.clone())
+            .or_else(|| m.device.clone())
+            .unwrap_or_default()
+            .into(),
+    );
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
@@ -110,7 +133,10 @@ pub(crate) fn wire(app: &Rc<App>) {
         let next = next_device(&list, a.mic.borrow().device.as_deref());
         let was_open = a.mic.borrow().input.is_some();
         a.mic.borrow_mut().device = next.clone();
-        a.status(format!("Microphone input: {}", next.as_deref().unwrap_or("system default")));
+        a.status(format!(
+            "Microphone input: {}",
+            next.as_deref().unwrap_or("system default")
+        ));
         if was_open {
             close(&a);
             if let Err(e) = open(&a) {
@@ -142,7 +168,10 @@ mod tests {
     fn device_button_cycles_through_inputs_and_default() {
         let list = vec!["USB Mic".to_string(), "Line In".to_string()];
         assert_eq!(next_device(&list, None).as_deref(), Some("USB Mic"));
-        assert_eq!(next_device(&list, Some("USB Mic")).as_deref(), Some("Line In"));
+        assert_eq!(
+            next_device(&list, Some("USB Mic")).as_deref(),
+            Some("Line In")
+        );
         assert_eq!(next_device(&list, Some("Line In")), None);
         assert_eq!(next_device(&list, Some("gone")).as_deref(), Some("USB Mic"));
         assert_eq!(next_device(&[], None), None);

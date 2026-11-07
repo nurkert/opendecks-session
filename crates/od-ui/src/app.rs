@@ -5,12 +5,15 @@
 //! functions that project [`AppState`] into its view model.
 
 use crate::state::{AppConfig, AppState};
-use slint::ComponentHandle;
 use crate::workers::{AnalysisWorker, WorkerEvent};
-use crate::{AppWindow, browser, controller, decks, devices, engine, explorer, fx, mixer, player, preferences, recorder, sampler, shell, update};
+use crate::{
+    AppWindow, browser, controller, decks, devices, engine, explorer, fx, mixer, player,
+    preferences, recorder, sampler, shell, update,
+};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use od_devices::{DeviceManager, ManagerConfig};
 use od_library::Library;
+use slint::ComponentHandle;
 use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::Duration;
@@ -74,7 +77,10 @@ impl App {
     pub fn new(config: AppConfig) -> anyhow::Result<Rc<Self>> {
         let lib = Library::open(&config.library_path)?;
         let state = AppState::new(lib, config);
-        if state.settings.advanced.backup_on_start && (state.lib.backups().map(|b| b.is_empty()).unwrap_or(true) || state.lib.track_count()? > 0) {
+        if state.settings.advanced.backup_on_start
+            && (state.lib.backups().map(|b| b.is_empty()).unwrap_or(true)
+                || state.lib.track_count()? > 0)
+        {
             if let Err(e) = state.lib.backup_now("start") {
                 tracing::warn!(error = %e, "start-up backup failed");
             }
@@ -88,9 +94,16 @@ impl App {
         let ui = AppWindow::new()?;
         shell::setup_window(&ui, &state.config, &state.settings);
         let (wtx, wrx) = unbounded();
-        let analysis = AnalysisWorker::start(state.config.library_path.clone(), preferences::analysis_control(&state.settings, state.config.lite), wtx.clone());
-        let device_manager = DeviceManager::start(ManagerConfig::new(state.config.library_path.clone()))?;
-        let lighting = crate::lighting::LightingRuntime::load(crate::lighting::rig_path(&state.config.library_path));
+        let analysis = AnalysisWorker::start(
+            state.config.library_path.clone(),
+            preferences::analysis_control(&state.settings, state.config.lite),
+            wtx.clone(),
+        );
+        let device_manager =
+            DeviceManager::start(ManagerConfig::new(state.config.library_path.clone()))?;
+        let lighting = crate::lighting::LightingRuntime::load(crate::lighting::rig_path(
+            &state.config.library_path,
+        ));
         let app = Rc::new(App {
             ui,
             state: RefCell::new(state),
@@ -143,11 +156,15 @@ impl App {
         shell::restore_view(&app);
         app.refresh_all();
         let weak = Rc::downgrade(&app);
-        app.tick_timer.start(slint::TimerMode::Repeated, Duration::from_millis(250), move || {
-            if let Some(app) = weak.upgrade() {
-                app.tick();
-            }
-        });
+        app.tick_timer.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(250),
+            move || {
+                if let Some(app) = weak.upgrade() {
+                    app.tick();
+                }
+            },
+        );
         Ok(app)
     }
 
@@ -183,9 +200,15 @@ impl App {
         let mut need_refresh = false;
         for e in self.worker_events.try_iter() {
             match e {
-                WorkerEvent::ImportProgress { done, total } => self.status(format!("Adding music: {done} of {total} files")),
+                WorkerEvent::ImportProgress { done, total } => {
+                    self.status(format!("Adding music: {done} of {total} files"))
+                }
                 WorkerEvent::ImportFinished { added, failed } => {
-                    self.status(if failed > 0 { format!("Added {added} tracks, {failed} files could not be read") } else { format!("Added {added} tracks") });
+                    self.status(if failed > 0 {
+                        format!("Added {added} tracks, {failed} files could not be read")
+                    } else {
+                        format!("Added {added} tracks")
+                    });
                     need_refresh = true;
                 }
                 WorkerEvent::AnalysisProgress { done, total } => {

@@ -21,7 +21,10 @@ pub(crate) const EXPLORER: i32 = -2;
 pub(crate) fn decode_stick_id(id: i32) -> Option<(usize, Option<NodeId>)> {
     if id <= -STICK_NODE {
         let v = -id;
-        Some(((v / STICK_NODE - 1) as usize, Some(NodeId((v % STICK_NODE) as i64))))
+        Some((
+            (v / STICK_NODE - 1) as usize,
+            Some(NodeId((v % STICK_NODE) as i64)),
+        ))
     } else if id <= STICK_ROOT && id > STICK_ROOT - 1000 {
         Some(((STICK_ROOT - id) as usize, None))
     } else {
@@ -46,18 +49,41 @@ pub(crate) fn scale_lengths(rows: &mut [TreeRow], max: f32) {
 }
 
 fn row(id: i32, name: impl Into<SharedString>, kind: &str, depth: i32, count: i32) -> TreeRow {
-    TreeRow { id, name: name.into(), kind: kind.into(), depth, count, ..Default::default() }
+    TreeRow {
+        id,
+        name: name.into(),
+        kind: kind.into(),
+        depth,
+        count,
+        ..Default::default()
+    }
 }
 
 /// Library nodes below `parent`, depth first, expanded folders opened.
 /// Whether `n` or a node below it matches the tree filter (lower case).
 pub(crate) fn filter_matches(all: &[od_library::Node], n: &od_library::Node, filter: &str) -> bool {
-    filter.is_empty() || n.name.to_lowercase().contains(filter) || all.iter().filter(|c| c.parent == Some(n.id)).any(|c| filter_matches(all, c, filter))
+    filter.is_empty()
+        || n.name.to_lowercase().contains(filter)
+        || all
+            .iter()
+            .filter(|c| c.parent == Some(n.id))
+            .any(|c| filter_matches(all, c, filter))
 }
 
-fn walk(st: &AppState, all: &[od_library::Node], parent: Option<NodeId>, depth: i32, out: &mut Vec<TreeRow>, longest: &mut f64, device_nodes: &HashSet<NodeId>) {
+fn walk(
+    st: &AppState,
+    all: &[od_library::Node],
+    parent: Option<NodeId>,
+    depth: i32,
+    out: &mut Vec<TreeRow>,
+    longest: &mut f64,
+    device_nodes: &HashSet<NodeId>,
+) {
     let filter = st.browser.tree_filter.as_str();
-    for n in all.iter().filter(|n| n.parent == parent && filter_matches(all, n, filter)) {
+    for n in all
+        .iter()
+        .filter(|n| n.parent == parent && filter_matches(all, n, filter))
+    {
         let has_children = all.iter().any(|c| c.parent == Some(n.id));
         let (count, duration) = if n.kind == NodeKind::Folder {
             (0, 0.0)
@@ -74,7 +100,13 @@ fn walk(st: &AppState, all: &[od_library::Node], parent: Option<NodeId>, depth: 
             has_children,
             expanded,
             on_device: device_nodes.contains(&n.id),
-            ..row(n.id.0 as i32, n.name.clone(), n.kind.as_str(), depth, count as i32)
+            ..row(
+                n.id.0 as i32,
+                n.name.clone(),
+                n.kind.as_str(),
+                depth,
+                count as i32,
+            )
         });
         if has_children && expanded {
             walk(st, all, Some(n.id), depth + 1, out, longest, device_nodes);
@@ -86,7 +118,8 @@ pub(crate) fn refresh_tree(app: &App) {
     refresh_menu_targets(app);
     super::sub::refresh(app);
     let years = super::sources::history_years(&app.state.borrow().lib);
-    let year = super::sources::history_year(&years, app.state.borrow().browser.history_year.as_deref());
+    let year =
+        super::sources::history_year(&years, app.state.borrow().browser.history_year.as_deref());
     let (names, histories) = super::sources::history_rows(&app.state.borrow().lib, year.as_deref());
     app.state.borrow_mut().browser.histories = names;
     app.state.borrow_mut().browser.history_year = year.clone();
@@ -96,9 +129,20 @@ pub(crate) fn refresh_tree(app: &App) {
     let st = app.state.borrow();
     let b = &st.browser;
     let all = st.lib.all_nodes().unwrap_or_default();
-    let device_nodes: HashSet<NodeId> =
-        st.lib.devices().unwrap_or_default().iter().flat_map(|d| st.lib.device_node_closure(d.id).unwrap_or_default()).collect();
-    let mut rows = vec![row(ALL_TRACKS, od_i18n::tr("All tracks"), "all", 0, st.lib.track_count().unwrap_or(0) as i32)];
+    let device_nodes: HashSet<NodeId> = st
+        .lib
+        .devices()
+        .unwrap_or_default()
+        .iter()
+        .flat_map(|d| st.lib.device_node_closure(d.id).unwrap_or_default())
+        .collect();
+    let mut rows = vec![row(
+        ALL_TRACKS,
+        od_i18n::tr("All tracks"),
+        "all",
+        0,
+        st.lib.track_count().unwrap_or(0) as i32,
+    )];
     let mut longest = 1.0f64;
     walk(&st, &all, None, 0, &mut rows, &mut longest, &device_nodes);
     // Sticks with an OpenDecks library, browsable as read-only sources.
@@ -106,9 +150,17 @@ pub(crate) fn refresh_tree(app: &App) {
         let open = b.stick.as_ref().filter(|(j, _)| *j == i).map(|(_, s)| s);
         let count = match open {
             Some(s) => s.library.track_count().unwrap_or(0) as i32,
-            None => od_format_native::Stick::open(root).ok().flatten().and_then(|s| s.library.track_count().ok()).unwrap_or(0) as i32,
+            None => od_format_native::Stick::open(root)
+                .ok()
+                .flatten()
+                .and_then(|s| s.library.track_count().ok())
+                .unwrap_or(0) as i32,
         };
-        rows.push(TreeRow { expanded: open.is_some(), on_device: true, ..row(stick_root_id(i), name.clone(), "stick", 0, count) });
+        rows.push(TreeRow {
+            expanded: open.is_some(),
+            on_device: true,
+            ..row(stick_root_id(i), name.clone(), "stick", 0, count)
+        });
         if let Some(s) = open {
             for n in s.library.all_nodes().unwrap_or_default() {
                 let mut depth = 1;
@@ -118,7 +170,13 @@ pub(crate) fn refresh_tree(app: &App) {
                     p = s.library.node(x).ok().and_then(|n| n.parent);
                 }
                 let count = s.library.node_tracks(n.id).map(|t| t.len()).unwrap_or(0) as i32;
-                rows.push(row(stick_node_id(i, n.id), n.name.clone(), n.kind.as_str(), depth, count));
+                rows.push(row(
+                    stick_node_id(i, n.id),
+                    n.name.clone(),
+                    n.kind.as_str(),
+                    depth,
+                    count,
+                ));
             }
         }
     }
@@ -131,7 +189,12 @@ pub(crate) fn refresh_tree(app: &App) {
             super::Special::TagList => super::sources::TAG_LIST,
             super::Special::Related => super::sources::RELATED,
             super::Special::Duplicates => super::sources::DUPLICATES,
-            super::Special::History(name) => b.histories.iter().position(|h| h == name).map(super::sources::history_id).unwrap_or(ALL_TRACKS),
+            super::Special::History(name) => b
+                .histories
+                .iter()
+                .position(|h| h == name)
+                .map(super::sources::history_id)
+                .unwrap_or(ALL_TRACKS),
         }
     } else {
         match (&b.stick, b.node) {
@@ -151,7 +214,10 @@ mod tests {
     fn stick_ids_round_trip() {
         assert_eq!(decode_stick_id(stick_root_id(0)), Some((0, None)));
         assert_eq!(decode_stick_id(stick_root_id(3)), Some((3, None)));
-        assert_eq!(decode_stick_id(stick_node_id(2, NodeId(42))), Some((2, Some(NodeId(42)))));
+        assert_eq!(
+            decode_stick_id(stick_node_id(2, NodeId(42))),
+            Some((2, Some(NodeId(42))))
+        );
         assert_eq!(decode_stick_id(ALL_TRACKS), None);
         assert_eq!(decode_stick_id(EXPLORER), None);
         assert_eq!(decode_stick_id(17), None);
@@ -160,12 +226,24 @@ mod tests {
     #[test]
     fn lengths_scale_to_longest() {
         let mut rows = vec![
-            TreeRow { length_frac: 0.0, ..Default::default() },
-            TreeRow { length_frac: 300.0, ..Default::default() },
-            TreeRow { length_frac: 600.0, ..Default::default() },
+            TreeRow {
+                length_frac: 0.0,
+                ..Default::default()
+            },
+            TreeRow {
+                length_frac: 300.0,
+                ..Default::default()
+            },
+            TreeRow {
+                length_frac: 600.0,
+                ..Default::default()
+            },
         ];
         scale_lengths(&mut rows, 600.0);
-        assert_eq!(rows.iter().map(|r| r.length_frac).collect::<Vec<_>>(), [0.0, 0.5, 1.0]);
+        assert_eq!(
+            rows.iter().map(|r| r.length_frac).collect::<Vec<_>>(),
+            [0.0, 0.5, 1.0]
+        );
     }
 }
 
@@ -180,11 +258,28 @@ fn refresh_menu_targets(app: &App) {
         .all_nodes()
         .unwrap_or_default()
         .into_iter()
-        .filter(|n| matches!(n.kind, od_library::NodeKind::Playlist | od_library::NodeKind::Set))
-        .map(|n| crate::MenuTarget { id: n.id.0 as i32, name: n.name.into() })
+        .filter(|n| {
+            matches!(
+                n.kind,
+                od_library::NodeKind::Playlist | od_library::NodeKind::Set
+            )
+        })
+        .map(|n| crate::MenuTarget {
+            id: n.id.0 as i32,
+            name: n.name.into(),
+        })
         .collect();
-    let recent_ids: Vec<i64> = st.lib.meta(super::RECENT_LISTS_META).ok().flatten().and_then(|j| serde_json::from_str(&j).ok()).unwrap_or_default();
-    let recent: Vec<crate::MenuTarget> = recent_ids.iter().filter_map(|id| targets.iter().find(|t| t.id as i64 == *id).cloned()).collect();
+    let recent_ids: Vec<i64> = st
+        .lib
+        .meta(super::RECENT_LISTS_META)
+        .ok()
+        .flatten()
+        .and_then(|j| serde_json::from_str(&j).ok())
+        .unwrap_or_default();
+    let recent: Vec<crate::MenuTarget> = recent_ids
+        .iter()
+        .filter_map(|id| targets.iter().find(|t| t.id as i64 == *id).cloned())
+        .collect();
     app.ui.set_menu_recent(crate::models::model(recent));
     app.ui.set_menu_playlists(crate::models::model(targets));
 }

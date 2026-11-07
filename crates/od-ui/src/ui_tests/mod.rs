@@ -26,6 +26,8 @@ mod flows;
 pub(crate) mod harness;
 mod perform;
 mod prepare;
+mod remote;
 mod session;
 mod stage;
 mod views;
+mod alignment;

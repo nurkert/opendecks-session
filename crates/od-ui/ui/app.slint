@@ -854,36 +854,43 @@ export component AppWindow inherits Window {
                         // The kiosk shows the list summary in the status band only.
                         if !root.kiosk: Caps { accessible-label: "browser.list-sub"; accessible-role: text; accessible-value: root.node-sub; text: root.node-sub; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; }
-                        if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: PlateButton { accessible-label: "browser.find-moved"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; tooltip: @tr("Search a folder for tracks whose files have moved"); command: "browser.find.moved"; clicked => { root.find-moved-files(); } }
-                        if root.node-kind == "all" && !root.kiosk: PlateButton { accessible-label: "browser.add-music"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; tooltip: @tr("Add a music folder"); command: "browser.add.music"; clicked => { root.import-folder(); } }
-                        if root.node-kind == "explorer" && !root.kiosk: LineToggle {
-                            accessible-label: "browser.recursive"; accessible-role: checkbox;
-                            accessible-checkable: true; accessible-checked: self.checked;
-                            horizontal-stretch: 0;
-                            label: @tr("Include subfolders");
-                            checked <=> root.explorer-recursive;
-                            toggled(v) => { root.explorer-set-recursive(v); }
+                        if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton { accessible-label: "browser.find-moved"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; tooltip: @tr("Search a folder for tracks whose files have moved"); command: "browser.find.moved"; clicked => { root.find-moved-files(); } } }
+                        if root.node-kind == "all" && !root.kiosk: VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton { accessible-label: "browser.add-music"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; tooltip: @tr("Add a music folder"); command: "browser.add.music"; clicked => { root.import-folder(); } } }
+                        if root.node-kind == "explorer" && !root.kiosk: VerticalLayout {
+                            horizontal-stretch: 0; alignment: center;
+                            LineToggle {
+                                accessible-label: "browser.recursive"; accessible-role: checkbox;
+                                accessible-checkable: true; accessible-checked: self.checked;
+                                horizontal-stretch: 0;
+                                label: @tr("Include subfolders");
+                                checked <=> root.explorer-recursive;
+                                toggled(v) => { root.explorer-set-recursive(v); }
+                            }
                         }
                         if root.node-kind == "related" && !root.kiosk: HorizontalLayout {
                             spacing: 4px;
-                            for d[i] in ["master", "1", "2", "3", "4"]: PlateButton {
-                                accessible-label: i == 0 ? "browser.related.master" : "browser.related.deck\{i}"; accessible-role: button;
-                                accessible-checkable: true; accessible-checked: root.related-source == d;
-                                horizontal-stretch: 0; compact: true;
-                                label: i == 0 ? @tr("MASTER") : d;
-                                active: root.related-source == d; tone: Theme.w546;
-                                tooltip: i == 0 ? @tr("Tracks that fit after the master deck") : @tr("Tracks that fit after deck {}", d);
-                                clicked => { root.related-source-set(d); }
+                            // Each key centred on the 32 px header row.
+                            for d[i] in ["master", "1", "2", "3", "4"]: VerticalLayout {
+                                alignment: center;
+                                PlateButton {
+                                    accessible-label: i == 0 ? "browser.related.master" : "browser.related.deck\{i}"; accessible-role: button;
+                                    accessible-checkable: true; accessible-checked: root.related-source == d;
+                                    horizontal-stretch: 0; compact: true;
+                                    label: i == 0 ? @tr("MASTER") : d;
+                                    active: root.related-source == d; tone: Theme.w546;
+                                    tooltip: i == 0 ? @tr("Tracks that fit after the master deck") : @tr("Tracks that fit after deck {}", d);
+                                    clicked => { root.related-source-set(d); }
+                                }
                             }
                         }
                         if root.node-kind == "duplicates" && !root.kiosk: Caps { accessible-label: "browser.duplicates.groups"; accessible-role: text; accessible-value: root.duplicate-groups; text: @tr("{} GROUPS", root.duplicate-groups); vertical-alignment: center; }
-                        if root.node-kind == "duplicates" && !root.kiosk && root.has-selection: PlateButton { accessible-label: "browser.duplicates.remove"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("REMOVE SELECTED"); tone: Theme.fault; tooltip: @tr("Remove the selected tracks from the collection (the files stay on disk)"); clicked => { root.duplicates-action("remove-selected"); } }
-                        if root.node-kind == "duplicates" && !root.kiosk && root.duplicate-groups > 0: PlateButton { accessible-label: "browser.duplicates.keep-first"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("KEEP ONE OF EACH"); tone: Theme.fault; tooltip: @tr("Remove every copy but the oldest of each group from the collection (the files stay on disk)"); clicked => { root.duplicates-action("keep-first"); } }
-                        if root.node-kind == "taglist" && !root.kiosk: PlateButton { accessible-label: "browser.tag-list.save"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("SAVE AS PLAYLIST"); tone: Theme.live; tooltip: @tr("Make a playlist of the tag list"); clicked => { root.tag-list-action("save"); } }
-                        if root.node-kind == "taglist" && !root.kiosk: PlateButton { accessible-label: "browser.tag-list.clear"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("CLEAR"); tone: Theme.fault; tooltip: @tr("Empty the tag list"); clicked => { root.tag-list-action("clear"); } }
-                        if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && root.node-kind != "related" && root.node-kind != "history" && root.node-kind != "taglist" && !root.read-only && !root.kiosk: PlateButton { accessible-label: "browser.delete-list"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; tooltip: @tr("Delete the open list"); command: "browser.delete.list"; clicked => { root.delete-node(); } }
+                        if root.node-kind == "duplicates" && !root.kiosk && root.has-selection: VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton { accessible-label: "browser.duplicates.remove"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("REMOVE SELECTED"); tone: Theme.fault; tooltip: @tr("Remove the selected tracks from the collection (the files stay on disk)"); clicked => { root.duplicates-action("remove-selected"); } } }
+                        if root.node-kind == "duplicates" && !root.kiosk && root.duplicate-groups > 0: VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton { accessible-label: "browser.duplicates.keep-first"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("KEEP ONE OF EACH"); tone: Theme.fault; tooltip: @tr("Remove every copy but the oldest of each group from the collection (the files stay on disk)"); clicked => { root.duplicates-action("keep-first"); } } }
+                        if root.node-kind == "taglist" && !root.kiosk: VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton { accessible-label: "browser.tag-list.save"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("SAVE AS PLAYLIST"); tone: Theme.live; tooltip: @tr("Make a playlist of the tag list"); clicked => { root.tag-list-action("save"); } } }
+                        if root.node-kind == "taglist" && !root.kiosk: VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton { accessible-label: "browser.tag-list.clear"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("CLEAR"); tone: Theme.fault; tooltip: @tr("Empty the tag list"); clicked => { root.tag-list-action("clear"); } } }
+                        if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && root.node-kind != "related" && root.node-kind != "history" && root.node-kind != "taglist" && !root.read-only && !root.kiosk: VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton { accessible-label: "browser.delete-list"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; tooltip: @tr("Delete the open list"); command: "browser.delete.list"; clicked => { root.delete-node(); } } }
                         // Load target of a double-click (Perform): the free deck or a fixed one.
-                        PlateButton {
+                        VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton {
                             accessible-label: "browser.target"; accessible-role: button;
                             accessible-value: root.load-target == 0 ? "auto" : root.load-target;
                             horizontal-stretch: 0; compact: !root.kiosk; tall: root.kiosk;
@@ -892,9 +899,9 @@ export component AppWindow inherits Window {
                             active: root.load-target > 0; tone: Theme.deck-color(root.load-target);
                             tooltip: root.mode == "perform" ? @tr("Where a double-click loads: the free deck or a fixed deck — click for the next") : @tr("In Prepare a double-click opens the track in the player");
                             clicked => { root.load-target = Math.mod(root.load-target + 1, max(2, root.decks.length) + 1); }
-                        }
+                        } }
                         // Row density of the list (Preferences > View > Line spacing).
-                        PlateButton {
+                        VerticalLayout { horizontal-stretch: 0; alignment: center; PlateButton {
                             accessible-label: "browser.density"; accessible-role: button;
                             accessible-value: root.density;
                             horizontal-stretch: 0; compact: !root.kiosk; tall: root.kiosk;
@@ -903,7 +910,7 @@ export component AppWindow inherits Window {
                             label: root.density == "compact" ? @tr("COMPACT") : root.density == "roomy" ? @tr("ROOMY") : @tr("NORMAL");
                             tooltip: @tr("Row spacing of the list: compact, normal, roomy — click for the next");
                             clicked => { root.cycle-density(); }
-                        }
+                        } }
                         Field {
                             accessible-label: "browser.search"; accessible-role: text-input;
                             accessible-value: self.text; accessible-placeholder-text: self.placeholder;

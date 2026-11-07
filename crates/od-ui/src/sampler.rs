@@ -11,7 +11,10 @@ use crate::app::{App, handler};
 use crate::models::Rows;
 use crate::{SamplerPadView, SamplerView, engine};
 use crossbeam_channel::{Receiver, Sender, unbounded};
-use od_engine::{Command, EngineState, MixerCommand, SAMPLER_BANKS, SAMPLER_SLOTS, SAMPLER_TOTAL, SEQ_STEPS, SampleData, SampleMode, SamplerCommand};
+use od_engine::{
+    Command, EngineState, MixerCommand, SAMPLER_BANKS, SAMPLER_SLOTS, SAMPLER_TOTAL, SEQ_STEPS,
+    SampleData, SampleMode, SamplerCommand,
+};
 use serde::{Deserialize, Serialize};
 use std::cell::{Cell, RefCell};
 use std::path::PathBuf;
@@ -145,7 +148,12 @@ pub(crate) fn pattern_steps(mask: u16) -> Vec<bool> {
 }
 
 /// Projects the 16 pads of `bank` (pure).
-pub(crate) fn pad_views(state: &EngineState, slots: &[Option<SlotInfo>], bank: usize, selected: usize) -> Vec<SamplerPadView> {
+pub(crate) fn pad_views(
+    state: &EngineState,
+    slots: &[Option<SlotInfo>],
+    bank: usize,
+    selected: usize,
+) -> Vec<SamplerPadView> {
     (0..SAMPLER_SLOTS)
         .map(|pad| {
             let slot = slot_of(bank, pad);
@@ -153,7 +161,12 @@ pub(crate) fn pad_views(state: &EngineState, slots: &[Option<SlotInfo>], bank: u
             SamplerPadView {
                 slot: slot as i32,
                 pad: pad as i32 + 1,
-                name: slots.get(slot).and_then(|i| i.as_ref()).map(|i| i.name.as_str()).unwrap_or_default().into(),
+                name: slots
+                    .get(slot)
+                    .and_then(|i| i.as_ref())
+                    .map(|i| i.name.as_str())
+                    .unwrap_or_default()
+                    .into(),
                 loaded: s.loaded,
                 playing: s.playing,
                 pending: s.pending,
@@ -168,14 +181,28 @@ pub(crate) fn pad_views(state: &EngineState, slots: &[Option<SlotInfo>], bank: u
 }
 
 /// Projects the panel's scalar part (pure).
-pub(crate) fn sampler_view(state: &EngineState, slots: &[Option<SlotInfo>], bank: usize, selected: usize) -> SamplerView {
+pub(crate) fn sampler_view(
+    state: &EngineState,
+    slots: &[Option<SlotInfo>],
+    bank: usize,
+    selected: usize,
+) -> SamplerView {
     let s = &state.sampler[selected.min(SAMPLER_TOTAL - 1)];
     let seq = &state.sequencer;
     SamplerView {
         bank: bank as i32,
-        selected: if selected / SAMPLER_SLOTS == bank { (selected % SAMPLER_SLOTS) as i32 } else { -1 },
+        selected: if selected / SAMPLER_SLOTS == bank {
+            (selected % SAMPLER_SLOTS) as i32
+        } else {
+            -1
+        },
         selected_number: selected as i32 % SAMPLER_SLOTS as i32 + 1,
-        selected_name: slots.get(selected).and_then(|i| i.as_ref()).map(|i| i.name.as_str()).unwrap_or_default().into(),
+        selected_name: slots
+            .get(selected)
+            .and_then(|i| i.as_ref())
+            .map(|i| i.name.as_str())
+            .unwrap_or_default()
+            .into(),
         selected_loaded: s.loaded,
         selected_mode: mode_index(s.mode),
         selected_gain: s.gain,
@@ -204,20 +231,59 @@ pub(crate) fn poll(app: &App) {
 /// Puts a decoded sample into its slot.
 fn install(app: &App, d: Decoded) {
     let slot = d.slot;
-    engine::send(app, Command::Sampler(SamplerCommand::Load { slot, sample: d.data }));
-    engine::send(app, Command::Sampler(SamplerCommand::SetBpm { slot, bpm: d.info.bpm }));
-    engine::send(app, Command::Sampler(SamplerCommand::SetMode { slot, mode: mode_from_name(&d.info.mode) }));
-    engine::send(app, Command::Sampler(SamplerCommand::SetGain { slot, gain: d.info.gain }));
-    engine::send(app, Command::Sampler(SamplerCommand::SetSync { slot, on: d.info.sync && d.info.bpm.is_some() }));
+    engine::send(
+        app,
+        Command::Sampler(SamplerCommand::Load {
+            slot,
+            sample: d.data,
+        }),
+    );
+    engine::send(
+        app,
+        Command::Sampler(SamplerCommand::SetBpm {
+            slot,
+            bpm: d.info.bpm,
+        }),
+    );
+    engine::send(
+        app,
+        Command::Sampler(SamplerCommand::SetMode {
+            slot,
+            mode: mode_from_name(&d.info.mode),
+        }),
+    );
+    engine::send(
+        app,
+        Command::Sampler(SamplerCommand::SetGain {
+            slot,
+            gain: d.info.gain,
+        }),
+    );
+    engine::send(
+        app,
+        Command::Sampler(SamplerCommand::SetSync {
+            slot,
+            on: d.info.sync && d.info.bpm.is_some(),
+        }),
+    );
     if d.info.pattern != 0 {
-        engine::send(app, Command::Sampler(SamplerCommand::SeqPattern { slot, mask: d.info.pattern }));
+        engine::send(
+            app,
+            Command::Sampler(SamplerCommand::SeqPattern {
+                slot,
+                mask: d.info.pattern,
+            }),
+        );
     }
     let name = d.info.name.clone();
     let d_quiet = d.quiet;
     app.sampler.slots.borrow_mut()[slot] = Some(d.info);
     if !d_quiet {
         save_soon(app);
-        app.status(format!("Loaded {name} into sampler slot {}", slot % SAMPLER_SLOTS + 1));
+        app.status(format!(
+            "Loaded {name} into sampler slot {}",
+            slot % SAMPLER_SLOTS + 1
+        ));
     }
 }
 
@@ -226,7 +292,14 @@ fn decode(app: &App, slot: usize, info: SlotInfo, quiet: bool) {
     let rate = app.engine.borrow().sample_rate();
     let tx = app.sampler.tx.clone();
     std::thread::spawn(move || {
-        let r = SampleData::load(&info.path, rate).map(|data| Decoded { slot, quiet, info, data }).map_err(|e| e.to_string());
+        let r = SampleData::load(&info.path, rate)
+            .map(|data| Decoded {
+                slot,
+                quiet,
+                info,
+                data,
+            })
+            .map_err(|e| e.to_string());
         let _ = tx.send(r);
     });
 }
@@ -236,11 +309,23 @@ fn restore(app: &App) {
     if app.sampler.restored.replace(true) {
         return;
     }
-    let store = app.state.borrow().lib.meta(META_SAMPLER).ok().flatten().and_then(|j| serde_json::from_str::<SamplerStore>(&j).ok()).unwrap_or_default();
+    let store = app
+        .state
+        .borrow()
+        .lib
+        .meta(META_SAMPLER)
+        .ok()
+        .flatten()
+        .and_then(|j| serde_json::from_str::<SamplerStore>(&j).ok())
+        .unwrap_or_default();
     if store.quantize {
         set_quantize(app, true);
     }
-    for (slot, info) in store.slots.into_iter().filter(|(s, i)| *s < SAMPLER_TOTAL && i.path.exists()) {
+    for (slot, info) in store
+        .slots
+        .into_iter()
+        .filter(|(s, i)| *s < SAMPLER_TOTAL && i.path.exists())
+    {
         decode(app, slot, info, true);
     }
 }
@@ -266,7 +351,10 @@ fn save(app: &App) {
             Some((slot, info))
         })
         .collect();
-    let store = SamplerStore { slots, quantize: app.sampler.quantize.get() };
+    let store = SamplerStore {
+        slots,
+        quantize: app.sampler.quantize.get(),
+    };
     let json = serde_json::to_string(&store).unwrap_or_default();
     if let Err(e) = app.state.borrow_mut().lib.set_meta(META_SAMPLER, &json) {
         tracing::warn!(error = %e, "sampler not saved");
@@ -301,7 +389,8 @@ pub(crate) fn project(app: &App, state: &EngineState) {
     let (bank, selected) = (rt.bank.get(), rt.selected.get());
     let slots = rt.slots.borrow();
     rt.pads.sync_eq(pad_views(state, &slots, bank, selected));
-    rt.steps.sync_eq(pattern_steps(state.sampler[selected].pattern));
+    rt.steps
+        .sync_eq(pattern_steps(state.sampler[selected].pattern));
     let view = sampler_view(state, &slots, bank, selected);
     drop(slots);
     if app.ui.get_sampler() != view {
@@ -314,9 +403,11 @@ pub(crate) fn show_idle(app: &App) {
     let st = EngineState::default();
     let rt = &app.sampler;
     let slots = rt.slots.borrow();
-    rt.pads.sync_eq(pad_views(&st, &slots, rt.bank.get(), rt.selected.get()));
+    rt.pads
+        .sync_eq(pad_views(&st, &slots, rt.bank.get(), rt.selected.get()));
     rt.steps.sync_eq(pattern_steps(0));
-    app.ui.set_sampler(sampler_view(&st, &slots, rt.bank.get(), rt.selected.get()));
+    app.ui
+        .set_sampler(sampler_view(&st, &slots, rt.bank.get(), rt.selected.get()));
 }
 
 fn cmd(app: &App, c: SamplerCommand) {
@@ -327,7 +418,9 @@ fn cmd(app: &App, c: SamplerCommand) {
 /// Opens or closes the sampler panel and remembers it.
 pub(crate) fn toggle_panel(app: &App) {
     let on = !app.state.borrow().settings.perform.sampler_panel;
-    app.state.borrow_mut().change_settings(|s| s.perform.sampler_panel = on);
+    app.state
+        .borrow_mut()
+        .change_settings(|s| s.perform.sampler_panel = on);
     app.ui.set_sampler_panel(on);
 }
 
@@ -342,7 +435,14 @@ pub(crate) fn pad(app: &App, pad: usize, pressed: bool) {
 
 /// Triggers (press) or releases a slot.
 pub(crate) fn trigger(app: &App, slot: usize, pressed: bool) {
-    cmd(app, if pressed { SamplerCommand::Trigger { slot } } else { SamplerCommand::Release { slot } });
+    cmd(
+        app,
+        if pressed {
+            SamplerCommand::Trigger { slot }
+        } else {
+            SamplerCommand::Release { slot }
+        },
+    );
 }
 
 pub(crate) fn set_bank(app: &App, bank: usize) {
@@ -366,17 +466,24 @@ pub(crate) fn set_quantize(app: &App, on: bool) {
 
 pub(crate) fn set_volume(app: &App, v: f32) {
     engine::ensure_engine(app);
-    engine::send(app, Command::Mixer(MixerCommand::SetSamplerLevel(volume_to_level(v))));
+    engine::send(
+        app,
+        Command::Mixer(MixerCommand::SetSamplerLevel(volume_to_level(v))),
+    );
 }
 
 pub(crate) fn toggle_cue(app: &App) {
-    let on = engine::snapshot(app).map(|s| s.sampler_cue).unwrap_or(false);
+    let on = engine::snapshot(app)
+        .map(|s| s.sampler_cue)
+        .unwrap_or(false);
     engine::ensure_engine(app);
     engine::send(app, Command::Mixer(MixerCommand::SetSamplerCue(!on)));
 }
 
 pub(crate) fn toggle_seq_play(app: &App) {
-    let on = engine::snapshot(app).map(|s| s.sequencer.playing).unwrap_or(false);
+    let on = engine::snapshot(app)
+        .map(|s| s.sequencer.playing)
+        .unwrap_or(false);
     cmd(app, SamplerCommand::SeqPlay(!on));
 }
 
@@ -391,7 +498,14 @@ fn selected_source(app: &App) -> Option<(PathBuf, String, Option<f64>)> {
     }
     let id = st.player.current?;
     let t = st.src().track(id).ok()?;
-    let name = if t.tags.title.is_empty() { t.path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default() } else { t.tags.title.clone() };
+    let name = if t.tags.title.is_empty() {
+        t.path
+            .file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    } else {
+        t.tags.title.clone()
+    };
     Some((st.resolve(&t.path), name, t.bpm))
 }
 
@@ -409,7 +523,15 @@ pub(crate) fn load_selected(app: &App, slot: usize) {
     app.status(format!("Loading {name} into the sampler …"));
     // A new sample starts as a one-shot at unity gain (loops of tracks are
     // usually wanted as loops; the mode is one click away).
-    let info = SlotInfo { path, name, bpm, mode: "oneshot".into(), gain: 1.0, sync: false, pattern: 0 };
+    let info = SlotInfo {
+        path,
+        name,
+        bpm,
+        mode: "oneshot".into(),
+        gain: 1.0,
+        sync: false,
+        pattern: 0,
+    };
     decode(app, slot, info, false);
     save_soon(app);
 }
@@ -425,8 +547,17 @@ pub(crate) fn unload_selected(app: &App) {
 /// Toggles step `step` of the selected slot's pattern.
 pub(crate) fn toggle_step(app: &App, step: usize) {
     let slot = app.sampler.selected.get();
-    let on = engine::snapshot(app).map(|s| s.sampler[slot].pattern & (1 << step) != 0).unwrap_or(false);
-    cmd(app, SamplerCommand::SeqStep { slot, step: step.min(SEQ_STEPS - 1), on: !on });
+    let on = engine::snapshot(app)
+        .map(|s| s.sampler[slot].pattern & (1 << step) != 0)
+        .unwrap_or(false);
+    cmd(
+        app,
+        SamplerCommand::SeqStep {
+            slot,
+            step: step.min(SEQ_STEPS - 1),
+            on: !on,
+        },
+    );
     save_soon(app);
 }
 
@@ -438,31 +569,55 @@ pub(crate) fn wire(app: &Rc<App>) {
     show_idle(app);
     ui.on_toggle_sampler_panel(handler!(app, |a| toggle_panel(&a)));
     let pad_i = |p: i32| (p.max(0) as usize).min(SAMPLER_SLOTS - 1);
-    ui.on_sampler_pad(handler!(app, |a, p: i32, pressed: bool| pad(&a, pad_i(p), pressed)));
+    ui.on_sampler_pad(handler!(app, |a, p: i32, pressed: bool| pad(
+        &a,
+        pad_i(p),
+        pressed
+    )));
     ui.on_sampler_select(handler!(app, |a, p: i32| {
-        a.sampler.selected.set(slot_of(a.sampler.bank.get(), pad_i(p)));
+        a.sampler
+            .selected
+            .set(slot_of(a.sampler.bank.get(), pad_i(p)));
         if engine::snapshot(&a).is_none() {
             show_idle(&a);
         }
     }));
     ui.on_sampler_bank(handler!(app, |a, b: i32| set_bank(&a, b.max(0) as usize)));
     ui.on_sampler_load(handler!(app, |a, p: i32| {
-        let slot = if p < 0 { a.sampler.selected.get() } else { slot_of(a.sampler.bank.get(), pad_i(p)) };
+        let slot = if p < 0 {
+            a.sampler.selected.get()
+        } else {
+            slot_of(a.sampler.bank.get(), pad_i(p))
+        };
         load_selected(&a, slot);
     }));
     ui.on_sampler_unload(handler!(app, |a| unload_selected(&a)));
     ui.on_sampler_stop_all(handler!(app, |a| cmd(&a, SamplerCommand::StopAll)));
     ui.on_sampler_mode(handler!(app, |a, m: i32| {
-        cmd(&a, SamplerCommand::SetMode { slot: a.sampler.selected.get(), mode: mode_from_index(m) });
+        cmd(
+            &a,
+            SamplerCommand::SetMode {
+                slot: a.sampler.selected.get(),
+                mode: mode_from_index(m),
+            },
+        );
         save_soon(&a);
     }));
     ui.on_sampler_gain(handler!(app, |a, g: f32| {
-        cmd(&a, SamplerCommand::SetGain { slot: a.sampler.selected.get(), gain: g.clamp(0.0, 2.0) });
+        cmd(
+            &a,
+            SamplerCommand::SetGain {
+                slot: a.sampler.selected.get(),
+                gain: g.clamp(0.0, 2.0),
+            },
+        );
         save_soon(&a);
     }));
     ui.on_sampler_sync(handler!(app, |a| {
         let slot = a.sampler.selected.get();
-        let on = engine::snapshot(&a).map(|s| s.sampler[slot].sync).unwrap_or(false);
+        let on = engine::snapshot(&a)
+            .map(|s| s.sampler[slot].sync)
+            .unwrap_or(false);
         cmd(&a, SamplerCommand::SetSync { slot, on: !on });
         save_soon(&a);
     }));
@@ -472,10 +627,15 @@ pub(crate) fn wire(app: &Rc<App>) {
     }));
     ui.on_sampler_volume(handler!(app, |a, v: f32| set_volume(&a, v)));
     ui.on_sampler_cue(handler!(app, |a| toggle_cue(&a)));
-    ui.on_sampler_step(handler!(app, |a, s: i32| toggle_step(&a, s.max(0) as usize)));
+    ui.on_sampler_step(handler!(app, |a, s: i32| toggle_step(
+        &a,
+        s.max(0) as usize
+    )));
     ui.on_sampler_seq_play(handler!(app, |a| toggle_seq_play(&a)));
     ui.on_sampler_seq_record(handler!(app, |a| {
-        let on = engine::snapshot(&a).map(|s| s.sequencer.recording).unwrap_or(false);
+        let on = engine::snapshot(&a)
+            .map(|s| s.sequencer.recording)
+            .unwrap_or(false);
         cmd(&a, SamplerCommand::SeqRecord(!on));
         save_soon(&a);
     }));
@@ -485,13 +645,21 @@ pub(crate) fn wire(app: &Rc<App>) {
         let slot = a.sampler.selected.get();
         let bpm = {
             let mut slots = a.sampler.slots.borrow_mut();
-            let Some(Some(info)) = slots.get_mut(slot) else { return };
+            let Some(Some(info)) = slots.get_mut(slot) else {
+                return;
+            };
             let Some(b) = info.bpm else { return };
             let b = (b * f as f64).clamp(20.0, 400.0);
             info.bpm = Some(b);
             b
         };
-        cmd(&a, SamplerCommand::SetBpm { slot, bpm: Some(bpm) });
+        cmd(
+            &a,
+            SamplerCommand::SetBpm {
+                slot,
+                bpm: Some(bpm),
+            },
+        );
         save_soon(&a);
         if engine::snapshot(&a).is_none() {
             show_idle(&a);
@@ -499,8 +667,15 @@ pub(crate) fn wire(app: &Rc<App>) {
     }));
     // SAVE: the patterns go onto the first free Sequence Call pad.
     ui.on_sampler_seq_save(handler!(app, |a| {
-        let Some(state) = engine::snapshot(&a) else { return };
-        let free = a.sampler.sequences.borrow().iter().position(|s| s.is_none());
+        let Some(state) = engine::snapshot(&a) else {
+            return;
+        };
+        let free = a
+            .sampler
+            .sequences
+            .borrow()
+            .iter()
+            .position(|s| s.is_none());
         match free {
             Some(i) => {
                 seq_call(&a, i, &state);
@@ -520,11 +695,19 @@ pub(crate) fn wire(app: &Rc<App>) {
 /// recalls them on a stored one (and starts the sequencer).
 pub(crate) fn seq_call(app: &App, index: usize, state: &od_engine::EngineState) {
     let mut seqs = app.sampler.sequences.borrow_mut();
-    let Some(slot) = seqs.get_mut(index) else { return };
+    let Some(slot) = seqs.get_mut(index) else {
+        return;
+    };
     match slot {
         Some(patterns) => {
             for (s, mask) in patterns.iter().enumerate() {
-                engine::send(app, Command::Sampler(SamplerCommand::SeqPattern { slot: s, mask: *mask }));
+                engine::send(
+                    app,
+                    Command::Sampler(SamplerCommand::SeqPattern {
+                        slot: s,
+                        mask: *mask,
+                    }),
+                );
             }
             engine::send(app, Command::Sampler(SamplerCommand::SeqPlay(true)));
         }
@@ -595,7 +778,10 @@ mod tests {
         st.sequencer.step = 5;
         st.sampler_level = 0.25;
         let mut slots = vec![None; SAMPLER_TOTAL];
-        slots[17] = Some(SlotInfo { name: "Horn".into(), ..Default::default() });
+        slots[17] = Some(SlotInfo {
+            name: "Horn".into(),
+            ..Default::default()
+        });
         let pads = pad_views(&st, &slots, 1, 17);
         assert_eq!(pads.len(), 16);
         let p = &pads[1];
@@ -603,7 +789,10 @@ mod tests {
         assert!(p.loaded && p.playing && p.selected);
         assert!(!pads[0].selected && !pads[0].loaded);
         let v = sampler_view(&st, &slots, 1, 17);
-        assert_eq!((v.bank, v.selected, v.selected_number, v.step), (1, 1, 2, 5));
+        assert_eq!(
+            (v.bank, v.selected, v.selected_number, v.step),
+            (1, 1, 2, 5)
+        );
         assert_eq!(v.selected_name.as_str(), "Horn");
         assert!((v.volume - 0.5).abs() < 1e-6);
         // The selected slot in another bank is not marked in this one.
@@ -615,11 +804,25 @@ mod tests {
     #[test]
     fn store_round_trips() {
         let s = SamplerStore {
-            slots: vec![(3, SlotInfo { path: "/s/horn.wav".into(), name: "Horn".into(), bpm: Some(120.0), mode: "loop".into(), gain: 0.8, sync: true, pattern: 5 })],
+            slots: vec![(
+                3,
+                SlotInfo {
+                    path: "/s/horn.wav".into(),
+                    name: "Horn".into(),
+                    bpm: Some(120.0),
+                    mode: "loop".into(),
+                    gain: 0.8,
+                    sync: true,
+                    pattern: 5,
+                },
+            )],
             quantize: true,
         };
         let back: SamplerStore = serde_json::from_str(&serde_json::to_string(&s).unwrap()).unwrap();
         assert_eq!(back, s);
-        assert_eq!(serde_json::from_str::<SamplerStore>("{}").unwrap(), SamplerStore::default());
+        assert_eq!(
+            serde_json::from_str::<SamplerStore>("{}").unwrap(),
+            SamplerStore::default()
+        );
     }
 }

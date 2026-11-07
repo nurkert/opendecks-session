@@ -174,7 +174,8 @@ fn handshake_lists_tools_resources_prompts() {
     for want in [
         "library_overview", "search_tracks", "get_tracks", "list_nodes", "get_node", "harmonic_neighbours", "set_flow",
         "history", "create_set", "create_playlist", "add_tracks", "remove_entries", "reorder", "set_transition_note",
-        "set_track_tags", "create_smart_list", "rename_node", "delete_node",
+        "set_track_tags", "create_smart_list", "rename_node", "delete_node", "lighting_overview", "lighting_patch",
+        "lighting_settings", "lighting_group", "lighting_output", "lighting_cue", "lighting_track_cues", "lighting_live",
     ] {
         assert!(names.contains(&want), "missing tool {want}");
     }
@@ -182,7 +183,9 @@ fn handshake_lists_tools_resources_prompts() {
         assert_eq!(t["inputSchema"]["type"], "object", "{t}");
         assert!(t["description"].as_str().unwrap().len() > 20);
         let ro = t["annotations"]["readOnlyHint"] == json!(true);
-        let write = ["create", "add_", "remove", "reorder", "set_t", "rename", "delete"].iter().any(|p| t["name"].as_str().unwrap().starts_with(p));
+        let name = t["name"].as_str().unwrap();
+        let write = ["create", "add_", "remove", "reorder", "set_t", "rename", "delete"].iter().any(|p| name.starts_with(p))
+            || (name.starts_with("lighting_") && name != "lighting_overview");
         assert_eq!(ro, !write, "{}", t["name"]);
     }
     let delete = tools["tools"].as_array().unwrap().iter().find(|t| t["name"] == "delete_node").unwrap();
@@ -512,4 +515,63 @@ fn http_transport_initializes() {
     let text = String::from_utf8_lossy(&resp);
     assert!(text.starts_with("HTTP/1.1 200"), "{text}");
     assert!(text.contains("\"protocolVersion\":\"2025-06-18\""), "{text}");
+}
+
+/// The light show from the chat: patch, looks, outputs, cue stack, track
+/// cues and live actions; the rig file next to the library follows (the app
+/// reloads it) and live actions wait in the rig's inbox for the app.
+#[test]
+fn lighting_rig_and_live_control() {
+    let s = seed();
+    let mut c = Client::spawn(&s.path);
+    let rig = s.path.with_file_name("lighting.json");
+    let o = c.ok("lighting_overview", json!({}));
+    assert_eq!(o["enabled"], false);
+    assert!(o["accepts"]["fixture_types"].as_array().unwrap().iter().any(|t| t == "moving-head"));
+
+    c.ok("lighting_patch", json!({"action": "add", "type": "rgb-par", "name": "Front L"}));
+    c.ok("lighting_patch", json!({"action": "add", "type": "moving-head", "group": "Movers"}));
+    c.ok("lighting_patch", json!({"action": "update", "fixture": "Front L", "group": "Front"}));
+    c.ok("lighting_settings", json!({"enabled": true, "mode": "pro", "master": 0.8, "easy_program": "chase", "easy_color": "#FF8800"}));
+    c.ok("lighting_group", json!({"group": "Front", "program": "pulse", "color": "#0044FF", "intensity": 0.7}));
+    c.ok("lighting_group", json!({"group": "Movers", "effect": {"attr": "pan", "wave": "sine", "beats": 8, "depth": 0.5, "spread": 0.25}}));
+    c.ok("lighting_output", json!({"universe": 1, "kind": "sacn", "target": "3"}));
+    c.ok("lighting_cue", json!({"action": "add", "name": "Intro", "groups": {"Front": {"color": "#00FF00"}}}));
+    c.ok("lighting_cue", json!({"action": "add", "name": "Drop", "fade_beats": 2, "groups": {"front": {"program": "strobe"}}}));
+    c.ok("lighting_track_cues", json!({"track_id": s.t[0], "cues": [{"bar": 1, "cue": "Intro"}, {"bar": 17, "cue": 1}]}));
+    c.ok("lighting_cue", json!({"action": "move", "index": 1, "to": 0}));
+
+    let cfg = od_lighting::RigConfig::load(&rig).unwrap();
+    assert!(cfg.enabled);
+    assert_eq!(cfg.settings.mode, od_lighting::Mode::Pro);
+    assert_eq!(cfg.patch.fixtures.len(), 2);
+    assert_eq!(cfg.patch.fixtures[0].group, "Front");
+    assert_eq!(cfg.settings.groups["Front"].program, Some(od_lighting::Program::Pulse));
+    assert_eq!(cfg.settings.groups["Movers"].effect.unwrap().beats, 8.0);
+    assert_eq!(cfg.outputs, vec![(0, od_lighting::OutputKind::Sacn { universe: 3 })]);
+    assert_eq!(cfg.settings.cues[0].name, "Drop");
+    assert_eq!(cfg.settings.cues[0].groups["Front"].program, Some(od_lighting::Program::Strobe));
+    // Track cues follow the move: bar 1 → Intro (now 1), bar 17 → Drop (now 0).
+    let tc = &cfg.settings.track_cues[&s.t[0]];
+    assert_eq!(tc.iter().map(|t| (t.beat, t.cue)).collect::<Vec<_>>(), vec![(0, 1), (64, 0)]);
+
+    let o = c.ok("lighting_overview", json!({}));
+    assert_eq!(o["track_cues"][0]["cues"][1]["cue_name"], "Drop");
+    assert_eq!(o["groups"]["Front"]["color"], "#0044FF");
+
+    // Bad input is reported, not stored.
+    let (_, err, text) = c.tool("lighting_group", json!({"group": "Front", "color": "blue"}));
+    assert!(err && text.contains("#RRGGBB"), "{text}");
+    let (_, err, _) = c.tool("lighting_track_cues", json!({"track_id": s.t[0], "cues": [{"bar": 1, "cue": "Nope"}]}));
+    assert!(err);
+
+    c.ok("lighting_live", json!({"action": "blackout"}));
+    c.ok("lighting_live", json!({"action": "cue", "index": 1}));
+    assert_eq!(
+        od_lighting::rig::drain(&rig),
+        vec![od_lighting::LiveCommand::Blackout { on: true }, od_lighting::LiveCommand::Cue { index: 1 }]
+    );
+
+    c.ok("lighting_patch", json!({"action": "remove", "fixture": 1}));
+    assert_eq!(od_lighting::RigConfig::load(&rig).unwrap().patch.fixtures.len(), 1);
 }

@@ -103,7 +103,9 @@ export global Lighting {
 
 component SectionTitle inherits HorizontalLayout {
     in property <string> text;
-    height: 22px;
+    // As tall as the keys beside it (DMX OUT, WINDOW): the caption and the
+    // keys share one centre line in all three panel headers.
+    height: 26px;
     Caps { text: root.text; vertical-alignment: center; color: Theme.bone-2; }
 }
 
@@ -234,11 +236,14 @@ component RigPanel inherits VerticalLayout {
         spacing: 6px;
         name := Field { accessible-label: "lighting.rig.name"; accessible-role: text-input; placeholder: @tr("Name"); horizontal-stretch: 1; }
         group := Field { accessible-label: "lighting.rig.group"; accessible-role: text-input; placeholder: @tr("Group"); width: 90px; }
-        PlateButton {
-            accessible-label: "lighting.rig.add"; accessible-role: button;
-            compact: true; glyph: "plus"; label: @tr("ADD"); tone: Theme.live;
-            tooltip: @tr("Patch the fixture at the next free DMX address");
-            clicked => { Lighting.add-fixture(root.type-index, name.text, group.text); name.text = ""; }
+        VerticalLayout {
+            alignment: center;
+            PlateButton {
+                accessible-label: "lighting.rig.add"; accessible-role: button;
+                compact: true; glyph: "plus"; label: @tr("ADD"); tone: Theme.live;
+                tooltip: @tr("Patch the fixture at the next free DMX address");
+                clicked => { Lighting.add-fixture(root.type-index, name.text, group.text); name.text = ""; }
+            }
         }
     }
     HLine { }
@@ -259,10 +264,13 @@ component RigPanel inherits VerticalLayout {
             horizontal-stretch: 1;
             placeholder: root.output-kind == "artnet" ? "2.0.0.10:6454" : root.output-kind == "sacn" ? "1" : "/dev/tty.usbserial";
         }
-        PlateButton {
-            accessible-label: "lighting.output.apply"; accessible-role: button;
-            compact: true; label: @tr("SET"); tooltip: @tr("Send universe 1 to this output");
-            clicked => { Lighting.set-output(root.output-kind, target.text); }
+        VerticalLayout {
+            alignment: center;
+            PlateButton {
+                accessible-label: "lighting.output.apply"; accessible-role: button;
+                compact: true; label: @tr("SET"); tooltip: @tr("Send universe 1 to this output");
+                clicked => { Lighting.set-output(root.output-kind, target.text); }
+            }
         }
     }
     Caps { text: Lighting.output-text; overflow: elide; color: Theme.bone-3; }
@@ -306,11 +314,15 @@ component ShowPanel inherits VerticalLayout {
         height: 150px;
         VerticalLayout {
             spacing: 2px;
-            Fader {
-                accessible-label: "lighting.master"; accessible-role: slider; accessible-value: Math.round(Lighting.master * 100) + " %";
-                value: Lighting.master; tone: Theme.attention; vertical-stretch: 1;
-                tooltip: @tr("Master dimmer");
-                changed(v) => { Lighting.set-master(v); }
+            // The fader centred over its caption.
+            HorizontalLayout {
+                alignment: center; vertical-stretch: 1;
+                Fader {
+                    accessible-label: "lighting.master"; accessible-role: slider; accessible-value: Math.round(Lighting.master * 100) + " %";
+                    value: Lighting.master; tone: Theme.attention; vertical-stretch: 1;
+                    tooltip: @tr("Master dimmer");
+                    changed(v) => { Lighting.set-master(v); }
+                }
             }
             Caps { text: @tr("MASTER"); horizontal-alignment: center; }
         }
@@ -492,7 +504,7 @@ export component LightingView inherits Rectangle {
             horizontal-stretch: 1;
             padding: 10px; spacing: 8px;
             HorizontalLayout {
-                height: 22px;
+                height: 26px;
                 spacing: 8px;
                 SectionTitle { text: @tr("STAGE"); }
                 Rectangle { horizontal-stretch: 1; }

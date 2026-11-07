@@ -8,7 +8,7 @@ use od_core::{
     PhraseMood, TrackAnalysis, TrackId, TrackTags,
 };
 use rusqlite::{Connection, OptionalExtension, Row, params};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 /// A track to add to the library.
 #[derive(Clone, Debug)]
@@ -405,6 +405,32 @@ impl Library {
         Ok(stmt
             .query_map(params![terms.join(" "), limit as i64], track_from_row)?
             .collect::<rusqlite::Result<_>>()?)
+    }
+
+    /// Reads the cover art of `ids` from the library file at `path` on a
+    /// private read-only connection (for background threads), calling `f`
+    /// per track that has one. Stops when `f` returns false.
+    pub fn read_artworks(path: &Path, ids: &[TrackId], mut f: impl FnMut(TrackId, Vec<u8>) -> bool) -> Result<()> {
+        let conn = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+        let mut stmt = conn.prepare("SELECT data FROM artwork WHERE track_id = ?1")?;
+        for id in ids {
+            if let Some(data) = stmt.query_row([id.0], |r| r.get::<_, Vec<u8>>(0)).optional()? {
+                if !f(*id, data) {
+                    break;
+                }
+            }
+        }
+        Ok(())
+    }
+
+    /// Stores cover art for a track that has none yet (an existing picture
+    /// is kept). Returns whether it was stored.
+    pub fn set_artwork_if_missing(&mut self, id: TrackId, data: &[u8], media_type: &str) -> Result<bool> {
+        let n = self.conn.execute(
+            "INSERT OR IGNORE INTO artwork (track_id, media_type, data) VALUES (?1, ?2, ?3)",
+            params![id.0, media_type, data],
+        )?;
+        Ok(n > 0)
     }
 
     pub fn artwork(&self, id: TrackId) -> Result<Option<(Vec<u8>, String)>> {

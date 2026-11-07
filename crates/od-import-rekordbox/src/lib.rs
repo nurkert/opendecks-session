@@ -419,6 +419,22 @@ fn import_track(
     finish_track(lib, id, t, exists, opts, report, fallback_grids).map(Some)
 }
 
+/// The source's own cover file for a track, preferring the larger `_m`
+/// variant rekordbox keeps next to the thumbnail.
+fn source_artwork(t: &SrcTrack) -> Option<(Vec<u8>, String)> {
+    let path = t.artwork.as_ref()?;
+    let larger = path.file_stem().zip(path.extension()).map(|(s, e)| {
+        path.with_file_name(format!("{}_m.{}", s.to_string_lossy(), e.to_string_lossy()))
+    });
+    let path = larger.filter(|p| p.is_file()).unwrap_or_else(|| path.clone());
+    let data = std::fs::read(&path).ok()?;
+    let media_type = match path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
+        Some("png") => "image/png",
+        _ => "image/jpeg",
+    };
+    Some((data, media_type.to_string()))
+}
+
 fn finish_track(
     lib: &mut Library,
     id: TrackId,
@@ -429,6 +445,11 @@ fn finish_track(
     fallback_grids: &mut usize,
 ) -> Result<TrackId> {
     let anlz: AnlzData = load_anlz(&t.anlz);
+    if let Some((data, media_type)) = source_artwork(t) {
+        if lib.artwork(id)?.is_none() {
+            lib.set_artwork_if_missing(id, &data, &media_type)?;
+        }
+    }
     let before = lib.beatgrid_with_source(id)?;
     let grid_will_change = anlz.grid.is_some()
         && before.as_ref().is_none_or(|(g, s)| !g.locked && *s <= DataSource::Imported);

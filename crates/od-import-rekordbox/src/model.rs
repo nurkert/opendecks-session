@@ -36,6 +36,9 @@ pub(crate) struct SrcTrack {
     pub db_cues: Option<Vec<Cue>>,
     /// Analysis files in the order `.DAT`, `.EXT`, `.2EX` (any may be absent).
     pub anlz: Vec<PathBuf>,
+    /// Cover art the source keeps next to its database (rekordbox
+    /// `PIONEER/Artwork`), used when the file has no embedded picture.
+    pub artwork: Option<PathBuf>,
     pub smart: SmartFields,
 }
 

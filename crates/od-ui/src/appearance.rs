@@ -52,7 +52,12 @@ fn parse_macos(stdout: &str, success: bool) -> bool {
 /// Parses the portal's answer, e.g. `(<<uint32 1>>,)`: 1 dark, 2 light, 0
 /// no preference.
 fn parse_portal(stdout: &str) -> Option<bool> {
-    let digits: String = stdout.chars().rev().skip_while(|c| !c.is_ascii_digit()).take_while(|c| c.is_ascii_digit()).collect();
+    let digits: String = stdout
+        .chars()
+        .rev()
+        .skip_while(|c| !c.is_ascii_digit())
+        .take_while(|c| c.is_ascii_digit())
+        .collect();
     match digits.chars().rev().collect::<String>().as_str() {
         "1" => Some(false),
         "2" => Some(true),
@@ -72,8 +77,15 @@ fn parse_gsettings(stdout: &str) -> Option<bool> {
 }
 
 fn run(cmd: &str, args: &[&str]) -> Option<(String, bool)> {
-    let out = std::process::Command::new(cmd).args(args).stderr(std::process::Stdio::null()).output().ok()?;
-    Some((String::from_utf8_lossy(&out.stdout).into_owned(), out.status.success()))
+    let out = std::process::Command::new(cmd)
+        .args(args)
+        .stderr(std::process::Stdio::null())
+        .output()
+        .ok()?;
+    Some((
+        String::from_utf8_lossy(&out.stdout).into_owned(),
+        out.status.success(),
+    ))
 }
 
 /// Asks the OS whether it is in light mode; `None` when it cannot tell.
@@ -99,7 +111,13 @@ pub(crate) fn probe_os_light() -> Option<bool> {
     )
     .filter(|(_, ok)| *ok)
     .and_then(|(out, _)| parse_portal(&out));
-    portal.or_else(|| run("gsettings", &["get", "org.gnome.desktop.interface", "color-scheme"]).and_then(|(out, _)| parse_gsettings(&out)))
+    portal.or_else(|| {
+        run(
+            "gsettings",
+            &["get", "org.gnome.desktop.interface", "color-scheme"],
+        )
+        .and_then(|(out, _)| parse_gsettings(&out))
+    })
 }
 
 /// Applies the appearance mode to a window's theme.
@@ -135,7 +153,9 @@ pub(crate) fn tick(app: &App) {
 
 /// Sets the mode, stores it and refreshes the Preferences window.
 pub(crate) fn set(app: &App, appearance: &str) {
-    app.state.borrow_mut().change_settings(|s| s.view.appearance = appearance.to_string());
+    app.state
+        .borrow_mut()
+        .change_settings(|s| s.view.appearance = appearance.to_string());
     let a = app.state.borrow().settings.view.appearance.clone();
     apply(&app.ui.global::<crate::Theme>(), &a);
     crate::preferences::with_theme(app, |t| apply(t, &a));
@@ -144,25 +164,31 @@ pub(crate) fn set(app: &App, appearance: &str) {
 
 pub(crate) fn wire(app: &Rc<App>) {
     // The probe thread: idle unless asked for.
-    let _ = std::thread::Builder::new().name("appearance-probe".into()).spawn(|| {
-        loop {
-            if PROBE.load(Ordering::Relaxed) {
-                let v = match probe_os_light() {
-                    Some(true) => 2,
-                    Some(false) => 1,
-                    None => 0,
-                };
-                OS_SCHEME.store(v, Ordering::Relaxed);
+    let _ = std::thread::Builder::new()
+        .name("appearance-probe".into())
+        .spawn(|| {
+            loop {
+                if PROBE.load(Ordering::Relaxed) {
+                    let v = match probe_os_light() {
+                        Some(true) => 2,
+                        Some(false) => 1,
+                        None => 0,
+                    };
+                    OS_SCHEME.store(v, Ordering::Relaxed);
+                }
+                std::thread::sleep(PROBE_INTERVAL);
             }
-            std::thread::sleep(PROBE_INTERVAL);
-        }
-    });
-    app.ui.on_appearance_changed(handler!(app, |a, light: bool| changed(&a, light)));
+        });
+    app.ui
+        .on_appearance_changed(handler!(app, |a, light: bool| changed(&a, light)));
     app.ui.on_cycle_appearance(handler!(app, |a| {
         let cur = a.state.borrow().settings.view.appearance.clone();
         set(&a, next(&cur));
     }));
-    LIGHT.store(app.ui.global::<crate::Theme>().get_light(), Ordering::Relaxed);
+    LIGHT.store(
+        app.ui.global::<crate::Theme>().get_light(),
+        Ordering::Relaxed,
+    );
     tick(app);
 }
 

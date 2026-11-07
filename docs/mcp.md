@@ -108,6 +108,30 @@ that carry the changed lists are marked out of date and sync as usual.
 | `rename_node` | Rename a folder, playlist, set or smart list. |
 | `delete_node` | Delete a list or a folder with its contents. Requires `confirm: true`; without it the tool only reports what would be deleted. |
 
+### Light show
+
+The DMX rig is part of what the model can see and change. Rig edits are
+written to `lighting.json` next to the library; a running app picks them up
+within a tenth of a second and redraws the LIGHTING view. Live actions are
+dropped into the rig's inbox (`lighting-inbox/` next to it), which the app
+empties several times a second; they need the app to be running. Rig edits
+are not part of the library's undo history.
+
+| Tool | What it does |
+| --- | --- |
+| `lighting_overview` | On / off, mode, master, blackout, outputs per universe, the patched fixtures (address, group, role), the look of each group, the cue stack, the lighting cues stored with tracks (by bar), and the fixture types, programs and effects the other tools accept. |
+| `lighting_patch` | Add a built-in fixture type at the next free DMX address (or a given universe and address), change one (name, group, address, mirrored pan) or remove one. |
+| `lighting_settings` | Lighting on or off; mode `auto` (follows the music), `easy` (one look) or `pro` (looks per group and the cue stack); master; blackout; the easy-mode program and colour. |
+| `lighting_group` | The pro-mode look of a group: program, colour (`#RRGGBB`), intensity, pan / tilt, speed and a beat-synced effect (dimmer, pan or tilt; sine, saw, square or random; length in beats, depth, spread). `null` hands a field back to the automatic show. |
+| `lighting_output` | A universe to Art-Net (IP), sACN (universe) or an Enttec USB-DMX Pro (serial device), or no output. |
+| `lighting_cue` | Add, change, remove or move cues of the stack (name, fade in beats, looks per group). Track cues follow moved and removed cues. |
+| `lighting_track_cues` | The lighting cues stored with a track: which cue fires at which bar. |
+| `lighting_live` | Now: cue go / back, fire a cue, flash, strobe, fog, blackout, tap tempo. |
+
+Example: *"Patch two RGB pars as Front and a moving head, send universe 1 to
+sACN 1, and make a cue stack Intro (blue, slow), Build (chase), Drop
+(strobe) — then put Drop on bar 65 of Deep Night."*
+
 ### Resources and prompts
 
 - Resources: `opendecks://track/{id}` (same as `get_tracks`) and

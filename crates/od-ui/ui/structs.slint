@@ -30,6 +30,8 @@ export struct TrackRow {
     id: int,
     // Mini overview waveform for the PREVIEW column.
     preview: image,
+    // Cover thumbnail for the ARTWORK column (empty: none).
+    artwork: image,
     position: int,
     title: string,
     artist: string,
@@ -235,6 +237,8 @@ export struct VocalMark {
 export struct DeckView {
     deck: int,
     loaded: bool,
+    // A track was chosen and is being decoded (shown at once, playable soon).
+    loading: bool,
     title: string,
     artist: string,
     bpm: string,

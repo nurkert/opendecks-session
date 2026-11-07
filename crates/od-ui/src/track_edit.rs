@@ -74,7 +74,12 @@ pub(crate) fn segments(op: EditOp, start: usize, end: usize, frames: usize) -> V
 /// starts exactly at the join (timing and grid stay intact); the result
 /// fades in / out over `fade` frames where it starts or ends inside the
 /// source (pure).
-pub(crate) fn render(samples: &[f32], channels: usize, segments: &[(usize, usize)], fade: usize) -> Vec<f32> {
+pub(crate) fn render(
+    samples: &[f32],
+    channels: usize,
+    segments: &[(usize, usize)],
+    fade: usize,
+) -> Vec<f32> {
     let c = channels.max(1);
     let frames = samples.len() / c;
     let at = |f: usize, ch: usize| if f < frames { samples[f * c + ch] } else { 0.0 };
@@ -117,17 +122,36 @@ pub(crate) fn render(samples: &[f32], channels: usize, segments: &[(usize, usize
 /// taken.
 pub(crate) fn edit_path(original: &Path) -> PathBuf {
     let dir = original.parent().unwrap_or(Path::new("."));
-    let stem = original.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_else(|| "Track".into());
+    let stem = original
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "Track".into());
     (1..)
-        .map(|n| dir.join(if n == 1 { format!("{stem} (Edit).wav") } else { format!("{stem} (Edit {n}).wav") }))
+        .map(|n| {
+            dir.join(if n == 1 {
+                format!("{stem} (Edit).wav")
+            } else {
+                format!("{stem} (Edit {n}).wav")
+            })
+        })
         .find(|p| !p.exists())
         .unwrap_or_else(|| dir.join(format!("{stem} (Edit).wav")))
 }
 
 /// Writes interleaved float samples as 24-bit PCM WAV (the format players
 /// and every DJ application read).
-pub(crate) fn write_wav(path: &Path, samples: &[f32], channels: u16, rate: u32) -> anyhow::Result<()> {
-    let spec = hound::WavSpec { channels, sample_rate: rate, bits_per_sample: 24, sample_format: hound::SampleFormat::Int };
+pub(crate) fn write_wav(
+    path: &Path,
+    samples: &[f32],
+    channels: u16,
+    rate: u32,
+) -> anyhow::Result<()> {
+    let spec = hound::WavSpec {
+        channels,
+        sample_rate: rate,
+        bits_per_sample: 24,
+        sample_format: hound::SampleFormat::Int,
+    };
     let mut w = hound::WavWriter::create(path, spec)?;
     const MAX: f32 = 8_388_607.0;
     for s in samples {
@@ -140,14 +164,26 @@ pub(crate) fn write_wav(path: &Path, samples: &[f32], channels: u16, rate: u32) 
 /// The title of an edit of a track called `title` (the file name when the
 /// track has no title).
 pub(crate) fn edit_title(title: &str, path: &Path) -> String {
-    let base = if title.trim().is_empty() { path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default() } else { title.trim().to_string() };
+    let base = if title.trim().is_empty() {
+        path.file_stem()
+            .map(|s| s.to_string_lossy().into_owned())
+            .unwrap_or_default()
+    } else {
+        title.trim().to_string()
+    };
     format!("{base} (Edit)")
 }
 
 /// Decodes `source`, renders `op` on `start..end` seconds into a new WAV
 /// file and adds it to the library at `library` with the tags of `track`.
 /// Runs on a worker thread; returns the new track.
-pub(crate) fn run_edit(library: &Path, track: TrackId, op: EditOp, start: f64, end: f64) -> anyhow::Result<TrackId> {
+pub(crate) fn run_edit(
+    library: &Path,
+    track: TrackId,
+    op: EditOp,
+    start: f64,
+    end: f64,
+) -> anyhow::Result<TrackId> {
     let mut lib = od_library::Library::open(library)?;
     let t = lib.track(track)?;
     let audio = od_decode::decode(&t.path, od_decode::Layout::Stereo)?;
@@ -203,9 +239,16 @@ pub(crate) fn mark(app: &App, end: bool) {
         let Some(_) = cur else { return };
         let r = &mut st.player.edit;
         if r.track != cur {
-            *r = Region { track: cur, ..Default::default() };
+            *r = Region {
+                track: cur,
+                ..Default::default()
+            };
         }
-        if end { r.end = Some(cursor) } else { r.start = Some(cursor) }
+        if end {
+            r.end = Some(cursor)
+        } else {
+            r.start = Some(cursor)
+        }
     }
     refresh(app);
 }
@@ -220,9 +263,15 @@ pub(crate) fn select(app: &App, a: f32, b: f32) {
         let grid = st.src().beatgrid(id).ok().flatten();
         let snap = |f: f32| {
             let t = (f.clamp(0.0, 1.0) as f64) * duration;
-            grid.as_ref().map(|g| crate::player::snap_to_beat(g, t)).unwrap_or(t)
+            grid.as_ref()
+                .map(|g| crate::player::snap_to_beat(g, t))
+                .unwrap_or(t)
         };
-        st.player.edit = Region { track: Some(id), start: Some(snap(a.min(b))), end: Some(snap(a.max(b))) };
+        st.player.edit = Region {
+            track: Some(id),
+            start: Some(snap(a.min(b))),
+            end: Some(snap(a.max(b))),
+        };
     }
     refresh(app);
 }
@@ -243,7 +292,11 @@ pub(crate) fn apply(app: &App, op: EditOp) {
     }
     let (span, track, library) = {
         let st = app.state.borrow();
-        (st.player.edit.span(st.player.current), st.player.current, st.config.library_path.clone())
+        (
+            st.player.edit.span(st.player.current),
+            st.player.current,
+            st.config.library_path.clone(),
+        )
     };
     let (Some((start, end)), Some(track)) = (span, track) else {
         app.status("Set IN and OUT on the waveform first");
@@ -257,14 +310,18 @@ pub(crate) fn apply(app: &App, op: EditOp) {
     app.status(op.rendering());
     let timer = slint::Timer::default();
     let weak = APP.with(|a| a.borrow().clone());
-    timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(50), move || {
-        let Some(app) = weak.upgrade() else { return };
-        let done = JOB.with(|j| j.borrow().as_ref().and_then(|(rx, _)| rx.try_recv().ok()));
-        if let Some(result) = done {
-            JOB.with(|j| j.borrow_mut().take());
-            finished(&app, result);
-        }
-    });
+    timer.start(
+        slint::TimerMode::Repeated,
+        std::time::Duration::from_millis(50),
+        move || {
+            let Some(app) = weak.upgrade() else { return };
+            let done = JOB.with(|j| j.borrow().as_ref().and_then(|(rx, _)| rx.try_recv().ok()));
+            if let Some(result) = done {
+                JOB.with(|j| j.borrow_mut().take());
+                finished(&app, result);
+            }
+        },
+    );
     JOB.with(|j| *j.borrow_mut() = Some((rx, timer)));
     refresh(app);
 }
@@ -281,7 +338,13 @@ fn finished(app: &App, result: Result<TrackId, String>) {
             }
             let _ = app.analysis.wake.send(());
             app.refresh_library();
-            let title = app.state.borrow().lib.track(id).map(|t| t.tags.title).unwrap_or_default();
+            let title = app
+                .state
+                .borrow()
+                .lib
+                .track(id)
+                .map(|t| t.tags.title)
+                .unwrap_or_default();
             app.status(od_i18n::trf("Edit saved as a new track: {}", &[&title]));
         }
         Err(e) => app.status(od_i18n::trf("The edit failed: {}", &[&e])),
@@ -295,17 +358,33 @@ pub(crate) fn refresh(app: &App) {
     let te = app.ui.global::<crate::TrackEdit>();
     let r = st.player.edit;
     let cur = st.player.current;
-    let duration = cur.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0).max(0.001);
+    let duration = cur
+        .and_then(|id| st.src().track(id).ok())
+        .map(|t| t.duration)
+        .unwrap_or(0.0)
+        .max(0.001);
     let mine = r.track.is_some() && r.track == cur;
-    let frac = |t: Option<f64>| t.filter(|_| mine).map(|t| (t / duration) as f32).unwrap_or(-1.0);
+    let frac = |t: Option<f64>| {
+        t.filter(|_| mine)
+            .map(|t| (t / duration) as f32)
+            .unwrap_or(-1.0)
+    };
     te.set_start(frac(r.start));
     te.set_end(frac(r.end));
     te.set_ready(r.span(cur).is_some());
     te.set_busy(busy());
-    let text = match (mine.then_some(r.start).flatten(), mine.then_some(r.end).flatten()) {
+    let text = match (
+        mine.then_some(r.start).flatten(),
+        mine.then_some(r.end).flatten(),
+    ) {
         (Some(a), Some(b)) => {
             let (s, e) = (a.min(b), a.max(b));
-            format!("{} – {}  ({})", crate::format::cue_time(s), crate::format::cue_time(e), crate::format::time(e - s))
+            format!(
+                "{} – {}  ({})",
+                crate::format::cue_time(s),
+                crate::format::cue_time(e),
+                crate::format::time(e - s)
+            )
         }
         (Some(a), None) => format!("{} –", crate::format::cue_time(a)),
         (None, Some(b)) => format!("– {}", crate::format::cue_time(b)),
@@ -337,7 +416,10 @@ mod tests {
     fn segments_per_operation() {
         assert_eq!(segments(EditOp::Cut, 10, 20, 50), vec![(0, 10), (20, 50)]);
         assert_eq!(segments(EditOp::Trim, 10, 20, 50), vec![(10, 20)]);
-        assert_eq!(segments(EditOp::Repeat, 10, 20, 50), vec![(0, 20), (10, 20), (20, 50)]);
+        assert_eq!(
+            segments(EditOp::Repeat, 10, 20, 50),
+            vec![(0, 20), (10, 20), (20, 50)]
+        );
         // A region at the very start or end leaves no empty segment.
         assert_eq!(segments(EditOp::Cut, 0, 20, 50), vec![(20, 50)]);
         assert_eq!(segments(EditOp::Cut, 30, 80, 50), vec![(0, 30)]);
@@ -354,18 +436,28 @@ mod tests {
         assert_eq!(&out[..20], &src[..20], "untouched before the cut");
         assert_eq!(&out[24..], &src[44..], "untouched after the crossfade");
         let g = 0.5 / 4.0;
-        assert!((out[20] - (40.0 * g + 20.0 * (1.0 - g))).abs() < 1e-4, "crossfade from the continuation (20) into 40");
+        assert!(
+            (out[20] - (40.0 * g + 20.0 * (1.0 - g))).abs() < 1e-4,
+            "crossfade from the continuation (20) into 40"
+        );
         // Repeat 10..30: 120 frames; the second copy starts at frame 30.
         let rep = render(&src, 1, &segments(EditOp::Repeat, 10, 30, 100), 4);
         assert_eq!(rep.len(), 120);
         assert_eq!(&rep[34..50], &src[14..30], "the copy of the region");
-        assert_eq!(&rep[54..], &src[34..], "and the rest, shifted by the region length");
+        assert_eq!(
+            &rep[54..],
+            &src[34..],
+            "and the rest, shifted by the region length"
+        );
         // The join of identical material (second copy → rest) is seamless.
         assert!((rep[50] - src[30]).abs() < 1e-4);
         // Trim 10..30: 20 frames, faded at both edges.
         let trim = render(&src, 1, &segments(EditOp::Trim, 10, 30, 100), 4);
         assert_eq!(trim.len(), 20);
-        assert!(trim[0] < src[10] && trim[19] < src[29], "fades at both edges");
+        assert!(
+            trim[0] < src[10] && trim[19] < src[29],
+            "fades at both edges"
+        );
         assert_eq!(&trim[4..16], &src[14..26]);
         // Stereo stays interleaved.
         let st: Vec<f32> = (0..20).flat_map(|i| [i as f32, -(i as f32)]).collect();
@@ -377,11 +469,18 @@ mod tests {
     #[test]
     fn region_and_names() {
         let id = Some(TrackId(3));
-        let r = Region { track: id, start: Some(20.0), end: Some(10.0) };
+        let r = Region {
+            track: id,
+            start: Some(20.0),
+            end: Some(10.0),
+        };
         assert_eq!(r.span(id), Some((10.0, 20.0)), "ends in either order");
         assert_eq!(r.span(Some(TrackId(4))), None, "another track");
         assert_eq!(Region { end: None, ..r }.span(id), None);
-        assert_eq!(edit_title("Night Drive", Path::new("/m/x.mp3")), "Night Drive (Edit)");
+        assert_eq!(
+            edit_title("Night Drive", Path::new("/m/x.mp3")),
+            "Night Drive (Edit)"
+        );
         assert_eq!(edit_title(" ", Path::new("/m/Loop 1.wav")), "Loop 1 (Edit)");
         let dir = tempfile::tempdir().unwrap();
         let orig = dir.path().join("Song.mp3");

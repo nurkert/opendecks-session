@@ -25,7 +25,9 @@ OpenDecks Session library: prepare DJ sets with the DJ. Start with library_overv
 Find tracks with search_tracks and harmonic_neighbours, read details with get_tracks, \
 check an order with set_flow. Keys are Camelot (8A = A minor); positions in lists are 0-based. \
 Every write is one undo step labelled \"MCP: …\" in the app (Edit > Undo), and the app shows it live. \
-Propose bigger changes before making them; delete_node needs confirm=true and the DJ's consent.";
+Propose bigger changes before making them; delete_node needs confirm=true and the DJ's consent. \
+The DMX light show is here too: lighting_overview shows the rig; lighting_patch, lighting_settings, lighting_group, \
+lighting_output, lighting_cue and lighting_track_cues edit it (the app follows at once), lighting_live acts on the running show.";
 
 #[derive(Clone)]
 pub struct OpenDecksServer {

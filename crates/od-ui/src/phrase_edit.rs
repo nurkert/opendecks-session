@@ -11,8 +11,15 @@ use slint::ComponentHandle;
 use std::rc::Rc;
 
 /// The kinds offered in the PHRASE tab, in button order.
-pub(crate) const KINDS: [PhraseKind; 7] =
-    [PhraseKind::Intro, PhraseKind::Verse, PhraseKind::Chorus, PhraseKind::Bridge, PhraseKind::Up, PhraseKind::Down, PhraseKind::Outro];
+pub(crate) const KINDS: [PhraseKind; 7] = [
+    PhraseKind::Intro,
+    PhraseKind::Verse,
+    PhraseKind::Chorus,
+    PhraseKind::Bridge,
+    PhraseKind::Up,
+    PhraseKind::Down,
+    PhraseKind::Outro,
+];
 
 /// The beat a phrase edit at `t` seconds applies to: the nearest downbeat
 /// within two beats (phrases start on bars), else the nearest beat. `None`
@@ -22,16 +29,25 @@ pub(crate) fn edit_beat(grid: &Beatgrid, t: f64) -> Option<u32> {
     if n == 0 {
         return None;
     }
-    let i = grid.beat_position(t).map(|b| b.round().clamp(0.0, (n - 1) as f64) as usize).unwrap_or(0);
+    let i = grid
+        .beat_position(t)
+        .map(|b| b.round().clamp(0.0, (n - 1) as f64) as usize)
+        .unwrap_or(0);
     let down = (i.saturating_sub(2)..=(i + 2).min(n - 1))
         .filter(|&j| grid.beats[j].bar_position == 1)
-        .min_by(|a, b| (grid.beats[*a].time - t).abs().total_cmp(&(grid.beats[*b].time - t).abs()));
+        .min_by(|a, b| {
+            (grid.beats[*a].time - t)
+                .abs()
+                .total_cmp(&(grid.beats[*b].time - t).abs())
+        });
     Some(down.unwrap_or(i) as u32)
 }
 
 /// Index of the phrase that holds `beat`.
 pub(crate) fn phrase_at(phrases: &[Phrase], beat: u32) -> Option<usize> {
-    phrases.iter().position(|p| p.start_beat <= beat && beat < p.end_beat)
+    phrases
+        .iter()
+        .position(|p| p.start_beat <= beat && beat < p.end_beat)
 }
 
 /// The phrase at `beat` takes `kind`; in a gap (or without phrases) a new
@@ -42,10 +58,24 @@ pub(crate) fn set_kind(phrases: &[Phrase], beat: u32, kind: PhraseKind, total: u
     match phrase_at(&v, beat) {
         Some(i) => v[i].kind = kind,
         None => {
-            let start = v.iter().filter(|p| p.end_beat <= beat).map(|p| p.end_beat).max().unwrap_or(0);
-            let end = v.iter().filter(|p| p.start_beat > beat).map(|p| p.start_beat).min().unwrap_or(total);
+            let start = v
+                .iter()
+                .filter(|p| p.end_beat <= beat)
+                .map(|p| p.end_beat)
+                .max()
+                .unwrap_or(0);
+            let end = v
+                .iter()
+                .filter(|p| p.start_beat > beat)
+                .map(|p| p.start_beat)
+                .min()
+                .unwrap_or(total);
             if end > start {
-                v.push(Phrase { start_beat: start, end_beat: end, kind });
+                v.push(Phrase {
+                    start_beat: start,
+                    end_beat: end,
+                    kind,
+                });
                 v.sort_by_key(|p| p.start_beat);
             }
         }
@@ -63,12 +93,23 @@ pub(crate) const MIN_PART: u32 = 16;
 /// either part would be shorter than [`MIN_PART`] (pure).
 pub(crate) fn cut(phrases: &[Phrase], beat: u32) -> Option<Vec<Phrase>> {
     let mut v = sorted(phrases);
-    let i = phrase_at(&v, beat).filter(|&i| beat >= v[i].start_beat + MIN_PART && beat + MIN_PART <= v[i].end_beat)?;
+    let i = phrase_at(&v, beat)
+        .filter(|&i| beat >= v[i].start_beat + MIN_PART && beat + MIN_PART <= v[i].end_beat)?;
     let kind = v[i].kind;
-    let following = v.get(i + 1).filter(|n| n.start_beat == v[i].end_beat).map(|n| n.kind);
+    let following = v
+        .get(i + 1)
+        .filter(|n| n.start_beat == v[i].end_beat)
+        .map(|n| n.kind);
     let at = KINDS.iter().position(|k| *k == kind).unwrap_or(0);
-    let next = (1..KINDS.len()).map(|d| KINDS[(at + d) % KINDS.len()]).find(|k| Some(*k) != following).unwrap_or(kind);
-    let tail = Phrase { start_beat: beat, end_beat: v[i].end_beat, kind: next };
+    let next = (1..KINDS.len())
+        .map(|d| KINDS[(at + d) % KINDS.len()])
+        .find(|k| Some(*k) != following)
+        .unwrap_or(kind);
+    let tail = Phrase {
+        start_beat: beat,
+        end_beat: v[i].end_beat,
+        kind: next,
+    };
     v[i].end_beat = beat;
     v.insert(i + 1, tail);
     Some(v)
@@ -89,13 +130,18 @@ pub(crate) fn move_boundary(phrases: &[Phrase], beat: u32) -> Option<Vec<Phrase>
     let out: Vec<Phrase> = v
         .iter()
         .map(|p| Phrase {
-            start_beat: if p.start_beat == b { beat } else { p.start_beat },
+            start_beat: if p.start_beat == b {
+                beat
+            } else {
+                p.start_beat
+            },
             end_beat: if p.end_beat == b { beat } else { p.end_beat },
             kind: p.kind,
         })
         .collect();
     // Every phrase keeps its length and order.
-    let ordered = out.iter().all(|p| p.end_beat > p.start_beat) && out.windows(2).all(|w| w[0].end_beat <= w[1].start_beat);
+    let ordered = out.iter().all(|p| p.end_beat > p.start_beat)
+        && out.windows(2).all(|w| w[0].end_beat <= w[1].start_beat);
     ordered.then_some(out)
 }
 
@@ -144,11 +190,18 @@ pub(crate) fn edit(app: &App, op: Op) {
             app.status("This track has no beatgrid yet — analyse it first");
             return;
         }
-        (Op::Kind(k), Some(b)) => (set_kind(&phrases, b, k, grid.beats.len() as u32), "Phrase changed"),
+        (Op::Kind(k), Some(b)) => (
+            set_kind(&phrases, b, k, grid.beats.len() as u32),
+            "Phrase changed",
+        ),
         (Op::Cut, Some(b)) => match cut(&phrases, b) {
             Some(v) => (v, "Phrase cut at the cursor"),
             None => {
-                app.status(if phrase_at(&phrases, b).is_some() { "Cut at least 4 bars from the edges of the phrase" } else { "No phrase to cut at the cursor" });
+                app.status(if phrase_at(&phrases, b).is_some() {
+                    "Cut at least 4 bars from the edges of the phrase"
+                } else {
+                    "No phrase to cut at the cursor"
+                });
                 return;
             }
         },
@@ -173,13 +226,25 @@ pub(crate) fn edit(app: &App, op: Op) {
 
 /// The phrase at the cursor for the PHRASE tab ("" = none).
 pub(crate) fn current_label(phrases: &[Phrase], grid: &Beatgrid, cursor: f64) -> &'static str {
-    let Some(b) = grid.beat_position(cursor).map(|b| b.floor().max(0.0) as u32) else { return "" };
-    phrase_at(phrases, b).map(|i| crate::render::phrase_label(phrases[i].kind)).unwrap_or("")
+    let Some(b) = grid
+        .beat_position(cursor)
+        .map(|b| b.floor().max(0.0) as u32)
+    else {
+        return "";
+    };
+    phrase_at(phrases, b)
+        .map(|i| crate::render::phrase_label(phrases[i].kind))
+        .unwrap_or("")
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
     let pe = app.ui.global::<crate::PhraseEdit>();
-    pe.set_kinds(crate::models::model(KINDS.iter().map(|k| slint::SharedString::from(crate::render::phrase_label(*k))).collect()));
+    pe.set_kinds(crate::models::model(
+        KINDS
+            .iter()
+            .map(|k| slint::SharedString::from(crate::render::phrase_label(*k)))
+            .collect(),
+    ));
     pe.on_kind(handler!(app, |a, i: i32| {
         if let Some(k) = KINDS.get(i.max(0) as usize) {
             edit(&a, Op::Kind(*k));
@@ -196,7 +261,11 @@ mod tests {
     use PhraseKind::*;
 
     fn p(s: u32, e: u32, kind: PhraseKind) -> Phrase {
-        Phrase { start_beat: s * 4, end_beat: e * 4, kind }
+        Phrase {
+            start_beat: s * 4,
+            end_beat: e * 4,
+            kind,
+        }
     }
 
     #[test]
@@ -207,8 +276,22 @@ mod tests {
         let g = set_kind(&v, 20 * 4, Bridge, 256);
         assert_eq!(g[1], p(16, 32, Bridge));
         // After the last one: up to the end of the grid; without phrases: all of it.
-        assert_eq!(set_kind(&v, 70 * 4, Outro, 400)[2], Phrase { start_beat: 64 * 4, end_beat: 400, kind: Outro });
-        assert_eq!(set_kind(&[], 10, Up, 128), vec![Phrase { start_beat: 0, end_beat: 128, kind: Up }]);
+        assert_eq!(
+            set_kind(&v, 70 * 4, Outro, 400)[2],
+            Phrase {
+                start_beat: 64 * 4,
+                end_beat: 400,
+                kind: Outro
+            }
+        );
+        assert_eq!(
+            set_kind(&[], 10, Up, 128),
+            vec![Phrase {
+                start_beat: 0,
+                end_beat: 128,
+                kind: Up
+            }]
+        );
     }
 
     #[test]
@@ -217,20 +300,34 @@ mod tests {
         let c = cut(&v, 16 * 4).unwrap();
         assert_eq!(c.len(), 3);
         assert_eq!((c[0].end_beat, c[1].start_beat), (64, 64));
-        assert!(c[1].kind != Intro && c[1].kind != Verse, "the new part differs from both neighbours");
-        assert_eq!(normalize_phrases(&c).len(), 3, "a 16-bar part stays its own phrase");
+        assert!(
+            c[1].kind != Intro && c[1].kind != Verse,
+            "the new part differs from both neighbours"
+        );
+        assert_eq!(
+            normalize_phrases(&c).len(),
+            3,
+            "a 16-bar part stays its own phrase"
+        );
         assert!(cut(&v, 32 * 4).is_none(), "already a boundary");
         assert!(cut(&v, 80 * 4).is_none(), "no phrase there");
         // A part under 4 bars would join its neighbour: no cut there.
         assert!(cut(&v, 30 * 4).is_none() && cut(&v, 2 * 4).is_none());
-        assert!(cut(&v, 4 * 4).is_some() && cut(&v, 28 * 4).is_some(), "exactly 4 bars is enough");
+        assert!(
+            cut(&v, 4 * 4).is_some() && cut(&v, 28 * 4).is_some(),
+            "exactly 4 bars is enough"
+        );
     }
 
     #[test]
     fn boundaries_move_without_crossing() {
         let v = [p(0, 16, Intro), p(16, 48, Chorus), p(48, 64, Outro)];
         let m = move_boundary(&v, 20 * 4).unwrap();
-        assert_eq!((m[0].end_beat, m[1].start_beat), (80, 80), "the shared boundary moves for both phrases");
+        assert_eq!(
+            (m[0].end_beat, m[1].start_beat),
+            (80, 80),
+            "the shared boundary moves for both phrases"
+        );
         assert_eq!(m[2], v[2]);
         // The end of the track moves too.
         assert_eq!(move_boundary(&v, 70 * 4).unwrap()[2].end_beat, 280);
@@ -247,7 +344,11 @@ mod tests {
         let g = Beatgrid::constant(120.0, 0.0, 1, 120.0);
         // Beat 9 (4.5 s) is one beat after the downbeat at beat 8.
         assert_eq!(edit_beat(&g, 4.5), Some(8));
-        assert_eq!(edit_beat(&g, 5.6), Some(12), "beat 11 → the next downbeat (12)");
+        assert_eq!(
+            edit_beat(&g, 5.6),
+            Some(12),
+            "beat 11 → the next downbeat (12)"
+        );
         assert_eq!(edit_beat(&Beatgrid::default(), 3.0), None);
         let v = [p(0, 16, Intro), p(16, 48, Chorus)];
         assert_eq!(current_label(&v, &g, 1.0), "INTRO");

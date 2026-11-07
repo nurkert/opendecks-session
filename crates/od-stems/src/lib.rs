@@ -144,6 +144,48 @@ impl From<ort::Error> for Error {
 /// (`hash` = the library's content hash; `None` skips the lookup). A
 /// corrupt cache file is logged and ignored (the track loads without stems).
 #[allow(clippy::too_many_arguments)]
+/// Decodes `path` for a deck without stems (the fast first step of a load;
+/// see [`attach_cached_stems`]). Also returns the decoded rate and length,
+/// which the cached stems must match.
+#[allow(clippy::too_many_arguments)]
+pub fn load_mix(
+    id: TrackId,
+    path: &Path,
+    engine_rate: u32,
+    beatgrid: Beatgrid,
+    cues: &[Cue],
+    auto_gain_db: f32,
+) -> Result<(Arc<TrackData>, MixShape), Error> {
+    let audio = od_decode::decode(path, od_decode::Layout::Stereo)?;
+    let shape = MixShape { sample_rate: audio.sample_rate, frames: audio.frames() };
+    Ok((TrackData::new_with_stems(id, audio, engine_rate, beatgrid, cues, auto_gain_db, None), shape))
+}
+
+/// Rate and length of a decoded mix ([`load_mix`]).
+#[derive(Clone, Copy, Debug)]
+pub struct MixShape {
+    pub sample_rate: u32,
+    pub frames: usize,
+}
+
+/// The second step of a load: `track` with the cached stems of `hash`
+/// attached, if the cache has stems matching the mix.
+pub fn attach_cached_stems(cache: &StemCache, track: &TrackData, hash: &ContentHash, shape: MixShape) -> Option<Arc<TrackData>> {
+    let stems = match cache.load(hash) {
+        Ok(s) => s?,
+        Err(e) => {
+            tracing::warn!("ignoring stem cache: {e}");
+            return None;
+        }
+    };
+    let ok = stems.sample_rate == shape.sample_rate && (stems.vocals.len() as i64 - shape.frames as i64 * 2).abs() <= 2 * 64;
+    if !ok {
+        tracing::warn!("stem cache does not match the audio; ignored");
+        return None;
+    }
+    Some(track.with_stems(od_engine::StemData::new(&stems, track.sample_rate)))
+}
+
 pub fn load_track_data(
     cache: &StemCache,
     id: TrackId,

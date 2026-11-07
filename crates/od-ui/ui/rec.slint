@@ -112,15 +112,18 @@ export component RecPanel inherits VerticalLayout {
     HorizontalLayout {
         spacing: 12px;
         height: 32px;
-        PlateButton {
-            accessible-role: button; accessible-label: "rec.panel.toggle";
-            accessible-checkable: true; accessible-checked: Rec.recording;
-            horizontal-stretch: 0; compact: true;
-            label: Rec.recording ? @tr("STOP") : @tr("RECORD");
-            active: Rec.recording; tone: Theme.fault;
-            tooltip: Rec.recording ? @tr("Stop recording") : @tr("Record the master output");
-            command: "record.toggle";
-            clicked => { Rec.toggle(); }
+        VerticalLayout {
+            horizontal-stretch: 0; alignment: center;
+            PlateButton {
+                accessible-role: button; accessible-label: "rec.panel.toggle";
+                accessible-checkable: true; accessible-checked: Rec.recording;
+                horizontal-stretch: 0; compact: true;
+                label: Rec.recording ? @tr("STOP") : @tr("RECORD");
+                active: Rec.recording; tone: Theme.fault;
+                tooltip: Rec.recording ? @tr("Stop recording") : @tr("Record the master output");
+                command: "record.toggle";
+                clicked => { Rec.toggle(); }
+            }
         }
         Caps { accessible-role: text; accessible-label: "rec.panel.source"; accessible-value: self.text; text: @tr("MASTER"); vertical-alignment: center; }
         VerticalLayout { alignment: center; Level { accessible-label: "rec.panel.level"; } }

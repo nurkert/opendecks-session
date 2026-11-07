@@ -51,3 +51,17 @@ debug = "line-tables-only"
 
 [profile.dev.package."*"]
 opt-level = 2
+
+# The audio path is unusable unoptimised (decode, resampling, DSP): keep it
+# fast in development builds too.
+[profile.dev.package.od-engine]
+opt-level = 2
+
+[profile.dev.package.od-decode]
+opt-level = 2
+
+[profile.dev.package.od-stems]
+opt-level = 2
+
+[profile.dev.package.od-analysis]
+opt-level = 2

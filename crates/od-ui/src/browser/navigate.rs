@@ -27,7 +27,8 @@ pub(crate) fn step_in(ids: &[i32], current: i32, delta: i32) -> Option<i32> {
 
 fn set_focus(app: &App, tree: bool) {
     app.state.borrow_mut().browser.focus_tree = tree;
-    app.ui.set_browse_focus(SharedString::from(if tree { "tree" } else { "list" }));
+    app.ui
+        .set_browse_focus(SharedString::from(if tree { "tree" } else { "list" }));
 }
 
 /// Handles one browse action of a controller.
@@ -45,7 +46,13 @@ pub(crate) fn controller(app: &App, action: &BrowseAction) {
                 if let Some(next) = step_in(&ids, app.ui.get_selected_node(), delta) {
                     app.ui.invoke_select_node(next);
                     set_focus(app, true);
-                    let name = app.ui.get_tree().iter().find(|r| r.id == next).map(|r| r.name.to_string()).unwrap_or_default();
+                    let name = app
+                        .ui
+                        .get_tree()
+                        .iter()
+                        .find(|r| r.id == next)
+                        .map(|r| r.name.to_string())
+                        .unwrap_or_default();
                     app.status(name);
                 }
             } else {
@@ -61,7 +68,9 @@ pub(crate) fn controller(app: &App, action: &BrowseAction) {
                 let at = rows.iter().position(|r| r.id == current);
                 match at.map(|i| (i, &rows[i])) {
                     // A folder opens; an open one hands over to its first list.
-                    Some((_, r)) if r.kind == "folder" && r.has_children && !r.expanded => app.ui.invoke_toggle_node(r.id),
+                    Some((_, r)) if r.kind == "folder" && r.has_children && !r.expanded => {
+                        app.ui.invoke_toggle_node(r.id)
+                    }
                     Some((i, r)) if r.kind == "folder" && r.has_children => {
                         if let Some(child) = rows.get(i + 1).filter(|c| c.depth > r.depth) {
                             app.ui.invoke_select_node(child.id);
@@ -70,7 +79,9 @@ pub(crate) fn controller(app: &App, action: &BrowseAction) {
                     Some((_, r)) if r.kind == "folder" => {}
                     _ => {
                         set_focus(app, false);
-                        if app.state.borrow().browser.selection.is_empty() && app.state.borrow().row_count() > 0 {
+                        if app.state.borrow().browser.selection.is_empty()
+                            && app.state.borrow().row_count() > 0
+                        {
                             super::select_row(app, 0, false, false);
                             app.ui.set_focus_row(0);
                         }
@@ -92,7 +103,11 @@ pub(crate) fn controller(app: &App, action: &BrowseAction) {
                 // Up to the folder holding the open list.
                 let parent = {
                     let st = app.state.borrow();
-                    st.browser.node.filter(|_| !st.read_only()).and_then(|n| st.lib.node(n).ok()).and_then(|n| n.parent)
+                    st.browser
+                        .node
+                        .filter(|_| !st.read_only())
+                        .and_then(|n| st.lib.node(n).ok())
+                        .and_then(|n| n.parent)
                 };
                 if let Some(p) = parent {
                     app.ui.invoke_select_node(p.0 as i32);
@@ -104,7 +119,11 @@ pub(crate) fn controller(app: &App, action: &BrowseAction) {
             if kiosk {
                 app.ui.set_browser_open(!app.ui.get_browser_open());
             } else if app.ui.get_mode() == "prepare" {
-                let next = if app.ui.get_prepare_layout() == "browser" { "player" } else { "browser" };
+                let next = if app.ui.get_prepare_layout() == "browser" {
+                    "player"
+                } else {
+                    "browser"
+                };
                 crate::shell::set_prepare_layout(app, next);
             } else {
                 // Perform: the browse layout (small decks, large browser) and back.
@@ -118,7 +137,6 @@ pub(crate) fn controller(app: &App, action: &BrowseAction) {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -129,7 +147,11 @@ mod tests {
         assert_eq!(step_in(&ids, -1, 2), Some(7));
         assert_eq!(step_in(&ids, 7, -5), Some(-1));
         assert_eq!(step_in(&ids, 9, 3), Some(9));
-        assert_eq!(step_in(&ids, 42, 1), Some(5), "an unknown row counts as the first");
+        assert_eq!(
+            step_in(&ids, 42, 1),
+            Some(5),
+            "an unknown row counts as the first"
+        );
         assert_eq!(step_in(&[], 1, 1), None);
     }
 }

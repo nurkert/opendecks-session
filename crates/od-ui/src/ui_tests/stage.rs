@@ -35,7 +35,10 @@ fn lighting_view_patches_and_controls_the_show() {
     assert_eq!(rig.patch.fixtures.len(), 1);
     assert_eq!(rig.settings.mode, od_lighting::Mode::Easy);
     assert!(rig.settings.blackout);
-    assert_eq!(rig.outputs, vec![(0, od_lighting::OutputKind::Sacn { universe: 1 })]);
+    assert_eq!(
+        rig.outputs,
+        vec![(0, od_lighting::OutputKind::Sacn { universe: 1 })]
+    );
     assert!(rig.enabled);
 
     ui.click("lighting.rig.remove0");
@@ -59,9 +62,16 @@ fn cdj_mode_player_screens() {
 
     let id = ui.fx.tracks[0].0;
     crate::decks::load_track(&ui.app, 0, id, None);
-    assert!(ui.wait_until(30.0, |u| deck_views(u).first().is_some_and(|d| d.loaded)), "deck 1 loads");
+    assert!(
+        ui.wait_until(30.0, |u| deck_views(u).first().is_some_and(|d| d.loaded)),
+        "deck 1 loads"
+    );
     ui.click("deck1.cdj.play");
-    assert!(ui.wait_until(10.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].playing)), "PLAY starts");
+    assert!(
+        ui.wait_until(10.0, |u| crate::engine::snapshot(&u.app)
+            .is_some_and(|s| s.decks[0].playing)),
+        "PLAY starts"
+    );
     // Step 3 (start a deck) is seen while it plays.
     assert!(ui.wait_until(10.0, |u| u.app.cdj.borrow().checklist.done[2]));
     // CUE while playing returns to the cue point and pauses.
@@ -69,11 +79,57 @@ fn cdj_mode_player_screens() {
     let p = Rect::of(&cue).centre();
     ui.press_at(p, slint::platform::PointerEventButton::Left);
     ui.release_at(p, slint::platform::PointerEventButton::Left);
-    assert!(ui.wait_until(10.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| !s.decks[0].playing)), "CUE pauses");
+    assert!(
+        ui.wait_until(10.0, |u| crate::engine::snapshot(&u.app)
+            .is_some_and(|s| !s.decks[0].playing)),
+        "CUE pauses"
+    );
 
     ui.click("topbar.toggle.cdj");
     ui.pump(200);
     assert!(!ui.has("deck1.cdj"));
+}
+
+/// CDJ beat-position indicator: four segments per player, the lit one
+/// follows the beat of the bar while the deck plays.
+#[test]
+fn cdj_beat_position_follows_playback() {
+    let ui = Ui::open((1440, 900));
+    ui.app.ui.invoke_set_mode("perform".into());
+    crate::engine::ensure_engine(&ui.app);
+    ui.pump(300);
+    ui.click("topbar.toggle.cdj");
+    ui.pump(300);
+    assert!(ui.has("cdj1.beat-position") && ui.has("cdj2.beat-position"));
+    // Nothing loaded: no beat lit.
+    assert_eq!(ui.value("cdj1.beat-position"), "0");
+    // Under the zoomed waveform, across the player.
+    let bp = Rect::of(&ui.get("cdj1.beat-position"));
+    let player = Rect::of(&ui.get("deck1.cdj"));
+    assert!(player.contains(&bp, 0.5) && bp.w > player.w / 2.0);
+
+    let id = ui.fx.tracks[0].0;
+    crate::decks::load_track(&ui.app, 0, id, None);
+    assert!(ui.wait_until(30.0, |u| deck_views(u).first().is_some_and(|d| d.loaded)), "deck 1 loads");
+    assert!(ui.wait_until(30.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].track.is_some())), "engine has the track");
+    ui.click("deck1.cdj.play");
+    assert!(ui.wait_until(10.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].playing)), "PLAY starts");
+    // The lit beat walks through the bar: at least three different beats
+    // of 1..4 are seen while it plays.
+    let mut seen = std::collections::BTreeSet::new();
+    assert!(
+        ui.wait_until(15.0, |u| {
+            if let Ok(b) = u.value("cdj1.beat-position").parse::<i32>() {
+                if (1..=4).contains(&b) {
+                    seen.insert(b);
+                }
+            }
+            seen.len() >= 3
+        }),
+        "beats seen: {seen:?}"
+    );
+    // The idle player shows none.
+    assert_eq!(ui.value("cdj2.beat-position"), "0");
 }
 
 /// The LIGHT toggle shows the lighting strip inside Perform; its controls
@@ -117,20 +173,40 @@ fn lighting_pro_effect_xy_and_fog() {
     let ui = Ui::open((1440, 900));
     ui.click("topbar.mode.lighting");
     ui.pump(100);
-    let mover = od_lighting::FixtureDef::BUILTIN.iter().position(|n| *n == "moving-head").unwrap();
-    crate::lighting::add_fixture(&mut ui.app.lighting.borrow_mut().config.patch, mover, "Spot", "Movers").unwrap();
+    let mover = od_lighting::FixtureDef::BUILTIN
+        .iter()
+        .position(|n| *n == "moving-head")
+        .unwrap();
+    crate::lighting::add_fixture(
+        &mut ui.app.lighting.borrow_mut().config.patch,
+        mover,
+        "Spot",
+        "Movers",
+    )
+    .unwrap();
     ui.click("lighting.mode.pro");
     ui.pump(200);
     ui.click("lighting.pro.group0.effect");
     ui.pump(100);
-    assert_eq!(ui.app.lighting.borrow().config.settings.groups["Movers"].effect, crate::lighting::effect_preset(1));
+    assert_eq!(
+        ui.app.lighting.borrow().config.settings.groups["Movers"].effect,
+        crate::lighting::effect_preset(1)
+    );
     let xy = Rect::of(&ui.get("lighting.pro.group0.xy"));
-    ui.click_at(slint::LogicalPosition::new(xy.x + xy.w * 0.75, xy.y + xy.h * 0.25), slint::platform::PointerEventButton::Left);
+    ui.click_at(
+        slint::LogicalPosition::new(xy.x + xy.w * 0.75, xy.y + xy.h * 0.25),
+        slint::platform::PointerEventButton::Left,
+    );
     ui.pump(100);
     {
         let rt = ui.app.lighting.borrow();
         let g = &rt.config.settings.groups["Movers"];
-        assert!((g.pan.unwrap() - 0.75).abs() < 0.05 && (g.tilt.unwrap() - 0.75).abs() < 0.05, "{:?} {:?}", g.pan, g.tilt);
+        assert!(
+            (g.pan.unwrap() - 0.75).abs() < 0.05 && (g.tilt.unwrap() - 0.75).abs() < 0.05,
+            "{:?} {:?}",
+            g.pan,
+            g.tilt
+        );
     }
     let fog = Rect::of(&ui.get("lighting.fog")).centre();
     ui.press_at(fog, slint::platform::PointerEventButton::Left);
@@ -150,7 +226,10 @@ fn lighting_pad_mode_drives_the_show() {
     ui.pump(200);
     ui.app.ui.invoke_deck_pad_mode_set(1, 10);
     ui.pump(100);
-    assert_eq!(ui.app.decks.borrow().pad_mode[0], od_controller::PadMode::Lighting);
+    assert_eq!(
+        ui.app.decks.borrow().pad_mode[0],
+        od_controller::PadMode::Lighting
+    );
     crate::decks::pad(&ui.app, 0, 2, true);
     crate::decks::pad(&ui.app, 0, 2, false);
     {
@@ -175,16 +254,34 @@ fn cdj_browse_screen_loads_a_track() {
     slint::ComponentHandle::global::<crate::Cdj>(&ui.app.ui).invoke_set_enabled(true);
     ui.pump(200);
     ui.click("deck2.cdj.browse");
-    assert!(ui.wait_until(5.0, |u| u.has("deck2.cdj.browse-row1")), "sources shown");
+    assert!(
+        ui.wait_until(5.0, |u| u.has("deck2.cdj.browse-row1")),
+        "sources shown"
+    );
     ui.click("deck2.cdj.browse-row1"); // Playlists
-    assert!(ui.wait_until(5.0, |u| u.by_value("deck2.cdj.browse-row", "Warm-up").is_some()), "playlist tree");
+    assert!(
+        ui.wait_until(5.0, |u| u
+            .by_value("deck2.cdj.browse-row", "Warm-up")
+            .is_some()),
+        "playlist tree"
+    );
     ui.click("deck2.cdj.browse-back");
     ui.click("deck2.cdj.browse-row0"); // All tracks
     let title = ui.fx.tracks[2].1.clone();
-    let (_, row) = ui.by_value("deck2.cdj.browse-row", &format!("Test Artist — {title}")).expect("track row");
+    let (_, row) = ui
+        .by_value("deck2.cdj.browse-row", &format!("Test Artist — {title}"))
+        .expect("track row");
     ui.click_el(&row);
-    assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).get(1).is_some_and(|d| d.title == title)), "deck 2 loads {title}");
-    assert!(!ui.has("deck2.cdj.browse-list"), "browse closes after loading");
+    assert!(
+        ui.wait_until(30.0, |u| super::flows::deck_views(u)
+            .get(1)
+            .is_some_and(|d| d.title == title)),
+        "deck 2 loads {title}"
+    );
+    assert!(
+        !ui.has("deck2.cdj.browse-list"),
+        "browse closes after loading"
+    );
 }
 
 /// WINDOW opens the LIGHTING view in its own window; both windows show the
@@ -196,7 +293,13 @@ fn lighting_detaches_into_its_own_window() {
     ui.pump(100);
     ui.click("lighting.detach");
     ui.pump(100);
-    let w = ui.app.lighting_window.borrow().as_ref().map(|w| w.clone_strong()).expect("lighting window");
+    let w = ui
+        .app
+        .lighting_window
+        .borrow()
+        .as_ref()
+        .map(|w| w.clone_strong())
+        .expect("lighting window");
     let g = slint::ComponentHandle::global::<crate::Lighting>(&w);
     // A blackout from the main window shows in the detached one…
     ui.click("lighting.blackout");
@@ -204,10 +307,25 @@ fn lighting_detaches_into_its_own_window() {
     assert!(g.get_blackout());
     // …and the detached window's controls act on the same show.
     g.invoke_set_mode("pro".into());
-    assert_eq!(ui.app.lighting.borrow().config.settings.mode, od_lighting::Mode::Pro);
-    assert_eq!(slint::ComponentHandle::global::<crate::Lighting>(&ui.app.ui).get_mode(), "pro");
-    assert!(i_slint_backend_testing::ElementHandle::find_by_accessible_label(&w, "lighting.stage").next().is_some());
-    assert!(i_slint_backend_testing::ElementHandle::find_by_accessible_label(&w, "lighting.detach").next().is_none(), "no WINDOW key in the window itself");
+    assert_eq!(
+        ui.app.lighting.borrow().config.settings.mode,
+        od_lighting::Mode::Pro
+    );
+    assert_eq!(
+        slint::ComponentHandle::global::<crate::Lighting>(&ui.app.ui).get_mode(),
+        "pro"
+    );
+    assert!(
+        i_slint_backend_testing::ElementHandle::find_by_accessible_label(&w, "lighting.stage")
+            .next()
+            .is_some()
+    );
+    assert!(
+        i_slint_backend_testing::ElementHandle::find_by_accessible_label(&w, "lighting.detach")
+            .next()
+            .is_none(),
+        "no WINDOW key in the window itself"
+    );
 }
 
 /// Mapped controller inputs drive the light show.
@@ -221,10 +339,16 @@ fn lighting_reacts_to_mapped_controls() {
     {
         let rt = ui.app.lighting.borrow();
         assert_eq!(rt.config.settings.mode, od_lighting::Mode::Pro);
-        assert_eq!((rt.config.settings.master, rt.config.settings.blackout), (0.25, true));
+        assert_eq!(
+            (rt.config.settings.master, rt.config.settings.blackout),
+            (0.25, true)
+        );
     }
     crate::lighting::controller(&ui.app, L::Look(3));
-    assert_eq!(ui.app.lighting.borrow().config.settings.easy_program, od_lighting::Program::Sweep);
+    assert_eq!(
+        ui.app.lighting.borrow().config.settings.easy_program,
+        od_lighting::Program::Sweep
+    );
     crate::lighting::controller(&ui.app, L::Fog(true));
     assert!(slint::ComponentHandle::global::<crate::Lighting>(&ui.app.ui).get_fog());
 }
@@ -242,17 +366,44 @@ fn lighting_track_cue_timeline() {
     let (id, title) = ui.fx.tracks[0].clone();
     crate::decks::load_track(&ui.app, 0, id, None);
     // Deck rows are projected in Perform only; check the engine instead.
-    assert!(ui.wait_until(30.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].track == Some(id))));
+    assert!(ui.wait_until(30.0, |u| {
+        crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].track == Some(id))
+    }));
     ui.app.ui.invoke_deck_toggle_play(1);
-    assert!(ui.wait_until(30.0, |u| slint::ComponentHandle::global::<crate::Lighting>(&u.app.ui).get_timeline_title() == title.as_str()), "focused track");
+    assert!(
+        ui.wait_until(30.0, |u| slint::ComponentHandle::global::<crate::Lighting>(
+            &u.app.ui
+        )
+        .get_timeline_title()
+            == title.as_str()),
+        "focused track"
+    );
     ui.pump(200);
     ui.click("lighting.timeline.add");
     ui.pump(100);
-    let cues = ui.app.lighting.borrow().config.settings.track_cues.get(&id.0).cloned().unwrap_or_default();
+    let cues = ui
+        .app
+        .lighting
+        .borrow()
+        .config
+        .settings
+        .track_cues
+        .get(&id.0)
+        .cloned()
+        .unwrap_or_default();
     assert_eq!(cues.len(), 1);
     assert_eq!(cues[0].beat % 4, 0, "on a bar");
     assert!(ui.has("lighting.timeline0"));
     ui.click("lighting.timeline0.delete");
     ui.pump(100);
-    assert!(ui.app.lighting.borrow().config.settings.track_cues.get(&id.0).is_none_or(|v| v.is_empty()));
+    assert!(
+        ui.app
+            .lighting
+            .borrow()
+            .config
+            .settings
+            .track_cues
+            .get(&id.0)
+            .is_none_or(|v| v.is_empty())
+    );
 }

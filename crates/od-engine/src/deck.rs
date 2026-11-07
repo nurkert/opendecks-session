@@ -274,14 +274,13 @@ impl Deck {
             .map(|t| t * self.sr)
     }
 
-    /// Track BPM (grid) at the playhead, measured from neighbouring beats.
+    /// Track BPM (grid) at the playhead: the grid's stated tempo of the
+    /// current beat. Beat times are stored to the millisecond, so measuring
+    /// neighbouring beats would make the readout (and sync) flicker.
     pub fn track_bpm(&self) -> Option<f64> {
-        let b = self.beat_at(self.pos)?;
-        let base = b.floor();
-        let t0 = self.frames_of_beat(base)?;
-        let t1 = self.frames_of_beat(base + 1.0)?;
-        let period = (t1 - t0) / self.sr;
-        (period > 1e-6).then(|| 60.0 / period)
+        let grid = &self.track.as_ref()?.beatgrid;
+        let i = grid.beat_index_at(self.pos / self.sr).unwrap_or(0);
+        grid.beats.get(i).map(|b| b.bpm).filter(|b| *b > 0.0)
     }
 
     fn fader_tempo(&self) -> f64 {

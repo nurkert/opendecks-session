@@ -39,6 +39,9 @@ export global Cdj {
     callback browse-back();
     in property <[CdjStep]> steps;
     in-out property <bool> show-steps: true;
+    // Per deck (index deck - 1): the beat of the bar at the playhead, 1..4,
+    // from the beatgrid; 0 without grid.
+    in property <[int]> beat-in-bar;
     // Player actions by keymap id without the deck prefix ("memory.next",
     // "loop.in", "loop.out", "loop.exit", "loop.4", "jump.fwd", "jump.back",
     // "keylock", "play").
@@ -124,6 +127,24 @@ component BigButton inherits Rectangle {
     }
 }
 
+// Beat position: four segments for the beats of the bar, the current one
+// lit; the downbeat (1) in the accent colour, 2–4 in the deck colour, so the
+// beats of two players can be matched by eye.
+component BeatPosition inherits HorizontalLayout {
+    in property <int> beat;
+    in property <color> tone;
+    spacing: 3px;
+    height: 8px;
+    for i in 4: Rectangle {
+        property <bool> lit: root.beat == i + 1;
+        property <color> on-tone: i == 0 ? Theme.attention : root.tone;
+        horizontal-stretch: 1;
+        background: self.lit ? self.on-tone : i == 0 ? Theme.attention.with-alpha(0.12) : Theme.plate;
+        border-width: 1px;
+        border-color: self.lit ? self.on-tone : i == 0 ? Theme.attention.with-alpha(0.45) : Theme.rule;
+    }
+}
+
 export component CdjPlayer inherits Rectangle {
     in property <DeckView> deck;
     in property <LaneMotion> motion;
@@ -147,7 +168,7 @@ export component CdjPlayer inherits Rectangle {
             Text { text: root.n; font-family: Theme.family; font-size: 22px; font-weight: 600; color: root.tone; vertical-alignment: center; }
             VerticalLayout {
                 horizontal-stretch: 1;
-                Text { text: root.deck.loaded ? root.deck.title : @tr("No track — browse and load"); font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; overflow: elide; }
+                Text { text: root.deck.loaded || root.deck.loading ? root.deck.title : @tr("No track — browse and load"); font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; overflow: elide; }
                 Text { text: root.deck.artist; font-family: Theme.family; font-size: 11px; color: Theme.bone-2; overflow: elide; }
             }
             Caps { text: root.deck.key; vertical-alignment: center; color: Theme.bone; }
@@ -165,6 +186,14 @@ export component CdjPlayer inherits Rectangle {
             zoom(d) => { root.zoom(d); }
             zoom-reset => { root.zoom-reset(); }
         }
+        // Beat of the bar under the waveform, as on a club player.
+        BeatPosition {
+            accessible-role: progress-indicator;
+            accessible-label: "cdj\{root.n}.beat-position";
+            accessible-value: Cdj.beat-in-bar[root.n - 1];
+            beat: root.deck.loaded ? Cdj.beat-in-bar[root.n - 1] : 0;
+            tone: root.tone;
+        }
         // Overview with cue marks; tap to needle-search.
         Rectangle {
             accessible-role: slider; accessible-label: "deck\{root.n}.cdj.overview"; accessible-value: root.deck.progress;
@@ -179,9 +208,9 @@ export component CdjPlayer inherits Rectangle {
             }
             if root.deck.loaded: Rectangle { x: parent.width * root.deck.progress - 1px; width: 2px; height: parent.height; background: Theme.bone; }
             TouchArea { mouse-cursor: crosshair; clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
-            if !root.deck.loaded: HorizontalLayout {
+            if !root.deck.loaded && !root.deck.loading: HorizontalLayout {
                 alignment: center;
-                PlateButton { accessible-label: "deck\{root.n}.cdj.load"; accessible-role: button; compact: true; label: @tr("LOAD SELECTED"); tone: root.tone; clicked => { root.load(); } }
+                VerticalLayout { alignment: center; PlateButton { accessible-label: "deck\{root.n}.cdj.load"; accessible-role: button; compact: true; label: @tr("LOAD SELECTED"); tone: root.tone; clicked => { root.load(); } } }
             }
         }
         HorizontalLayout {
@@ -237,15 +266,19 @@ export component CdjPlayer inherits Rectangle {
                     }
                 }
             }
-            // Jog display: remaining time, bar counter, phrase.
-            Jog {
-                accessible-label: "deck\{root.n}.cdj.jog"; accessible-role: image;
-                size: 170px;
-                angle: root.deck.jog-angle; progress: root.deck.progress; playing: root.deck.playing; loaded: root.deck.loaded;
-                tone: root.tone;
-                top-text: root.deck.beat-pos;
-                main-text: root.deck.remaining;
-                sub-text: root.deck.phrase;
+            // Jog display: remaining time, bar counter, phrase; centred
+            // between the hot cues and CUE / PLAY.
+            VerticalLayout {
+                alignment: center;
+                Jog {
+                    accessible-label: "deck\{root.n}.cdj.jog"; accessible-role: image;
+                    size: 170px;
+                    angle: root.deck.jog-angle; progress: root.deck.progress; playing: root.deck.playing; loaded: root.deck.loaded;
+                    tone: root.tone;
+                    top-text: root.deck.beat-pos;
+                    main-text: root.deck.remaining;
+                    sub-text: root.deck.phrase;
+                }
             }
             // Tempo: BPM, tempo %, range, master tempo, fader.
             VerticalLayout {
@@ -328,10 +361,13 @@ export component CdjSteps inherits Rectangle {
             }
         }
         Rectangle { horizontal-stretch: 1; }
-        PlateButton {
-            accessible-label: "app.cdj.steps-hide"; accessible-role: button;
-            compact: true; glyph: "close"; width: 30px; tooltip: @tr("Hide the checklist");
-            clicked => { Cdj.show-steps = false; }
+        VerticalLayout {
+            alignment: center;
+            PlateButton {
+                accessible-label: "app.cdj.steps-hide"; accessible-role: button;
+                compact: true; glyph: "close"; width: 30px; tooltip: @tr("Hide the checklist");
+                clicked => { Cdj.show-steps = false; }
+            }
         }
     }
     HLine { y: parent.height - 1px; tone: Theme.rule; }

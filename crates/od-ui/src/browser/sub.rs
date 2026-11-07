@@ -26,15 +26,28 @@ thread_local! {
 
 /// Library lists below `parent`, depth first, every folder open (pure on
 /// the node list).
-pub(crate) fn list_rows(all: &[od_library::Node], counts: &dyn Fn(NodeId) -> usize) -> Vec<TreeRow> {
-    fn walk(all: &[od_library::Node], parent: Option<NodeId>, depth: i32, counts: &dyn Fn(NodeId) -> usize, out: &mut Vec<TreeRow>) {
+pub(crate) fn list_rows(
+    all: &[od_library::Node],
+    counts: &dyn Fn(NodeId) -> usize,
+) -> Vec<TreeRow> {
+    fn walk(
+        all: &[od_library::Node],
+        parent: Option<NodeId>,
+        depth: i32,
+        counts: &dyn Fn(NodeId) -> usize,
+        out: &mut Vec<TreeRow>,
+    ) {
         for n in all.iter().filter(|n| n.parent == parent) {
             out.push(TreeRow {
                 id: n.id.0 as i32,
                 name: n.name.clone().into(),
                 kind: n.kind.as_str().into(),
                 depth,
-                count: if n.kind == NodeKind::Folder { 0 } else { counts(n.id) as i32 },
+                count: if n.kind == NodeKind::Folder {
+                    0
+                } else {
+                    counts(n.id) as i32
+                },
                 has_children: all.iter().any(|c| c.parent == Some(n.id)),
                 expanded: true,
                 ..Default::default()
@@ -70,10 +83,14 @@ pub(crate) fn refresh(app: &App) {
     }
     let st = app.state.borrow();
     let all = st.lib.all_nodes().unwrap_or_default();
-    let rows = list_rows(&all, &|n| st.lib.node_tracks(n).map(|t| t.len()).unwrap_or(0));
+    let rows = list_rows(&all, &|n| {
+        st.lib.node_tracks(n).map(|t| t.len()).unwrap_or(0)
+    });
     let sb = app.ui.global::<crate::SubBrowser>();
     // A deleted list is forgotten.
-    let node = SUB.with(|s| s.borrow().node).filter(|n| all.iter().any(|x| x.id == *n));
+    let node = SUB
+        .with(|s| s.borrow().node)
+        .filter(|n| all.iter().any(|x| x.id == *n));
     let kind = node.and_then(|n| all.iter().find(|x| x.id == n).map(|x| x.kind));
     let tracks = match (node, kind) {
         (Some(_), Some(NodeKind::Folder)) | (None, _) => Vec::new(),
@@ -94,8 +111,15 @@ pub(crate) fn refresh(app: &App) {
         sb.set_lists(model(rows));
     }
     sb.set_selected(node.map(|n| n.0 as i32).unwrap_or(-1));
-    sb.set_title(node.and_then(|n| all.iter().find(|x| x.id == n)).map(|x| x.name.clone()).unwrap_or_default().into());
-    sb.set_takes_tracks(matches!(kind, Some(NodeKind::Playlist | NodeKind::Set)) && !st.read_only());
+    sb.set_title(
+        node.and_then(|n| all.iter().find(|x| x.id == n))
+            .map(|x| x.name.clone())
+            .unwrap_or_default()
+            .into(),
+    );
+    sb.set_takes_tracks(
+        matches!(kind, Some(NodeKind::Playlist | NodeKind::Set)) && !st.read_only(),
+    );
     if !update_in_place(&sb.get_tracks(), &view) {
         sb.set_tracks(model(view));
     }
@@ -135,7 +159,13 @@ pub(crate) fn row_dropped(app: &App, index: usize, target: i32) {
             if Some(to) == node || app.guard_read_only() {
                 return;
             }
-            let name = app.state.borrow().lib.node(to).map(|n| n.name).unwrap_or_default();
+            let name = app
+                .state
+                .borrow()
+                .lib
+                .node(to)
+                .map(|n| n.name)
+                .unwrap_or_default();
             let r = app.state.borrow_mut().lib.add_to_node(to, &[track], None);
             if app.report(r).is_some() {
                 app.after_edit(&od_i18n::trf("Added {} track(s) to {}", &[&1, &name]));
@@ -149,12 +179,18 @@ pub(crate) fn row_dropped(app: &App, index: usize, target: i32) {
                 return;
             }
             let Some(open) = open else { return };
-            let r = app.state.borrow_mut().lib.add_to_node(open, &[track], Some(at));
+            let r = app
+                .state
+                .borrow_mut()
+                .lib
+                .add_to_node(open, &[track], Some(at));
             if app.report(r).is_some() {
                 app.after_edit("Added to the list — ⌘Z to undo");
             }
         }
-        DropTarget::Deck if (1..=decks::DECKS as i32).contains(&target) => decks::load_track(app, target as usize - 1, track, None),
+        DropTarget::Deck if (1..=decks::DECKS as i32).contains(&target) => {
+            decks::load_track(app, target as usize - 1, track, None)
+        }
         DropTarget::Deck if target == -2 => crate::player::load_second(app, track),
         DropTarget::Deck if target == -1 => {
             {
@@ -171,7 +207,11 @@ pub(crate) fn row_dropped(app: &App, index: usize, target: i32) {
 pub(crate) fn wire(app: &Rc<App>) {
     let sb = app.ui.global::<crate::SubBrowser>();
     sb.on_select(handler!(app, |a, id: i32| select(&a, id)));
-    sb.on_row_dropped(handler!(app, |a, i: i32, t: i32| row_dropped(&a, i.max(0) as usize, t)));
+    sb.on_row_dropped(handler!(app, |a, i: i32, t: i32| row_dropped(
+        &a,
+        i.max(0) as usize,
+        t
+    )));
     app.ui.on_toggle_sub_browser(handler!(app, |a| toggle(&a)));
 }
 
@@ -183,12 +223,22 @@ mod tests {
     fn lists_open_every_folder() {
         let mut lib = od_library::Library::open_in_memory().unwrap();
         let f = lib.create_node(None, NodeKind::Folder, "Gigs").unwrap();
-        let a = lib.create_node(Some(f), NodeKind::Playlist, "Friday").unwrap();
+        let a = lib
+            .create_node(Some(f), NodeKind::Playlist, "Friday")
+            .unwrap();
         let b = lib.create_node(None, NodeKind::Set, "Closing").unwrap();
         let all = lib.all_nodes().unwrap();
         let rows = list_rows(&all, &|n| if n == a { 3 } else { 0 });
-        let names: Vec<(String, i32)> = rows.iter().map(|r| (r.name.to_string(), r.depth)).collect();
-        assert_eq!(names, vec![("Gigs".into(), 0), ("Friday".into(), 1), ("Closing".into(), 0)]);
+        let names: Vec<(String, i32)> =
+            rows.iter().map(|r| (r.name.to_string(), r.depth)).collect();
+        assert_eq!(
+            names,
+            vec![
+                ("Gigs".into(), 0),
+                ("Friday".into(), 1),
+                ("Closing".into(), 0)
+            ]
+        );
         assert_eq!(rows[1].count, 3);
         assert_eq!(rows[2].id, b.0 as i32);
         assert_eq!(rows[0].kind, "folder");

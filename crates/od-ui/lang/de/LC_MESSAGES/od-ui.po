@@ -4975,3 +4975,6 @@ msgstr "VERT"
 msgctxt "TopBar"
 msgid "Work mode"
 msgstr "Arbeitsmodus"
+
+msgid "LOADING"
+msgstr "LÄDT"

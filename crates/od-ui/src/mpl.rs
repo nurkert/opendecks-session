@@ -31,11 +31,18 @@ fn meta_key(track: TrackId) -> String {
 
 /// The stored mix points of `track`.
 pub(crate) fn load(lib: &od_library::Library, track: TrackId) -> MixPoints {
-    lib.meta(&meta_key(track)).ok().flatten().and_then(|j| serde_json::from_str(&j).ok()).unwrap_or_default()
+    lib.meta(&meta_key(track))
+        .ok()
+        .flatten()
+        .and_then(|j| serde_json::from_str(&j).ok())
+        .unwrap_or_default()
 }
 
 fn store(lib: &mut od_library::Library, track: TrackId, p: MixPoints) {
-    if let Err(e) = lib.set_meta(&meta_key(track), &serde_json::to_string(&p).unwrap_or_default()) {
+    if let Err(e) = lib.set_meta(
+        &meta_key(track),
+        &serde_json::to_string(&p).unwrap_or_default(),
+    ) {
         tracing::warn!(error = %e, "mix points not saved");
     }
 }
@@ -49,7 +56,11 @@ pub(crate) fn crossed(prev: f64, now: f64, mix_out: f64) -> bool {
 /// 50 ms of it (pure).
 pub(crate) fn step_point(points: &[f64], pos: f64, forward: bool) -> Option<f64> {
     let far = points.iter().copied().filter(|t| (t - pos).abs() > 0.05);
-    if forward { far.filter(|t| *t > pos).reduce(f64::min) } else { far.filter(|t| *t < pos).reduce(f64::max) }
+    if forward {
+        far.filter(|t| *t > pos).reduce(f64::min)
+    } else {
+        far.filter(|t| *t < pos).reduce(f64::max)
+    }
 }
 
 #[derive(Default)]
@@ -71,7 +82,14 @@ thread_local! {
 fn points(app: &App, track: TrackId) -> (Vec<f64>, MixPoints) {
     let st = app.state.borrow();
     let mp = load(&st.lib, track);
-    let mut v: Vec<f64> = st.lib.cues(track).unwrap_or_default().iter().filter(|c| c.kind == CueKind::Memory).map(|c| c.start).collect();
+    let mut v: Vec<f64> = st
+        .lib
+        .cues(track)
+        .unwrap_or_default()
+        .iter()
+        .filter(|c| c.kind == CueKind::Memory)
+        .map(|c| c.start)
+        .collect();
     v.extend(mp.mix_in);
     v.extend(mp.mix_out);
     v.sort_by(f64::total_cmp);
@@ -93,7 +111,11 @@ pub(crate) fn act(app: &App, what: &str) {
                 s.link = !s.link;
                 s.link
             });
-            app.status(if on { "Mix Point Link on" } else { "Mix Point Link off" });
+            app.status(if on {
+                "Mix Point Link on"
+            } else {
+                "Mix Point Link off"
+            });
         }
         _ => {
             let Some(d) = engine::snapshot(app).map(|s| s.decks[edit].clone()) else {
@@ -135,12 +157,19 @@ pub(crate) fn refresh(app: &App) {
     let decks: Vec<MplDeck> = (0..PANEL_DECKS)
         .map(|i| {
             let track = snap.as_ref().and_then(|s| s.decks[i].track);
-            let (count, mp) = track.map(|t| {
-                let (pts, mp) = points(app, t);
-                (pts.len(), mp)
-            }).unwrap_or_default();
+            let (count, mp) = track
+                .map(|t| {
+                    let (pts, mp) = points(app, t);
+                    (pts.len(), mp)
+                })
+                .unwrap_or_default();
             let time = |t: Option<f64>| t.map(format::cue_time).unwrap_or_default();
-            MplDeck { deck: i as i32 + 1, points: count as i32, mix_in: SharedString::from(time(mp.mix_in)), mix_out: SharedString::from(time(mp.mix_out)) }
+            MplDeck {
+                deck: i as i32 + 1,
+                points: count as i32,
+                mix_in: SharedString::from(time(mp.mix_in)),
+                mix_out: SharedString::from(time(mp.mix_out)),
+            }
         })
         .collect();
     let g = app.ui.global::<crate::Mpl>();
@@ -160,23 +189,35 @@ pub(crate) fn refresh(app: &App) {
 /// Frame check: with LINK on, start the waiting deck at its mix-in point
 /// when the playing deck passes its mix-out point.
 fn tick(app: &App) {
-    let Some(snap) = engine::snapshot(app) else { return };
+    let Some(snap) = engine::snapshot(app) else {
+        return;
+    };
     let link = STATE.with(|s| s.borrow().link);
     for out in 0..PANEL_DECKS {
         let d = &snap.decks[out];
-        let prev = STATE.with(|s| std::mem::replace(&mut s.borrow_mut().last[out], Some((d.track, d.position))));
-        let (Some(track), true) = (d.track, d.playing) else { continue };
-        let Some((prev_track, prev_pos)) = prev else { continue };
+        let prev = STATE.with(|s| {
+            std::mem::replace(&mut s.borrow_mut().last[out], Some((d.track, d.position)))
+        });
+        let (Some(track), true) = (d.track, d.playing) else {
+            continue;
+        };
+        let Some((prev_track, prev_pos)) = prev else {
+            continue;
+        };
         if !link || prev_track != Some(track) {
             continue;
         }
-        let Some(mix_out) = load(&app.state.borrow().lib, track).mix_out else { continue };
+        let Some(mix_out) = load(&app.state.borrow().lib, track).mix_out else {
+            continue;
+        };
         if !crossed(prev_pos, d.position, mix_out) {
             continue;
         }
         let inc = (out + 1) % PANEL_DECKS;
         let other = &snap.decks[inc];
-        let (Some(next), false) = (other.track, other.playing) else { continue };
+        let (Some(next), false) = (other.track, other.playing) else {
+            continue;
+        };
         let start = load(&app.state.borrow().lib, next).mix_in.unwrap_or(0.0);
         engine::deck_cmd(app, inc, DeckCommand::Seek { seconds: start });
         engine::deck_cmd(app, inc, DeckCommand::Play);
@@ -196,11 +237,15 @@ pub(crate) fn wire(app: &Rc<App>) {
     });
     let weak = Rc::downgrade(app);
     TIMER.with(|t| {
-        t.start(slint::TimerMode::Repeated, Duration::from_millis(40), move || {
-            if let Some(a) = weak.upgrade() {
-                tick(&a);
-            }
-        })
+        t.start(
+            slint::TimerMode::Repeated,
+            Duration::from_millis(40),
+            move || {
+                if let Some(a) = weak.upgrade() {
+                    tick(&a);
+                }
+            },
+        )
     });
 }
 
@@ -213,7 +258,10 @@ mod tests {
         assert!(crossed(59.98, 60.01, 60.0));
         assert!(!crossed(60.01, 60.05, 60.0), "already past");
         assert!(!crossed(59.0, 59.5, 60.0), "not there yet");
-        assert!(!crossed(10.0, 61.0, 60.0), "a seek over the point does not fire");
+        assert!(
+            !crossed(10.0, 61.0, 60.0),
+            "a seek over the point does not fire"
+        );
     }
 
     #[test]
@@ -221,7 +269,11 @@ mod tests {
         let p = [10.0, 32.0, 64.0];
         assert_eq!(step_point(&p, 20.0, true), Some(32.0));
         assert_eq!(step_point(&p, 20.0, false), Some(10.0));
-        assert_eq!(step_point(&p, 32.01, true), Some(64.0), "the point under the playhead is skipped");
+        assert_eq!(
+            step_point(&p, 32.01, true),
+            Some(64.0),
+            "the point under the playhead is skipped"
+        );
         assert_eq!(step_point(&p, 70.0, true), None);
     }
 
@@ -231,7 +283,14 @@ mod tests {
         let mut lib = od_library::Library::open(&dir.path().join("l.sqlite")).unwrap();
         let t = TrackId(7);
         assert_eq!(load(&lib, t), MixPoints::default());
-        store(&mut lib, t, MixPoints { mix_in: Some(12.5), mix_out: None });
+        store(
+            &mut lib,
+            t,
+            MixPoints {
+                mix_in: Some(12.5),
+                mix_out: None,
+            },
+        );
         assert_eq!(load(&lib, t).mix_in, Some(12.5));
     }
 }

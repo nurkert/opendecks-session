@@ -87,8 +87,14 @@ impl StemData {
                 v.into()
             }
         }
-        let rs = |v| rs(v, input.sample_rate, engine_rate);
-        let parts = [rs(&input.vocals), rs(&input.drums), rs(&input.bass)];
+        // The three parts resample in parallel (this runs while a deck waits).
+        let (from, to) = (input.sample_rate, engine_rate);
+        let parts = std::thread::scope(|s| {
+            let d = s.spawn(move || rs(&input.drums, from, to));
+            let b = s.spawn(move || rs(&input.bass, from, to));
+            let v = rs(&input.vocals, from, to);
+            [v, d.join().expect("resampler thread"), b.join().expect("resampler thread")]
+        });
         let frames = parts.iter().map(|p| p.len() / 2).max().unwrap_or(0);
         let mut scale = [0f32; 3];
         let mut data = vec![0i16; frames * 6].into_boxed_slice();

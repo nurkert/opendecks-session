@@ -27,7 +27,7 @@ pub struct ToolOut {
 
 pub type ToolResult = Result<ToolOut, String>;
 
-fn out(summary: impl Into<String>, data: Value) -> ToolResult {
+pub(crate) fn out(summary: impl Into<String>, data: Value) -> ToolResult {
     Ok(ToolOut { data, summary: summary.into() })
 }
 
@@ -67,7 +67,7 @@ impl ToolDef {
     }
 }
 
-fn def<P: DeserializeOwned + JsonSchema + 'static>(
+pub(crate) fn def<P: DeserializeOwned + JsonSchema + 'static>(
     name: &'static str,
     title: &'static str,
     description: &'static str,
@@ -147,6 +147,9 @@ pub fn all() -> Vec<ToolDef> {
             "Delete a folder (with everything in it), playlist, set or smart list. Tracks stay in the collection. Requires confirm=true; without it, reports what would be deleted. Undoable in the app.",
             false, true, delete_node),
     ]
+    .into_iter()
+    .chain(crate::lighting::tools())
+    .collect()
 }
 
 // ---------------------------------------------------------------- helpers

@@ -22,8 +22,13 @@ struct FlowResult {
 }
 
 fn record(r: FlowResult) {
-    let flows: od_parity::model::FlowsFile = od_parity::model::load(&workspace_root().join(od_parity::FLOWS)).unwrap();
-    let flow = flows.flows.iter().find(|f| f.id == r.id).expect("flow in flows.toml");
+    let flows: od_parity::model::FlowsFile =
+        od_parity::model::load(&workspace_root().join(od_parity::FLOWS)).unwrap();
+    let flow = flows
+        .flows
+        .iter()
+        .find(|f| f.id == r.id)
+        .expect("flow in flows.toml");
     let within = r.steps <= flow.target_steps;
     let dir = workspace_root().join("target/parity/flows");
     let _ = std::fs::create_dir_all(&dir);
@@ -38,10 +43,17 @@ fn record(r: FlowResult) {
         serde_json::to_string(&r.note).unwrap()
     );
     std::fs::write(dir.join(format!("{}.json", r.id)), json).unwrap();
-    eprintln!("flow {}: {} steps (target {}, usual {}), achieved: {} {}", r.id, r.steps, flow.target_steps, flow.reference_steps, r.achieved, r.note);
+    eprintln!(
+        "flow {}: {} steps (target {}, usual {}), achieved: {} {}",
+        r.id, r.steps, flow.target_steps, flow.reference_steps, r.achieved, r.note
+    );
     if strict() {
         assert!(r.achieved, "flow {} not achievable: {}", r.id, r.note);
-        assert!(within, "flow {} took {} steps, target {}", r.id, r.steps, flow.target_steps);
+        assert!(
+            within,
+            "flow {} took {} steps, target {}",
+            r.id, r.steps, flow.target_steps
+        );
     }
 }
 
@@ -52,7 +64,10 @@ fn perform(ui: &Ui) {
 
 /// The deck's title read-out once a track is loaded.
 pub(crate) fn deck_title(ui: &Ui, deck: usize) -> String {
-    ui.find(&format!("deck{deck}.title")).and_then(|e| e.accessible_value()).map(|v| v.to_string()).unwrap_or_default()
+    ui.find(&format!("deck{deck}.title"))
+        .and_then(|e| e.accessible_value())
+        .map(|v| v.to_string())
+        .unwrap_or_default()
 }
 
 /// The deck view models (Perform).
@@ -73,18 +88,45 @@ fn load_from_explorer() {
     // The Explorer source of the rail scrolls the tree to the Explorer and
     // opens its roots one level, so the folder is listed right away.
     ui.click("browser.rail.explorer");
-    let crate_row = ui.by_value("browser.tree.folder", "Crate").map(|x| x.1).expect("folder below the Explorer root, in view");
+    let crate_row = ui
+        .by_value("browser.tree.folder", "Crate")
+        .map(|x| x.1)
+        .expect("folder below the Explorer root, in view");
     ui.click_el(&crate_row);
-    assert!(ui.wait_until(10.0, |u| u.by_value("browser.row", "Outside Loop").is_some()), "folder lists its file");
+    assert!(
+        ui.wait_until(10.0, |u| u
+            .by_value("browser.row", "Outside Loop")
+            .is_some()),
+        "folder lists its file"
+    );
     let (_, file_row) = ui.by_value("browser.row", "Outside Loop").unwrap();
     ui.double_click_el(&file_row);
     let steps = ui.steps.get();
     let loaded = ui.wait_until(30.0, |u| deck_title(u, 1).contains("Outside Loop"));
     // The file was added to the collection on load (SPEC §5.5).
-    let imported = ui.fx.lib().track_by_path(&ui.fx.outside_file).unwrap().is_some();
-    assert!(loaded, "deck 1 shows the file, got `{}`", deck_title(&ui, 1));
-    assert!(imported && ui.fx.lib().track_count().unwrap() == before + 1, "the file is in the collection");
-    record(FlowResult { id: "load-from-explorer", steps, achieved: loaded && imported, note: "Explorer in the source rail (opens the roots), click the folder, double-click the file".into() });
+    let imported = ui
+        .fx
+        .lib()
+        .track_by_path(&ui.fx.outside_file)
+        .unwrap()
+        .is_some();
+    assert!(
+        loaded,
+        "deck 1 shows the file, got `{}`",
+        deck_title(&ui, 1)
+    );
+    assert!(
+        imported && ui.fx.lib().track_count().unwrap() == before + 1,
+        "the file is in the collection"
+    );
+    record(FlowResult {
+        id: "load-from-explorer",
+        steps,
+        achieved: loaded && imported,
+        note:
+            "Explorer in the source rail (opens the roots), click the folder, double-click the file"
+                .into(),
+    });
 }
 
 /// Set hot cue A at the playhead and name it.
@@ -95,10 +137,19 @@ fn set_and_name_hot_cue() {
     // Start: Prepare, the track loaded in the player and paused.
     let (_, row) = ui.by_value("browser.row", &ui.fx.tracks[0].1).expect("row");
     ui.click_el(&row);
-    assert!(ui.wait_until(10.0, |u| u.has("player1.hot-cue.A")), "player shows the hot cue pads");
+    assert!(
+        ui.wait_until(10.0, |u| u.has("player1.hot-cue.A")),
+        "player shows the hot cue pads"
+    );
     ui.steps.set(0);
     ui.click("player1.hot-cue.A");
-    let set = ui.wait_until(20.0, |u| u.fx.lib().cues(track).unwrap().iter().any(|c| c.kind == CueKind::Hot(0)));
+    let set = ui.wait_until(20.0, |u| {
+        u.fx.lib()
+            .cues(track)
+            .unwrap()
+            .iter()
+            .any(|c| c.kind == CueKind::Hot(0))
+    });
     assert!(set, "hot cue A is stored in the library");
     // Naming: double-click the cue in the list, type, Return.
     let row = ui.get("player1.cue-list.row0");
@@ -106,12 +157,22 @@ fn set_and_name_hot_cue() {
     ui.type_text("Drop");
     ui.key(slint::platform::Key::Return);
 
-    let named = ui.wait_until(20.0, |u| u.fx.lib().cues(track).unwrap().iter().any(|c| c.kind == CueKind::Hot(0) && c.label == "Drop"));
+    let named = ui.wait_until(20.0, |u| {
+        u.fx.lib()
+            .cues(track)
+            .unwrap()
+            .iter()
+            .any(|c| c.kind == CueKind::Hot(0) && c.label == "Drop")
+    });
     record(FlowResult {
         id: "set-and-name-hot-cue",
         steps: ui.steps.get(),
         achieved: named,
-        note: if named { String::new() } else { "the cue name was not stored".into() },
+        note: if named {
+            String::new()
+        } else {
+            "the cue name was not stored".into()
+        },
     });
     assert!(named, "hot cue A is named `Drop`");
 }
@@ -126,7 +187,10 @@ fn add_to_playlist() {
     let (_, row) = ui.by_value("browser.row", &first).expect("row");
     ui.click_el(&row);
     ui.right_click_el(&row);
-    assert!(ui.click_menu_item("Add to playlist"), "row menu has Add to playlist");
+    assert!(
+        ui.click_menu_item("Add to playlist"),
+        "row menu has Add to playlist"
+    );
     assert!(ui.click_menu_item("Warm-up"), "submenu lists the playlist");
     ui.pump(200);
     let (id, title) = ui.fx.tracks[1].clone();
@@ -134,32 +198,67 @@ fn add_to_playlist() {
     ui.click_el(&row);
     ui.steps.set(0);
     ui.right_click_el(&row);
-    assert!(ui.click_menu_item("Add to “Warm-up”"), "row menu offers the recent playlist inline");
+    assert!(
+        ui.click_menu_item("Add to “Warm-up”"),
+        "row menu offers the recent playlist inline"
+    );
     let steps = ui.steps.get();
-    let added = ui.wait_until(5.0, |u| u.fx.lib().entries(u.fx.playlist).unwrap().iter().any(|e| e.track == id));
+    let added = ui.wait_until(5.0, |u| {
+        u.fx.lib()
+            .entries(u.fx.playlist)
+            .unwrap()
+            .iter()
+            .any(|e| e.track == id)
+    });
     assert!(added, "the track is in the playlist");
-    record(FlowResult { id: "add-to-playlist", steps, achieved: added, note: "right-click, click the playlist in the inline group of recent lists".into() });
+    record(FlowResult {
+        id: "add-to-playlist",
+        steps,
+        achieved: added,
+        note: "right-click, click the playlist in the inline group of recent lists".into(),
+    });
 }
 
 /// Bring an edited playlist onto a registered USB stick: no step at all.
 #[test]
 fn sync_stick() {
     let fx = Fixture::new();
-    let stick = test_env().join(format!("volumes/STICK-{}", fx.root.file_name().unwrap().to_string_lossy()));
+    let stick = test_env().join(format!(
+        "volumes/STICK-{}",
+        fx.root.file_name().unwrap().to_string_lossy()
+    ));
     std::fs::create_dir_all(&stick).unwrap();
     let ui = Ui::start(fx, (1440, 900), false);
     // Start state: the stick is registered (with the playlist) and synced.
-    assert!(ui.wait_until(20.0, |u| u.with_prefix("browser.tree.volume").iter().any(|(l, _, _)| l.ends_with(".register"))), "the stick shows up");
+    assert!(
+        ui.wait_until(20.0, |u| u
+            .with_prefix("browser.tree.volume")
+            .iter()
+            .any(|(l, _, _)| l.ends_with(".register"))),
+        "the stick shows up"
+    );
     // Registration takes the selected list onto the stick.
     ui.click(&format!("browser.tree.node{}", ui.fx.playlist.0));
-    let register = ui.with_prefix("browser.tree.volume").into_iter().find(|(l, _, _)| l.ends_with(".register")).unwrap().2;
+    let register = ui
+        .with_prefix("browser.tree.volume")
+        .into_iter()
+        .find(|(l, _, _)| l.ends_with(".register"))
+        .unwrap()
+        .2;
     ui.click_el(&register);
     let (track, _) = ui.fx.tracks[0].clone();
     let on_stick = |cue_at: Option<f64>| {
-        let Ok(Some(s)) = od_format_native::Stick::open(&stick) else { return false };
+        let Ok(Some(s)) = od_format_native::Stick::open(&stick) else {
+            return false;
+        };
         match cue_at {
             None => s.library.track(track).is_ok(),
-            Some(t) => s.library.cues(track).unwrap_or_default().iter().any(|c| (c.start - t).abs() < 1e-6),
+            Some(t) => s
+                .library
+                .cues(track)
+                .unwrap_or_default()
+                .iter()
+                .any(|c| (c.start - t).abs() < 1e-6),
         }
     };
     let synced = ui.wait_until(40.0, |_| on_stick(None));
@@ -178,10 +277,21 @@ fn sync_stick() {
     ui.steps.set(0);
     let reached = ui.wait_until(40.0, |_| on_stick(Some(3.25)));
     // Status is visible: the stick row in the sidebar.
-    let status_visible = ui.with_prefix("browser.tree.device").iter().any(|(l, _, _)| !l.contains('.') || l.matches('.').count() == 2);
+    let status_visible = ui
+        .with_prefix("browser.tree.device")
+        .iter()
+        .any(|(l, _, _)| !l.contains('.') || l.matches('.').count() == 2);
     let _ = std::fs::remove_dir_all(&stick);
-    assert!(reached, "the new hot cue reaches the stick without any input");
-    record(FlowResult { id: "sync-stick", steps: ui.steps.get(), achieved: reached && status_visible, note: "automatic sync after the edit; stick row with its sync state in the sidebar".into() });
+    assert!(
+        reached,
+        "the new hot cue reaches the stick without any input"
+    );
+    record(FlowResult {
+        id: "sync-stick",
+        steps: ui.steps.get(),
+        achieved: reached && status_visible,
+        note: "automatic sync after the edit; stick row with its sync state in the sidebar".into(),
+    });
 }
 
 /// Start recording the mix.
@@ -200,9 +310,22 @@ fn start_recording() {
     ui.click("rec.toggle");
     assert!(ui.wait_until(10.0, |u| !u.app.ui.get_recording()));
     let dir = ui.fx.root.join("recordings");
-    let files: Vec<_> = std::fs::read_dir(&dir).map(|r| r.flatten().map(|e| e.path()).collect()).unwrap_or_default();
-    assert!(files.iter().any(|p| p.extension().is_some_and(|e| e == "wav")), "a WAV file in {}: {files:?}", dir.display());
-    record(FlowResult { id: "start-recording", steps, achieved: recording, note: String::new() });
+    let files: Vec<_> = std::fs::read_dir(&dir)
+        .map(|r| r.flatten().map(|e| e.path()).collect())
+        .unwrap_or_default();
+    assert!(
+        files
+            .iter()
+            .any(|p| p.extension().is_some_and(|e| e == "wav")),
+        "a WAV file in {}: {files:?}",
+        dir.display()
+    );
+    record(FlowResult {
+        id: "start-recording",
+        steps,
+        achieved: recording,
+        note: String::new(),
+    });
 }
 
 /// Separate a loaded track and mute its vocals.
@@ -215,25 +338,49 @@ fn separate_stems() {
     let (_, row) = ui.by_value("browser.row", &title).unwrap();
     let target = Rect::of(&ui.get("deck1.title")).centre();
     ui.drag_el(&row, target);
-    assert!(ui.wait_until(30.0, |u| deck_title(u, 1) == title), "deck 1 loads, got `{}`", deck_title(&ui, 1));
+    assert!(
+        ui.wait_until(30.0, |u| deck_title(u, 1) == title),
+        "deck 1 loads, got `{}`",
+        deck_title(&ui, 1)
+    );
     // Separation is queued on load; the strip says so and the stem
     // controls stay in place, dimmed.
-    let queued = ui.wait_until(10.0, |u| deck_views(u).into_iter().any(|d| d.deck == 1 && d.stems_busy) || u.app.decks.borrow().stems_requested());
+    let queued = ui.wait_until(10.0, |u| {
+        deck_views(u)
+            .into_iter()
+            .any(|d| d.deck == 1 && d.stems_busy)
+            || u.app.decks.borrow().stems_requested()
+    });
     assert!(queued, "separation job queued on load");
-    assert!(ui.has("deck1.stem.vocal"), "VOCAL stays visible while separating");
+    assert!(
+        ui.has("deck1.stem.vocal"),
+        "VOCAL stays visible while separating"
+    );
     ui.steps.set(0);
     // With a model, VOCAL becomes available and mutes the vocals in one
     // click. Headless runs never download the model.
-    let available = ui.wait_until(2.0, |u| deck_views(u).into_iter().any(|d| d.deck == 1 && d.stems_available));
+    let available = ui.wait_until(2.0, |u| {
+        deck_views(u)
+            .into_iter()
+            .any(|d| d.deck == 1 && d.stems_available)
+    });
     let mut muted = false;
     if available {
         ui.click("deck1.stem.vocal");
-        muted = ui.wait_until(5.0, |u| deck_views(u).into_iter().any(|d| d.deck == 1 && d.mute_vocal));
+        muted = ui.wait_until(5.0, |u| {
+            deck_views(u)
+                .into_iter()
+                .any(|d| d.deck == 1 && d.mute_vocal)
+        });
     }
     record(FlowResult {
         id: "separate-stems",
         steps: if available { ui.steps.get() } else { 1 },
         achieved: muted,
-        note: if available { String::new() } else { "separation is queued on load and the strip shows SPLIT…; no model on this machine, so VOCAL stays dimmed".into() },
+        note: if available {
+            String::new()
+        } else {
+            "separation is queued on load and the strip shows SPLIT…; no model on this machine, so VOCAL stays dimmed".into()
+        },
     });
 }

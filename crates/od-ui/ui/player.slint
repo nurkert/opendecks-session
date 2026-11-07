@@ -330,111 +330,123 @@ export component PreparePlayer inherits Rectangle {
                     Tab { accessible-label: "player1.tab.edit"; pad: 14px; label: @tr("EDIT"); current: root.tool-tab == "edit"; clicked => { root.tool-tab = "edit"; } }
                 }
                 Rectangle { width: 6px; }
-                if root.tool-tab == "cue": HorizontalLayout {
+                if root.tool-tab == "cue": VerticalLayout {
                     horizontal-stretch: 1;
-                    spacing: 4px;
-                    padding-top: 7px; padding-bottom: 7px;
-                    for c in root.hot-cues: Pad {
-                        accessible-role: button;
-                        accessible-label: "player1.hot-cue." + c.letter;
-                        accessible-value: c.set ? (c.label != "" ? c.label : c.time) : "";
-                        horizontal-stretch: 1; cue: c; pressed => { root.hot-cue(c.slot); } }
-                    Rectangle { width: 8px; }
-                    PlateButton { accessible-role: button; accessible-label: "player1.memory.set"; horizontal-stretch: 0; compact: true; height: 30px; label: @tr("MEMORY"); glyph: "plus"; enabled: root.has-track && !root.read-only; clicked => { root.add-memory-cue(); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.memory.prev"; size: 30px; width: 26px; label: "‹"; tooltip: @tr("Previous cue"); enabled: root.has-track; clicked => { root.act("memory-prev"); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.memory.next"; size: 30px; width: 26px; label: "›"; tooltip: @tr("Next cue"); enabled: root.has-track; clicked => { root.act("memory-next"); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.memory.delete"; size: 30px; label: @tr("DEL"); tone: Theme.fault; tooltip: @tr("Delete the memory cue at the cursor"); enabled: root.has-track && !root.read-only; clicked => { root.act("memory-delete"); } }
-                    Rectangle { width: 6px; }
-                    Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.looping; accessible-label: "player1.loop.auto"; size: 30px; label: "LOOP"; on: root.looping; tone: Theme.w615; tooltip: @tr("Auto loop of the shown length while the track plays; again to leave"); enabled: root.has-track; clicked => { root.act("loop-auto"); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.loop.manual"; size: 30px; label: root.looping ? @tr("EXIT") : root.loop-in-set ? @tr("OUT") : @tr("IN"); on: root.loop-in-set; tone: Theme.w615; tooltip: @tr("Manual loop: in point, then out point; again to leave"); enabled: root.has-track; clicked => { root.act("loop-manual"); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.loop.halve"; size: 30px; width: 26px; label: "½"; tooltip: @tr("Halve the loop"); clicked => { root.act("loop-halve"); } }
-                    Rectangle {
-                        accessible-role: text; accessible-label: "player1.loop.size"; accessible-value: root.loop-size;
-                        width: 34px;
-                        background: Theme.plate; border-width: 1px; border-color: root.looping ? Theme.w615 : Theme.rule;
-                        Text { text: root.loop-size; font-family: Theme.family; font-size: 13px; font-weight: 600; color: Theme.bone; }
-                    }
-                    Toggle { accessible-role: button; accessible-label: "player1.loop.double"; size: 30px; width: 26px; label: "2×"; tooltip: @tr("Double the loop"); clicked => { root.act("loop-double"); } }
-                    Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.quantize; accessible-label: "player1.quantize"; size: 30px; width: 28px; label: "Q"; on: root.quantize; tone: Theme.attention; tooltip: @tr("Quantize loops and cues to the beat"); clicked => { root.act("quantize"); } }
-                    player-menu := ContextMenuArea {
-                        width: 28px;
-                        Menu {
-                            MenuItem { title: @tr("Analyse again"); enabled: root.has-track && !root.read-only; activated => { root.act("menu:analyse"); } }
-                            MenuItem { title: @tr("Show info"); enabled: root.has-track; activated => { root.act("menu:info"); } }
-                            MenuItem { title: @tr("Show in file manager"); enabled: root.has-track; activated => { root.act("menu:reveal"); } }
-                        }
+                    // The keys centred on the 60 px tool bar.
+                    alignment: center;
+                    HorizontalLayout {
+                        spacing: 4px;
+                        for c in root.hot-cues: Pad {
+                            accessible-role: button;
+                            accessible-label: "player1.hot-cue." + c.letter;
+                            accessible-value: c.set ? (c.label != "" ? c.label : c.time) : "";
+                            horizontal-stretch: 1; cue: c; pressed => { root.hot-cue(c.slot); } }
+                        Rectangle { width: 8px; }
+                        PlateButton { accessible-role: button; accessible-label: "player1.memory.set"; horizontal-stretch: 0; compact: true; height: 30px; label: @tr("MEMORY"); glyph: "plus"; enabled: root.has-track && !root.read-only; clicked => { root.add-memory-cue(); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.memory.prev"; size: 30px; width: 26px; label: "‹"; tooltip: @tr("Previous cue"); enabled: root.has-track; clicked => { root.act("memory-prev"); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.memory.next"; size: 30px; width: 26px; label: "›"; tooltip: @tr("Next cue"); enabled: root.has-track; clicked => { root.act("memory-next"); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.memory.delete"; size: 30px; label: @tr("DEL"); tone: Theme.fault; tooltip: @tr("Delete the memory cue at the cursor"); enabled: root.has-track && !root.read-only; clicked => { root.act("memory-delete"); } }
+                        Rectangle { width: 6px; }
+                        Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.looping; accessible-label: "player1.loop.auto"; size: 30px; label: "LOOP"; on: root.looping; tone: Theme.w615; tooltip: @tr("Auto loop of the shown length while the track plays; again to leave"); enabled: root.has-track; clicked => { root.act("loop-auto"); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.loop.manual"; size: 30px; label: root.looping ? @tr("EXIT") : root.loop-in-set ? @tr("OUT") : @tr("IN"); on: root.loop-in-set; tone: Theme.w615; tooltip: @tr("Manual loop: in point, then out point; again to leave"); enabled: root.has-track; clicked => { root.act("loop-manual"); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.loop.halve"; size: 30px; width: 26px; label: "½"; tooltip: @tr("Halve the loop"); clicked => { root.act("loop-halve"); } }
                         Rectangle {
-                            accessible-role: button; accessible-label: "player1.menu";
-                            background: mt.has-hover ? Theme.plate-raised : Theme.plate;
-                            border-width: 1px; border-color: Theme.rule;
-                            Text { text: "⋯"; font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone-2; }
-                            mt := TipArea { tooltip: @tr("More for this track"); mouse-cursor: pointer; clicked => { player-menu.show({ x: 0, y: self.height }); } }
+                            accessible-role: text; accessible-label: "player1.loop.size"; accessible-value: root.loop-size;
+                            width: 34px;
+                            background: Theme.plate; border-width: 1px; border-color: root.looping ? Theme.w615 : Theme.rule;
+                            Text { text: root.loop-size; font-family: Theme.family; font-size: 13px; font-weight: 600; color: Theme.bone; }
+                        }
+                        Toggle { accessible-role: button; accessible-label: "player1.loop.double"; size: 30px; width: 26px; label: "2×"; tooltip: @tr("Double the loop"); clicked => { root.act("loop-double"); } }
+                        Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.quantize; accessible-label: "player1.quantize"; size: 30px; width: 28px; label: "Q"; on: root.quantize; tone: Theme.attention; tooltip: @tr("Quantize loops and cues to the beat"); clicked => { root.act("quantize"); } }
+                        player-menu := ContextMenuArea {
+                            width: 28px;
+                            Menu {
+                                MenuItem { title: @tr("Analyse again"); enabled: root.has-track && !root.read-only; activated => { root.act("menu:analyse"); } }
+                                MenuItem { title: @tr("Show info"); enabled: root.has-track; activated => { root.act("menu:info"); } }
+                                MenuItem { title: @tr("Show in file manager"); enabled: root.has-track; activated => { root.act("menu:reveal"); } }
+                            }
+                            Rectangle {
+                                accessible-role: button; accessible-label: "player1.menu";
+                                background: mt.has-hover ? Theme.plate-raised : Theme.plate;
+                                border-width: 1px; border-color: Theme.rule;
+                                Text { text: "⋯"; font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone-2; }
+                                mt := TipArea { tooltip: @tr("More for this track"); mouse-cursor: pointer; clicked => { player-menu.show({ x: 0, y: self.height }); } }
+                            }
                         }
                     }
                 }
-                if root.tool-tab == "grid": HorizontalLayout {
+                if root.tool-tab == "grid": VerticalLayout {
                     horizontal-stretch: 1;
-                    spacing: 4px;
-                    padding-top: 9px; padding-bottom: 9px;
-                    bpm-field := Field {
-                        accessible-role: text-input; accessible-label: "player1.grid.bpm"; accessible-value: self.text;
-                        width: 84px; height: 26px;
-                        text: root.bpm; placeholder: "BPM";
-                        // Follows the track's tempo (also after typing).
-                        property <string> track-bpm: root.bpm;
-                        changed track-bpm => { self.text = self.track-bpm; }
-                        accepted(t) => { root.grid-bpm(t); self.text = root.bpm; }
+                    // The keys centred on the 60 px tool bar.
+                    alignment: center;
+                    HorizontalLayout {
+                        spacing: 4px;
+                        bpm-field := Field {
+                            accessible-role: text-input; accessible-label: "player1.grid.bpm"; accessible-value: self.text;
+                            width: 84px; height: 26px;
+                            text: root.bpm; placeholder: "BPM";
+                            // Follows the track's tempo (also after typing).
+                            property <string> track-bpm: root.bpm;
+                            changed track-bpm => { self.text = self.track-bpm; }
+                            accepted(t) => { root.grid-bpm(t); self.text = root.bpm; }
+                        }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.marker"; label: @tr("+ MARKER"); tooltip: @tr("Tempo change: the typed BPM from the beat at the cursor on"); enabled: !root.grid-locked && !root.read-only && root.has-track; clicked => { root.grid-marker(bpm-field.text); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.tap"; label: @tr("TAP"); command: "player.grid.tap"; tooltip: @tr("Tap along with the beat: from the fourth tap the grid takes the tapped tempo"); enabled: !root.grid-locked && !root.read-only && root.has-track; clicked => { root.grid-tap(); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.shift-left"; label: "−10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(-10); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.shift-right"; label: "+10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(10); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.double"; label: @tr("DOUBLE"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(2.0); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.halve"; label: @tr("HALF"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(0.5); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.downbeat"; label: @tr("DOWNBEAT AT CURSOR"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-downbeat(); } }
+                        Rectangle { horizontal-stretch: 1; }
+                        Caps { accessible-role: text; accessible-label: "player1.grid.source"; accessible-value: self.text; text: root.grid-source; font-size: 10px; vertical-alignment: center; }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.undo"; label: "↶"; tooltip: @tr("Undo the last change"); command: "library.undo"; enabled: !root.read-only; clicked => { root.act("undo"); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.grid.redo"; label: "↷"; tooltip: @tr("Redo"); command: "library.redo"; enabled: !root.read-only; clicked => { root.act("redo"); } }
+                        Toggle { accessible-role: checkbox; accessible-label: "player1.grid.lock"; accessible-checkable: true; accessible-checked: root.grid-locked; label: root.grid-locked ? @tr("GRID LOCKED") : @tr("LOCK GRID"); on: root.grid-locked; tone: Theme.attention; enabled: !root.read-only; clicked => { root.grid-lock(); } }
                     }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.marker"; label: @tr("+ MARKER"); tooltip: @tr("Tempo change: the typed BPM from the beat at the cursor on"); enabled: !root.grid-locked && !root.read-only && root.has-track; clicked => { root.grid-marker(bpm-field.text); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.tap"; label: @tr("TAP"); command: "player.grid.tap"; tooltip: @tr("Tap along with the beat: from the fourth tap the grid takes the tapped tempo"); enabled: !root.grid-locked && !root.read-only && root.has-track; clicked => { root.grid-tap(); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.shift-left"; label: "−10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(-10); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.shift-right"; label: "+10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(10); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.double"; label: @tr("DOUBLE"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(2.0); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.halve"; label: @tr("HALF"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(0.5); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.downbeat"; label: @tr("DOWNBEAT AT CURSOR"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-downbeat(); } }
-                    Rectangle { horizontal-stretch: 1; }
-                    Caps { accessible-role: text; accessible-label: "player1.grid.source"; accessible-value: self.text; text: root.grid-source; font-size: 10px; vertical-alignment: center; }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.undo"; label: "↶"; tooltip: @tr("Undo the last change"); command: "library.undo"; enabled: !root.read-only; clicked => { root.act("undo"); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.redo"; label: "↷"; tooltip: @tr("Redo"); command: "library.redo"; enabled: !root.read-only; clicked => { root.act("redo"); } }
-                    Toggle { accessible-role: checkbox; accessible-label: "player1.grid.lock"; accessible-checkable: true; accessible-checked: root.grid-locked; label: root.grid-locked ? @tr("GRID LOCKED") : @tr("LOCK GRID"); on: root.grid-locked; tone: Theme.attention; enabled: !root.read-only; clicked => { root.grid-lock(); } }
                 }
-                if root.tool-tab == "phrase": HorizontalLayout {
+                if root.tool-tab == "phrase": VerticalLayout {
                     horizontal-stretch: 1;
-                    spacing: 4px;
-                    padding-top: 9px; padding-bottom: 9px;
-                    property <bool> can-edit: root.has-track && !root.read-only;
-                    for k[i] in PhraseEdit.kinds: Toggle {
-                        accessible-role: button; accessible-label: "player1.phrase.kind" + i;
-                        accessible-checkable: true; accessible-checked: PhraseEdit.current == k;
-                        label: k; on: PhraseEdit.current == k; enabled: parent.can-edit;
-                        tooltip: @tr("The phrase at the cursor becomes this kind (in a gap: a new phrase)");
-                        clicked => { PhraseEdit.kind(i); }
+                    // The keys centred on the 60 px tool bar.
+                    alignment: center;
+                    HorizontalLayout {
+                        spacing: 4px;
+                        property <bool> can-edit: root.has-track && !root.read-only;
+                        for k[i] in PhraseEdit.kinds: Toggle {
+                            accessible-role: button; accessible-label: "player1.phrase.kind" + i;
+                            accessible-checkable: true; accessible-checked: PhraseEdit.current == k;
+                            label: k; on: PhraseEdit.current == k; enabled: parent.can-edit;
+                            tooltip: @tr("The phrase at the cursor becomes this kind (in a gap: a new phrase)");
+                            clicked => { PhraseEdit.kind(i); }
+                        }
+                        Rectangle { width: 8px; }
+                        Toggle { accessible-role: button; accessible-label: "player1.phrase.cut"; label: @tr("CUT"); command: "player.phrase.cut"; tooltip: @tr("Split the phrase at the cursor (on the nearest bar)"); enabled: parent.can-edit; clicked => { PhraseEdit.cut(); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.phrase.boundary"; label: @tr("BOUNDARY TO CURSOR"); command: "player.phrase.boundary"; tooltip: @tr("Move the nearest phrase boundary to the cursor (on the nearest bar)"); enabled: parent.can-edit; clicked => { PhraseEdit.boundary(); } }
+                        Rectangle { horizontal-stretch: 1; }
+                        Toggle { accessible-role: button; accessible-label: "player1.phrase.clear"; label: @tr("CLEAR"); command: "player.phrase.clear"; tone: Theme.fault; tooltip: @tr("Remove all phrases of this track"); enabled: parent.can-edit; clicked => { PhraseEdit.clear(); } }
                     }
-                    Rectangle { width: 8px; }
-                    Toggle { accessible-role: button; accessible-label: "player1.phrase.cut"; label: @tr("CUT"); command: "player.phrase.cut"; tooltip: @tr("Split the phrase at the cursor (on the nearest bar)"); enabled: parent.can-edit; clicked => { PhraseEdit.cut(); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.phrase.boundary"; label: @tr("BOUNDARY TO CURSOR"); command: "player.phrase.boundary"; tooltip: @tr("Move the nearest phrase boundary to the cursor (on the nearest bar)"); enabled: parent.can-edit; clicked => { PhraseEdit.boundary(); } }
-                    Rectangle { horizontal-stretch: 1; }
-                    Toggle { accessible-role: button; accessible-label: "player1.phrase.clear"; label: @tr("CLEAR"); command: "player.phrase.clear"; tone: Theme.fault; tooltip: @tr("Remove all phrases of this track"); enabled: parent.can-edit; clicked => { PhraseEdit.clear(); } }
                 }
-                if root.tool-tab == "edit": HorizontalLayout {
+                if root.tool-tab == "edit": VerticalLayout {
                     horizontal-stretch: 1;
-                    spacing: 4px;
-                    padding-top: 9px; padding-bottom: 9px;
-                    property <bool> can-edit: root.has-track && !root.read-only && !TrackEdit.busy;
-                    Toggle { accessible-role: button; accessible-label: "player1.edit.in"; label: "IN"; command: "player.edit.in"; tooltip: @tr("Region start at the cursor (or shift-drag on the overview)"); enabled: parent.can-edit; on: TrackEdit.start >= 0; clicked => { TrackEdit.mark-in(); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.edit.out"; label: "OUT"; command: "player.edit.out"; tooltip: @tr("Region end at the cursor (or shift-drag on the overview)"); enabled: parent.can-edit; on: TrackEdit.end >= 0; clicked => { TrackEdit.mark-out(); } }
-                    Caps {
-                        accessible-role: text; accessible-label: "player1.edit.region"; accessible-value: TrackEdit.region;
-                        min-width: 190px;
-                        text: TrackEdit.busy ? @tr("RENDERING…") : TrackEdit.region == "" ? @tr("SET IN AND OUT") : TrackEdit.region;
-                        font-size: 10px; vertical-alignment: center; horizontal-alignment: center;
+                    // The keys centred on the 60 px tool bar.
+                    alignment: center;
+                    HorizontalLayout {
+                        spacing: 4px;
+                        property <bool> can-edit: root.has-track && !root.read-only && !TrackEdit.busy;
+                        Toggle { accessible-role: button; accessible-label: "player1.edit.in"; label: "IN"; command: "player.edit.in"; tooltip: @tr("Region start at the cursor (or shift-drag on the overview)"); enabled: parent.can-edit; on: TrackEdit.start >= 0; clicked => { TrackEdit.mark-in(); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.edit.out"; label: "OUT"; command: "player.edit.out"; tooltip: @tr("Region end at the cursor (or shift-drag on the overview)"); enabled: parent.can-edit; on: TrackEdit.end >= 0; clicked => { TrackEdit.mark-out(); } }
+                        Caps {
+                            accessible-role: text; accessible-label: "player1.edit.region"; accessible-value: TrackEdit.region;
+                            min-width: 190px;
+                            text: TrackEdit.busy ? @tr("RENDERING…") : TrackEdit.region == "" ? @tr("SET IN AND OUT") : TrackEdit.region;
+                            font-size: 10px; vertical-alignment: center; horizontal-alignment: center;
+                        }
+                        Toggle { accessible-role: button; accessible-label: "player1.edit.cut"; label: @tr("CUT OUT"); command: "player.edit.cut"; tooltip: @tr("New file without the region"); enabled: parent.can-edit && TrackEdit.ready; clicked => { TrackEdit.apply("cut"); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.edit.trim"; label: @tr("TRIM"); command: "player.edit.trim"; tooltip: @tr("New file with only the region"); enabled: parent.can-edit && TrackEdit.ready; clicked => { TrackEdit.apply("trim"); } }
+                        Toggle { accessible-role: button; accessible-label: "player1.edit.repeat"; label: @tr("REPEAT"); command: "player.edit.repeat"; tooltip: @tr("New file with the region played twice"); enabled: parent.can-edit && TrackEdit.ready; clicked => { TrackEdit.apply("repeat"); } }
+                        Rectangle { horizontal-stretch: 1; }
+                        Caps { text: @tr("NEW FILE · ORIGINAL KEPT"); font-size: 10px; vertical-alignment: center; }
+                        Toggle { accessible-role: button; accessible-label: "player1.edit.clear"; label: @tr("CLEAR"); tone: Theme.fault; tooltip: @tr("Forget the region"); enabled: TrackEdit.start >= 0 || TrackEdit.end >= 0; clicked => { TrackEdit.clear(); } }
                     }
-                    Toggle { accessible-role: button; accessible-label: "player1.edit.cut"; label: @tr("CUT OUT"); command: "player.edit.cut"; tooltip: @tr("New file without the region"); enabled: parent.can-edit && TrackEdit.ready; clicked => { TrackEdit.apply("cut"); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.edit.trim"; label: @tr("TRIM"); command: "player.edit.trim"; tooltip: @tr("New file with only the region"); enabled: parent.can-edit && TrackEdit.ready; clicked => { TrackEdit.apply("trim"); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.edit.repeat"; label: @tr("REPEAT"); command: "player.edit.repeat"; tooltip: @tr("New file with the region played twice"); enabled: parent.can-edit && TrackEdit.ready; clicked => { TrackEdit.apply("repeat"); } }
-                    Rectangle { horizontal-stretch: 1; }
-                    Caps { text: @tr("NEW FILE · ORIGINAL KEPT"); font-size: 10px; vertical-alignment: center; }
-                    Toggle { accessible-role: button; accessible-label: "player1.edit.clear"; label: @tr("CLEAR"); tone: Theme.fault; tooltip: @tr("Forget the region"); enabled: TrackEdit.start >= 0 || TrackEdit.end >= 0; clicked => { TrackEdit.clear(); } }
                 }
             }
         }

@@ -162,6 +162,22 @@ impl TrackData {
         Ok(Self::new_with_stems(id, audio, engine_rate, beatgrid, cues, auto_gain_db, stems))
     }
 
+    /// A copy of this track with `stems` attached (stems arriving after a
+    /// load, swapped in with [`crate::DeckCommand::SwapTrackData`]).
+    pub fn with_stems(&self, stems: StemData) -> Arc<Self> {
+        Arc::new(Self {
+            id: self.id,
+            sample_rate: self.sample_rate,
+            samples: self.samples.clone(),
+            beatgrid: self.beatgrid.clone(),
+            hot_cues: self.hot_cues,
+            memory_cues: self.memory_cues.clone(),
+            auto_gain_db: self.auto_gain_db,
+            first_sound: self.first_sound,
+            stems: Some(stems),
+        })
+    }
+
     pub fn frames(&self) -> usize {
         self.samples.len() / 2
     }

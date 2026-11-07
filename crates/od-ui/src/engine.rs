@@ -34,7 +34,10 @@ impl Default for EngineHost {
 
 impl EngineHost {
     pub fn sample_rate(&self) -> u32 {
-        self.engine.as_ref().map(|e| e.config().sample_rate).unwrap_or(48_000)
+        self.engine
+            .as_ref()
+            .map(|e| e.config().sample_rate)
+            .unwrap_or(48_000)
     }
 }
 
@@ -68,7 +71,11 @@ fn start_engine(app: &App) -> bool {
     if cfg.device.is_none() {
         cfg.device = od_audio_io::list_devices(od_audio_io::Backend::Default)
             .ok()
-            .and_then(|devs| devs.into_iter().find(|d| d.name.contains("DDJ") || d.name.contains("FLX")).map(|d| d.name));
+            .and_then(|devs| {
+                devs.into_iter()
+                    .find(|d| d.name.contains("DDJ") || d.name.contains("FLX"))
+                    .map(|d| d.name)
+            });
     }
     let negotiated = match od_audio_io::AudioHost::negotiate(&cfg) {
         Ok(n) => n,
@@ -94,7 +101,11 @@ fn start_engine(app: &App) -> bool {
                 "{} · {} Hz{}",
                 negotiated.device_name,
                 negotiated.sample_rate,
-                if negotiated.routing.headphones.is_some() { " · headphones on 3/4" } else { "" }
+                if negotiated.routing.headphones.is_some() {
+                    " · headphones on 3/4"
+                } else {
+                    ""
+                }
             );
             h.engine = Some(engine);
             h.host = Some(host);
@@ -148,7 +159,14 @@ fn start_null(app: &App, lite: bool) {
             let period = Duration::from_secs_f64(NULL_BLOCK as f64 / NULL_RATE as f64);
             let mut next = Instant::now();
             while !flag.load(std::sync::atomic::Ordering::Relaxed) {
-                processor.process(NULL_BLOCK, &mut od_engine::Outputs { master: &mut master, headphones: Some(&mut phones), booth: None });
+                processor.process(
+                    NULL_BLOCK,
+                    &mut od_engine::Outputs {
+                        master: &mut master,
+                        headphones: Some(&mut phones),
+                        booth: None,
+                    },
+                );
                 next += period;
                 let now = Instant::now();
                 if next > now {
@@ -167,15 +185,30 @@ fn start_null(app: &App, lite: bool) {
 
 /// The audio configuration from Preferences > Audio (device `None` =
 /// automatic).
-pub(crate) fn audio_config(a: &crate::settings::AudioSettings, lite: bool) -> od_audio_io::AudioConfig {
+pub(crate) fn audio_config(
+    a: &crate::settings::AudioSettings,
+    lite: bool,
+) -> od_audio_io::AudioConfig {
     let routing = match a.headphones.as_str() {
-        "34" => Some(od_audio_io::OutputRouting { master: [0, 1], headphones: Some([2, 3]) }),
-        "off" => Some(od_audio_io::OutputRouting { master: [0, 1], headphones: None }),
+        "34" => Some(od_audio_io::OutputRouting {
+            master: [0, 1],
+            headphones: Some([2, 3]),
+        }),
+        "off" => Some(od_audio_io::OutputRouting {
+            master: [0, 1],
+            headphones: None,
+        }),
         _ => None,
     };
     od_audio_io::AudioConfig {
         device: (!a.device.is_empty()).then(|| a.device.clone()),
-        buffer_frames: Some(if a.buffer > 0 { a.buffer } else if lite { 256 } else { 128 }),
+        buffer_frames: Some(if a.buffer > 0 {
+            a.buffer
+        } else if lite {
+            256
+        } else {
+            128
+        }),
         sample_rate: (a.sample_rate > 0).then_some(a.sample_rate),
         routing,
         ..Default::default()
@@ -211,7 +244,8 @@ fn frame(app: &App) {
         app.ui.set_narrow_screen(narrow);
     }
     // Touch layout: the kiosk, or a window as short as the kiosk screen.
-    let touch = app.state.borrow().config.kiosk || (app.ui.window().size().height as f32 / scale) <= 480.0;
+    let touch =
+        app.state.borrow().config.kiosk || (app.ui.window().size().height as f32 / scale) <= 480.0;
     if app.ui.global::<crate::Theme>().get_touch() != touch {
         app.ui.global::<crate::Theme>().set_touch(touch);
     }
@@ -222,6 +256,8 @@ fn frame(app: &App) {
     decks::receive_prepared(app);
     decks::poll_stems(app);
     explorer::poll(app);
+    crate::browser::poll_artworks(app);
+    crate::lighting::poll_remote(app);
     controller::poll(app);
     sampler::poll(app);
 
@@ -260,7 +296,8 @@ fn frame(app: &App) {
     if let Some(h) = app.engine.borrow().host.as_ref() {
         let s = h.stats();
         if s.xruns > 0 || s.overruns > 0 {
-            app.ui.set_engine_message(format!("Audio dropouts: {}", s.xruns + s.overruns).into());
+            app.ui
+                .set_engine_message(format!("Audio dropouts: {}", s.xruns + s.overruns).into());
         }
     }
 }
@@ -277,12 +314,30 @@ fn top_bar(app: &App, state: Option<&od_engine::EngineState>) {
     if app.ui.get_midi_device() != midi.as_str() {
         app.ui.set_midi_device(midi.into());
     }
-    let (meter, clip) = state.map(|s| (s.master_meter.rms.max(s.master_meter.peak * 0.8).min(1.0), s.master_meter.clipped)).unwrap_or((0.0, false));
+    let (meter, clip) = state
+        .map(|s| {
+            (
+                s.master_meter.rms.max(s.master_meter.peak * 0.8).min(1.0),
+                s.master_meter.clipped,
+            )
+        })
+        .unwrap_or((0.0, false));
     app.ui.set_master_meter(meter);
     app.ui.set_master_clip(clip);
-    let minute = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64 / 60).unwrap_or(0);
+    let minute = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64 / 60)
+        .unwrap_or(0);
     if CLOCK_MINUTE.with(|c| c.replace(minute)) != minute || app.ui.get_clock().is_empty() {
-        let now: Option<String> = app.state.borrow().lib.conn().query_row("SELECT strftime('%H:%M', 'now', 'localtime')", [], |r| r.get(0)).ok();
+        let now: Option<String> = app
+            .state
+            .borrow()
+            .lib
+            .conn()
+            .query_row("SELECT strftime('%H:%M', 'now', 'localtime')", [], |r| {
+                r.get(0)
+            })
+            .ok();
         app.ui.set_clock(now.unwrap_or_default().into());
     }
 }
@@ -292,15 +347,18 @@ pub(crate) fn start(app: &Rc<App>) {
     let lite = app.state.borrow().config.lite;
     let period = Duration::from_millis(if lite { 33 } else { 16 });
     let w = Rc::downgrade(app);
-    app.engine.borrow().timer.start(slint::TimerMode::Repeated, period, move || {
-        let Some(app) = w.upgrade() else { return };
-        frame(&app);
-        let due = app.engine.borrow().last_feedback.elapsed() >= Duration::from_millis(40);
-        if due {
-            app.engine.borrow_mut().last_feedback = Instant::now();
-            controller::feedback(&app);
-        }
-    });
+    app.engine
+        .borrow()
+        .timer
+        .start(slint::TimerMode::Repeated, period, move || {
+            let Some(app) = w.upgrade() else { return };
+            frame(&app);
+            let due = app.engine.borrow().last_feedback.elapsed() >= Duration::from_millis(40);
+            if due {
+                app.engine.borrow_mut().last_feedback = Instant::now();
+                controller::feedback(&app);
+            }
+        });
     show_message(app);
 }
 
@@ -312,7 +370,10 @@ mod tests {
     fn audio_settings_to_config() {
         let mut a = crate::settings::AudioSettings::default();
         let c = audio_config(&a, false);
-        assert_eq!((c.device, c.buffer_frames, c.sample_rate, c.routing), (None, Some(128), None, None));
+        assert_eq!(
+            (c.device, c.buffer_frames, c.sample_rate, c.routing),
+            (None, Some(128), None, None)
+        );
         assert_eq!(audio_config(&a, true).buffer_frames, Some(256));
         a.device = "Speakers".into();
         a.buffer = 512;

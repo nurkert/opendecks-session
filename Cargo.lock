@@ -4512,6 +4512,7 @@ dependencies = [
  "clap",
  "od-core",
  "od-library",
+ "od-lighting",
  "rmcp",
  "schemars",
  "serde",

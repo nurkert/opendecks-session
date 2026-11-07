@@ -16,7 +16,9 @@ pub struct Rows<T: 'static> {
 
 impl<T: Clone + 'static> Default for Rows<T> {
     fn default() -> Self {
-        Self { inner: Rc::new(VecModel::default()) }
+        Self {
+            inner: Rc::new(VecModel::default()),
+        }
     }
 }
 
@@ -30,7 +32,6 @@ impl<T: Clone + 'static> Rows<T> {
         self.inner.row_count()
     }
 
-    #[cfg_attr(not(test), allow(dead_code))]
     pub fn get(&self, i: usize) -> Option<T> {
         self.inner.row_data(i)
     }

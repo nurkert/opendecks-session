@@ -45,7 +45,10 @@ pub(crate) enum MessageKind {
 }
 
 enum Msg {
-    Checked { manual: bool, result: Result<Option<Update>, String> },
+    Checked {
+        manual: bool,
+        result: Result<Option<Update>, String>,
+    },
     Progress(u64, Option<u64>),
     Prepared(Result<Prepared, String>),
 }
@@ -61,7 +64,13 @@ pub(crate) struct UpdateRuntime {
 impl Default for UpdateRuntime {
     fn default() -> Self {
         let (tx, rx) = unbounded();
-        Self { phase: Phase::Idle, next_check: Instant::now() + FIRST_CHECK, tx, rx, cancel: Arc::new(AtomicBool::new(false)) }
+        Self {
+            phase: Phase::Idle,
+            next_check: Instant::now() + FIRST_CHECK,
+            tx,
+            rx,
+            cancel: Arc::new(AtomicBool::new(false)),
+        }
     }
 }
 
@@ -106,7 +115,10 @@ pub(crate) fn ago(now: i64, then: i64) -> String {
 }
 
 fn unix_now() -> i64 {
-    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64).unwrap_or(0)
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(0)
 }
 
 /// The bar: state ("" hides it), text, progress.
@@ -121,15 +133,30 @@ pub(crate) fn bar(phase: &Phase) -> (&'static str, String, f32) {
             ("available", t, 0.0)
         }
         Phase::Installing(u, done, total) => {
-            let p = total.filter(|t| *t > 0).map(|t| (*done as f64 / t as f64).clamp(0.0, 1.0) as f32).unwrap_or(0.0);
+            let p = total
+                .filter(|t| *t > 0)
+                .map(|t| (*done as f64 / t as f64).clamp(0.0, 1.0) as f32)
+                .unwrap_or(0.0);
             let t = match total {
-                Some(t) if *done >= *t => od_i18n::trf("Installing OpenDecks Session {} …", &[&u.version]),
-                Some(_) => od_i18n::trf("Downloading OpenDecks Session {} — {} %", &[&u.version, &((p * 100.0).round() as u32)]),
+                Some(t) if *done >= *t => {
+                    od_i18n::trf("Installing OpenDecks Session {} …", &[&u.version])
+                }
+                Some(_) => od_i18n::trf(
+                    "Downloading OpenDecks Session {} — {} %",
+                    &[&u.version, &((p * 100.0).round() as u32)],
+                ),
                 None => od_i18n::trf("Downloading OpenDecks Session {} …", &[&u.version]),
             };
             ("installing", t, p)
         }
-        Phase::Ready(u, _) => ("ready", od_i18n::trf("OpenDecks Session {} is ready — restart to finish", &[&u.version]), 1.0),
+        Phase::Ready(u, _) => (
+            "ready",
+            od_i18n::trf(
+                "OpenDecks Session {} is ready — restart to finish",
+                &[&u.version],
+            ),
+            1.0,
+        ),
         Phase::Message(t, MessageKind::Info, _) => ("info", t.clone(), 0.0),
         Phase::Message(t, MessageKind::Error, _) => ("error", t.clone(), 0.0),
     }
@@ -142,7 +169,10 @@ fn cache_dir() -> PathBuf {
 fn policy(app: &App, manual: bool) -> Policy {
     let s = &app.state.borrow().settings.update;
     // Asking by hand shows a skipped version again.
-    Policy { include_prereleases: s.prereleases, skip: (!manual && !s.skip_version.is_empty()).then(|| s.skip_version.clone()) }
+    Policy {
+        include_prereleases: s.prereleases,
+        skip: (!manual && !s.skip_version.is_empty()).then(|| s.skip_version.clone()),
+    }
 }
 
 fn set_phase(app: &App, phase: Phase) {
@@ -165,12 +195,21 @@ pub(crate) fn last_checked_text(app: &App) -> String {
     if checking {
         return od_i18n::tr("Checking …").to_string();
     }
-    od_i18n::trf("Version {} · last checked {}", &[&env!("CARGO_PKG_VERSION"), &ago(unix_now(), st.settings.update.last_check)])
+    od_i18n::trf(
+        "Version {} · last checked {}",
+        &[
+            &env!("CARGO_PKG_VERSION"),
+            &ago(unix_now(), st.settings.update.last_check),
+        ],
+    )
 }
 
 /// Starts a check on a background thread.
 pub(crate) fn check_now(app: &App, manual: bool) {
-    let busy = matches!(app.update.borrow().phase, Phase::Checking | Phase::Installing(..) | Phase::Ready(..));
+    let busy = matches!(
+        app.update.borrow().phase,
+        Phase::Checking | Phase::Installing(..) | Phase::Ready(..)
+    );
     if busy {
         if manual {
             app.status("An update is already in progress");
@@ -187,10 +226,14 @@ pub(crate) fn check_now(app: &App, manual: bool) {
     }
     let policy = policy(app, manual);
     let tx = app.update.borrow().tx.clone();
-    let spawned = std::thread::Builder::new().name("update-check".into()).spawn(move || {
-        let result = Updater::new(cache_dir()).check(&policy).map_err(|e| e.to_string());
-        let _ = tx.send(Msg::Checked { manual, result });
-    });
+    let spawned = std::thread::Builder::new()
+        .name("update-check".into())
+        .spawn(move || {
+            let result = Updater::new(cache_dir())
+                .check(&policy)
+                .map_err(|e| e.to_string());
+            let _ = tx.send(Msg::Checked { manual, result });
+        });
     if spawned.is_err() {
         app.update.borrow_mut().phase = Phase::Idle;
     }
@@ -208,26 +251,37 @@ fn install(app: &App) {
         u.cancel.store(false, Ordering::Relaxed);
         (u.tx.clone(), u.cancel.clone())
     };
-    set_phase(app, Phase::Installing(update.clone(), 0, update.asset.as_ref().map(|a| a.size).filter(|s| *s > 0)));
-    let _ = std::thread::Builder::new().name("update-install".into()).spawn(move || {
-        let updater = Updater::new(cache_dir());
-        let ptx = tx.clone();
-        let mut last = Instant::now() - Duration::from_secs(1);
-        let r = updater
-            .prepare(
-                &update,
-                &mut |done, total| {
-                    // A few progress messages per second are plenty.
-                    if last.elapsed() > Duration::from_millis(150) || total.is_some_and(|t| done >= t) {
-                        last = Instant::now();
-                        let _ = ptx.send(Msg::Progress(done, total));
-                    }
-                },
-                &cancel,
-            )
-            .map_err(|e| e.to_string());
-        let _ = tx.send(Msg::Prepared(r));
-    });
+    set_phase(
+        app,
+        Phase::Installing(
+            update.clone(),
+            0,
+            update.asset.as_ref().map(|a| a.size).filter(|s| *s > 0),
+        ),
+    );
+    let _ = std::thread::Builder::new()
+        .name("update-install".into())
+        .spawn(move || {
+            let updater = Updater::new(cache_dir());
+            let ptx = tx.clone();
+            let mut last = Instant::now() - Duration::from_secs(1);
+            let r = updater
+                .prepare(
+                    &update,
+                    &mut |done, total| {
+                        // A few progress messages per second are plenty.
+                        if last.elapsed() > Duration::from_millis(150)
+                            || total.is_some_and(|t| done >= t)
+                        {
+                            last = Instant::now();
+                            let _ = ptx.send(Msg::Progress(done, total));
+                        }
+                    },
+                    &cancel,
+                )
+                .map_err(|e| e.to_string());
+            let _ = tx.send(Msg::Prepared(r));
+        });
 }
 
 /// Quits so the helper can swap the versions and start the new one.
@@ -241,7 +295,14 @@ fn restart(app: &App) {
             tracing::info!("update staged, restarting");
             let _ = slint::quit_event_loop();
         }
-        Err(e) => set_phase(app, Phase::Message(od_i18n::trf("Update failed: {} — this version keeps working", &[&e]), MessageKind::Error, None)),
+        Err(e) => set_phase(
+            app,
+            Phase::Message(
+                od_i18n::trf("Update failed: {} — this version keeps working", &[&e]),
+                MessageKind::Error,
+                None,
+            ),
+        ),
     }
 }
 
@@ -260,11 +321,18 @@ fn act(app: &App, what: &str) {
         ("later", Phase::Available(_)) => set_phase(app, Phase::Idle),
         ("skip", Phase::Available(u)) => {
             let v = u.version.to_string();
-            app.state.borrow_mut().change_settings(|s| s.update.skip_version = v.clone());
-            app.status(od_i18n::trf("Version {} skipped — newer versions are offered again", &[&v]));
+            app.state
+                .borrow_mut()
+                .change_settings(|s| s.update.skip_version = v.clone());
+            app.status(od_i18n::trf(
+                "Version {} skipped — newer versions are offered again",
+                &[&v],
+            ));
             set_phase(app, Phase::Idle);
         }
-        ("cancel", Phase::Installing(..)) => app.update.borrow().cancel.store(true, Ordering::Relaxed),
+        ("cancel", Phase::Installing(..)) => {
+            app.update.borrow().cancel.store(true, Ordering::Relaxed)
+        }
         ("restart", Phase::Ready(..)) => restart(app),
         ("later", Phase::Ready(..)) => app.status("The update is installed when you restart"),
         ("page", Phase::Message(_, _, Some(url))) => open_page(url),
@@ -286,7 +354,10 @@ pub(crate) fn poll(app: &App) {
     }
     let (due, idle) = {
         let u = app.update.borrow();
-        (Instant::now() >= u.next_check, matches!(u.phase, Phase::Idle | Phase::Message(..)))
+        (
+            Instant::now() >= u.next_check,
+            matches!(u.phase, Phase::Idle | Phase::Message(..)),
+        )
     };
     if !due {
         return;
@@ -309,7 +380,9 @@ fn receive(app: &App, m: Msg) {
         Msg::Checked { manual, result } => {
             match result {
                 Ok(found) => {
-                    app.state.borrow_mut().change_settings(|s| s.update.last_check = unix_now());
+                    app.state
+                        .borrow_mut()
+                        .change_settings(|s| s.update.last_check = unix_now());
                     match found {
                         Some(u) => {
                             tracing::info!(version = %u.version, strategy = ?u.strategy, "update available");
@@ -318,7 +391,10 @@ fn receive(app: &App, m: Msg) {
                         None => {
                             set_phase(app, Phase::Idle);
                             if manual {
-                                app.status(od_i18n::trf("OpenDecks Session {} is up to date", &[&env!("CARGO_PKG_VERSION")]));
+                                app.status(od_i18n::trf(
+                                    "OpenDecks Session {} is up to date",
+                                    &[&env!("CARGO_PKG_VERSION")],
+                                ));
                             }
                         }
                     }
@@ -336,7 +412,11 @@ fn receive(app: &App, m: Msg) {
         Msg::Progress(done, total) => {
             let mut u = app.update.borrow_mut();
             if let Phase::Installing(up, _, _) = &u.phase {
-                u.phase = Phase::Installing(up.clone(), done, total.or(up.asset.as_ref().map(|a| a.size).filter(|s| *s > 0)));
+                u.phase = Phase::Installing(
+                    up.clone(),
+                    done,
+                    total.or(up.asset.as_ref().map(|a| a.size).filter(|s| *s > 0)),
+                );
             }
             drop(u);
             refresh(app);
@@ -357,19 +437,36 @@ fn receive(app: &App, m: Msg) {
                 Ok(Prepared::OpenedDmg(_)) => set_phase(
                     app,
                     Phase::Message(
-                        od_i18n::trf("OpenDecks Session {} is verified and open — drag it to Applications, then restart", &[&update.version]),
+                        od_i18n::trf(
+                            "OpenDecks Session {} is verified and open — drag it to Applications, then restart",
+                            &[&update.version],
+                        ),
                         MessageKind::Info,
                         None,
                     ),
                 ),
                 Ok(Prepared::OpenedPage(url)) => set_phase(
                     app,
-                    Phase::Message(od_i18n::trf("This copy cannot update itself — download OpenDecks Session {} from the release page", &[&update.version]), MessageKind::Info, Some(url)),
+                    Phase::Message(
+                        od_i18n::trf(
+                            "This copy cannot update itself — download OpenDecks Session {} from the release page",
+                            &[&update.version],
+                        ),
+                        MessageKind::Info,
+                        Some(url),
+                    ),
                 ),
                 Err(e) if e == "cancelled" => set_phase(app, Phase::Available(update)),
                 Err(e) => {
                     tracing::warn!(error = %e, "update failed");
-                    set_phase(app, Phase::Message(od_i18n::trf("Update failed: {} — this version keeps working", &[&e]), MessageKind::Error, Some(update.page_url)));
+                    set_phase(
+                        app,
+                        Phase::Message(
+                            od_i18n::trf("Update failed: {} — this version keeps working", &[&e]),
+                            MessageKind::Error,
+                            Some(update.page_url),
+                        ),
+                    );
                 }
             }
         }
@@ -377,8 +474,13 @@ fn receive(app: &App, m: Msg) {
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
-    app.ui.on_update_action(handler!(app, |a, what: SharedString| act(&a, what.as_str())));
-    app.ui.on_check_updates(handler!(app, |a| check_now(&a, true)));
+    app.ui
+        .on_update_action(handler!(app, |a, what: SharedString| act(
+            &a,
+            what.as_str()
+        )));
+    app.ui
+        .on_check_updates(handler!(app, |a| check_now(&a, true)));
     refresh(app);
 }
 
@@ -420,16 +522,47 @@ mod tests {
         od_i18n::set_language(od_i18n::Language::English);
         assert_eq!(bar(&Phase::Idle).0, "");
         assert_eq!(bar(&Phase::Checking).0, "");
-        assert_eq!(bar(&Phase::Available(update(false))), ("available", "OpenDecks Session 0.2.0 is available".into(), 0.0));
-        assert_eq!(bar(&Phase::Available(update(true))).1, "OpenDecks Session 0.2.0 is available (pre-release)");
+        assert_eq!(
+            bar(&Phase::Available(update(false))),
+            (
+                "available",
+                "OpenDecks Session 0.2.0 is available".into(),
+                0.0
+            )
+        );
+        assert_eq!(
+            bar(&Phase::Available(update(true))).1,
+            "OpenDecks Session 0.2.0 is available (pre-release)"
+        );
         let (s, t, p) = bar(&Phase::Installing(update(false), 25, Some(100)));
-        assert_eq!((s, t.as_str(), p), ("installing", "Downloading OpenDecks Session 0.2.0 — 25 %", 0.25));
-        assert_eq!(bar(&Phase::Installing(update(false), 100, Some(100))).1, "Installing OpenDecks Session 0.2.0 …");
+        assert_eq!(
+            (s, t.as_str(), p),
+            (
+                "installing",
+                "Downloading OpenDecks Session 0.2.0 — 25 %",
+                0.25
+            )
+        );
+        assert_eq!(
+            bar(&Phase::Installing(update(false), 100, Some(100))).1,
+            "Installing OpenDecks Session 0.2.0 …"
+        );
         assert_eq!(bar(&Phase::Installing(update(false), 5, None)).2, 0.0);
-        let f = od_update::Finish { mode: "wait", current: PathBuf::new(), new: PathBuf::new(), relaunch: vec![] };
+        let f = od_update::Finish {
+            mode: "wait",
+            current: PathBuf::new(),
+            new: PathBuf::new(),
+            relaunch: vec![],
+        };
         assert_eq!(bar(&Phase::Ready(update(false), f)).0, "ready");
-        assert_eq!(bar(&Phase::Message("x".into(), MessageKind::Error, None)).0, "error");
-        assert_eq!(bar(&Phase::Message("x".into(), MessageKind::Info, None)).0, "info");
+        assert_eq!(
+            bar(&Phase::Message("x".into(), MessageKind::Error, None)).0,
+            "error"
+        );
+        assert_eq!(
+            bar(&Phase::Message("x".into(), MessageKind::Info, None)).0,
+            "info"
+        );
     }
 
     #[test]

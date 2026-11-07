@@ -10,8 +10,8 @@ use crate::models::Rows;
 use crate::settings::COLOR_FX;
 use crate::{FxSlotView, FxUnitView, decks, engine};
 use od_engine::{
-    BEAT_FX_SLOTS, BEAT_FX_UNITS, BeatFxCommand, BeatFxKind, BeatFxState, ChannelCommand, ColorFxKind, Command, EngineState, FxTarget, PadFxEffect, PadFxPreset,
-    ReleaseFxKind,
+    BEAT_FX_SLOTS, BEAT_FX_UNITS, BeatFxCommand, BeatFxKind, BeatFxState, ChannelCommand,
+    ColorFxKind, Command, EngineState, FxTarget, PadFxEffect, PadFxPreset, ReleaseFxKind,
 };
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -21,7 +21,11 @@ use std::time::Instant;
 pub(crate) const FX_BEATS: [f32; 9] = [0.125, 0.25, 0.5, 0.75, 1.0, 2.0, 4.0, 8.0, 16.0];
 
 /// Release FX in panel order (BRAKE, BACKSPIN, ECHO OUT).
-pub(crate) const RELEASE_FX: [ReleaseFxKind; 3] = [ReleaseFxKind::VinylBrake, ReleaseFxKind::Backspin, ReleaseFxKind::EchoOut];
+pub(crate) const RELEASE_FX: [ReleaseFxKind; 3] = [
+    ReleaseFxKind::VinylBrake,
+    ReleaseFxKind::Backspin,
+    ReleaseFxKind::EchoOut,
+];
 
 /// Runtime part of the FX panel: the bound unit rows and tap tempo.
 #[derive(Default)]
@@ -43,7 +47,11 @@ impl TapTempo {
     /// Registers a tap at `t` seconds; returns the tapped BPM once there are
     /// three taps (40–300 BPM).
     pub fn tap(&mut self, t: f64) -> Option<f32> {
-        if self.taps.last().is_some_and(|&last| t - last > 2.0 || t <= last) {
+        if self
+            .taps
+            .last()
+            .is_some_and(|&last| t - last > 2.0 || t <= last)
+        {
             self.taps.clear();
         }
         self.taps.push(t);
@@ -72,7 +80,12 @@ pub(crate) fn beats_label(b: f32) -> String {
 
 /// The next beat length from `current` (`delta` steps through [`FX_BEATS`]).
 pub(crate) fn step_beats(current: f32, delta: i32) -> f32 {
-    let i = FX_BEATS.iter().enumerate().min_by(|a, b| (a.1 - current).abs().total_cmp(&(b.1 - current).abs())).map(|(i, _)| i).unwrap_or(3);
+    let i = FX_BEATS
+        .iter()
+        .enumerate()
+        .min_by(|a, b| (a.1 - current).abs().total_cmp(&(b.1 - current).abs()))
+        .map(|(i, _)| i)
+        .unwrap_or(3);
     FX_BEATS[(i as i32 + delta).clamp(0, FX_BEATS.len() as i32 - 1) as usize]
 }
 
@@ -140,16 +153,27 @@ pub(crate) fn target_from_number(n: i32) -> FxTarget {
         FxTarget::Sampler
     } else if n == 0 {
         FxTarget::Master
-    } else { FxTarget::Channel((n as usize - 1).min(decks::DECKS - 1)) }
+    } else {
+        FxTarget::Channel((n as usize - 1).min(decks::DECKS - 1))
+    }
 }
 
 /// What a unit shows before audio runs (the engine's start values).
 pub(crate) fn idle_unit() -> BeatFxState {
-    BeatFxState { level: 0.5, beats: 0.75, ..Default::default() }
+    BeatFxState {
+        level: 0.5,
+        beats: 0.75,
+        ..Default::default()
+    }
 }
 
 /// Parts of the Stem FX keys, in their order.
-pub(crate) const STEM_PARTS: [od_engine::Stem; 4] = [od_engine::Stem::Vocals, od_engine::Stem::Drums, od_engine::Stem::Bass, od_engine::Stem::Inst];
+pub(crate) const STEM_PARTS: [od_engine::Stem; 4] = [
+    od_engine::Stem::Vocals,
+    od_engine::Stem::Drums,
+    od_engine::Stem::Bass,
+    od_engine::Stem::Inst,
+];
 
 /// The target for Stem FX key `part` (-1 = whole channel) on the unit's channel.
 pub(crate) fn part_target(current: FxTarget, part: i32) -> FxTarget {
@@ -168,7 +192,13 @@ pub(crate) fn slot_views(slots: &[BeatFxState]) -> Vec<FxSlotView> {
     slots
         .iter()
         .enumerate()
-        .map(|(k, s)| FxSlotView { slot: k as i32 + 2, kind: s.kind.index() as i32, beats: beats_label(s.beats).into(), level: s.level, on: s.on })
+        .map(|(k, s)| FxSlotView {
+            slot: k as i32 + 2,
+            kind: s.kind.index() as i32,
+            beats: beats_label(s.beats).into(),
+            level: s.level,
+            on: s.on,
+        })
         .collect()
 }
 
@@ -176,7 +206,10 @@ pub(crate) fn slot_views(slots: &[BeatFxState]) -> Vec<FxSlotView> {
 pub(crate) fn unit_view(unit: usize, s: &BeatFxState) -> FxUnitView {
     FxUnitView {
         part: match s.target {
-            FxTarget::Part(_, p) => STEM_PARTS.iter().position(|x| *x == p).map_or(-1, |i| i as i32),
+            FxTarget::Part(_, p) => STEM_PARTS
+                .iter()
+                .position(|x| *x == p)
+                .map_or(-1, |i| i as i32),
             _ => -1,
         },
         multi: false,
@@ -189,17 +222,36 @@ pub(crate) fn unit_view(unit: usize, s: &BeatFxState) -> FxUnitView {
         param: s.param,
         on: s.on,
         ringing: s.ringing,
-        bpm: if s.bpm > 0.0 { format!("{:.1}", s.bpm) } else { String::new() }.into(),
+        bpm: if s.bpm > 0.0 {
+            format!("{:.1}", s.bpm)
+        } else {
+            String::new()
+        }
+        .into(),
         tapped: s.tap_bpm.is_some(),
-        release: s.release.and_then(|r| RELEASE_FX.iter().position(|k| *k == r)).map(|i| i as i32).unwrap_or(-1),
+        release: s
+            .release
+            .and_then(|r| RELEASE_FX.iter().position(|k| *k == r))
+            .map(|i| i as i32)
+            .unwrap_or(-1),
     }
 }
 
 /// Pad FX presets of the Pad FX pad modes (page 1 and 2), pads A–H.
 pub(crate) fn pad_fx_preset(page: usize, pad: usize) -> PadFxPreset {
     use BeatFxKind as K;
-    let beat = |kind: K, beats: f32, level: f32| PadFxPreset { effect: PadFxEffect::Beat(kind), beats, level, param: kind.default_param() };
-    let release = |kind: ReleaseFxKind, beats: f32| PadFxPreset { effect: PadFxEffect::Release(kind), beats, level: 1.0, param: 0.0 };
+    let beat = |kind: K, beats: f32, level: f32| PadFxPreset {
+        effect: PadFxEffect::Beat(kind),
+        beats,
+        level,
+        param: kind.default_param(),
+    };
+    let release = |kind: ReleaseFxKind, beats: f32| PadFxPreset {
+        effect: PadFxEffect::Release(kind),
+        beats,
+        level: 1.0,
+        param: 0.0,
+    };
     let presets = [
         [
             beat(K::Echo, 0.5, 0.6),
@@ -259,7 +311,10 @@ fn kind_short(k: BeatFxKind) -> &'static str {
 /// selection differs (empty when all match).
 pub(crate) fn color_fx_commands(state: &EngineState, name: &str) -> Vec<Command> {
     let kind = color_fx_kind(name);
-    (0..state.decks_count.min(decks::DECKS)).filter(|&c| state.channels[c].color_fx != kind).map(|c| Command::Channel(c, ChannelCommand::SetColorFx(kind))).collect()
+    (0..state.decks_count.min(decks::DECKS))
+        .filter(|&c| state.channels[c].color_fx != kind)
+        .map(|c| Command::Channel(c, ChannelCommand::SetColorFx(kind)))
+        .collect()
 }
 
 /// Frame tick: engine state → unit rows; keeps the channels on the selected
@@ -270,7 +325,11 @@ pub(crate) fn project(app: &App, state: &EngineState) {
     }
     app.fx.units.sync_eq(
         (0..BEAT_FX_UNITS)
-            .map(|u| FxUnitView { multi: state.beat_fx_multi[u], slots: app.fx.slots[u].handle(), ..unit_view(u, &state.beat_fx[u]) })
+            .map(|u| FxUnitView {
+                multi: state.beat_fx_multi[u],
+                slots: app.fx.slots[u].handle(),
+                ..unit_view(u, &state.beat_fx[u])
+            })
             .collect(),
     );
     let name = app.state.borrow().settings.perform.color_fx.clone();
@@ -282,14 +341,20 @@ pub(crate) fn project(app: &App, state: &EngineState) {
 /// Before audio starts: the units at their start values.
 pub(crate) fn show_idle(app: &App) {
     if app.fx.units.len() == 0 {
-        app.fx.units.sync_eq((0..BEAT_FX_UNITS).map(|u| unit_view(u, &idle_unit())).collect());
+        app.fx.units.sync_eq(
+            (0..BEAT_FX_UNITS)
+                .map(|u| unit_view(u, &idle_unit()))
+                .collect(),
+        );
     }
 }
 
 /// Opens or closes the Beat FX panel and remembers it.
 pub(crate) fn toggle_panel(app: &App) {
     let on = !app.state.borrow().settings.perform.fx_panel;
-    app.state.borrow_mut().change_settings(|s| s.perform.fx_panel = on);
+    app.state
+        .borrow_mut()
+        .change_settings(|s| s.perform.fx_panel = on);
     app.ui.set_fx_panel(on);
 }
 
@@ -311,13 +376,24 @@ pub(crate) fn toggle_on(app: &App, u: usize) {
 
 /// Slot 2 or 3 of unit `u` (0-based).
 fn slot_state(app: &App, u: usize, slot: usize) -> Option<BeatFxState> {
-    engine::snapshot(app).and_then(|s| s.beat_fx_slots[u.min(BEAT_FX_UNITS - 1)].get(slot.wrapping_sub(2)).copied())
+    engine::snapshot(app).and_then(|s| {
+        s.beat_fx_slots[u.min(BEAT_FX_UNITS - 1)]
+            .get(slot.wrapping_sub(2))
+            .copied()
+    })
 }
 
 fn send_slot(app: &App, u: usize, slot: usize, cmd: BeatFxCommand) {
     engine::ensure_engine(app);
     if (2..=BEAT_FX_SLOTS).contains(&slot) {
-        engine::send(app, Command::BeatFxSlot { unit: u, slot: slot - 1, cmd });
+        engine::send(
+            app,
+            Command::BeatFxSlot {
+                unit: u,
+                slot: slot - 1,
+                cmd,
+            },
+        );
     }
 }
 
@@ -362,17 +438,25 @@ pub(crate) fn release(app: &App, u: usize, kind: ReleaseFxKind, on: bool) {
 /// Selects the Colour FX of the CFX knobs (index into [`COLOR_FX`]).
 pub(crate) fn select_color_fx(app: &App, index: usize) {
     let name = COLOR_FX[index.min(COLOR_FX.len() - 1)];
-    app.state.borrow_mut().change_settings(|s| s.perform.color_fx = name.to_string());
+    app.state
+        .borrow_mut()
+        .change_settings(|s| s.perform.color_fx = name.to_string());
     app.ui.set_color_fx(index as i32);
     engine::ensure_engine(app);
     for c in 0..decks::DECKS {
-        engine::send(app, Command::Channel(c, ChannelCommand::SetColorFx(color_fx_kind(name))));
+        engine::send(
+            app,
+            Command::Channel(c, ChannelCommand::SetColorFx(color_fx_kind(name))),
+        );
     }
 }
 
 pub(crate) fn step_color_fx(app: &App, delta: i32) {
     let cur = color_fx_index(&app.state.borrow().settings.perform.color_fx) as i32;
-    select_color_fx(app, (cur + delta).rem_euclid(COLOR_FX.len() as i32) as usize);
+    select_color_fx(
+        app,
+        (cur + delta).rem_euclid(COLOR_FX.len() as i32) as usize,
+    );
 }
 
 thread_local! {
@@ -388,7 +472,11 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_toggle_fx_panel(handler!(app, |a| toggle_panel(&a)));
     // Units are 1-based in the UI.
     let u = |n: i32| (n as usize).saturating_sub(1);
-    ui.on_fx_kind(handler!(app, |a, n: i32, k: i32| send(&a, u(n), BeatFxCommand::SetKind(BeatFxKind::ALL[(k.max(0) as usize).min(BeatFxKind::ALL.len() - 1)]))));
+    ui.on_fx_kind(handler!(app, |a, n: i32, k: i32| send(
+        &a,
+        u(n),
+        BeatFxCommand::SetKind(BeatFxKind::ALL[(k.max(0) as usize).min(BeatFxKind::ALL.len() - 1)])
+    )));
     let slots = slint::ComponentHandle::global::<crate::FxSlots>(&app.ui);
     slots.on_multi(handler!(app, |a, n: i32| toggle_multi(&a, u(n))));
     slots.on_auto(handler!(app, |a, n: i32| auto_beat(&a, u(n))));
@@ -397,27 +485,74 @@ pub(crate) fn wire(app: &Rc<App>) {
         send(&a, u(n), BeatFxCommand::SetTarget(part_target(current, p)));
     }));
     slots.on_kind_step(handler!(app, |a, n: i32, k: i32, d: i32| {
-        let kind = slot_state(&a, u(n), k as usize).map(|s| s.kind).unwrap_or_default();
-        send_slot(&a, u(n), k as usize, BeatFxCommand::SetKind(step_kind(kind, d)));
+        let kind = slot_state(&a, u(n), k as usize)
+            .map(|s| s.kind)
+            .unwrap_or_default();
+        send_slot(
+            &a,
+            u(n),
+            k as usize,
+            BeatFxCommand::SetKind(step_kind(kind, d)),
+        );
     }));
     slots.on_beats_step(handler!(app, |a, n: i32, k: i32, d: i32| {
-        let beats = slot_state(&a, u(n), k as usize).map(|s| s.beats).unwrap_or(0.75);
-        send_slot(&a, u(n), k as usize, BeatFxCommand::SetBeats(step_beats(beats, d)));
+        let beats = slot_state(&a, u(n), k as usize)
+            .map(|s| s.beats)
+            .unwrap_or(0.75);
+        send_slot(
+            &a,
+            u(n),
+            k as usize,
+            BeatFxCommand::SetBeats(step_beats(beats, d)),
+        );
     }));
-    slots.on_level(handler!(app, |a, n: i32, k: i32, v: f32| send_slot(&a, u(n), k as usize, BeatFxCommand::SetLevel(v))));
+    slots.on_level(handler!(app, |a, n: i32, k: i32, v: f32| send_slot(
+        &a,
+        u(n),
+        k as usize,
+        BeatFxCommand::SetLevel(v)
+    )));
     slots.on_on(handler!(app, |a, n: i32, k: i32| {
         let on = slot_state(&a, u(n), k as usize).is_some_and(|s| s.on);
         send_slot(&a, u(n), k as usize, BeatFxCommand::SetOn(!on));
     }));
-    ui.on_fx_kind_step(handler!(app, |a, n: i32, d: i32| step_unit_kind(&a, u(n), d)));
-    ui.on_fx_beats_step(handler!(app, |a, n: i32, d: i32| step_unit_beats(&a, u(n), d)));
-    ui.on_fx_target(handler!(app, |a, n: i32, t: i32| send(&a, u(n), BeatFxCommand::SetTarget(target_from_number(t)))));
-    ui.on_fx_level(handler!(app, |a, n: i32, v: f32| send(&a, u(n), BeatFxCommand::SetLevel(v))));
-    ui.on_fx_param(handler!(app, |a, n: i32, v: f32| send(&a, u(n), BeatFxCommand::SetParam(v))));
+    ui.on_fx_kind_step(handler!(app, |a, n: i32, d: i32| step_unit_kind(
+        &a,
+        u(n),
+        d
+    )));
+    ui.on_fx_beats_step(handler!(app, |a, n: i32, d: i32| step_unit_beats(
+        &a,
+        u(n),
+        d
+    )));
+    ui.on_fx_target(handler!(app, |a, n: i32, t: i32| send(
+        &a,
+        u(n),
+        BeatFxCommand::SetTarget(target_from_number(t))
+    )));
+    ui.on_fx_level(handler!(app, |a, n: i32, v: f32| send(
+        &a,
+        u(n),
+        BeatFxCommand::SetLevel(v)
+    )));
+    ui.on_fx_param(handler!(app, |a, n: i32, v: f32| send(
+        &a,
+        u(n),
+        BeatFxCommand::SetParam(v)
+    )));
     ui.on_fx_on(handler!(app, |a, n: i32| toggle_on(&a, u(n))));
     ui.on_fx_tap(handler!(app, |a, n: i32| tap(&a, u(n))));
-    ui.on_fx_release(handler!(app, |a, n: i32, k: i32, on: bool| release(&a, u(n), RELEASE_FX[(k.max(0) as usize).min(2)], on)));
-    ui.on_color_fx_select(handler!(app, |a, i: i32| select_color_fx(&a, i.max(0) as usize)));
+    ui.on_fx_release(handler!(app, |a, n: i32, k: i32, on: bool| release(
+        &a,
+        u(n),
+        RELEASE_FX[(k.max(0) as usize).min(2)],
+        on
+    )));
+    ui.on_color_fx_select(handler!(app, |a, i: i32| select_color_fx(
+        &a,
+        i.max(0) as usize
+    )));
     ui.on_color_fx_step(handler!(app, |a, d: i32| step_color_fx(&a, d)));
 }
 
@@ -480,18 +615,35 @@ mod tests {
         assert_eq!((v.beats.as_str(), v.bpm.as_str()), ("2", "128.0"));
         assert!(v.on && v.tapped);
         let idle = unit_view(0, &idle_unit());
-        assert_eq!((idle.target, idle.release, idle.beats.as_str(), idle.bpm.as_str()), (0, -1, "3/4", ""));
-        assert_eq!(target_from_number(target_number(FxTarget::Channel(3))), FxTarget::Channel(3));
+        assert_eq!(
+            (
+                idle.target,
+                idle.release,
+                idle.beats.as_str(),
+                idle.bpm.as_str()
+            ),
+            (0, -1, "3/4", "")
+        );
+        assert_eq!(
+            target_from_number(target_number(FxTarget::Channel(3))),
+            FxTarget::Channel(3)
+        );
         assert_eq!(target_from_number(0), FxTarget::Master);
     }
 
     #[test]
     fn color_fx_follows_the_selection() {
-        let mut st = EngineState { decks_count: 2, ..Default::default() };
+        let mut st = EngineState {
+            decks_count: 2,
+            ..Default::default()
+        };
         assert!(color_fx_commands(&st, "filter").is_empty());
         let cmds = color_fx_commands(&st, "dub_echo");
         assert_eq!(cmds.len(), 2);
-        assert!(matches!(cmds[0], Command::Channel(0, ChannelCommand::SetColorFx(ColorFxKind::DubEcho))));
+        assert!(matches!(
+            cmds[0],
+            Command::Channel(0, ChannelCommand::SetColorFx(ColorFxKind::DubEcho))
+        ));
         st.channels[0].color_fx = ColorFxKind::DubEcho;
         assert_eq!(color_fx_commands(&st, "dub_echo").len(), 1);
         for (i, n) in COLOR_FX.iter().enumerate() {

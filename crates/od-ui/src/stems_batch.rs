@@ -23,11 +23,17 @@ impl BatchCount {
     /// The status line for the batch (pure).
     pub fn message(&self, last_error: &str) -> String {
         if !self.finished() {
-            od_i18n::trf("Separating parts: {} of {} tracks …", &[&(self.done + self.failed + 1).min(self.total), &self.total])
+            od_i18n::trf(
+                "Separating parts: {} of {} tracks …",
+                &[&(self.done + self.failed + 1).min(self.total), &self.total],
+            )
         } else if self.failed == 0 {
             od_i18n::trf("Parts ready for {} tracks", &[&self.done])
         } else {
-            od_i18n::trf("Parts ready for {} tracks, {} failed: {}", &[&self.done, &self.failed, &last_error])
+            od_i18n::trf(
+                "Parts ready for {} tracks, {} failed: {}",
+                &[&self.done, &self.failed, &last_error],
+            )
         }
     }
 }
@@ -81,7 +87,11 @@ pub(crate) fn separate(app: &App, ids: &[TrackId]) {
         let st = app.state.borrow();
         ids.iter()
             .filter_map(|id| st.lib.track(*id).ok())
-            .map(|t| od_stems::StemJob { track: t.id, path: t.path.clone(), hash: t.content_hash.clone() })
+            .map(|t| od_stems::StemJob {
+                track: t.id,
+                path: t.path.clone(),
+                hash: t.content_hash.clone(),
+            })
             .collect()
     };
     BATCH.with(|b| {
@@ -92,7 +102,13 @@ pub(crate) fn separate(app: &App, ids: &[TrackId]) {
         }
         let b = &mut *b;
         let worker = b.worker.get_or_insert_with(|| {
-            od_stems::StemWorker::spawn(od_stems::StemCache::open_default(), od_stems::StemWorkerOptions { fetch_model, ..Default::default() })
+            od_stems::StemWorker::spawn(
+                od_stems::StemCache::open_default(),
+                od_stems::StemWorkerOptions {
+                    fetch_model,
+                    ..Default::default()
+                },
+            )
         });
         let mut added = Vec::new();
         for j in jobs {
@@ -115,16 +131,20 @@ fn start_polling(app: &App) {
         if t.running() {
             return;
         }
-        t.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(200), move || {
-            let Some(ui) = ui.upgrade() else { return };
-            let (changed, message, finished) = poll();
-            if changed {
-                ui.set_status_text(message.into());
-            }
-            if finished {
-                TIMER.with(|t| t.stop());
-            }
-        });
+        t.start(
+            slint::TimerMode::Repeated,
+            std::time::Duration::from_millis(200),
+            move || {
+                let Some(ui) = ui.upgrade() else { return };
+                let (changed, message, finished) = poll();
+                if changed {
+                    ui.set_status_text(message.into());
+                }
+                if finished {
+                    TIMER.with(|t| t.stop());
+                }
+            },
+        );
     });
 }
 
@@ -134,7 +154,11 @@ fn poll() -> (bool, String, bool) {
     use od_stems::StemEvent;
     BATCH.with(|b| {
         let mut b = b.borrow_mut();
-        let events: Vec<StemEvent> = b.worker.as_ref().map(|w| w.events().try_iter().collect()).unwrap_or_default();
+        let events: Vec<StemEvent> = b
+            .worker
+            .as_ref()
+            .map(|w| w.events().try_iter().collect())
+            .unwrap_or_default();
         let mut changed = false;
         for e in events {
             match e {
@@ -153,7 +177,11 @@ fn poll() -> (bool, String, bool) {
                 }
                 StemEvent::ModelDownload { done, total } => {
                     let pct = if total > 0 { done * 100 / total } else { 0 };
-                    return (true, od_i18n::trf("Downloading the stem model … {} %", &[&pct]), false);
+                    return (
+                        true,
+                        od_i18n::trf("Downloading the stem model … {} %", &[&pct]),
+                        false,
+                    );
                 }
                 StemEvent::Started { .. } | StemEvent::Progress { .. } => {}
             }
@@ -169,7 +197,11 @@ mod tests {
 
     #[test]
     fn batch_messages() {
-        let mut c = BatchCount { done: 0, failed: 0, total: 3 };
+        let mut c = BatchCount {
+            done: 0,
+            failed: 0,
+            total: 3,
+        };
         assert!(!c.finished());
         assert!(c.message("").contains('1') && c.message("").contains('3'));
         c.done = 2;

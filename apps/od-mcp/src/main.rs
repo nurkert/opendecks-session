@@ -6,6 +6,7 @@
 //! write transactions), so both can run at the same time; every write is one
 //! undo step in the app's edit history.
 
+mod lighting;
 mod server;
 mod tools;
 mod view;

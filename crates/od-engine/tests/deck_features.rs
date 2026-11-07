@@ -391,3 +391,23 @@ fn slicer_retriggers_slices_on_the_grid() {
     let st = rig.state().decks[0];
     assert!(!st.loop_state.active && !st.slicer.active);
 }
+
+/// Imported grids store beat times to the millisecond: the BPM readout
+/// shows the grid's stated tempo and stays steady while playing.
+#[test]
+fn bpm_readout_is_steady_on_millisecond_grids() {
+    let mut grid = Beatgrid::constant(137.9, 0.05, 1, 20.0);
+    for b in &mut grid.beats {
+        b.time = (b.time * 1000.0).round() / 1000.0;
+    }
+    let n = 20 * SR as usize;
+    let track = TrackData::new(TrackId(1), DecodedAudio { sample_rate: SR, channels: 2, samples: vec![0.1; n * 2] }, SR, grid, &[], 0.0);
+    let mut rig = Rig::new(2);
+    rig.deck(0, DeckCommand::Load(track));
+    rig.deck(0, DeckCommand::Play);
+    for _ in 0..40 {
+        rig.render(10);
+        let bpm = rig.state().decks[0].bpm;
+        assert!((bpm - 137.9).abs() < 1e-9, "readout {bpm}");
+    }
+}

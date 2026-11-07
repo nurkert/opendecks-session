@@ -44,21 +44,27 @@ impl Checklist {
         if loaded.len() >= 2 {
             self.done[0] = true;
         }
-        if loaded.iter().any(|&i| !decks[i].playing && decks[i].cue_point > 0.05) {
+        if loaded
+            .iter()
+            .any(|&i| !decks[i].playing && decks[i].cue_point > 0.05)
+        {
             self.done[1] = true;
         }
         if loaded.iter().any(|&i| decks[i].playing) {
             self.done[2] = true;
         }
         // A pair of loaded decks without sync, one playing, same tempo.
-        let pair = loaded.iter().flat_map(|&a| loaded.iter().map(move |&b| (a, b))).find(|&(a, b)| {
-            a < b
-                && !decks[a].sync
-                && !decks[b].sync
-                && (decks[a].playing || decks[b].playing)
-                && decks[a].bpm > 0.0
-                && (decks[a].bpm - decks[b].bpm).abs() < BPM_MATCH
-        });
+        let pair = loaded
+            .iter()
+            .flat_map(|&a| loaded.iter().map(move |&b| (a, b)))
+            .find(|&(a, b)| {
+                a < b
+                    && !decks[a].sync
+                    && !decks[b].sync
+                    && (decks[a].playing || decks[b].playing)
+                    && decks[a].bpm > 0.0
+                    && (decks[a].bpm - decks[b].bpm).abs() < BPM_MATCH
+            });
         if pair.is_some() {
             self.done[3] = true;
         }
@@ -83,6 +89,8 @@ impl Checklist {
 pub struct CdjRuntime {
     pub checklist: Checklist,
     shown: Option<[bool; STEPS.len()]>,
+    /// Beat of the bar per deck as last shown (beat-position indicator).
+    beats_shown: Vec<i32>,
     /// Browse screen: deck (1-based) and the levels opened so far.
     browse: Option<(i32, Vec<Level>)>,
     /// What the rows of the current level open.
@@ -119,8 +127,16 @@ pub fn browse_rows(lib: &Library, level: &Level) -> (String, Vec<(String, String
         Level::Root => (
             "SOURCE".into(),
             vec![
-                ("All tracks".into(), String::new(), Target::Open(LevelRef::Tracks(None))),
-                ("Playlists".into(), String::new(), Target::Open(LevelRef::Tree(None))),
+                (
+                    "All tracks".into(),
+                    String::new(),
+                    Target::Open(LevelRef::Tracks(None)),
+                ),
+                (
+                    "Playlists".into(),
+                    String::new(),
+                    Target::Open(LevelRef::Tree(None)),
+                ),
             ],
         ),
         Level::Tree(parent) => {
@@ -128,7 +144,11 @@ pub fn browse_rows(lib: &Library, level: &Level) -> (String, Vec<(String, String
             let rows = nodes
                 .into_iter()
                 .map(|n| {
-                    let target = if n.kind == NodeKind::Folder { LevelRef::Tree(Some(n.id)) } else { LevelRef::Tracks(Some(n.id)) };
+                    let target = if n.kind == NodeKind::Folder {
+                        LevelRef::Tree(Some(n.id))
+                    } else {
+                        LevelRef::Tracks(Some(n.id))
+                    };
                     (n.name, n.kind.as_str().to_uppercase(), Target::Open(target))
                 })
                 .collect();
@@ -137,13 +157,23 @@ pub fn browse_rows(lib: &Library, level: &Level) -> (String, Vec<(String, String
         Level::Tracks(node) => {
             let tracks = match node {
                 Some(id) => lib.node_tracks(*id).unwrap_or_default(),
-                None => lib.tracks(od_library::SortKey::Artist, false).unwrap_or_default(),
+                None => lib
+                    .tracks(od_library::SortKey::Artist, false)
+                    .unwrap_or_default(),
             };
             let rows = tracks
                 .into_iter()
                 .map(|t| {
-                    let sub = format!("{} {}", t.bpm.map(|b| format!("{b:.1}")).unwrap_or_default(), t.key.map(|k| k.to_string()).unwrap_or_default());
-                    (format!("{} — {}", t.tags.artist, t.tags.title), sub.trim().to_string(), Target::Load(t.id))
+                    let sub = format!(
+                        "{} {}",
+                        t.bpm.map(|b| format!("{b:.1}")).unwrap_or_default(),
+                        t.key.map(|k| k.to_string()).unwrap_or_default()
+                    );
+                    (
+                        format!("{} — {}", t.tags.artist, t.tags.title),
+                        sub.trim().to_string(),
+                        Target::Load(t.id),
+                    )
                 })
                 .collect();
             ("TRACKS".into(), rows)
@@ -166,7 +196,11 @@ fn show_browse(app: &App) {
     rt.targets = rows.iter().map(|r| r.2).collect();
     let items: Vec<CdjItem> = rows
         .into_iter()
-        .map(|(t, s, target)| CdjItem { title: od_i18n::tr(&t).to_string().into(), sub: s.into(), folder: matches!(target, Target::Open(_)) })
+        .map(|(t, s, target)| CdjItem {
+            title: od_i18n::tr(&t).to_string().into(),
+            sub: s.into(),
+            folder: matches!(target, Target::Open(_)),
+        })
         .collect();
     g.set_browse_title(od_i18n::tr(&title).to_string().into());
     g.set_browse_items(ModelRc::new(VecModel::from(items)));
@@ -196,7 +230,11 @@ pub(crate) fn set_enabled(app: &App, on: bool) {
         }
         g.set_show_steps(true);
     }
-    app.status(if on { "CDJ practice mode: sync is off, beatmatch by ear" } else { "CDJ practice mode off" });
+    app.status(if on {
+        "CDJ practice mode: sync is off, beatmatch by ear"
+    } else {
+        "CDJ practice mode off"
+    });
 }
 
 pub(crate) fn toggle(app: &App) {
@@ -251,14 +289,35 @@ pub(crate) fn wire(app: &Rc<App>) {
             None => {}
         }
     }));
-    g.on_action(handler!(app, |a, d: i32, action: slint::SharedString| crate::commands::run(&a, &format!("deck{d}.{action}"))));
-    g.on_cue(handler!(app, |a, d: i32, down: bool| deck(&a, d, DeckCommand::Cue(down))));
-    g.on_hot_cue(handler!(app, |a, d: i32, slot: i32, down: bool| deck(&a, d, DeckCommand::HotCue { slot: slot.clamp(0, 7) as usize, pressed: down })));
-    g.on_search(handler!(app, |a, d: i32, rate: f32| deck(&a, d, DeckCommand::Search(rate as f64))));
-    g.on_tempo(handler!(app, |a, d: i32, v: f32| a.ui.invoke_deck_tempo(d, v)));
+    g.on_action(handler!(app, |a, d: i32, action: slint::SharedString| {
+        crate::commands::run(&a, &format!("deck{d}.{action}"))
+    }));
+    g.on_cue(handler!(app, |a, d: i32, down: bool| deck(
+        &a,
+        d,
+        DeckCommand::Cue(down)
+    )));
+    g.on_hot_cue(handler!(app, |a, d: i32, slot: i32, down: bool| deck(
+        &a,
+        d,
+        DeckCommand::HotCue {
+            slot: slot.clamp(0, 7) as usize,
+            pressed: down
+        }
+    )));
+    g.on_search(handler!(app, |a, d: i32, rate: f32| deck(
+        &a,
+        d,
+        DeckCommand::Search(rate as f64)
+    )));
+    g.on_tempo(handler!(app, |a, d: i32, v: f32| a
+        .ui
+        .invoke_deck_tempo(d, v)));
     g.on_tempo_range(handler!(app, |a, d: i32| {
         let i = (d - 1).max(0) as usize;
-        let range = engine::snapshot(&a).map(|s| s.decks[i].tempo_range).unwrap_or_default();
+        let range = engine::snapshot(&a)
+            .map(|s| s.decks[i].tempo_range)
+            .unwrap_or_default();
         deck(&a, d, DeckCommand::SetTempoRange(next_range(range)));
     }));
 }
@@ -270,13 +329,27 @@ fn deck(app: &App, d: i32, cmd: DeckCommand) {
     engine::deck_cmd(app, d as usize - 1, cmd);
 }
 
-/// Per engine frame while CDJ mode is on: advances the checklist.
+/// Beat of the bar at each deck's playhead (index deck - 1), as the
+/// beat-position indicator shows it: 1..4, 0 for a deck without beatgrid.
+pub(crate) fn beats_in_bar(state: &EngineState) -> Vec<i32> {
+    state.decks.iter().map(|d| if d.track.is_some() { d.beat_in_bar as i32 } else { 0 }).collect()
+}
+
+/// Per engine frame while CDJ mode is on: advances the checklist and the
+/// beat-position indicators.
 pub(crate) fn frame(app: &App, state: &EngineState) {
     let g = app.ui.global::<crate::Cdj>();
     if !g.get_enabled() {
         return;
     }
     let mut rt = app.cdj.borrow_mut();
+    // Beat-position indicator: the engine's beat of the bar (1..4, 0
+    // without grid), pushed only when a deck's beat changes.
+    let beats = beats_in_bar(state);
+    if rt.beats_shown != beats {
+        g.set_beat_in_bar(ModelRc::new(VecModel::from(beats.clone())));
+        rt.beats_shown = beats;
+    }
     rt.checklist.update(state);
     let done = rt.checklist.done;
     if rt.shown != Some(done) {
@@ -284,7 +357,10 @@ pub(crate) fn frame(app: &App, state: &EngineState) {
         let steps: Vec<CdjStep> = STEPS
             .iter()
             .zip(done)
-            .map(|(t, d)| CdjStep { text: od_i18n::tr(t).into(), done: d })
+            .map(|(t, d)| CdjStep {
+                text: od_i18n::tr(t).into(),
+                done: d,
+            })
             .collect();
         g.set_steps(ModelRc::new(VecModel::from(steps)));
     }
@@ -297,7 +373,11 @@ mod tests {
     use od_engine::DeckState;
 
     fn loaded(id: i64) -> DeckState {
-        DeckState { track: Some(TrackId(id)), bpm: 124.0, ..Default::default() }
+        DeckState {
+            track: Some(TrackId(id)),
+            bpm: 124.0,
+            ..Default::default()
+        }
     }
 
     #[test]
@@ -307,7 +387,10 @@ mod tests {
         s.decks[0] = loaded(1);
         c.update(&s);
         assert_eq!(c.done, [false; 5]);
-        s.decks[1] = DeckState { bpm: 126.0, ..loaded(2) };
+        s.decks[1] = DeckState {
+            bpm: 126.0,
+            ..loaded(2)
+        };
         s.decks[1].cue_point = 12.0;
         c.update(&s);
         assert_eq!(c.done[..2], [true, true]);
@@ -332,8 +415,15 @@ mod tests {
     fn sync_does_not_count_and_drift_resets() {
         let mut c = Checklist::default();
         let mut s = EngineState::default();
-        s.decks[0] = DeckState { playing: true, sync: true, ..loaded(1) };
-        s.decks[1] = DeckState { playing: true, ..loaded(2) };
+        s.decks[0] = DeckState {
+            playing: true,
+            sync: true,
+            ..loaded(1)
+        };
+        s.decks[1] = DeckState {
+            playing: true,
+            ..loaded(2)
+        };
         c.update(&s);
         assert!(!c.done[3], "synced decks are not beatmatched by ear");
         s.decks[0].sync = false;
@@ -348,6 +438,16 @@ mod tests {
         s.frames = 6 * 48_000;
         c.update(&s);
         assert!(!c.done[4], "alignment restarted after the drift");
+    }
+
+    #[test]
+    fn beat_position_follows_the_grid() {
+        let mut s = EngineState::default();
+        s.decks[0] = DeckState { beat_in_bar: 3, ..loaded(1) };
+        // Deck 2 empty; a stale beat without a track shows nothing.
+        s.decks[1].beat_in_bar = 2;
+        let b = beats_in_bar(&s);
+        assert_eq!(&b[..2], &[3, 0]);
     }
 
     #[test]

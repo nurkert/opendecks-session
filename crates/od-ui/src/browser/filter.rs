@@ -27,7 +27,14 @@ pub(crate) struct Filter {
 }
 
 fn number(v: &str) -> Option<f64> {
-    v.trim().trim_start_matches('±').trim_end_matches('%').trim().replace(',', ".").parse::<f64>().ok().filter(|x| x.is_finite() && *x >= 0.0)
+    v.trim()
+        .trim_start_matches('±')
+        .trim_end_matches('%')
+        .trim()
+        .replace(',', ".")
+        .parse::<f64>()
+        .ok()
+        .filter(|x| x.is_finite() && *x >= 0.0)
 }
 
 /// "Category: Value" → My Tag ("" or no value = none).
@@ -44,7 +51,12 @@ pub(crate) fn my_tag_text(t: &MyTag) -> String {
 impl Filter {
     /// Any condition set.
     pub fn active(&self) -> bool {
-        self.bpm_min.is_some() || self.bpm_max.is_some() || self.rating_min > 0 || self.my_tag.is_some() || self.key_match || self.bpm_pct.is_some()
+        self.bpm_min.is_some()
+            || self.bpm_max.is_some()
+            || self.rating_min > 0
+            || self.my_tag.is_some()
+            || self.key_match
+            || self.bpm_pct.is_some()
     }
 
     /// Conditions that need a reference track.
@@ -94,7 +106,9 @@ impl Filter {
                 return false;
             }
             if let (Some(p), Some(rb)) = (self.bpm_pct, r.bpm)
-                && !t.bpm.is_some_and(|b| od_library::sets::bpm_change_pct(rb, b).abs() <= p + 1e-9)
+                && !t
+                    .bpm
+                    .is_some_and(|b| od_library::sets::bpm_change_pct(rb, b).abs() <= p + 1e-9)
             {
                 return false;
             }
@@ -104,16 +118,33 @@ impl Filter {
 
     /// The bar's view model.
     pub fn view(&self, reference: Option<&Reference>) -> crate::FilterView {
-        let num = |v: Option<f64>| v.map(|x| if x.fract() == 0.0 { format!("{x:.0}") } else { format!("{x}") }).unwrap_or_default();
+        let num = |v: Option<f64>| {
+            v.map(|x| {
+                if x.fract() == 0.0 {
+                    format!("{x:.0}")
+                } else {
+                    format!("{x}")
+                }
+            })
+            .unwrap_or_default()
+        };
         crate::FilterView {
             active: self.active(),
             bpm_min: num(self.bpm_min).into(),
             bpm_max: num(self.bpm_max).into(),
             rating: self.rating_min as i32,
-            my_tag: self.my_tag.as_ref().map(my_tag_text).unwrap_or_default().into(),
+            my_tag: self
+                .my_tag
+                .as_ref()
+                .map(my_tag_text)
+                .unwrap_or_default()
+                .into(),
             key_match: self.key_match,
             bpm_pct: num(self.bpm_pct).into(),
-            reference: reference.map(|r| r.label.clone()).unwrap_or_default().into(),
+            reference: reference
+                .map(|r| r.label.clone())
+                .unwrap_or_default()
+                .into(),
         }
     }
 }
@@ -145,14 +176,21 @@ mod tests {
         assert_eq!((f.bpm_min, f.bpm_max), (Some(120.0), Some(126.5)));
         assert!(f.matches(&track(Some(124.0), None, 0), &[], None));
         assert!(!f.matches(&track(Some(128.0), None, 0), &[], None));
-        assert!(!f.matches(&track(None, None, 0), &[], None), "unanalysed tracks fail a BPM range");
+        assert!(
+            !f.matches(&track(None, None, 0), &[], None),
+            "unanalysed tracks fail a BPM range"
+        );
         f.edit("rating", "3");
         assert!(!f.matches(&track(Some(124.0), None, 2), &[], None));
         assert!(f.matches(&track(Some(124.0), None, 4), &[], None));
         f.edit("my-tag", "Mood: Peak");
         let peak = [MyTag::new("Mood", "Peak")];
         assert!(f.matches(&track(Some(124.0), None, 4), &peak, None));
-        assert!(!f.matches(&track(Some(124.0), None, 4), &[MyTag::new("Mood", "Warm")], None));
+        assert!(!f.matches(
+            &track(Some(124.0), None, 4),
+            &[MyTag::new("Mood", "Warm")],
+            None
+        ));
         assert_eq!(f.view(None).my_tag, "Mood: Peak");
         f.edit("clear", "");
         assert_eq!(f, Filter::default());
@@ -165,11 +203,27 @@ mod tests {
         f.edit("key", "1");
         f.edit("pct", "±4%");
         assert!(f.uses_reference() && f.bpm_pct == Some(4.0));
-        let master = Reference { bpm: Some(125.0), key: MusicalKey::parse("8A"), label: "MASTER".into() };
-        assert!(f.matches(&track(Some(124.0), Some("9A"), 0), &[], Some(&master)), "adjacent key, 0.8 % slower");
-        assert!(f.matches(&track(Some(63.0), Some("8B"), 0), &[], Some(&master)), "relative key, half time");
-        assert!(!f.matches(&track(Some(124.0), Some("10A"), 0), &[], Some(&master)), "two steps away");
-        assert!(!f.matches(&track(Some(115.0), Some("8A"), 0), &[], Some(&master)), "8 % slower");
+        let master = Reference {
+            bpm: Some(125.0),
+            key: MusicalKey::parse("8A"),
+            label: "MASTER".into(),
+        };
+        assert!(
+            f.matches(&track(Some(124.0), Some("9A"), 0), &[], Some(&master)),
+            "adjacent key, 0.8 % slower"
+        );
+        assert!(
+            f.matches(&track(Some(63.0), Some("8B"), 0), &[], Some(&master)),
+            "relative key, half time"
+        );
+        assert!(
+            !f.matches(&track(Some(124.0), Some("10A"), 0), &[], Some(&master)),
+            "two steps away"
+        );
+        assert!(
+            !f.matches(&track(Some(115.0), Some("8A"), 0), &[], Some(&master)),
+            "8 % slower"
+        );
         // No master deck: the relative conditions do not hide anything.
         assert!(f.matches(&track(Some(90.0), Some("1B"), 0), &[], None));
     }

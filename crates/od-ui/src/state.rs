@@ -5,8 +5,8 @@
 use crate::browser::BrowserState;
 use crate::devices::DevicesState;
 use crate::explorer::ExplorerState;
-use crate::player::PlayerState;
 use crate::keymap::Keymap;
+use crate::player::PlayerState;
 use crate::settings::{Overrides, Settings};
 use od_library::{Library, TrackRecord};
 use std::path::{Path, PathBuf};
@@ -64,7 +64,12 @@ pub(crate) struct AppState {
 impl AppState {
     pub fn new(lib: Library, config: AppConfig) -> Self {
         let explorer = ExplorerState::load(&lib);
-        let stored = lib.meta(crate::settings::META_SETTINGS).ok().flatten().map(|j| Settings::from_json(&j)).unwrap_or_default();
+        let stored = lib
+            .meta(crate::settings::META_SETTINGS)
+            .ok()
+            .flatten()
+            .map(|j| Settings::from_json(&j))
+            .unwrap_or_default();
         let settings = config.overrides.apply(&stored);
         let mut keymap = Keymap::new(crate::keymap::Platform::current());
         if let Some(t) = lib.meta(crate::settings::META_KEYMAP).ok().flatten() {
@@ -89,7 +94,11 @@ impl AppState {
     /// The library the current view reads from: a browsed stick or the main
     /// library.
     pub fn src(&self) -> &Library {
-        self.browser.stick.as_ref().map(|(_, s)| &s.library).unwrap_or(&self.lib)
+        self.browser
+            .stick
+            .as_ref()
+            .map(|(_, s)| &s.library)
+            .unwrap_or(&self.lib)
     }
 
     /// Root of the stick being browsed, if any.
@@ -116,7 +125,10 @@ impl AppState {
         f(&mut self.stored);
         self.settings = self.settings.clone().sanitized();
         self.stored = self.stored.clone().sanitized();
-        if let Err(e) = self.lib.set_meta(crate::settings::META_SETTINGS, &self.stored.to_json()) {
+        if let Err(e) = self
+            .lib
+            .set_meta(crate::settings::META_SETTINGS, &self.stored.to_json())
+        {
             tracing::warn!(error = %e, "settings not saved");
         }
     }
@@ -130,6 +142,8 @@ impl AppState {
     }
 
     pub fn key_text(&self, t: &TrackRecord) -> String {
-        t.key.map(|k| k.format(self.settings.key_notation())).unwrap_or_default()
+        t.key
+            .map(|k| k.format(self.settings.key_notation()))
+            .unwrap_or_default()
     }
 }

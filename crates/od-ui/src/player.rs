@@ -45,13 +45,21 @@ impl PlayerState {
         JUMP_SIZES[self.jump.unwrap_or(JUMP_DEFAULT).min(JUMP_SIZES.len() - 1)]
     }
     pub(crate) fn loop_len(&self) -> f64 {
-        if self.loop_beats > 0.0 { self.loop_beats } else { 4.0 }
+        if self.loop_beats > 0.0 {
+            self.loop_beats
+        } else {
+            4.0
+        }
     }
 }
 
 /// "0.5 S", "2 S" for the jump size stepper.
 pub(crate) fn jump_label(s: f64) -> String {
-    if s < 1.0 { format!("{s:.1} S") } else { format!("{s:.0} S") }
+    if s < 1.0 {
+        format!("{s:.1} S")
+    } else {
+        format!("{s:.0} S")
+    }
 }
 
 /// Taps further apart than this start a new count (seconds).
@@ -74,20 +82,33 @@ pub(crate) fn register_tap(taps: &mut Vec<f64>, t: f64) -> Option<f64> {
     }
     let span = taps[taps.len() - 1] - taps[0];
     let bpm = 60.0 * (taps.len() - 1) as f64 / span;
-    (30.0..=300.0).contains(&bpm).then(|| (bpm * 100.0).round() / 100.0)
+    (30.0..=300.0)
+        .contains(&bpm)
+        .then(|| (bpm * 100.0).round() / 100.0)
 }
 
 /// A typed tempo ("128", "127,5", "124.00 BPM"), 30–300 BPM (pure).
 pub(crate) fn parse_bpm(text: &str) -> Option<f64> {
-    let t = text.trim().trim_end_matches(|c: char| c.is_alphabetic() || c.is_whitespace()).replace(',', ".");
+    let t = text
+        .trim()
+        .trim_end_matches(|c: char| c.is_alphabetic() || c.is_whitespace())
+        .replace(',', ".");
     let bpm: f64 = t.parse().ok()?;
-    (30.0..=300.0).contains(&bpm).then(|| (bpm * 100.0).round() / 100.0)
+    (30.0..=300.0)
+        .contains(&bpm)
+        .then(|| (bpm * 100.0).round() / 100.0)
 }
 
 /// A constant grid at `bpm` that keeps the first downbeat of `grid` (an
 /// empty grid starts at 0 s) and its lock (pure).
 pub(crate) fn grid_at_bpm(grid: &Beatgrid, bpm: f64, duration: f64) -> Beatgrid {
-    let anchor = grid.beats.iter().find(|b| b.bar_position == 1).or(grid.beats.first()).map(|b| b.time).unwrap_or(0.0);
+    let anchor = grid
+        .beats
+        .iter()
+        .find(|b| b.bar_position == 1)
+        .or(grid.beats.first())
+        .map(|b| b.time)
+        .unwrap_or(0.0);
     let mut g = Beatgrid::constant(bpm, anchor, 1, duration.max(anchor + 1.0));
     g.locked = grid.locked;
     g
@@ -97,7 +118,12 @@ pub(crate) fn grid_at_bpm(grid: &Beatgrid, bpm: f64, duration: f64) -> Beatgrid 
 /// grid runs at `bpm` up to `end`, the beats before it stay as they are and
 /// the bar count carries on. A grid without beats starts at `at`.
 pub(crate) fn tempo_marker(grid: &Beatgrid, at: f64, bpm: f64, end: f64) -> Beatgrid {
-    let (keep, start, bar) = match grid.beats.iter().enumerate().min_by(|a, b| (a.1.time - at).abs().total_cmp(&(b.1.time - at).abs())) {
+    let (keep, start, bar) = match grid
+        .beats
+        .iter()
+        .enumerate()
+        .min_by(|a, b| (a.1.time - at).abs().total_cmp(&(b.1.time - at).abs()))
+    {
         Some((i, b)) => (i, b.time, b.bar_position),
         None => (0, at.max(0.0), 1),
     };
@@ -105,16 +131,26 @@ pub(crate) fn tempo_marker(grid: &Beatgrid, at: f64, bpm: f64, end: f64) -> Beat
     let period = 60.0 / bpm;
     let (mut t, mut pos) = (start, bar.clamp(1, 4));
     while t <= end {
-        beats.push(od_core::Beat { time: t, bpm, bar_position: pos });
+        beats.push(od_core::Beat {
+            time: t,
+            bpm,
+            bar_position: pos,
+        });
         t += period;
         pos = pos % 4 + 1;
     }
-    Beatgrid { beats, locked: grid.locked }
+    Beatgrid {
+        beats,
+        locked: grid.locked,
+    }
 }
 
 /// Tempo changes in a grid (beats whose tempo differs from the beat before).
 pub(crate) fn tempo_changes(grid: &Beatgrid) -> usize {
-    grid.beats.windows(2).filter(|w| (w[0].bpm - w[1].bpm).abs() > 0.005).count()
+    grid.beats
+        .windows(2)
+        .filter(|w| (w[0].bpm - w[1].bpm).abs() > 0.005)
+        .count()
 }
 
 /// "+ MARKER" in the grid tools: the typed tempo from the cursor on.
@@ -125,10 +161,19 @@ pub(crate) fn add_tempo_marker(app: &App, text: &str) {
     };
     let duration = {
         let st = app.state.borrow();
-        st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0)
+        st.player
+            .current
+            .and_then(|id| st.src().track(id).ok())
+            .map(|t| t.duration)
+            .unwrap_or(0.0)
     };
-    edit_grid(app, |g, cursor| *g = tempo_marker(g, cursor, bpm, duration.max(cursor + 1.0)));
-    app.status(od_i18n::trf("Tempo marker: {} BPM from the cursor", &[&format!("{bpm:.2}")]));
+    edit_grid(app, |g, cursor| {
+        *g = tempo_marker(g, cursor, bpm, duration.max(cursor + 1.0))
+    });
+    app.status(od_i18n::trf(
+        "Tempo marker: {} BPM from the cursor",
+        &[&format!("{bpm:.2}")],
+    ));
 }
 
 #[cfg(test)]
@@ -144,7 +189,10 @@ fn now_secs() -> f64 {
         return t;
     }
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
-    START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64()
+    START
+        .get_or_init(std::time::Instant::now)
+        .elapsed()
+        .as_secs_f64()
 }
 
 /// TAP in the grid editor: after four taps the grid takes the tapped tempo
@@ -157,7 +205,11 @@ pub(crate) fn tap_at(app: &App, t: f64) {
     let bpm = register_tap(&mut app.state.borrow_mut().player.taps, t);
     let n = app.state.borrow().player.taps.len();
     match bpm {
-        Some(bpm) => set_grid_bpm(app, bpm, &od_i18n::trf("Tapped tempo: {} BPM", &[&format!("{bpm:.2}")])),
+        Some(bpm) => set_grid_bpm(
+            app,
+            bpm,
+            &od_i18n::trf("Tapped tempo: {} BPM", &[&format!("{bpm:.2}")]),
+        ),
         None => app.status(od_i18n::trf("Tap {} of {}", &[&n, &TAPS_NEEDED])),
     }
 }
@@ -165,7 +217,11 @@ pub(crate) fn tap_at(app: &App, t: f64) {
 /// The BPM field of the grid editor (Return).
 pub(crate) fn type_bpm(app: &App, text: &str) {
     match parse_bpm(text) {
-        Some(bpm) => set_grid_bpm(app, bpm, &od_i18n::trf("Beatgrid set to {} BPM", &[&format!("{bpm:.2}")])),
+        Some(bpm) => set_grid_bpm(
+            app,
+            bpm,
+            &od_i18n::trf("Beatgrid set to {} BPM", &[&format!("{bpm:.2}")]),
+        ),
         None => {
             app.status("Type a tempo between 30 and 300 BPM");
             refresh_detail(app);
@@ -178,16 +234,25 @@ fn set_grid_bpm(app: &App, bpm: f64, label: &str) {
     if app.guard_read_only() {
         return;
     }
-    let Some(id) = app.state.borrow().player.current else { return };
+    let Some(id) = app.state.borrow().player.current else {
+        return;
+    };
     let (grid, duration) = {
         let st = app.state.borrow();
-        (st.lib.beatgrid(id).ok().flatten().unwrap_or_default(), st.lib.track(id).map(|t| t.duration).unwrap_or(0.0))
+        (
+            st.lib.beatgrid(id).ok().flatten().unwrap_or_default(),
+            st.lib.track(id).map(|t| t.duration).unwrap_or(0.0),
+        )
     };
     if grid.locked {
         app.status("The beatgrid is locked — unlock it to edit");
         return;
     }
-    let r = app.state.borrow_mut().lib.set_beatgrid(id, grid_at_bpm(&grid, bpm, duration));
+    let r = app
+        .state
+        .borrow_mut()
+        .lib
+        .set_beatgrid(id, grid_at_bpm(&grid, bpm, duration));
     if app.report(r).is_some() {
         app.after_edit(label);
     }
@@ -202,12 +267,21 @@ pub(crate) fn cue_marks(cues: &[Cue], duration: f64, with_time: bool) -> Vec<Cue
                 CueKind::Hot(s) => s as i32,
                 CueKind::Memory => -1,
             },
-            letter: c.kind.hot_slot_letter().map(|l| l.to_string()).unwrap_or_default().into(),
+            letter: c
+                .kind
+                .hot_slot_letter()
+                .map(|l| l.to_string())
+                .unwrap_or_default()
+                .into(),
             pos: (c.start / duration) as f32,
             end: (c.loop_end.unwrap_or(c.start) / duration) as f32,
             is_loop: c.is_loop(),
             active: c.active && c.is_loop(),
-            time: if with_time { format::cue_time(c.start).into() } else { Default::default() },
+            time: if with_time {
+                format::cue_time(c.start).into()
+            } else {
+                Default::default()
+            },
             label: c.label.clone().into(),
             tone: cue_tone(c.color),
         })
@@ -216,7 +290,8 @@ pub(crate) fn cue_marks(cues: &[Cue], duration: f64, with_time: bool) -> Vec<Cue
 
 /// A stored cue colour for the views (transparent = none).
 pub(crate) fn cue_tone(c: Option<od_core::CueColor>) -> slint::Color {
-    c.map(|c| slint::Color::from_rgb_u8(c.r, c.g, c.b)).unwrap_or(slint::Color::from_argb_u8(0, 0, 0, 0))
+    c.map(|c| slint::Color::from_rgb_u8(c.r, c.g, c.b))
+        .unwrap_or(slint::Color::from_argb_u8(0, 0, 0, 0))
 }
 
 /// Cue colours offered in the cue editor (the eight colours compatible
@@ -258,11 +333,16 @@ pub(crate) fn apply_cue_edit(cues: &mut Vec<Cue>, index: usize, op: CueEditOp) -
             c.start = t.max(0.0);
         }
         CueEditOp::ToHot => {
-            let used: Vec<u8> = cues.iter().filter_map(|c| match c.kind {
-                CueKind::Hot(s) => Some(s),
-                CueKind::Memory => None,
-            }).collect();
-            let Some(free) = (0..od_core::cue::HOT_CUE_SLOTS).find(|s| !used.contains(s)) else { return false };
+            let used: Vec<u8> = cues
+                .iter()
+                .filter_map(|c| match c.kind {
+                    CueKind::Hot(s) => Some(s),
+                    CueKind::Memory => None,
+                })
+                .collect();
+            let Some(free) = (0..od_core::cue::HOT_CUE_SLOTS).find(|s| !used.contains(s)) else {
+                return false;
+            };
             if cues[index].kind != CueKind::Memory {
                 return false;
             }
@@ -286,7 +366,9 @@ fn cue_edit(app: &App, index: i32, label: &str, op: CueEditOp) {
         return;
     }
     let mut ok = false;
-    edit_cues(app, label, |cues, _| ok = apply_cue_edit(cues, index as usize, op));
+    edit_cues(app, label, |cues, _| {
+        ok = apply_cue_edit(cues, index as usize, op)
+    });
     if !ok {
         app.status("No free hot cue pad");
     }
@@ -301,7 +383,10 @@ pub(crate) fn hot_cue_slots(cues: &[Cue]) -> Vec<HotCueSlot> {
                 slot: s as i32,
                 letter: ((b'A' + s) as char).to_string().into(),
                 set: c.is_some(),
-                time: c.map(|c| format::cue_time(c.start)).unwrap_or_default().into(),
+                time: c
+                    .map(|c| format::cue_time(c.start))
+                    .unwrap_or_default()
+                    .into(),
                 label: c.map(|c| c.label.clone()).unwrap_or_default().into(),
                 tone: cue_tone(c.and_then(|c| c.color)),
             }
@@ -310,8 +395,17 @@ pub(crate) fn hot_cue_slots(cues: &[Cue]) -> Vec<HotCueSlot> {
 }
 
 /// Phrase blocks as fractions of the track, for the phrase bars.
-pub(crate) fn phrase_marks(phrases: &[od_core::Phrase], grid: &Beatgrid, duration: f64) -> Vec<PhraseMark> {
-    let at = |beat: u32| grid.beats.get(beat as usize).map(|b| b.time).unwrap_or(duration);
+pub(crate) fn phrase_marks(
+    phrases: &[od_core::Phrase],
+    grid: &Beatgrid,
+    duration: f64,
+) -> Vec<PhraseMark> {
+    let at = |beat: u32| {
+        grid.beats
+            .get(beat as usize)
+            .map(|b| b.time)
+            .unwrap_or(duration)
+    };
     phrases
         .iter()
         .filter(|_| duration > 0.0)
@@ -329,7 +423,10 @@ pub(crate) fn phrase_marks(phrases: &[od_core::Phrase], grid: &Beatgrid, duratio
 
 /// Moves the cursor to the nearest beat when within 80 ms of it.
 pub(crate) fn snap_to_beat(grid: &Beatgrid, t: f64) -> f64 {
-    grid.beat_position(t).and_then(|b| grid.time_of_beat(b.round())).filter(|s| (s - t).abs() < 0.08).unwrap_or(t)
+    grid.beat_position(t)
+        .and_then(|b| grid.time_of_beat(b.round()))
+        .filter(|s| (s - t).abs() < 0.08)
+        .unwrap_or(t)
 }
 
 pub(crate) fn refresh_detail(app: &App) {
@@ -359,14 +456,31 @@ pub(crate) fn refresh_detail(app: &App) {
     ui.set_track_key(st.key_text(&t).into());
     ui.set_track_duration(format::time(t.duration).into());
     ui.set_track_analysed(t.analysis_version >= od_analysis::ANALYSIS_VERSION);
-    ui.set_grid_source(od_i18n::tr(&grid.as_ref().map(|(_, s)| s.as_str().to_uppercase()).unwrap_or_else(|| "NONE".into())).to_string().into());
+    ui.set_grid_source(
+        od_i18n::tr(
+            &grid
+                .as_ref()
+                .map(|(_, s)| s.as_str().to_uppercase())
+                .unwrap_or_else(|| "NONE".into()),
+        )
+        .to_string()
+        .into(),
+    );
     ui.set_grid_locked(grid.as_ref().is_some_and(|(g, _)| g.locked));
     let scale = ui.window().scale_factor();
-    ui.set_track_overview(render::overview(&analysis.waveform, &analysis.beatgrid, t.duration, (1000.0 * scale) as u32, (48.0 * scale) as u32));
+    ui.set_track_overview(render::overview(
+        &analysis.waveform,
+        &analysis.beatgrid,
+        t.duration,
+        (1000.0 * scale) as u32,
+        (48.0 * scale) as u32,
+    ));
     let mut marks = phrase_marks(&analysis.phrases, &analysis.beatgrid, t.duration);
     if st.settings.view.phrase_types == "colors" {
         // Preferences > View > Phrase types: colours only.
-        marks.iter_mut().for_each(|m| m.label = SharedString::default());
+        marks
+            .iter_mut()
+            .for_each(|m| m.label = SharedString::default());
     }
     ui.set_track_phrases(model(marks));
     ui.set_track_cues(model(cue_marks(&cues, t.duration, true)));
@@ -376,9 +490,24 @@ pub(crate) fn refresh_detail(app: &App) {
     ui.set_hot_cues(model(slots));
     ui.set_cursor((st.player.cursor / duration) as f32);
     ui.set_track_position(format::cue_time(st.player.cursor).into());
-    ui.global::<crate::PhraseEdit>().set_current(crate::phrase_edit::current_label(&analysis.phrases, &analysis.beatgrid, st.player.cursor).into());
-    let phrases = if st.settings.view.phrases { analysis.phrases.clone() } else { Vec::new() };
-    DETAIL_SRC.with(|d| *d.borrow_mut() = Some(DetailSrc { track: id, waveform: analysis.waveform, grid: analysis.beatgrid, phrases, last_px: None }));
+    ui.global::<crate::PhraseEdit>().set_current(
+        crate::phrase_edit::current_label(&analysis.phrases, &analysis.beatgrid, st.player.cursor)
+            .into(),
+    );
+    let phrases = if st.settings.view.phrases {
+        analysis.phrases.clone()
+    } else {
+        Vec::new()
+    };
+    DETAIL_SRC.with(|d| {
+        *d.borrow_mut() = Some(DetailSrc {
+            track: id,
+            waveform: analysis.waveform,
+            grid: analysis.beatgrid,
+            phrases,
+            last_px: None,
+        })
+    });
     drop(st);
     render_detail(app);
     refresh_minis(app);
@@ -396,8 +525,14 @@ thread_local! {
 pub(crate) fn refresh_minis(app: &App) {
     let st = app.state.borrow();
     let p = &st.player;
-    let view = |id: Option<TrackId>, cursor: f64, previewing: bool, overview: Option<slint::Image>| -> crate::MiniView {
-        let Some(t) = id.and_then(|id| st.src().track(id).ok()) else { return crate::MiniView::default() };
+    let view = |id: Option<TrackId>,
+                cursor: f64,
+                previewing: bool,
+                overview: Option<slint::Image>|
+     -> crate::MiniView {
+        let Some(t) = id.and_then(|id| st.src().track(id).ok()) else {
+            return crate::MiniView::default();
+        };
         let overview = overview.unwrap_or_else(|| {
             let a = st.src().analysis(t.id).unwrap_or_default();
             render::overview(&a.waveform, &a.beatgrid, t.duration, 900, 48)
@@ -413,24 +548,46 @@ pub(crate) fn refresh_minis(app: &App) {
             cursor: (cursor / t.duration.max(0.001)) as f32,
             previewing,
             remaining: format!("-{}", format::time((t.duration - cursor).max(0.0))).into(),
-            rating: (0..5).map(|i| if i < t.tags.rating { '★' } else { '☆' }).collect::<String>().into(),
+            rating: (0..5)
+                .map(|i| if i < t.tags.rating { '★' } else { '☆' })
+                .collect::<String>()
+                .into(),
             has_artwork: false,
             artwork: Default::default(),
         }
     };
-    let mut one = view(p.current, p.cursor, p.previewing && p.preview_slot != 2, Some(app.ui.get_track_overview()));
+    let mut one = view(
+        p.current,
+        p.cursor,
+        p.previewing && p.preview_slot != 2,
+        Some(app.ui.get_track_overview()),
+    );
     if one.has_track {
         let info = app.ui.get_track_info();
         one.has_artwork = info.has_artwork;
         one.artwork = info.artwork;
     }
-    let cached = SECOND_OVERVIEW.with(|c| c.borrow().as_ref().filter(|(t, _)| Some(*t) == p.second).map(|(_, i)| i.clone()));
-    let two = view(p.second, p.second_cursor, p.previewing && p.preview_slot == 2, cached);
+    let cached = SECOND_OVERVIEW.with(|c| {
+        c.borrow()
+            .as_ref()
+            .filter(|(t, _)| Some(*t) == p.second)
+            .map(|(_, i)| i.clone())
+    });
+    let two = view(
+        p.second,
+        p.second_cursor,
+        p.previewing && p.preview_slot == 2,
+        cached,
+    );
     if let Some(t) = p.second {
         SECOND_OVERVIEW.with(|c| *c.borrow_mut() = Some((t, two.overview.clone())));
     }
     drop(st);
-    app.ui.set_mini1(if one.has_track { one } else { crate::MiniView::default() });
+    app.ui.set_mini1(if one.has_track {
+        one
+    } else {
+        crate::MiniView::default()
+    });
     app.ui.set_mini2(two);
 }
 
@@ -454,14 +611,22 @@ pub(crate) fn load_second(app: &App, track: TrackId) {
 fn selected_track(app: &App) -> Option<TrackId> {
     let st = app.state.borrow();
     let i = st.browser.selection.iter().next_back().copied()?;
-    if st.explorer.open.is_some() { st.explorer.track_at(i) } else { st.browser.rows.get(i).map(|t| t.id) }
+    if st.explorer.open.is_some() {
+        st.explorer.track_at(i)
+    } else {
+        st.browser.rows.get(i).map(|t| t.id)
+    }
 }
 
 /// Play / pause the second player on the preview deck.
 fn toggle_second(app: &App) {
     let (track, cursor, playing) = {
         let st = app.state.borrow();
-        (st.player.second, st.player.second_cursor, st.player.previewing && st.player.preview_slot == 2)
+        (
+            st.player.second,
+            st.player.second_cursor,
+            st.player.previewing && st.player.preview_slot == 2,
+        )
     };
     let Some(track) = track else { return };
     if playing {
@@ -474,13 +639,20 @@ fn toggle_second(app: &App) {
     }
     app.state.borrow_mut().player.preview_slot = 2;
     if app.decks.borrow().loaded_id(decks::PREVIEW_DECK) == Some(track) {
-        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Seek { seconds: cursor });
+        engine::deck_cmd(
+            app,
+            decks::PREVIEW_DECK,
+            DeckCommand::Seek { seconds: cursor },
+        );
         engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Play);
     } else {
         decks::load_track(app, decks::PREVIEW_DECK, track, Some(cursor));
     }
     set_previewing(app, true);
-    engine::send(app, Command::Channel(decks::PREVIEW_DECK, ChannelCommand::SetFader(1.0)));
+    engine::send(
+        app,
+        Command::Channel(decks::PREVIEW_DECK, ChannelCommand::SetFader(1.0)),
+    );
 }
 
 /// Moves the second player's cursor (and the preview deck when it plays it).
@@ -519,7 +691,11 @@ pub(crate) fn mini_seek(app: &App, n: i32, p: f32) {
     }
     let d = {
         let st = app.state.borrow();
-        st.player.second.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0)
+        st.player
+            .second
+            .and_then(|id| st.src().track(id).ok())
+            .map(|t| t.duration)
+            .unwrap_or(0.0)
     };
     seek_second(app, p as f64 * d);
 }
@@ -547,23 +723,38 @@ fn render_detail(app: &App) {
     let width = ((ui.window().size().width as f32 / scale - 680.0).max(300.0) * scale) as u32;
     let (cursor, current, span) = {
         let st = app.state.borrow();
-        (st.player.cursor, st.player.current, st.settings.view.zoom_span as f64 / 2f64.powi(st.player.zoom))
+        (
+            st.player.cursor,
+            st.player.current,
+            st.settings.view.zoom_span as f64 / 2f64.powi(st.player.zoom),
+        )
     };
     DETAIL_SRC.with(|d| {
         let mut d = d.borrow_mut();
-        let Some(src) = d.as_mut().filter(|s| Some(s.track) == current) else { return };
+        let Some(src) = d.as_mut().filter(|s| Some(s.track) == current) else {
+            return;
+        };
         let px = (cursor / span * width as f64).round() as i64;
         if src.last_px == Some(px) {
             return;
         }
         src.last_px = Some(px);
-        ui.set_track_detail(render::detail(&src.waveform, &src.grid, &src.phrases, cursor, span, width, (150.0 * scale) as u32));
+        ui.set_track_detail(render::detail(
+            &src.waveform,
+            &src.grid,
+            &src.phrases,
+            cursor,
+            span,
+            width,
+            (150.0 * scale) as u32,
+        ));
     });
 }
 
 /// Space / play button: start or pause the preview of the selected track.
 pub(crate) fn toggle_preview(app: &App) {
-    let previewing = app.state.borrow().player.previewing && app.state.borrow().player.preview_slot != 2;
+    let previewing =
+        app.state.borrow().player.previewing && app.state.borrow().player.preview_slot != 2;
     if app.state.borrow().player.preview_slot == 2 && app.state.borrow().player.previewing {
         engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Pause);
         set_previewing(app, false);
@@ -581,14 +772,21 @@ pub(crate) fn toggle_preview(app: &App) {
     let Some(track) = track else { return };
     let already = app.decks.borrow().loaded_id(decks::PREVIEW_DECK) == Some(track);
     if already {
-        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Seek { seconds: cursor });
+        engine::deck_cmd(
+            app,
+            decks::PREVIEW_DECK,
+            DeckCommand::Seek { seconds: cursor },
+        );
         engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Play);
     } else {
         decks::load_track(app, decks::PREVIEW_DECK, track, Some(cursor));
     }
     set_previewing(app, true);
     // The preview deck is audible on the master at full level.
-    engine::send(app, Command::Channel(decks::PREVIEW_DECK, ChannelCommand::SetFader(1.0)));
+    engine::send(
+        app,
+        Command::Channel(decks::PREVIEW_DECK, ChannelCommand::SetFader(1.0)),
+    );
 }
 
 fn set_previewing(app: &App, on: bool) {
@@ -605,7 +803,11 @@ fn preview_seek(app: &App) {
         (st.player.previewing, st.player.cursor)
     };
     if previewing {
-        engine::deck_cmd(app, decks::PREVIEW_DECK, DeckCommand::Seek { seconds: cursor });
+        engine::deck_cmd(
+            app,
+            decks::PREVIEW_DECK,
+            DeckCommand::Seek { seconds: cursor },
+        );
     }
 }
 
@@ -632,7 +834,8 @@ pub(crate) fn follow_preview(app: &App, state: &od_engine::EngineState) {
         if d.duration > 0.0 {
             app.ui.set_cursor((d.position / d.duration) as f32);
         }
-        app.ui.set_track_position(format::cue_time(d.position).into());
+        app.ui
+            .set_track_position(format::cue_time(d.position).into());
         render_detail(app);
     }
     if d.at_end {
@@ -674,9 +877,14 @@ fn edit_grid(app: &App, f: impl FnOnce(&mut Beatgrid, f64)) {
 /// cue stepping, zoom, jump size and the track menu).
 pub(crate) fn act(app: &App, what: &str) {
     let preview = decks::PREVIEW_DECK;
-    let loop_state = || engine::snapshot(app).map(|s| s.decks[preview].loop_state).unwrap_or_default();
+    let loop_state = || {
+        engine::snapshot(app)
+            .map(|s| s.decks[preview].loop_state)
+            .unwrap_or_default()
+    };
     match what {
-        "loop-in" | "loop-out" | "loop-auto" | "loop-manual" | "loop-halve" | "loop-double" | "quantize" => {
+        "loop-in" | "loop-out" | "loop-auto" | "loop-manual" | "loop-halve" | "loop-double"
+        | "quantize" => {
             engine::ensure_engine(app);
         }
         _ => {}
@@ -687,7 +895,15 @@ pub(crate) fn act(app: &App, what: &str) {
         "loop-auto" => {
             let l = loop_state();
             let beats = app.state.borrow().player.loop_len();
-            engine::deck_cmd(app, preview, if l.active { DeckCommand::LoopExit } else { DeckCommand::AutoLoop { beats } });
+            engine::deck_cmd(
+                app,
+                preview,
+                if l.active {
+                    DeckCommand::LoopExit
+                } else {
+                    DeckCommand::AutoLoop { beats }
+                },
+            );
         }
         "loop-manual" => {
             let l = loop_state();
@@ -703,7 +919,15 @@ pub(crate) fn act(app: &App, what: &str) {
         "loop-halve" | "loop-double" => {
             let half = what == "loop-halve";
             if loop_state().active {
-                engine::deck_cmd(app, preview, if half { DeckCommand::LoopHalve } else { DeckCommand::LoopDouble });
+                engine::deck_cmd(
+                    app,
+                    preview,
+                    if half {
+                        DeckCommand::LoopHalve
+                    } else {
+                        DeckCommand::LoopDouble
+                    },
+                );
             }
             let mut st = app.state.borrow_mut();
             let b = st.player.loop_len() * if half { 0.5 } else { 2.0 };
@@ -733,12 +957,23 @@ pub(crate) fn act(app: &App, what: &str) {
         }
         "jump-size-up" | "jump-size-down" => {
             let mut st = app.state.borrow_mut();
-            let i = JUMP_SIZES.iter().position(|j| *j == st.player.jump_seconds()).unwrap_or(JUMP_DEFAULT);
-            st.player.jump = Some(if what == "jump-size-up" { (i + 1).min(JUMP_SIZES.len() - 1) } else { i.saturating_sub(1) });
+            let i = JUMP_SIZES
+                .iter()
+                .position(|j| *j == st.player.jump_seconds())
+                .unwrap_or(JUMP_DEFAULT);
+            st.player.jump = Some(if what == "jump-size-up" {
+                (i + 1).min(JUMP_SIZES.len() - 1)
+            } else {
+                i.saturating_sub(1)
+            });
         }
         "jump-back" | "jump-forward" => {
             let s = app.state.borrow().player.jump_seconds();
-            app.ui.invoke_nudge(if what == "jump-back" { -s as f32 } else { s as f32 });
+            app.ui.invoke_nudge(if what == "jump-back" {
+                -s as f32
+            } else {
+                s as f32
+            });
         }
         "undo" => app.undo(),
         "redo" => app.redo(),
@@ -750,7 +985,10 @@ pub(crate) fn act(app: &App, what: &str) {
         "menu:reveal" => {
             let path = {
                 let st = app.state.borrow();
-                st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| st.resolve(&t.path))
+                st.player
+                    .current
+                    .and_then(|id| st.src().track(id).ok())
+                    .map(|t| st.resolve(&t.path))
             };
             if let Some(p) = path {
                 crate::preferences::reveal(&p);
@@ -766,14 +1004,40 @@ pub(crate) fn project_controls(app: &App, state: Option<&od_engine::EngineState>
     let ui = &app.ui;
     let (loop_len, jump, zoom_span, remaining) = {
         let st = app.state.borrow();
-        let duration = st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
+        let duration = st
+            .player
+            .current
+            .and_then(|id| st.src().track(id).ok())
+            .map(|t| t.duration)
+            .unwrap_or(0.0);
         let span = st.settings.view.zoom_span as f64 / 2f64.powi(st.player.zoom);
-        (st.player.loop_len(), st.player.jump_seconds(), span, format!("-{}", format::time((duration - st.player.cursor).max(0.0))))
+        (
+            st.player.loop_len(),
+            st.player.jump_seconds(),
+            span,
+            format!("-{}", format::time((duration - st.player.cursor).max(0.0))),
+        )
     };
-    let l = state.map(|s| s.decks[decks::PREVIEW_DECK].loop_state).unwrap_or_default();
+    let l = state
+        .map(|s| s.decks[decks::PREVIEW_DECK].loop_state)
+        .unwrap_or_default();
     let set = |a: SharedString, b: &str| a.as_str() != b;
-    if set(ui.get_player_loop_size(), &format::beats(if l.active { l.beats.unwrap_or(loop_len) } else { loop_len })) {
-        ui.set_player_loop_size(format::beats(if l.active { l.beats.unwrap_or(loop_len) } else { loop_len }).into());
+    if set(
+        ui.get_player_loop_size(),
+        &format::beats(if l.active {
+            l.beats.unwrap_or(loop_len)
+        } else {
+            loop_len
+        }),
+    ) {
+        ui.set_player_loop_size(
+            format::beats(if l.active {
+                l.beats.unwrap_or(loop_len)
+            } else {
+                loop_len
+            })
+            .into(),
+        );
     }
     ui.set_player_looping(l.active);
     ui.set_player_loop_in_set(!l.active && l.start.is_some() && l.end.is_none());
@@ -782,7 +1046,11 @@ pub(crate) fn project_controls(app: &App, state: Option<&od_engine::EngineState>
     if set(ui.get_player_jump_size(), &jl) {
         ui.set_player_jump_size(jl.into());
     }
-    let zl = if zoom_span < 1.0 { format!("{zoom_span:.1} S") } else { format!("{zoom_span:.0} S") };
+    let zl = if zoom_span < 1.0 {
+        format!("{zoom_span:.1} S")
+    } else {
+        format!("{zoom_span:.0} S")
+    };
     if set(ui.get_player_zoom(), &zl) {
         ui.set_player_zoom(zl.into());
     }
@@ -803,14 +1071,24 @@ pub(crate) fn step_cue(app: &App, forward: bool) {
 }
 
 /// The cue start after (or before) `cursor`, ignoring cues within 5 ms.
-pub(crate) fn next_cue(starts: impl Iterator<Item = f64>, cursor: f64, forward: bool) -> Option<f64> {
+pub(crate) fn next_cue(
+    starts: impl Iterator<Item = f64>,
+    cursor: f64,
+    forward: bool,
+) -> Option<f64> {
     let starts = starts.filter(|t| (t - cursor).abs() > 0.005);
-    if forward { starts.filter(|t| *t > cursor).reduce(f64::min) } else { starts.filter(|t| *t < cursor).reduce(f64::max) }
+    if forward {
+        starts.filter(|t| *t > cursor).reduce(f64::min)
+    } else {
+        starts.filter(|t| *t < cursor).reduce(f64::max)
+    }
 }
 
 /// Deletes the memory cue at the cursor (within 50 ms).
 pub(crate) fn delete_memory_cue(app: &App) {
-    edit_cues(app, "Memory cue removed", |cues, cursor| cues.retain(|c| !(c.kind == CueKind::Memory && (c.start - cursor).abs() < 0.05)));
+    edit_cues(app, "Memory cue removed", |cues, cursor| {
+        cues.retain(|c| !(c.kind == CueKind::Memory && (c.start - cursor).abs() < 0.05))
+    });
 }
 
 /// Replaces the cues of the current track (library only).
@@ -837,32 +1115,75 @@ pub(crate) fn wire(app: &Rc<App>) {
     crate::phrase_edit::wire(app);
     crate::track_edit::wire(app);
     let ui = &app.ui;
-    ui.on_mini_act(handler!(app, |a, n: i32, w: SharedString| mini_act(&a, n, w.as_str())));
+    ui.on_mini_act(handler!(app, |a, n: i32, w: SharedString| mini_act(
+        &a,
+        n,
+        w.as_str()
+    )));
     ui.on_mini_seek(handler!(app, |a, n: i32, p: f32| mini_seek(&a, n, p)));
     let ce = ui.global::<crate::CueEdit>();
-    ce.set_palette(model(CUE_PALETTE.iter().map(|c| cue_tone(Some(*c))).collect()));
-    ce.on_label(handler!(app, |a, i: i32, t: SharedString| cue_edit(&a, i, "Cue named", CueEditOp::Label(t.to_string()))));
-    ce.on_color(handler!(app, |a, i: i32, c: i32| cue_edit(&a, i, "Cue colour changed", CueEditOp::Color(c.max(0) as usize))));
+    ce.set_palette(model(
+        CUE_PALETTE.iter().map(|c| cue_tone(Some(*c))).collect(),
+    ));
+    ce.on_label(handler!(app, |a, i: i32, t: SharedString| cue_edit(
+        &a,
+        i,
+        "Cue named",
+        CueEditOp::Label(t.to_string())
+    )));
+    ce.on_color(handler!(app, |a, i: i32, c: i32| cue_edit(
+        &a,
+        i,
+        "Cue colour changed",
+        CueEditOp::Color(c.max(0) as usize)
+    )));
     ce.on_move_to_cursor(handler!(app, |a, i: i32| {
         let cursor = {
             let st = a.state.borrow();
-            let grid = st.player.current.and_then(|id| st.src().beatgrid(id).ok().flatten());
-            grid.map(|g| snap_to_beat(&g, st.player.cursor)).unwrap_or(st.player.cursor)
+            let grid = st
+                .player
+                .current
+                .and_then(|id| st.src().beatgrid(id).ok().flatten());
+            grid.map(|g| snap_to_beat(&g, st.player.cursor))
+                .unwrap_or(st.player.cursor)
         };
         cue_edit(&a, i, "Cue moved", CueEditOp::MoveTo(cursor))
     }));
-    ce.on_to_hot(handler!(app, |a, i: i32| cue_edit(&a, i, "Memory cue made a hot cue", CueEditOp::ToHot)));
-    ce.on_delete(handler!(app, |a, i: i32| cue_edit(&a, i, "Cue removed", CueEditOp::Delete)));
-    ce.on_active(handler!(app, |a, i: i32| cue_edit(&a, i, "Active loop changed", CueEditOp::ToggleActive)));
+    ce.on_to_hot(handler!(app, |a, i: i32| cue_edit(
+        &a,
+        i,
+        "Memory cue made a hot cue",
+        CueEditOp::ToHot
+    )));
+    ce.on_delete(handler!(app, |a, i: i32| cue_edit(
+        &a,
+        i,
+        "Cue removed",
+        CueEditOp::Delete
+    )));
+    ce.on_active(handler!(app, |a, i: i32| cue_edit(
+        &a,
+        i,
+        "Active loop changed",
+        CueEditOp::ToggleActive
+    )));
     ui.on_seek(handler!(app, |a, p: f32| move_cursor(&a, |st| {
         let id = st.player.current;
-        let d = id.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
+        let d = id
+            .and_then(|id| st.src().track(id).ok())
+            .map(|t| t.duration)
+            .unwrap_or(0.0);
         let t = p as f64 * d;
         let grid = id.and_then(|id| st.src().beatgrid(id).ok().flatten());
         st.player.cursor = grid.map(|g| snap_to_beat(&g, t)).unwrap_or(t);
     })));
     ui.on_nudge(handler!(app, |a, d: f32| move_cursor(&a, |st| {
-        let dur = st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
+        let dur = st
+            .player
+            .current
+            .and_then(|id| st.src().track(id).ok())
+            .map(|t| t.duration)
+            .unwrap_or(0.0);
         st.player.cursor = (st.player.cursor + d as f64).clamp(0.0, dur);
     })));
     // CUE: back to the first memory cue, or the start.
@@ -871,24 +1192,46 @@ pub(crate) fn wire(app: &Rc<App>) {
             .player
             .current
             .and_then(|id| st.src().cues(id).ok())
-            .and_then(|c| c.iter().filter(|c| c.kind == CueKind::Memory).map(|c| c.start).reduce(f64::min));
+            .and_then(|c| {
+                c.iter()
+                    .filter(|c| c.kind == CueKind::Memory)
+                    .map(|c| c.start)
+                    .reduce(f64::min)
+            });
         st.player.cursor = first.unwrap_or(0.0);
     })));
     ui.on_hot_cue(handler!(app, |a, slot: i32| {
-        let Some(id) = a.state.borrow().player.current else { return };
+        let Some(id) = a.state.borrow().player.current else {
+            return;
+        };
         let cues = a.state.borrow().src().cues(id).unwrap_or_default();
         if let Some(c) = cues.iter().find(|c| c.kind == CueKind::Hot(slot as u8)) {
             let start = c.start;
             move_cursor(&a, |st| st.player.cursor = start);
         } else {
-            edit_cues(&a, &format!("Hot cue {} set", (b'A' + slot as u8) as char), |cues, cursor| cues.push(Cue::hot(slot as u8, cursor)));
+            edit_cues(
+                &a,
+                &format!("Hot cue {} set", (b'A' + slot as u8) as char),
+                |cues, cursor| cues.push(Cue::hot(slot as u8, cursor)),
+            );
         }
     }));
-    ui.on_remove_hot_cue(handler!(app, |a, slot: i32| edit_cues(&a, "Hot cue removed", |cues, _| cues.retain(|c| c.kind != CueKind::Hot(slot as u8)))));
-    ui.on_add_memory_cue(handler!(app, |a| edit_cues(&a, "Memory cue added", |cues, cursor| cues.push(Cue::memory(cursor)))));
-    ui.on_grid_shift(handler!(app, |a, ms: i32| edit_grid(&a, |g, _| g.shift(ms as f64 / 1000.0))));
+    ui.on_remove_hot_cue(handler!(app, |a, slot: i32| edit_cues(
+        &a,
+        "Hot cue removed",
+        |cues, _| cues.retain(|c| c.kind != CueKind::Hot(slot as u8))
+    )));
+    ui.on_add_memory_cue(handler!(app, |a| edit_cues(
+        &a,
+        "Memory cue added",
+        |cues, cursor| cues.push(Cue::memory(cursor))
+    )));
+    ui.on_grid_shift(handler!(app, |a, ms: i32| edit_grid(&a, |g, _| g
+        .shift(ms as f64 / 1000.0))));
     ui.on_grid_scale(handler!(app, |a, f: f32| edit_grid(&a, |g, _| {
-        let Some(first) = g.beats.first().copied() else { return };
+        let Some(first) = g.beats.first().copied() else {
+            return;
+        };
         let bpm = g.dominant_bpm().unwrap_or(first.bpm) * f as f64;
         let end = g.beats.last().map(|b| b.time).unwrap_or(0.0) + 1.0;
         *g = Beatgrid::constant(bpm, first.time, first.bar_position, end);
@@ -901,16 +1244,27 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_grid_lock(handler!(app, |a| edit_grid(&a, |g, _| g.locked = !g.locked)));
     ui.on_grid_tap(handler!(app, |a| tap(&a)));
     ui.on_grid_bpm(handler!(app, |a, t: SharedString| type_bpm(&a, t.as_str())));
-    ui.on_grid_marker(handler!(app, |a, t: SharedString| add_tempo_marker(&a, t.as_str())));
+    ui.on_grid_marker(handler!(app, |a, t: SharedString| add_tempo_marker(
+        &a,
+        t.as_str()
+    )));
     ui.on_analyse_selected(handler!(app, |a| {
         if a.guard_read_only() {
             return;
         }
         let id = a.state.borrow().player.current;
         if let Some(id) = id {
-            let _ = a.state.borrow().lib.conn().execute("UPDATE track SET analysis_version = 0 WHERE id = ?1", [id.0]);
+            let _ = a.state.borrow().lib.conn().execute(
+                "UPDATE track SET analysis_version = 0 WHERE id = ?1",
+                [id.0],
+            );
             // Also when automatic analysis is off (Preferences > Analysis).
-            a.analysis.control.lock().unwrap_or_else(|e| e.into_inner()).requested.push(id);
+            a.analysis
+                .control
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .requested
+                .push(id);
             let _ = a.analysis.wake.send(());
             a.status("Queued for analysis");
         }
@@ -924,19 +1278,40 @@ mod tests {
 
     #[test]
     fn cue_list_edits() {
-        let mut cues = vec![Cue::hot(0, 10.0), Cue::memory(20.0), Cue { loop_end: Some(34.0), ..Cue::memory(30.0) }];
-        assert!(apply_cue_edit(&mut cues, 0, CueEditOp::Label("  Drop ".into())));
+        let mut cues = vec![
+            Cue::hot(0, 10.0),
+            Cue::memory(20.0),
+            Cue {
+                loop_end: Some(34.0),
+                ..Cue::memory(30.0)
+            },
+        ];
+        assert!(apply_cue_edit(
+            &mut cues,
+            0,
+            CueEditOp::Label("  Drop ".into())
+        ));
         assert_eq!(cues[0].label, "Drop");
         assert!(apply_cue_edit(&mut cues, 1, CueEditOp::Color(0)));
         assert_eq!(cues[1].color, Some(CUE_PALETTE[0]));
         assert!(apply_cue_edit(&mut cues, 2, CueEditOp::MoveTo(40.0)));
-        assert_eq!((cues[2].start, cues[2].loop_end), (40.0, Some(44.0)), "a loop keeps its length");
+        assert_eq!(
+            (cues[2].start, cues[2].loop_end),
+            (40.0, Some(44.0)),
+            "a loop keeps its length"
+        );
         assert!(apply_cue_edit(&mut cues, 1, CueEditOp::ToHot));
         assert_eq!(cues[1].kind, CueKind::Hot(1), "first free pad");
-        assert!(!apply_cue_edit(&mut cues, 0, CueEditOp::ToHot), "already a hot cue");
+        assert!(
+            !apply_cue_edit(&mut cues, 0, CueEditOp::ToHot),
+            "already a hot cue"
+        );
         assert!(apply_cue_edit(&mut cues, 2, CueEditOp::ToggleActive));
         assert!(cues[2].active, "a loop becomes an active loop");
-        assert!(!apply_cue_edit(&mut cues, 0, CueEditOp::ToggleActive), "a plain cue cannot be active");
+        assert!(
+            !apply_cue_edit(&mut cues, 0, CueEditOp::ToggleActive),
+            "a plain cue cannot be active"
+        );
         assert!(cue_marks(&cues, 60.0, false)[2].active);
         assert!(apply_cue_edit(&mut cues, 2, CueEditOp::Delete));
         assert_eq!(cues.len(), 2);
@@ -1008,12 +1383,25 @@ mod tests {
         let g = Beatgrid::constant(120.0, 0.0, 1, 20.0);
         // From the beat at 8.0 s (bar position 1) on: 100 BPM.
         let v = tempo_marker(&g, 8.1, 100.0, 20.0);
-        assert!(v.beats.iter().filter(|b| b.time < 8.0).all(|b| b.bpm == 120.0), "beats before the marker kept");
-        let i = v.beats.iter().position(|b| (b.time - 8.0).abs() < 1e-9).unwrap();
+        assert!(
+            v.beats
+                .iter()
+                .filter(|b| b.time < 8.0)
+                .all(|b| b.bpm == 120.0),
+            "beats before the marker kept"
+        );
+        let i = v
+            .beats
+            .iter()
+            .position(|b| (b.time - 8.0).abs() < 1e-9)
+            .unwrap();
         assert_eq!((v.beats[i].bpm, v.beats[i].bar_position), (100.0, 1));
         assert!((v.beats[i + 1].time - 8.6).abs() < 1e-9 && v.beats[i + 1].bar_position == 2);
         assert_eq!(tempo_changes(&v), 1);
-        assert!((v.beat_position(8.6).unwrap() - (i as f64 + 1.0)).abs() < 1e-9, "beat positions follow the new tempo");
+        assert!(
+            (v.beat_position(8.6).unwrap() - (i as f64 + 1.0)).abs() < 1e-9,
+            "beat positions follow the new tempo"
+        );
         // A second marker later on.
         let w = tempo_marker(&v, 14.0, 128.0, 20.0);
         assert_eq!(tempo_changes(&w), 2);
@@ -1026,7 +1414,11 @@ mod tests {
         g.locked = true;
         let down = g.beats.iter().find(|b| b.bar_position == 1).unwrap().time;
         let t = grid_at_bpm(&g, 125.0, 60.0);
-        assert!(t.beats.iter().any(|b| b.bar_position == 1 && (b.time - down).abs() < 1e-9));
+        assert!(
+            t.beats
+                .iter()
+                .any(|b| b.bar_position == 1 && (b.time - down).abs() < 1e-9)
+        );
         assert!((t.dominant_bpm().unwrap() - 125.0).abs() < 1e-6);
         assert!(t.locked);
         let fresh = grid_at_bpm(&Beatgrid::default(), 100.0, 30.0);

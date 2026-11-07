@@ -45,11 +45,20 @@ fn load_track_data_attaches_cached_stems() {
     assert!((s.frames() as i64 - t.frames() as i64).abs() <= 1);
     println!("stem memory for 2 s at 48 kHz: {} bytes", s.memory_bytes());
 
+    // Two-step load (decks): the mix alone, then the cached parts attached
+    // to the same samples.
+    let (mix, shape) = load_mix(TrackId(1), &wav, 48_000, grid.clone(), &[], 0.0).unwrap();
+    assert!(!mix.has_stems());
+    let full = attach_cached_stems(&cache, &mix, &hash, shape).expect("cached parts fit");
+    assert!(full.has_stems());
+    assert_eq!(full.samples, mix.samples);
+
     // Mismatching cache (other rate) is ignored, not an error.
     let bad = Stems { sample_rate: 22_050, ..stems };
     cache.store(&hash, &bad).unwrap();
     let t = load_track_data(&cache, TrackId(1), &wav, Some(&hash), 48_000, grid, &[], 0.0).unwrap();
     assert!(!t.has_stems());
+    assert!(attach_cached_stems(&cache, &mix, &hash, shape).is_none());
 }
 
 #[test]

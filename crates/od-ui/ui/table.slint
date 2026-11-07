@@ -288,6 +288,13 @@ component TrackLine inherits Rectangle {
             max-width: c.width > 0 ? c.width : 100000px;
             preferred-width: c.width;
             horizontal-stretch: c.width > 0 ? 0 : c.stretch;
+            if c.id == "artwork": Rectangle {
+                x: 0; y: (parent.height - 22px) / 2; width: 22px; height: 22px;
+                border-radius: 2px;
+                clip: true;
+                background: root.item.artwork.width > 0 ? transparent : Theme.plate-raised;
+                Image { width: 22px; height: 22px; source: root.item.artwork; image-fit: cover; }
+            }
             if c.id == "preview": Image { x: 0; y: (parent.height - 20px) / 2; width: parent.width - 6px; height: 20px; source: root.item.preview; image-fit: fill; }
             if c.id == "key": Rectangle {
                 Cell { width: parent.width; text: root.item.key; color: root.ink; horizontal-alignment: right; }
@@ -320,7 +327,7 @@ component TrackLine inherits Rectangle {
                     }
                 }
             }
-            if c.id != "preview" && c.id != "key" && c.id != "colour" && c.id != "rating": Cell {
+            if c.id != "artwork" && c.id != "preview" && c.id != "key" && c.id != "colour" && c.id != "rating": Cell {
                 x: 0; width: parent.width;
                 text: root.text-of(c.id);
                 horizontal-alignment: c.right ? TextHorizontalAlignment.right : TextHorizontalAlignment.left;

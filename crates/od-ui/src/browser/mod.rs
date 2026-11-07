@@ -12,7 +12,10 @@ mod tree;
 pub(crate) use columns::sanitize as sanitize_columns;
 #[cfg(test)]
 pub(crate) use sources::load_tag_list;
-pub(crate) use tracks::{SortFields, default_descending, key_distance, refresh_tracks, same_row, sort_key_known, sort_rows};
+pub(crate) use tracks::{
+    SortFields, default_descending, key_distance, list_images, poll_artworks, refresh_tracks,
+    same_row, sort_key_known, sort_rows,
+};
 pub(crate) use tree::{refresh_tree, stick_root_id};
 
 /// The column headers (the Explorer shows its own reduced set).
@@ -52,6 +55,8 @@ pub(crate) struct BrowserState {
     pub stick: Option<(usize, od_format_native::Stick)>,
     /// Mini overview waveforms for the PREVIEW column, by (stick?, track).
     pub previews: HashMap<(bool, TrackId), slint::Image>,
+    /// Cover thumbnails for the ARTWORK column (`None`: the track has none).
+    pub artworks: HashMap<(bool, TrackId), Option<slint::Image>>,
     /// A source outside the tree of lists (tag list, related, a history).
     pub special: Option<Special>,
     /// Quick filter and its reference track (master deck).
@@ -98,6 +103,7 @@ impl Default for BrowserState {
             sticks: Vec::new(),
             stick: None,
             previews: HashMap::new(),
+            artworks: HashMap::new(),
             special: None,
             filter: filter::Filter::default(),
             filter_open: false,
@@ -117,7 +123,11 @@ impl Default for BrowserState {
 impl BrowserState {
     /// Lists with an order of their own sort by position, the rest newest first.
     pub fn reset_sort(&mut self, in_list: bool) {
-        self.sort = if in_list { "position".into() } else { "date_added".into() };
+        self.sort = if in_list {
+            "position".into()
+        } else {
+            "date_added".into()
+        };
         self.descending = !in_list;
     }
 }
@@ -126,6 +136,7 @@ impl BrowserState {
 #[derive(Default)]
 pub(crate) struct BrowserViews {
     pub tracks: Rows<TrackRow>,
+    pub art: tracks::ArtLoader,
 }
 
 /// Restores the last list and track at start-up.
@@ -172,7 +183,11 @@ pub(crate) fn select_row(app: &App, i: usize, toggle: bool, range: bool) {
             b.selection = [i].into_iter().collect();
             b.anchor = Some(i);
         }
-        let new = if st.explorer.open.is_some() { st.explorer.track_at(i) } else { st.browser.rows.get(i).map(|t| t.id) };
+        let new = if st.explorer.open.is_some() {
+            st.explorer.track_at(i)
+        } else {
+            st.browser.rows.get(i).map(|t| t.id)
+        };
         if new != st.player.current {
             st.player.current = new;
             st.player.cursor = 0.0;
@@ -199,7 +214,10 @@ pub(crate) fn select_all(app: &App) {
 pub(crate) fn step_selection(app: &App, up: bool) {
     let (len, cur) = {
         let st = app.state.borrow();
-        (st.row_count(), st.browser.selection.iter().next_back().copied())
+        (
+            st.row_count(),
+            st.browser.selection.iter().next_back().copied(),
+        )
     };
     if len == 0 {
         return;
@@ -222,7 +240,11 @@ pub(crate) fn cycle_list(app: &App, forward: bool) {
     }
     let cur = app.ui.get_selected_node();
     let i = ids.iter().position(|&x| x == cur).unwrap_or(0);
-    let next = if forward { (i + 1) % ids.len() } else { (i + ids.len() - 1) % ids.len() };
+    let next = if forward {
+        (i + 1) % ids.len()
+    } else {
+        (i + ids.len() - 1) % ids.len()
+    };
     app.ui.invoke_select_node(ids[next]);
 }
 
@@ -236,14 +258,24 @@ pub(crate) fn remove_selected(app: &App) {
     }
     let (node, positions) = {
         let st = app.state.borrow();
-        (st.browser.node, st.browser.selection.iter().copied().collect::<Vec<_>>())
+        (
+            st.browser.node,
+            st.browser.selection.iter().copied().collect::<Vec<_>>(),
+        )
     };
     if app.state.borrow().browser.special == Some(Special::TagList) {
         sources::remove_from_tag_list(app, &positions);
         return;
     }
     let Some(n) = node else { return };
-    if positions.is_empty() || !app.state.borrow().lib.node(n).is_ok_and(|n| n.kind.has_entries()) {
+    if positions.is_empty()
+        || !app
+            .state
+            .borrow()
+            .lib
+            .node(n)
+            .is_ok_and(|n| n.kind.has_entries())
+    {
         return;
     }
     // Rows may be re-sorted; map rows back to entry positions.
@@ -251,14 +283,23 @@ pub(crate) fn remove_selected(app: &App) {
     let ids: Vec<TrackId> = app.state.borrow().selected_ids();
     let mut entry_positions: Vec<usize> = Vec::new();
     for id in &ids {
-        if let Some(i) = (0..entries.len()).find(|i| entries[*i].track == *id && !entry_positions.contains(i)) {
+        if let Some(i) =
+            (0..entries.len()).find(|i| entries[*i].track == *id && !entry_positions.contains(i))
+        {
             entry_positions.push(i);
         }
     }
-    let r = app.state.borrow_mut().lib.remove_from_node(n, &entry_positions);
+    let r = app
+        .state
+        .borrow_mut()
+        .lib
+        .remove_from_node(n, &entry_positions);
     if app.report(r).is_some() {
         app.state.borrow_mut().browser.selection.clear();
-        app.after_edit(&format!("Removed {} track(s) — ⌘Z to undo", entry_positions.len()));
+        app.after_edit(&format!(
+            "Removed {} track(s) — ⌘Z to undo",
+            entry_positions.len()
+        ));
     }
 }
 
@@ -272,8 +313,12 @@ pub(crate) fn set_planned_start(app: &App, text: &str) {
     if app.guard_read_only() {
         return;
     }
-    let Some(n) = app.state.borrow().browser.node else { return };
-    let Ok(node) = app.state.borrow().lib.node(n) else { return };
+    let Some(n) = app.state.borrow().browser.node else {
+        return;
+    };
+    let Ok(node) = app.state.borrow().lib.node(n) else {
+        return;
+    };
     if node.kind != NodeKind::Set {
         return;
     }
@@ -294,7 +339,11 @@ pub(crate) fn set_backups(app: &App, action: &str) {
     }
     let (node, pos, tag_list) = {
         let st = app.state.borrow();
-        (st.browser.node, st.browser.flow_selected, st.browser.tag_list.clone())
+        (
+            st.browser.node,
+            st.browser.flow_selected,
+            st.browser.tag_list.clone(),
+        )
     };
     let (Some(n), Some(p)) = (node, pos) else {
         app.status("Select a position of the set first");
@@ -313,7 +362,11 @@ pub(crate) fn set_backups(app: &App, action: &str) {
     let count = backups.len();
     let r = app.state.borrow_mut().lib.set_entry_backups(n, p, backups);
     if app.report(r).is_some() {
-        app.after_edit(&if count == 0 { "Backup tracks removed".to_string() } else { format!("{count} backup track(s) set") });
+        app.after_edit(&if count == 0 {
+            "Backup tracks removed".to_string()
+        } else {
+            format!("{count} backup track(s) set")
+        });
     }
 }
 
@@ -332,7 +385,9 @@ fn select_node(app: &App, id: i32) {
                 let reuse = st.browser.stick.as_ref().is_some_and(|(j, _)| *j == i);
                 if !reuse {
                     let root = st.browser.sticks.get(i).map(|s| s.1.clone());
-                    st.browser.stick = root.and_then(|r| od_format_native::Stick::open(&r).ok().flatten()).map(|s| (i, s));
+                    st.browser.stick = root
+                        .and_then(|r| od_format_native::Stick::open(&r).ok().flatten())
+                        .map(|s| (i, s));
                 }
                 st.browser.node = node;
                 st.player.current = None;
@@ -341,13 +396,20 @@ fn select_node(app: &App, id: i32) {
                 if st.browser.stick.take().is_some() {
                     st.player.current = None;
                 }
-                st.browser.node = if id < 0 { None } else { Some(NodeId(id as i64)) };
+                st.browser.node = if id < 0 {
+                    None
+                } else {
+                    Some(NodeId(id as i64))
+                };
             }
         }
         st.browser.selection.clear();
         st.browser.flow_selected = None;
         st.browser.search.clear();
-        let in_list = st.browser.node.is_some_and(|n| st.src().node(n).is_ok_and(|n| n.kind.has_entries()));
+        let in_list = st
+            .browser
+            .node
+            .is_some_and(|n| st.src().node(n).is_ok_and(|n| n.kind.has_entries()));
         st.browser.reset_sort(in_list);
         if let (Some(n), false) = (st.browser.node, st.read_only()) {
             if st.lib.node(n).is_ok_and(|n| n.kind == NodeKind::Folder) {
@@ -380,7 +442,11 @@ fn create_node(app: &App, kind: &str) {
     };
     let parent = {
         let st = app.state.borrow();
-        st.browser.node.and_then(|n| st.lib.node(n).ok()).filter(|n| n.kind == NodeKind::Folder).map(|n| n.id)
+        st.browser
+            .node
+            .and_then(|n| st.lib.node(n).ok())
+            .filter(|n| n.kind == NodeKind::Folder)
+            .map(|n| n.id)
     };
     let selected = app.state.borrow().selected_ids();
     let r = app.state.borrow_mut().lib.create_node(parent, kind, name);
@@ -395,7 +461,11 @@ fn create_node(app: &App, kind: &str) {
             }
             st.browser.node = Some(id);
             st.browser.selection.clear();
-            st.browser.sort = if kind.has_entries() { "position".into() } else { "date_added".into() };
+            st.browser.sort = if kind.has_entries() {
+                "position".into()
+            } else {
+                "date_added".into()
+            };
         }
         app.after_edit("Created — click the title to rename it");
         crate::explorer::refresh_tree(app);
@@ -420,14 +490,27 @@ pub(crate) fn wire(app: &Rc<App>) {
             return;
         }
         let ids = a.state.borrow().selected_ids();
-        let name = a.state.borrow().lib.node(NodeId(id as i64)).map(|n| n.name).unwrap_or_default();
-        let r = a.state.borrow_mut().lib.add_to_node(NodeId(id as i64), &ids, None);
+        let name = a
+            .state
+            .borrow()
+            .lib
+            .node(NodeId(id as i64))
+            .map(|n| n.name)
+            .unwrap_or_default();
+        let r = a
+            .state
+            .borrow_mut()
+            .lib
+            .add_to_node(NodeId(id as i64), &ids, None);
         if a.report(r).is_some() {
             remember_recent_list(&a, NodeId(id as i64));
             a.after_edit(&format!("Added {} track(s) to {name}", ids.len()));
         }
     }));
-    ui.on_create_node(handler!(app, |a, kind: SharedString| create_node(&a, kind.as_str())));
+    ui.on_create_node(handler!(app, |a, kind: SharedString| create_node(
+        &a,
+        kind.as_str()
+    )));
     ui.on_rename_node(handler!(app, |a, name: SharedString| {
         if a.guard_read_only() {
             return;
@@ -492,7 +575,9 @@ pub(crate) fn wire(app: &Rc<App>) {
             }
         }
         if !a.state.borrow().settings.browser.sort_then.is_empty() {
-            a.state.borrow_mut().change_settings(|s| s.browser.sort_then.clear());
+            a.state
+                .borrow_mut()
+                .change_settings(|s| s.browser.sort_then.clear());
         }
         a.state.borrow_mut().load_rows();
         refresh_tracks(&a);
@@ -500,7 +585,9 @@ pub(crate) fn wire(app: &Rc<App>) {
     wire_columns(app);
     sources::wire(app);
     sub::wire(app);
-    ui.on_row_clicked(handler!(app, |a, i: i32, toggle: bool, range: bool| select_row(&a, i as usize, toggle, range)));
+    ui.on_row_clicked(handler!(app, |a, i: i32, toggle: bool, range: bool| {
+        select_row(&a, i as usize, toggle, range)
+    }));
     ui.on_toggle_full_screen(handler!(app, |a| {
         let w = a.ui.window();
         w.set_fullscreen(!w.is_fullscreen());
@@ -512,12 +599,18 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_history_year_step(handler!(app, |a, d: i32| {
         let years = sources::history_years(&a.state.borrow().lib);
         let now = sources::history_year(&years, a.state.borrow().browser.history_year.as_deref());
-        let i = now.and_then(|y| years.iter().position(|x| *x == y)).unwrap_or(0) as i32;
-        let next = years.get((i + d.signum()).clamp(0, years.len().max(1) as i32 - 1) as usize).cloned();
+        let i = now
+            .and_then(|y| years.iter().position(|x| *x == y))
+            .unwrap_or(0) as i32;
+        let next = years
+            .get((i + d.signum()).clamp(0, years.len().max(1) as i32 - 1) as usize)
+            .cloned();
         a.state.borrow_mut().browser.history_year = next;
         refresh_tree(&a);
     }));
-    ui.on_cycle_density(handler!(app, |a| crate::preferences::cycle_line_spacing(&a)));
+    ui.on_cycle_density(handler!(app, |a| crate::preferences::cycle_line_spacing(
+        &a
+    )));
     ui.on_row_activated(handler!(app, |a, i: i32| {
         select_row(&a, i as usize, false, false);
         // A fixed load target (the list title row) in Perform.
@@ -530,15 +623,22 @@ pub(crate) fn wire(app: &Rc<App>) {
             decks::load_selected_into_free_deck(&a);
         }
     }));
-    ui.on_info_edit(handler!(app, |a, field: SharedString, value: SharedString| {
-        let (field, value) = (field.to_string(), value.trim().to_string());
-        edit_tags(&a, |t| set_tag_field(t, &field, &value), "Tags saved");
-    }));
+    ui.on_info_edit(handler!(
+        app,
+        |a, field: SharedString, value: SharedString| {
+            let (field, value) = (field.to_string(), value.trim().to_string());
+            edit_tags(&a, |t| set_tag_field(t, &field, &value), "Tags saved");
+        }
+    ));
     ui.on_row_rated(handler!(app, |a, i: i32, n: i32| {
         select_row(&a, i as usize, false, false);
         edit_tags(&a, |t| t.rating = menu_rating(n as i64), "Rating set");
     }));
-    ui.on_row_menu(handler!(app, |a, i: i32, action: SharedString| row_menu(&a, i as usize, action.as_str())));
+    ui.on_row_menu(handler!(app, |a, i: i32, action: SharedString| row_menu(
+        &a,
+        i as usize,
+        action.as_str()
+    )));
     // Drag and drop: target 1..=4 = that deck, -1 = the Prepare player.
     ui.on_row_dropped(handler!(app, |a, i: i32, target: i32| {
         match drop_target(target) {
@@ -550,7 +650,11 @@ pub(crate) fn wire(app: &Rc<App>) {
         if target == -2 {
             let track = {
                 let st = a.state.borrow();
-                if st.explorer.open.is_some() { st.explorer.track_at(i as usize) } else { st.browser.rows.get(i as usize).map(|t| t.id) }
+                if st.explorer.open.is_some() {
+                    st.explorer.track_at(i as usize)
+                } else {
+                    st.browser.rows.get(i as usize).map(|t| t.id)
+                }
             };
             match track {
                 Some(t) => crate::player::load_second(&a, t),
@@ -578,13 +682,20 @@ pub(crate) fn wire(app: &Rc<App>) {
         }
     }));
     ui.on_import_folder(handler!(app, |a| {
-        let Some(dirs) = rfd::FileDialog::new().set_title("Add music folder").pick_folders() else { return };
+        let Some(dirs) = rfd::FileDialog::new()
+            .set_title("Add music folder")
+            .pick_folders()
+        else {
+            return;
+        };
         let path = a.state.borrow().config.library_path.clone();
         spawn_import(path, dirs, a.worker_tx.clone(), a.analysis.wake.clone());
         a.status("Adding music…");
     }));
     ui.on_import_rekordbox(handler!(app, |a| crate::import::run_rekordbox_import(&a)));
-    ui.on_flow_select(handler!(app, |a, i: i32| select_row(&a, i as usize, false, false)));
+    ui.on_flow_select(handler!(app, |a, i: i32| select_row(
+        &a, i as usize, false, false
+    )));
     ui.on_set_transition_note(handler!(app, |a, text: SharedString| {
         if a.guard_read_only() {
             return;
@@ -600,12 +711,29 @@ pub(crate) fn wire(app: &Rc<App>) {
             }
         }
     }));
-    ui.on_duplicates_action(handler!(app, |a, action: SharedString| sources::duplicates_action(&a, action.as_str())));
-    ui.on_save_planned_start(handler!(app, |a, text: SharedString| set_planned_start(&a, text.as_str())));
-    ui.on_backups_action(handler!(app, |a, action: SharedString| set_backups(&a, action.as_str())));
+    ui.on_duplicates_action(handler!(app, |a, action: SharedString| {
+        sources::duplicates_action(&a, action.as_str())
+    }));
+    ui.on_save_planned_start(handler!(app, |a, text: SharedString| set_planned_start(
+        &a,
+        text.as_str()
+    )));
+    ui.on_backups_action(handler!(app, |a, action: SharedString| set_backups(
+        &a,
+        action.as_str()
+    )));
     ui.on_find_moved_files(handler!(app, |a| {
-        let Some(dirs) = rfd::FileDialog::new().set_title("Where are the moved files?").pick_folders() else { return };
-        let found = a.state.borrow().lib.find_relocations(&dirs, od_decode::content_hash);
+        let Some(dirs) = rfd::FileDialog::new()
+            .set_title("Where are the moved files?")
+            .pick_folders()
+        else {
+            return;
+        };
+        let found = a
+            .state
+            .borrow()
+            .lib
+            .find_relocations(&dirs, od_decode::content_hash);
         match found {
             Ok(rel) if rel.is_empty() => a.status("No moved files found in that folder"),
             Ok(rel) => {
@@ -654,7 +782,9 @@ pub(crate) fn reorderable(st: &crate::state::AppState) -> bool {
         && !st.browser.descending
         && st.browser.search.trim().is_empty()
         && !st.browser.filter.active()
-        && st.node_kind().is_some_and(|k| matches!(k, NodeKind::Playlist | NodeKind::Set))
+        && st
+            .node_kind()
+            .is_some_and(|k| matches!(k, NodeKind::Playlist | NodeKind::Set))
 }
 
 /// Dragged row `from` (with the selection it belongs to) dropped before row `to`.
@@ -666,7 +796,10 @@ fn reorder_rows(app: &App, from: usize, to: usize) {
     let (node, mut positions) = {
         let st = app.state.borrow();
         let sel: Vec<usize> = st.browser.selection.iter().copied().collect();
-        (st.browser.node, if sel.contains(&from) { sel } else { vec![from] })
+        (
+            st.browser.node,
+            if sel.contains(&from) { sel } else { vec![from] },
+        )
     };
     let Some(n) = node else { return };
     positions.sort_unstable();
@@ -701,7 +834,13 @@ fn drop_on_tree(app: &App, row: usize, id: i32) {
     }
     let node = NodeId(id as i64);
     let ids = app.state.borrow().selected_ids();
-    let name = app.state.borrow().lib.node(node).map(|n| n.name).unwrap_or_default();
+    let name = app
+        .state
+        .borrow()
+        .lib
+        .node(node)
+        .map(|n| n.name)
+        .unwrap_or_default();
     let r = app.state.borrow_mut().lib.add_to_node(node, &ids, None);
     if app.report(r).is_some() {
         remember_recent_list(app, node);
@@ -711,16 +850,26 @@ fn drop_on_tree(app: &App, row: usize, id: i32) {
 
 /// Where a tree node dropped on `target` goes: into a folder (at its end),
 /// else just before the target among the target's siblings.
-pub(crate) fn node_destination(target: &od_library::Node, siblings: &[od_library::Node], moving: NodeId) -> (Option<NodeId>, usize) {
+pub(crate) fn node_destination(
+    target: &od_library::Node,
+    siblings: &[od_library::Node],
+    moving: NodeId,
+) -> (Option<NodeId>, usize) {
     if target.kind == NodeKind::Folder {
         return (Some(target.id), usize::MAX);
     }
-    let index = siblings.iter().filter(|n| n.id != moving).position(|n| n.id == target.id).unwrap_or(usize::MAX);
+    let index = siblings
+        .iter()
+        .filter(|n| n.id != moving)
+        .position(|n| n.id == target.id)
+        .unwrap_or(usize::MAX);
     (target.parent, index)
 }
 
 fn node_dropped(app: &App, source: i32, target: i32) {
-    let DropTarget::Tree(id) = drop_target(target) else { return };
+    let DropTarget::Tree(id) = drop_target(target) else {
+        return;
+    };
     if source < 0 || id < 0 || source == id || app.state.borrow().read_only() {
         return;
     }
@@ -745,16 +894,30 @@ fn wire_columns(app: &Rc<App>) {
     let ui = &app.ui;
     let columns_changed = |a: &App, f: &dyn Fn(&[String]) -> Vec<String>| {
         let next = f(&a.state.borrow().settings.browser.columns);
-        a.state.borrow_mut().change_settings(|s| s.browser.columns = next.clone());
+        a.state
+            .borrow_mut()
+            .change_settings(|s| s.browser.columns = next.clone());
         refresh_tracks(a);
     };
-    ui.on_toggle_column(handler!(app, |a, id: SharedString| columns_changed(&a, &|c| columns::toggle(c, &id))));
-    ui.on_move_column(handler!(app, |a, id: SharedString, to: i32| columns_changed(&a, &|c| columns::move_to(c, &id, to.max(0) as usize))));
+    ui.on_toggle_column(handler!(app, |a, id: SharedString| columns_changed(
+        &a,
+        &|c| columns::toggle(c, &id)
+    )));
+    ui.on_move_column(handler!(app, |a, id: SharedString, to: i32| {
+        columns_changed(&a, &|c| columns::move_to(c, &id, to.max(0) as usize))
+    }));
     ui.on_reset_columns(handler!(app, |a| columns_changed(&a, &|_| Vec::new())));
     ui.on_sort_then(handler!(app, |a, col: SharedString| {
         let primary = a.state.borrow().browser.sort.clone();
-        let next = columns::shift_sort(&a.state.borrow().settings.browser.sort_then, &primary, &col, default_descending(&col));
-        a.state.borrow_mut().change_settings(|s| s.browser.sort_then = next.clone());
+        let next = columns::shift_sort(
+            &a.state.borrow().settings.browser.sort_then,
+            &primary,
+            &col,
+            default_descending(&col),
+        );
+        a.state
+            .borrow_mut()
+            .change_settings(|s| s.browser.sort_then = next.clone());
         a.state.borrow_mut().load_rows();
         refresh_tracks(&a);
     }));
@@ -764,16 +927,25 @@ fn wire_columns(app: &Rc<App>) {
         a.ui.set_filter_open(open);
         refresh_filter(&a);
     }));
-    ui.on_filter_edit(handler!(app, |a, field: SharedString, value: SharedString| {
-        a.state.borrow_mut().browser.filter.edit(&field, &value);
-        refresh_filter(&a);
-    }));
-    ui.on_node_dropped(handler!(app, |a, source: i32, target: i32| node_dropped(&a, source, target)));
+    ui.on_filter_edit(handler!(
+        app,
+        |a, field: SharedString, value: SharedString| {
+            a.state.borrow_mut().browser.filter.edit(&field, &value);
+            refresh_filter(&a);
+        }
+    ));
+    ui.on_node_dropped(handler!(app, |a, source: i32, target: i32| node_dropped(
+        &a, source, target
+    )));
 }
 
 /// Re-resolves the filter reference and reloads the list.
 pub(crate) fn refresh_filter(app: &App) {
-    let reference = if app.state.borrow().browser.filter.uses_reference() { sources::resolve_reference(app) } else { None };
+    let reference = if app.state.borrow().browser.filter.uses_reference() {
+        sources::resolve_reference(app)
+    } else {
+        None
+    };
     app.state.borrow_mut().browser.reference = reference;
     app.state.borrow_mut().load_rows();
     refresh_tracks(app);
@@ -823,7 +995,13 @@ fn row_menu(app: &App, i: usize, action: &str) {
             }
             let ids = app.state.borrow().selected_ids();
             let node = od_library::NodeId(n);
-            let name = app.state.borrow().lib.node(node).map(|n| n.name).unwrap_or_default();
+            let name = app
+                .state
+                .borrow()
+                .lib
+                .node(node)
+                .map(|n| n.name)
+                .unwrap_or_default();
             let r = app.state.borrow_mut().lib.add_to_node(node, &ids, None);
             if app.report(r).is_some() {
                 remember_recent_list(app, node);
@@ -841,8 +1019,16 @@ fn row_menu(app: &App, i: usize, action: &str) {
             }
             let ids = app.state.borrow().selected_ids();
             for id in &ids {
-                let _ = app.state.borrow().lib.conn().execute("UPDATE track SET analysis_version = 0 WHERE id = ?1", [id.0]);
-                app.analysis.control.lock().unwrap_or_else(|e| e.into_inner()).requested.push(*id);
+                let _ = app.state.borrow().lib.conn().execute(
+                    "UPDATE track SET analysis_version = 0 WHERE id = ?1",
+                    [id.0],
+                );
+                app.analysis
+                    .control
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .requested
+                    .push(*id);
             }
             let _ = app.analysis.wake.send(());
             app.status("Queued for analysis");
@@ -850,7 +1036,10 @@ fn row_menu(app: &App, i: usize, action: &str) {
         "reveal" => {
             let path = {
                 let st = app.state.borrow();
-                st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| st.resolve(&t.path))
+                st.player
+                    .current
+                    .and_then(|id| st.src().track(id).ok())
+                    .map(|t| st.resolve(&t.path))
             };
             if let Some(p) = path {
                 crate::preferences::reveal(&p);
@@ -863,7 +1052,18 @@ fn row_menu(app: &App, i: usize, action: &str) {
                 return;
             }
             let ids = app.state.borrow().selected_ids();
-            let grids: Vec<_> = ids.iter().filter_map(|id| app.state.borrow().lib.beatgrid(*id).ok().flatten().map(|g| (*id, g))).collect();
+            let grids: Vec<_> = ids
+                .iter()
+                .filter_map(|id| {
+                    app.state
+                        .borrow()
+                        .lib
+                        .beatgrid(*id)
+                        .ok()
+                        .flatten()
+                        .map(|g| (*id, g))
+                })
+                .collect();
             if grids.is_empty() {
                 app.status("Analyse the track first: there is no beatgrid to lock");
                 return;
@@ -877,19 +1077,33 @@ fn row_menu(app: &App, i: usize, action: &str) {
                     return;
                 }
             }
-            app.after_edit(if lock { "Analysis locked" } else { "Analysis unlocked" });
+            app.after_edit(if lock {
+                "Analysis locked"
+            } else {
+                "Analysis unlocked"
+            });
         }
         "reload-tags" => {
             let paths: Vec<(TrackId, std::path::PathBuf)> = {
                 let st = app.state.borrow();
-                st.selected_ids().into_iter().filter_map(|id| st.lib.track(id).ok().map(|t| (id, st.resolve(&t.path)))).collect()
+                st.selected_ids()
+                    .into_iter()
+                    .filter_map(|id| st.lib.track(id).ok().map(|t| (id, st.resolve(&t.path))))
+                    .collect()
             };
             if app.guard_read_only() {
                 return;
             }
             for (id, path) in paths {
-                let Ok(info) = od_decode::probe(&path) else { continue };
-                let r = app.state.borrow().lib.track(id).map(|t| reload_tags(t.tags, info.tags));
+                let Ok(info) = od_decode::probe(&path) else {
+                    continue;
+                };
+                let r = app
+                    .state
+                    .borrow()
+                    .lib
+                    .track(id)
+                    .map(|t| reload_tags(t.tags, info.tags));
                 let Ok(tags) = r else { continue };
                 let r = app.state.borrow_mut().lib.set_tags(id, tags);
                 if app.report(r).is_none() {
@@ -901,13 +1115,27 @@ fn row_menu(app: &App, i: usize, action: &str) {
         "export" => {
             let paths: Vec<std::path::PathBuf> = {
                 let st = app.state.borrow();
-                st.selected_ids().into_iter().filter_map(|id| st.src().track(id).ok().map(|t| st.resolve(&t.path))).collect()
+                st.selected_ids()
+                    .into_iter()
+                    .filter_map(|id| st.src().track(id).ok().map(|t| st.resolve(&t.path)))
+                    .collect()
             };
             if paths.is_empty() {
                 return;
             }
-            let Some(dir) = rfd::FileDialog::new().set_title(od_i18n::tr("Export the files to a folder")).pick_folder() else { return };
-            let copied = paths.iter().filter(|p| p.file_name().is_some_and(|f| std::fs::copy(p, dir.join(f)).is_ok())).count();
+            let Some(dir) = rfd::FileDialog::new()
+                .set_title(od_i18n::tr("Export the files to a folder"))
+                .pick_folder()
+            else {
+                return;
+            };
+            let copied = paths
+                .iter()
+                .filter(|p| {
+                    p.file_name()
+                        .is_some_and(|f| std::fs::copy(p, dir.join(f)).is_ok())
+                })
+                .count();
             app.status(format!("Exported {copied} file(s) to {}", dir.display()));
         }
         "reset-plays" => {
@@ -916,7 +1144,10 @@ fn row_menu(app: &App, i: usize, action: &str) {
             }
             let ids = app.state.borrow().selected_ids();
             for id in &ids {
-                let _ = app.state.borrow().lib.conn().execute("UPDATE track SET play_count = 0, last_played = NULL WHERE id = ?1", [id.0]);
+                let _ = app.state.borrow().lib.conn().execute(
+                    "UPDATE track SET play_count = 0, last_played = NULL WHERE id = ?1",
+                    [id.0],
+                );
             }
             app.state.borrow_mut().load_rows();
             refresh_tracks(app);
@@ -946,16 +1177,24 @@ fn row_menu(app: &App, i: usize, action: &str) {
 /// File tags read again: the text fields come from the file, rating and
 /// colour (library data) stay.
 pub(crate) fn reload_tags(old: od_core::TrackTags, file: od_core::TrackTags) -> od_core::TrackTags {
-    od_core::TrackTags { rating: old.rating, color: old.color, ..file }
+    od_core::TrackTags {
+        rating: old.rating,
+        color: old.color,
+        ..file
+    }
 }
 
 /// Memory cues become hot cues on the free pads, earliest first (cues
 /// beyond the free pads stay memory cues).
 pub(crate) fn memory_to_hot(cues: &mut [od_core::Cue]) -> bool {
     use od_core::CueKind;
-    let mut free: Vec<u8> = (0..od_core::cue::HOT_CUE_SLOTS).filter(|s| !cues.iter().any(|c| c.kind == CueKind::Hot(*s))).collect();
+    let mut free: Vec<u8> = (0..od_core::cue::HOT_CUE_SLOTS)
+        .filter(|s| !cues.iter().any(|c| c.kind == CueKind::Hot(*s)))
+        .collect();
     free.reverse();
-    let mut order: Vec<usize> = (0..cues.len()).filter(|&i| cues[i].kind == CueKind::Memory).collect();
+    let mut order: Vec<usize> = (0..cues.len())
+        .filter(|&i| cues[i].kind == CueKind::Memory)
+        .collect();
     order.sort_by(|&a, &b| cues[a].start.total_cmp(&cues[b].start));
     let mut changed = false;
     for i in order {
@@ -969,9 +1208,20 @@ pub(crate) fn memory_to_hot(cues: &mut [od_core::Cue]) -> bool {
 /// Hot cues re-lettered by time: the earliest becomes A.
 pub(crate) fn sort_hot_cues(cues: &mut [od_core::Cue]) -> bool {
     use od_core::CueKind;
-    let idx: Vec<usize> = (0..cues.len()).filter(|&i| matches!(cues[i].kind, CueKind::Hot(_))).collect();
+    let idx: Vec<usize> = (0..cues.len())
+        .filter(|&i| matches!(cues[i].kind, CueKind::Hot(_)))
+        .collect();
     let before: Vec<CueKind> = idx.iter().map(|&i| cues[i].kind).collect();
-    let mut slots: Vec<u8> = before.iter().filter_map(|k| if let CueKind::Hot(s) = k { Some(*s) } else { None }).collect();
+    let mut slots: Vec<u8> = before
+        .iter()
+        .filter_map(|k| {
+            if let CueKind::Hot(s) = k {
+                Some(*s)
+            } else {
+                None
+            }
+        })
+        .collect();
     slots.sort_unstable();
     let mut by_time = idx.clone();
     by_time.sort_by(|&a, &b| cues[a].start.total_cmp(&cues[b].start));
@@ -1013,16 +1263,27 @@ pub(crate) const RECENT_LISTS_META: &str = "browser.recent-lists";
 
 pub(crate) fn remember_recent_list(app: &App, node: NodeId) {
     let mut st = app.state.borrow_mut();
-    let mut ids: Vec<i64> = st.lib.meta(RECENT_LISTS_META).ok().flatten().and_then(|j| serde_json::from_str(&j).ok()).unwrap_or_default();
+    let mut ids: Vec<i64> = st
+        .lib
+        .meta(RECENT_LISTS_META)
+        .ok()
+        .flatten()
+        .and_then(|j| serde_json::from_str(&j).ok())
+        .unwrap_or_default();
     ids.retain(|i| *i != node.0);
     ids.insert(0, node.0);
     ids.truncate(3);
-    let _ = st.lib.set_meta(RECENT_LISTS_META, &serde_json::to_string(&ids).unwrap_or_default());
+    let _ = st.lib.set_meta(
+        RECENT_LISTS_META,
+        &serde_json::to_string(&ids).unwrap_or_default(),
+    );
 }
 
 /// Track colour for menu entry `n` (1..=8 the eight colour tags, else none).
 pub(crate) fn menu_color(n: i64) -> Option<od_core::CueColor> {
-    od_format_pioneer::TRACK_COLORS.get((n as usize).wrapping_sub(1)).map(|(_, c)| *c)
+    od_format_pioneer::TRACK_COLORS
+        .get((n as usize).wrapping_sub(1))
+        .map(|(_, c)| *c)
 }
 
 /// Star rating for a click / menu value, 0..=5.
@@ -1048,7 +1309,11 @@ pub(crate) fn set_tag_field(t: &mut od_core::TrackTags, field: &str, value: &str
 }
 
 /// The cover art of `track` as a square thumbnail of `size` px.
-pub(crate) fn artwork_image(lib: &od_library::Library, track: TrackId, size: u32) -> Option<slint::Image> {
+pub(crate) fn artwork_image(
+    lib: &od_library::Library,
+    track: TrackId,
+    size: u32,
+) -> Option<slint::Image> {
     let (data, _) = lib.artwork(track).ok().flatten()?;
     crate::render::artwork_thumbnail(&data, size)
 }
@@ -1056,33 +1321,59 @@ pub(crate) fn artwork_image(lib: &od_library::Library, track: TrackId, size: u32
 /// Fills the info panel from the current track.
 pub(crate) fn refresh_info(app: &App) {
     let st = app.state.borrow();
-    let info = st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| crate::TrackInfo {
-        has_track: true,
-        read_only: st.read_only(),
-        title: t.tags.title.clone().into(),
-        artist: t.tags.artist.clone().into(),
-        album: t.tags.album.clone().into(),
-        genre: t.tags.genre.clone().into(),
-        label: t.tags.label.clone().into(),
-        remixer: t.tags.remixer.clone().into(),
-        composer: t.tags.composer.clone().into(),
-        year: t.tags.year.map(|y| y.to_string()).unwrap_or_default().into(),
-        comment: t.tags.comment.clone().into(),
-        bpm: t.bpm.map(|b| format!("{b:.2}")).unwrap_or_default().into(),
-        key: st.key_text(&t).into(),
-        time: crate::format::time(t.duration).into(),
-        path: st.resolve(&t.path).display().to_string().into(),
-        added: t.date_added.clone().into(),
-        plays: t.play_count.to_string().into(),
-        file_type: t.format.map(|f| format!("{f:?}").to_uppercase()).unwrap_or_default().into(),
-        size: crate::format::bytes(t.file_size).into(),
-        sample_rate: if t.sample_rate > 0 { format!("{:.1} kHz", t.sample_rate as f64 / 1000.0) } else { String::new() }.into(),
-        bitrate: t.bit_rate.map(|b| format!("{b} kbps")).unwrap_or_default().into(),
-        has_artwork: false,
-        artwork: Default::default(),
-    });
+    let info = st
+        .player
+        .current
+        .and_then(|id| st.src().track(id).ok())
+        .map(|t| crate::TrackInfo {
+            has_track: true,
+            read_only: st.read_only(),
+            title: t.tags.title.clone().into(),
+            artist: t.tags.artist.clone().into(),
+            album: t.tags.album.clone().into(),
+            genre: t.tags.genre.clone().into(),
+            label: t.tags.label.clone().into(),
+            remixer: t.tags.remixer.clone().into(),
+            composer: t.tags.composer.clone().into(),
+            year: t
+                .tags
+                .year
+                .map(|y| y.to_string())
+                .unwrap_or_default()
+                .into(),
+            comment: t.tags.comment.clone().into(),
+            bpm: t.bpm.map(|b| format!("{b:.2}")).unwrap_or_default().into(),
+            key: st.key_text(&t).into(),
+            time: crate::format::time(t.duration).into(),
+            path: st.resolve(&t.path).display().to_string().into(),
+            added: t.date_added.clone().into(),
+            plays: t.play_count.to_string().into(),
+            file_type: t
+                .format
+                .map(|f| format!("{f:?}").to_uppercase())
+                .unwrap_or_default()
+                .into(),
+            size: crate::format::bytes(t.file_size).into(),
+            sample_rate: if t.sample_rate > 0 {
+                format!("{:.1} kHz", t.sample_rate as f64 / 1000.0)
+            } else {
+                String::new()
+            }
+            .into(),
+            bitrate: t
+                .bit_rate
+                .map(|b| format!("{b} kbps"))
+                .unwrap_or_default()
+                .into(),
+            has_artwork: false,
+            artwork: Default::default(),
+        });
     let info = info.map(|mut i| {
-        if let Some(img) = st.player.current.and_then(|id| artwork_image(st.src(), id, 264)) {
+        if let Some(img) = st
+            .player
+            .current
+            .and_then(|id| artwork_image(st.src(), id, 264))
+        {
             i.has_artwork = true;
             i.artwork = img;
         }
@@ -1110,7 +1401,10 @@ mod tag_tests {
         set_tag_field(&mut t, "comment", "warm-up opener");
         set_tag_field(&mut t, "year", "2019");
         set_tag_field(&mut t, "genre", "Drum & Bass");
-        assert_eq!((t.comment.as_str(), t.year, t.genre.as_str()), ("warm-up opener", Some(2019), "Drum & Bass"));
+        assert_eq!(
+            (t.comment.as_str(), t.year, t.genre.as_str()),
+            ("warm-up opener", Some(2019), "Drum & Bass")
+        );
         set_tag_field(&mut t, "year", "");
         assert_eq!(t.year, None);
     }
@@ -1125,9 +1419,18 @@ mod tests {
     /// library's rating and colour.
     #[test]
     fn row_menu_cue_tools_and_tag_reload() {
-        let mut cues = vec![Cue::hot(0, 30.0), Cue::memory(20.0), Cue::memory(5.0), Cue::hot(3, 10.0)];
+        let mut cues = vec![
+            Cue::hot(0, 30.0),
+            Cue::memory(20.0),
+            Cue::memory(5.0),
+            Cue::hot(3, 10.0),
+        ];
         assert!(super::memory_to_hot(&mut cues));
-        assert_eq!(cues[2].kind, CueKind::Hot(1), "earliest memory cue takes the first free pad");
+        assert_eq!(
+            cues[2].kind,
+            CueKind::Hot(1),
+            "earliest memory cue takes the first free pad"
+        );
         assert_eq!(cues[1].kind, CueKind::Hot(2));
         assert!(!super::memory_to_hot(&mut cues), "no memory cues left");
         assert!(super::sort_hot_cues(&mut cues));
@@ -1136,12 +1439,33 @@ mod tests {
             v.sort_by(|a, b| a.0.total_cmp(&b.0));
             v
         };
-        assert_eq!(by_time.iter().map(|(_, k)| *k).collect::<Vec<_>>(), [CueKind::Hot(0), CueKind::Hot(1), CueKind::Hot(2), CueKind::Hot(3)], "A is the earliest");
+        assert_eq!(
+            by_time.iter().map(|(_, k)| *k).collect::<Vec<_>>(),
+            [
+                CueKind::Hot(0),
+                CueKind::Hot(1),
+                CueKind::Hot(2),
+                CueKind::Hot(3)
+            ],
+            "A is the earliest"
+        );
         assert!(!super::sort_hot_cues(&mut cues), "already sorted");
-        let old = od_core::TrackTags { title: "Old".into(), rating: 4, color: super::menu_color(2), ..Default::default() };
-        let file = od_core::TrackTags { title: "From file".into(), artist: "Artist".into(), ..Default::default() };
+        let old = od_core::TrackTags {
+            title: "Old".into(),
+            rating: 4,
+            color: super::menu_color(2),
+            ..Default::default()
+        };
+        let file = od_core::TrackTags {
+            title: "From file".into(),
+            artist: "Artist".into(),
+            ..Default::default()
+        };
         let t = super::reload_tags(old, file);
-        assert_eq!((t.title.as_str(), t.artist.as_str(), t.rating), ("From file", "Artist", 4));
+        assert_eq!(
+            (t.title.as_str(), t.artist.as_str(), t.rating),
+            ("From file", "Artist", 4)
+        );
         assert_eq!(t.color, super::menu_color(2));
     }
 }

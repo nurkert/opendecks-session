@@ -4,12 +4,13 @@ use crate::app::App;
 use crate::{browser, decks, engine, fx, recorder, sampler};
 use od_controller::io::{ControllerEvent, ControllerManager};
 use od_controller::{
-    BeatFxAction, ColorFxAction, ControlAction, ControlFeedback, CrossfaderSide, DeckAction, DeckElement, FeedbackTarget, LedState, MixerAction,
-    MixerElement, PadMode, SamplerAction, StemPart,
+    BeatFxAction, ColorFxAction, ControlAction, ControlFeedback, CrossfaderSide, DeckAction,
+    DeckElement, FeedbackTarget, LedState, MixerAction, MixerElement, PadMode, SamplerAction,
+    StemPart,
 };
 use od_engine::{
-    BEAT_FX_UNITS, BeatFxCommand, ChannelCommand, Command, DeckCommand, JogMode, MemoryCueJump, MixerCommand, ReleaseFxKind, SamplerCommand, Stem, TempoRange,
-    XfAssign,
+    BEAT_FX_UNITS, BeatFxCommand, ChannelCommand, Command, DeckCommand, JogMode, MemoryCueJump,
+    MixerCommand, ReleaseFxKind, SamplerCommand, Stem, TempoRange, XfAssign,
 };
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -49,7 +50,10 @@ pub(crate) fn mapping_names() -> Vec<String> {
     let mut v: Vec<String> = od_controller::Mapping::load_dir(&mappings_dir())
         .into_iter()
         .map(|(path, m)| {
-            let file = path.file_name().map(|f| f.to_string_lossy().into_owned()).unwrap_or_default();
+            let file = path
+                .file_name()
+                .map(|f| f.to_string_lossy().into_owned())
+                .unwrap_or_default();
             match m {
                 Ok(m) => format!("{} — {file}", m.file.device.name),
                 Err(e) => format!("{file} — {e}"),
@@ -89,12 +93,22 @@ pub(crate) fn start(app: &Rc<App>) {
 /// The controller layer's MIDI monitor (Preferences ▸ Controller: monitor
 /// and learn), once the layer runs.
 pub(crate) fn monitor(app: &App) -> Option<od_controller::monitor::MidiMonitor> {
-    app.controller.borrow().manager.as_ref().map(|m| m.monitor().clone())
+    app.controller
+        .borrow()
+        .manager
+        .as_ref()
+        .map(|m| m.monitor().clone())
 }
 
 /// Frame tick: controller events.
 pub(crate) fn poll(app: &App) {
-    let events: Vec<ControllerEvent> = app.controller.borrow().manager.as_ref().map(|c| c.events().try_iter().collect()).unwrap_or_default();
+    let events: Vec<ControllerEvent> = app
+        .controller
+        .borrow()
+        .manager
+        .as_ref()
+        .map(|c| c.events().try_iter().collect())
+        .unwrap_or_default();
     for e in events {
         match e {
             ControllerEvent::Action { action, .. } => {
@@ -133,41 +147,73 @@ fn trim_db(v: f32) -> f32 {
 
 fn handle_action(app: &App, action: ControlAction) {
     match action {
-        ControlAction::Deck { deck, action } => deck_action(app, (deck as usize).saturating_sub(1).min(decks::DECKS - 1), action),
+        ControlAction::Deck { deck, action } => deck_action(
+            app,
+            (deck as usize).saturating_sub(1).min(decks::DECKS - 1),
+            action,
+        ),
         ControlAction::Mixer { channel, action } => {
             let c = (channel as usize).saturating_sub(1).min(decks::DECKS - 1);
             let cmd = match action {
                 MixerAction::Trim(v) => ChannelCommand::SetTrim(trim_db(v)),
-                MixerAction::EqHigh(v) => ChannelCommand::SetEq { band: 2, value: v * 2.0 - 1.0 },
-                MixerAction::EqMid(v) => ChannelCommand::SetEq { band: 1, value: v * 2.0 - 1.0 },
-                MixerAction::EqLow(v) => ChannelCommand::SetEq { band: 0, value: v * 2.0 - 1.0 },
+                MixerAction::EqHigh(v) => ChannelCommand::SetEq {
+                    band: 2,
+                    value: v * 2.0 - 1.0,
+                },
+                MixerAction::EqMid(v) => ChannelCommand::SetEq {
+                    band: 1,
+                    value: v * 2.0 - 1.0,
+                },
+                MixerAction::EqLow(v) => ChannelCommand::SetEq {
+                    band: 0,
+                    value: v * 2.0 - 1.0,
+                },
                 MixerAction::ColorFx(v) => ChannelCommand::SetColorFxAmount(v),
                 MixerAction::Fader(v) => ChannelCommand::SetFader(v),
                 MixerAction::CueToggle => {
-                    let on = engine::snapshot(app).map(|s| s.channels[c].cue).unwrap_or(false);
+                    let on = engine::snapshot(app)
+                        .map(|s| s.channels[c].cue)
+                        .unwrap_or(false);
                     ChannelCommand::SetCue(!on)
                 }
-                MixerAction::CrossfaderAssign(side) => ChannelCommand::SetCrossfaderAssign(match side {
-                    CrossfaderSide::A => XfAssign::A,
-                    CrossfaderSide::B => XfAssign::B,
-                    CrossfaderSide::Thru => XfAssign::Thru,
-                }),
+                MixerAction::CrossfaderAssign(side) => {
+                    ChannelCommand::SetCrossfaderAssign(match side {
+                        CrossfaderSide::A => XfAssign::A,
+                        CrossfaderSide::B => XfAssign::B,
+                        CrossfaderSide::Thru => XfAssign::Thru,
+                    })
+                }
             };
             engine::send(app, Command::Channel(c, cmd));
         }
-        ControlAction::Crossfader(v) => engine::send(app, Command::Mixer(MixerCommand::SetCrossfader(v * 2.0 - 1.0))),
-        ControlAction::MasterLevel(v) => engine::send(app, Command::Mixer(MixerCommand::SetMasterLevel(v))),
-        ControlAction::HeadphoneMix(v) => engine::send(app, Command::Mixer(MixerCommand::SetHeadphoneMix(v))),
-        ControlAction::HeadphoneLevel(v) => engine::send(app, Command::Mixer(MixerCommand::SetHeadphoneLevel(v))),
+        ControlAction::Crossfader(v) => engine::send(
+            app,
+            Command::Mixer(MixerCommand::SetCrossfader(v * 2.0 - 1.0)),
+        ),
+        ControlAction::MasterLevel(v) => {
+            engine::send(app, Command::Mixer(MixerCommand::SetMasterLevel(v)))
+        }
+        ControlAction::HeadphoneMix(v) => {
+            engine::send(app, Command::Mixer(MixerCommand::SetHeadphoneMix(v)))
+        }
+        ControlAction::HeadphoneLevel(v) => {
+            engine::send(app, Command::Mixer(MixerCommand::SetHeadphoneLevel(v)))
+        }
         ControlAction::Browse(b) => browser::navigate::controller(app, &b),
         ControlAction::RecordingToggle => recorder::toggle_from_controller(app),
         ControlAction::Lighting(l) => crate::lighting::controller(app, l),
-        ControlAction::BoothLevel(v) => engine::send(app, Command::Mixer(MixerCommand::SetBoothLevel(v))),
+        ControlAction::BoothLevel(v) => {
+            engine::send(app, Command::Mixer(MixerCommand::SetBoothLevel(v)))
+        }
         ControlAction::MasterCue => {
             let on = engine::snapshot(app).map(|s| s.master_cue).unwrap_or(false);
             engine::send(app, Command::Mixer(MixerCommand::SetMasterCue(!on)));
         }
-        ControlAction::BeatFx { unit, action } => beat_fx_action(app, (unit as usize).saturating_sub(1).min(BEAT_FX_UNITS - 1), action),
+        ControlAction::BeatFx { unit, action } => beat_fx_action(
+            app,
+            (unit as usize).saturating_sub(1).min(BEAT_FX_UNITS - 1),
+            action,
+        ),
         ControlAction::ColorFx(a) => match a {
             ColorFxAction::Select(name) => match color_fx_by_name(&name) {
                 Some(i) => fx::select_color_fx(app, i),
@@ -203,7 +249,11 @@ fn beat_fx_action(app: &App, u: usize, action: BeatFxAction) {
             Some(k) => fx::send(app, u, BeatFxCommand::SetKind(k)),
             None => tracing::warn!(name, "unknown Beat FX in mapping"),
         },
-        BeatFxAction::Assign(ch) => fx::send(app, u, BeatFxCommand::SetTarget(fx::target_from_number(ch as i32))),
+        BeatFxAction::Assign(ch) => fx::send(
+            app,
+            u,
+            BeatFxCommand::SetTarget(fx::target_from_number(ch as i32)),
+        ),
     }
 }
 
@@ -211,8 +261,15 @@ fn beat_fx_action(app: &App, u: usize, action: BeatFxAction) {
 fn sampler_action(app: &App, a: SamplerAction) {
     let bank = app.sampler.bank.get();
     match a {
-        SamplerAction::Pad { slot, pressed, .. } => sampler::trigger(app, sampler::slot_of(bank, slot as usize), pressed),
-        SamplerAction::Stop { slot } => engine::send(app, Command::Sampler(SamplerCommand::Stop { slot: sampler::slot_of(bank, slot as usize) })),
+        SamplerAction::Pad { slot, pressed, .. } => {
+            sampler::trigger(app, sampler::slot_of(bank, slot as usize), pressed)
+        }
+        SamplerAction::Stop { slot } => engine::send(
+            app,
+            Command::Sampler(SamplerCommand::Stop {
+                slot: sampler::slot_of(bank, slot as usize),
+            }),
+        ),
         SamplerAction::BankNext => sampler::step_bank_by(app, 1),
         SamplerAction::BankPrev => sampler::step_bank_by(app, -1),
         SamplerAction::Volume(v) => sampler::set_volume(app, v),
@@ -262,10 +319,20 @@ fn deck_action(app: &App, d: usize, action: DeckAction) {
             decks::memory_cue(app, d, false);
             None
         }
-        DeckAction::StemLevel { stem, level } => Some(DeckCommand::SetStemLevel { stem: stem_of(stem), level }),
+        DeckAction::StemLevel { stem, level } => Some(DeckCommand::SetStemLevel {
+            stem: stem_of(stem),
+            level,
+        }),
         DeckAction::StemMuteToggle { stem } => {
             let st = stem_of(stem);
-            Some(DeckCommand::SetStemLevel { stem: st, level: if s.stem_levels[st.index()] < 0.5 { 1.0 } else { 0.0 } })
+            Some(DeckCommand::SetStemLevel {
+                stem: st,
+                level: if s.stem_levels[st.index()] < 0.5 {
+                    1.0
+                } else {
+                    0.0
+                },
+            })
         }
         DeckAction::Tempo(v) => Some(DeckCommand::SetTempoFader(v)),
         DeckAction::TempoRange => Some(DeckCommand::SetTempoRange(next_tempo_range(s.tempo_range))),
@@ -284,25 +351,49 @@ fn deck_action(app: &App, d: usize, action: DeckAction) {
             if jm != s.jog_mode {
                 engine::deck_cmd(app, d, DeckCommand::SetJogMode(jm));
             }
-            let scale = if matches!(mode, od_controller::JogMode::Search) { 8.0 } else { 1.0 };
+            let scale = if matches!(mode, od_controller::JogMode::Search) {
+                8.0
+            } else {
+                1.0
+            };
             Some(DeckCommand::JogTurn(ticks as f32 / 720.0 * scale))
         }
-        DeckAction::HotCue { slot, pressed } => Some(DeckCommand::HotCue { slot: slot as usize, pressed }),
-        DeckAction::HotCueDelete { slot } => Some(DeckCommand::DeleteHotCue { slot: slot as usize }),
+        DeckAction::HotCue { slot, pressed } => Some(DeckCommand::HotCue {
+            slot: slot as usize,
+            pressed,
+        }),
+        DeckAction::HotCueDelete { slot } => Some(DeckCommand::DeleteHotCue {
+            slot: slot as usize,
+        }),
         DeckAction::MemoryCuePrev => Some(DeckCommand::MemoryCue(MemoryCueJump::Previous)),
         DeckAction::MemoryCueNext => Some(DeckCommand::MemoryCue(MemoryCueJump::Next)),
         DeckAction::LoopIn => Some(DeckCommand::LoopIn),
         DeckAction::LoopOut => Some(DeckCommand::LoopOut),
-        DeckAction::AutoLoop { beats } => Some(DeckCommand::AutoLoop { beats: beats as f64 }),
-        DeckAction::LoopRoll { beats, pressed } => Some(DeckCommand::LoopRoll { beats: beats as f64, on: pressed }),
+        DeckAction::AutoLoop { beats } => Some(DeckCommand::AutoLoop {
+            beats: beats as f64,
+        }),
+        DeckAction::LoopRoll { beats, pressed } => Some(DeckCommand::LoopRoll {
+            beats: beats as f64,
+            on: pressed,
+        }),
         DeckAction::LoopHalve => Some(DeckCommand::LoopHalve),
         DeckAction::LoopDouble => Some(DeckCommand::LoopDouble),
-        DeckAction::ReloopExit => Some(if s.loop_state.active { DeckCommand::LoopExit } else { DeckCommand::Reloop }),
-        DeckAction::BeatJump { beats } => Some(DeckCommand::BeatJump { beats: beats as f64 }),
+        DeckAction::ReloopExit => Some(if s.loop_state.active {
+            DeckCommand::LoopExit
+        } else {
+            DeckCommand::Reloop
+        }),
+        DeckAction::BeatJump { beats } => Some(DeckCommand::BeatJump {
+            beats: beats as f64,
+        }),
         DeckAction::Slip => Some(DeckCommand::SetSlip(!s.slip)),
         DeckAction::Reverse => Some(DeckCommand::SetReverse(!s.reverse)),
         DeckAction::Censor(on) => Some(DeckCommand::Censor(on)),
-        DeckAction::VinylMode => Some(DeckCommand::SetJogMode(if s.jog_mode == JogMode::Vinyl { JogMode::Bend } else { JogMode::Vinyl })),
+        DeckAction::VinylMode => Some(DeckCommand::SetJogMode(if s.jog_mode == JogMode::Vinyl {
+            JogMode::Bend
+        } else {
+            JogMode::Vinyl
+        })),
         DeckAction::NeedleSearch(f) => Some(DeckCommand::NeedleSearch { fraction: f as f64 }),
         DeckAction::Shift(on) => {
             app.decks.borrow_mut().shift[d] = on;
@@ -330,27 +421,42 @@ fn deck_action(app: &App, d: usize, action: DeckAction) {
 
 /// LED feedback from the engine state (every 40 ms).
 pub(crate) fn feedback(app: &App) {
-    let Some(state) = engine::snapshot(app) else { return };
+    let Some(state) = engine::snapshot(app) else {
+        return;
+    };
     let recording = app.recorder.borrow().is_recording();
     if app.controller.borrow().manager.is_none() {
         return;
     }
     let color_fx = app.state.borrow().settings.perform.color_fx.clone();
     let modes = app.decks.borrow().pad_mode;
-    let pad_rows: Vec<Vec<crate::PadView>> = (0..decks::DECKS).map(|d| decks::pad_rows(app, d, &state)).collect();
+    let pad_rows: Vec<Vec<crate::PadView>> = (0..decks::DECKS)
+        .map(|d| decks::pad_rows(app, d, &state))
+        .collect();
     let c = app.controller.borrow();
-    let Some(ctrl) = c.manager.as_ref() else { return };
+    let Some(ctrl) = c.manager.as_ref() else {
+        return;
+    };
     for d in 0..decks::DECKS {
         let s = &state.decks[d];
         let deck = d as u8 + 1;
-        let led = |el: DeckElement, on: bool| ControlFeedback::led(FeedbackTarget::Deck { deck, element: el }, on);
+        let led = |el: DeckElement, on: bool| {
+            ControlFeedback::led(FeedbackTarget::Deck { deck, element: el }, on)
+        };
         let blink_cue = !s.playing && s.track.is_some();
         ctrl.send_feedback(None, led(DeckElement::Play, s.playing));
         ctrl.send_feedback(
             None,
             ControlFeedback::led_state(
-                FeedbackTarget::Deck { deck, element: DeckElement::Cue },
-                if blink_cue { od_controller::LedState::Blink } else { od_controller::LedState::from_bool(s.playing) },
+                FeedbackTarget::Deck {
+                    deck,
+                    element: DeckElement::Cue,
+                },
+                if blink_cue {
+                    od_controller::LedState::Blink
+                } else {
+                    od_controller::LedState::from_bool(s.playing)
+                },
             ),
         );
         ctrl.send_feedback(None, led(DeckElement::Sync, s.sync));
@@ -365,7 +471,16 @@ pub(crate) fn feedback(app: &App) {
         ctrl.send_feedback(None, led(DeckElement::Reverse, s.reverse));
         ctrl.send_feedback(None, led(DeckElement::Vinyl, s.jog_mode == JogMode::Vinyl));
         for slot in 0..8u8 {
-            ctrl.send_feedback(None, led(DeckElement::Pad { mode: PadMode::HotCue, index: slot }, s.hot_cues[slot as usize].is_some()));
+            ctrl.send_feedback(
+                None,
+                led(
+                    DeckElement::Pad {
+                        mode: PadMode::HotCue,
+                        index: slot,
+                    },
+                    s.hot_cues[slot as usize].is_some(),
+                ),
+            );
         }
         // The pad mode buttons, and the pads of the current mode.
         let mode = modes[d];
@@ -374,24 +489,72 @@ pub(crate) fn feedback(app: &App) {
         }
         if mode != PadMode::HotCue {
             for p in &pad_rows[d] {
-                let target = FeedbackTarget::Deck { deck, element: DeckElement::Pad { mode, index: p.index as u8 } };
-                ctrl.send_feedback(None, ControlFeedback::led_state(target, pad_led(p.set, p.lit)));
+                let target = FeedbackTarget::Deck {
+                    deck,
+                    element: DeckElement::Pad {
+                        mode,
+                        index: p.index as u8,
+                    },
+                };
+                ctrl.send_feedback(
+                    None,
+                    ControlFeedback::led_state(target, pad_led(p.set, p.lit)),
+                );
             }
         }
-        ctrl.send_feedback(None, ControlFeedback::level(FeedbackTarget::Mixer { channel: deck, element: MixerElement::Vu }, state.channels[d].meter.peak.min(1.0)));
-        ctrl.send_feedback(None, ControlFeedback::led(FeedbackTarget::Mixer { channel: deck, element: MixerElement::Cue }, state.channels[d].cue));
+        ctrl.send_feedback(
+            None,
+            ControlFeedback::level(
+                FeedbackTarget::Mixer {
+                    channel: deck,
+                    element: MixerElement::Vu,
+                },
+                state.channels[d].meter.peak.min(1.0),
+            ),
+        );
+        ctrl.send_feedback(
+            None,
+            ControlFeedback::led(
+                FeedbackTarget::Mixer {
+                    channel: deck,
+                    element: MixerElement::Cue,
+                },
+                state.channels[d].cue,
+            ),
+        );
     }
     for u in 0..BEAT_FX_UNITS {
         let unit = u as u8 + 1;
-        ctrl.send_feedback(None, ControlFeedback::led(FeedbackTarget::BeatFxOn { unit }, state.beat_fx[u].on));
-        ctrl.send_feedback(None, ControlFeedback::led(FeedbackTarget::BeatFxRelease { unit }, state.beat_fx[u].release.is_some()));
+        ctrl.send_feedback(
+            None,
+            ControlFeedback::led(FeedbackTarget::BeatFxOn { unit }, state.beat_fx[u].on),
+        );
+        ctrl.send_feedback(
+            None,
+            ControlFeedback::led(
+                FeedbackTarget::BeatFxRelease { unit },
+                state.beat_fx[u].release.is_some(),
+            ),
+        );
     }
     for name in crate::settings::COLOR_FX {
-        ctrl.send_feedback(None, ControlFeedback::led(FeedbackTarget::ColorFx(name.to_string()), name == color_fx));
+        ctrl.send_feedback(
+            None,
+            ControlFeedback::led(FeedbackTarget::ColorFx(name.to_string()), name == color_fx),
+        );
     }
-    ctrl.send_feedback(None, ControlFeedback::led(FeedbackTarget::SamplerCue, state.sampler_cue));
-    ctrl.send_feedback(None, ControlFeedback::led(FeedbackTarget::MasterCue, state.master_cue));
-    ctrl.send_feedback(None, ControlFeedback::led(FeedbackTarget::Recording, recording));
+    ctrl.send_feedback(
+        None,
+        ControlFeedback::led(FeedbackTarget::SamplerCue, state.sampler_cue),
+    );
+    ctrl.send_feedback(
+        None,
+        ControlFeedback::led(FeedbackTarget::MasterCue, state.master_cue),
+    );
+    ctrl.send_feedback(
+        None,
+        ControlFeedback::led(FeedbackTarget::Recording, recording),
+    );
 }
 
 /// Pad LED of a non-hot-cue mode: on while engaged, dim when it has
@@ -429,7 +592,19 @@ mod tests {
         assert_eq!(color_fx_by_name("laser"), None);
         // Every Beat FX name of the FLX10 mapping resolves to an effect.
         for n in [
-            "low_cut_echo", "echo", "multi_tap_delay", "spiral", "reverb", "trans", "enigma_jet", "flanger", "phaser", "stretch", "slip_roll", "roll", "mobius_saw",
+            "low_cut_echo",
+            "echo",
+            "multi_tap_delay",
+            "spiral",
+            "reverb",
+            "trans",
+            "enigma_jet",
+            "flanger",
+            "phaser",
+            "stretch",
+            "slip_roll",
+            "roll",
+            "mobius_saw",
             "mobius_triangle",
         ] {
             assert!(fx::kind_from_name(n).is_some(), "{n}");

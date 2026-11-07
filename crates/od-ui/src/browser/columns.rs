@@ -21,12 +21,27 @@ pub(crate) struct Column {
     pub sort: &'static str,
 }
 
-const fn col(id: &'static str, title: &'static str, width: f32, stretch: f32, right: bool, sort: &'static str) -> Column {
-    Column { id, title, width, stretch, right, sort }
+const fn col(
+    id: &'static str,
+    title: &'static str,
+    width: f32,
+    stretch: f32,
+    right: bool,
+    sort: &'static str,
+) -> Column {
+    Column {
+        id,
+        title,
+        width,
+        stretch,
+        right,
+        sort,
+    }
 }
 
 /// Every column, in the order of the column menu.
 pub(crate) const COLUMNS: &[Column] = &[
+    col("artwork", "ART", 34.0, 0.0, false, ""),
     col("preview", "PREVIEW", 116.0, 0.0, false, ""),
     col("title", "TITLE", 0.0, 3.0, false, "title"),
     col("artist", "ARTIST", 0.0, 2.0, false, "artist"),
@@ -47,11 +62,15 @@ pub(crate) const COLUMNS: &[Column] = &[
 ];
 
 /// The columns of a fresh install.
-pub(crate) const DEFAULT_COLUMNS: &[&str] = &["preview", "title", "artist", "genre", "bpm", "key", "time", "rating"];
+pub(crate) const DEFAULT_COLUMNS: &[&str] = &[
+    "artwork", "preview", "title", "artist", "genre", "bpm", "key", "time", "rating",
+];
 
 /// The columns of an Explorer folder (files that may not be in the
 /// collection: no genre, rating or play data).
-pub(crate) const EXPLORER_COLUMNS: &[&str] = &["preview", "title", "bpm", "key", "artist", "time"];
+pub(crate) const EXPLORER_COLUMNS: &[&str] = &[
+    "artwork", "preview", "title", "bpm", "key", "artist", "time",
+];
 
 /// The column that cannot be hidden.
 pub(crate) const FIXED: &str = "title";
@@ -96,7 +115,9 @@ pub(crate) fn toggle(ids: &[String], id: &str) -> Vec<String> {
 /// move; dropping on a column puts it in that column's place).
 pub(crate) fn move_to(ids: &[String], id: &str, to: usize) -> Vec<String> {
     let mut v = sanitize(ids);
-    let Some(from) = v.iter().position(|c| c == id) else { return v };
+    let Some(from) = v.iter().position(|c| c == id) else {
+        return v;
+    };
     let c = v.remove(from);
     v.insert(to.min(v.len()), c);
     v
@@ -104,14 +125,26 @@ pub(crate) fn move_to(ids: &[String], id: &str, to: usize) -> Vec<String> {
 
 /// Secondary sort after ⇧-click on `column`: added (default direction),
 /// reversed when already there; the primary column is never secondary.
-pub(crate) fn shift_sort(then: &[SortSpec], primary: &str, column: &str, default_descending: bool) -> Vec<SortSpec> {
-    let mut v: Vec<SortSpec> = then.iter().filter(|s| s.column != primary).cloned().collect();
+pub(crate) fn shift_sort(
+    then: &[SortSpec],
+    primary: &str,
+    column: &str,
+    default_descending: bool,
+) -> Vec<SortSpec> {
+    let mut v: Vec<SortSpec> = then
+        .iter()
+        .filter(|s| s.column != primary)
+        .cloned()
+        .collect();
     if column == primary {
         return v;
     }
     match v.iter_mut().find(|s| s.column == column) {
         Some(s) => s.descending = !s.descending,
-        None => v.push(SortSpec { column: column.to_string(), descending: default_descending }),
+        None => v.push(SortSpec {
+            column: column.to_string(),
+            descending: default_descending,
+        }),
     }
     v.truncate(3);
     v
@@ -123,10 +156,17 @@ pub(crate) fn refresh(app: &App) {
     // A folder of the Explorer: the reduced set that files on disk carry.
     // The touch screen leaves out TIME there (room for 44 px header keys).
     let ids: Vec<String> = if st.explorer.open.is_some() {
-        EXPLORER_COLUMNS.iter().filter(|c| !(st.config.kiosk && **c == "time")).map(|s| s.to_string()).collect()
+        EXPLORER_COLUMNS
+            .iter()
+            .filter(|c| !(st.config.kiosk && **c == "time"))
+            .map(|s| s.to_string())
+            .collect()
     } else {
         sanitize(&st.settings.browser.columns)
     };
+    // The 800 px touch screen has no room for the ARTWORK column (the deck
+    // headers show the cover).
+    let ids: Vec<String> = ids.into_iter().filter(|c| !(st.config.kiosk && c == "artwork")).collect();
     let b = &st.browser;
     let kiosk = st.config.kiosk;
     let then = &st.settings.browser.sort_then;
@@ -137,14 +177,21 @@ pub(crate) fn refresh(app: &App) {
             let (rank, descending) = if !c.sort.is_empty() && c.sort == b.sort {
                 (1, b.descending)
             } else {
-                then.iter().position(|s| s.column == c.sort && !c.sort.is_empty()).map(|i| (i as i32 + 2, then[i].descending)).unwrap_or((0, false))
+                then.iter()
+                    .position(|s| s.column == c.sort && !c.sort.is_empty())
+                    .map(|i| (i as i32 + 2, then[i].descending))
+                    .unwrap_or((0, false))
             };
             ColumnView {
                 id: c.id.into(),
                 title: od_i18n::tr(c.title).into(),
                 // The touch screen keeps the preview narrow (room for the
                 // 44 px wide header keys).
-                width: if kiosk && c.id == "preview" { 60.0 } else { c.width },
+                width: if kiosk && c.id == "preview" {
+                    60.0
+                } else {
+                    c.width
+                },
                 stretch: c.stretch,
                 right: c.right,
                 sort: c.sort.into(),
@@ -156,7 +203,11 @@ pub(crate) fn refresh(app: &App) {
     let choices: Vec<ColumnChoice> = COLUMNS
         .iter()
         .filter(|c| c.id != FIXED)
-        .map(|c| ColumnChoice { id: c.id.into(), title: od_i18n::tr(c.title).into(), visible: ids.iter().any(|i| i == c.id) })
+        .map(|c| ColumnChoice {
+            id: c.id.into(),
+            title: od_i18n::tr(c.title).into(),
+            visible: ids.iter().any(|i| i == c.id),
+        })
         .collect();
     app.ui.set_columns(model(views));
     app.ui.set_column_choices(model(choices));
@@ -173,14 +224,24 @@ mod tests {
     #[test]
     fn choice_keeps_title_and_known_ids() {
         assert_eq!(sanitize(&[]), ids(DEFAULT_COLUMNS));
-        assert_eq!(sanitize(&ids(&["bpm", "nonsense", "bpm"])), ids(&["title", "bpm"]));
+        assert_eq!(
+            sanitize(&ids(&["bpm", "nonsense", "bpm"])),
+            ids(&["title", "bpm"])
+        );
         let v = toggle(&ids(DEFAULT_COLUMNS), "album");
         assert_eq!(v[v.len() - 2], "album", "new columns go before the rating");
         assert!(!toggle(&v, "album").contains(&"album".to_string()));
-        assert!(toggle(&v, "title").contains(&"title".to_string()), "the title cannot be hidden");
+        assert!(
+            toggle(&v, "title").contains(&"title".to_string()),
+            "the title cannot be hidden"
+        );
         for c in COLUMNS {
             assert!(od_i18n::has_german(c.title), "no German for {}", c.title);
-            assert!(c.sort.is_empty() || crate::browser::sort_key_known(c.sort), "{} sorts by a known key", c.id);
+            assert!(
+                c.sort.is_empty() || crate::browser::sort_key_known(c.sort),
+                "{} sorts by a known key",
+                c.id
+            );
         }
     }
 
@@ -188,13 +249,26 @@ mod tests {
     fn reorder_and_secondary_sort() {
         let v = move_to(&ids(&["title", "artist", "bpm", "key"]), "key", 1);
         assert_eq!(v, ids(&["title", "key", "artist", "bpm"]));
-        assert_eq!(move_to(&v, "title", 99), ids(&["key", "artist", "bpm", "title"]));
+        assert_eq!(
+            move_to(&v, "title", 99),
+            ids(&["key", "artist", "bpm", "title"])
+        );
         let t = shift_sort(&[], "title", "bpm", true);
-        assert_eq!(t, vec![SortSpec { column: "bpm".into(), descending: true }]);
+        assert_eq!(
+            t,
+            vec![SortSpec {
+                column: "bpm".into(),
+                descending: true
+            }]
+        );
         let t = shift_sort(&t, "title", "bpm", true);
         assert!(!t[0].descending, "⇧-click again reverses");
         let t = shift_sort(&t, "title", "key", false);
         assert_eq!(t.len(), 2);
-        assert_eq!(shift_sort(&t, "bpm", "bpm", true).len(), 1, "the primary column leaves the secondary list");
+        assert_eq!(
+            shift_sort(&t, "bpm", "bpm", true).len(),
+            1,
+            "the primary column leaves the secondary list"
+        );
     }
 }

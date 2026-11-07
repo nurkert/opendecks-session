@@ -112,6 +112,7 @@ const DE: &[(&str, &str)] = &[
     ("Controller connected: {}", "Controller verbunden: {}"),
     ("Controller disconnected: {}", "Controller getrennt: {}"),
     ("Loaded {} on deck {}", "{} auf Deck {} geladen"),
+    ("Could not load {}", "{} konnte nicht geladen werden"),
     ("Stems ready on deck {}", "Stems auf Deck {} bereit"),
     ("Downloading the stem model … {} %", "Stem-Modell wird geladen … {} %"),
     ("OpenDecks Session {} is available", "OpenDecks Session {} ist verfügbar"),
@@ -315,6 +316,7 @@ const DE: &[(&str, &str)] = &[
     ("Tapped tempo: {} BPM", "Getapptes Tempo: {} BPM"),
     // Browser: columns, filter, My Tag, tag list, related tracks, histories.
     ("PREVIEW", "VORSCHAU"),
+    ("ART", "COVER"),
     ("TITLE", "TITEL"),
     ("ARTIST", "INTERPRET"),
     ("ALBUM", "ALBUM"),

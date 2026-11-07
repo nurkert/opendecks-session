@@ -11,7 +11,9 @@
 use crate::app::{App, handler};
 use crate::models::{Rows, model};
 use crate::player::{cue_marks, phrase_marks};
-use crate::{CueMark, DeckView, LaneMotion, PadView, PhraseMark, engine, format, pads, player, render};
+use crate::{
+    CueMark, DeckView, LaneMotion, PadView, PhraseMark, engine, format, pads, player, render,
+};
 use crossbeam_channel::{Receiver, Sender, unbounded};
 use od_controller::PadMode;
 use od_core::{Beatgrid, CueKind, TrackId, Waveform};
@@ -62,40 +64,75 @@ const META_PERFORM_LAYOUT: &str = "ui.perform-layout";
 
 /// Sets and remembers the Perform layout.
 pub(crate) fn set_perform_layout(app: &App, layout: &str) {
-    let layout = if PERFORM_LAYOUTS.contains(&layout) { layout } else { "standard" };
-    app.ui.global::<crate::PerformLayout>().set_layout(layout.into());
+    let layout = if PERFORM_LAYOUTS.contains(&layout) {
+        layout
+    } else {
+        "standard"
+    };
+    app.ui
+        .global::<crate::PerformLayout>()
+        .set_layout(layout.into());
     app.ui.set_upper_height(0.0);
-    let _ = app.state.borrow_mut().lib.set_meta(META_PERFORM_LAYOUT, layout);
+    let _ = app
+        .state
+        .borrow_mut()
+        .lib
+        .set_meta(META_PERFORM_LAYOUT, layout);
 }
 
 /// Next Perform layout (standard → vertical → browse → standard).
 pub(crate) fn cycle_perform_layout(app: &App) {
     let cur = app.ui.global::<crate::PerformLayout>().get_layout();
-    let i = PERFORM_LAYOUTS.iter().position(|l| *l == cur.as_str()).unwrap_or(0);
+    let i = PERFORM_LAYOUTS
+        .iter()
+        .position(|l| *l == cur.as_str())
+        .unwrap_or(0);
     set_perform_layout(app, PERFORM_LAYOUTS[(i + 1) % PERFORM_LAYOUTS.len()]);
 }
 
 /// Perform layout: vertical waveforms on / off.
 pub(crate) fn toggle_vertical_layout(app: &App) {
     let cur = app.ui.global::<crate::PerformLayout>().get_layout();
-    set_perform_layout(app, if cur == "vertical" { "standard" } else { "vertical" });
+    set_perform_layout(
+        app,
+        if cur == "vertical" {
+            "standard"
+        } else {
+            "vertical"
+        },
+    );
 }
 
 /// Perform layout: standard ↔ Browse (decks reduced, the browser gets the room).
 pub(crate) fn toggle_browse_layout(app: &App) {
     let cur = app.ui.global::<crate::PerformLayout>().get_layout();
-    set_perform_layout(app, if cur == "browse" { "standard" } else { "browse" });
+    set_perform_layout(
+        app,
+        if cur == "browse" {
+            "standard"
+        } else {
+            "browse"
+        },
+    );
 }
 
 /// Vocal spans as fractions of the track.
 pub(crate) fn vocal_marks(spans: &[(f64, f64)], duration: f64) -> Vec<crate::VocalMark> {
     let d = duration.max(1e-6);
-    spans.iter().map(|(a, b)| crate::VocalMark { start: (a / d) as f32, end: (b / d).min(1.0) as f32 }).collect()
+    spans
+        .iter()
+        .map(|(a, b)| crate::VocalMark {
+            start: (a / d) as f32,
+            end: (b / d).min(1.0) as f32,
+        })
+        .collect()
 }
 
 /// The track's active loop (a saved loop marked active), if any.
 pub(crate) fn active_loop(cues: &[od_core::Cue]) -> Option<(f64, f64)> {
-    cues.iter().filter(|c| c.active).find_map(|c| c.loop_end.map(|e| (c.start, e)))
+    cues.iter()
+        .filter(|c| c.active)
+        .find_map(|c| c.loop_end.map(|e| (c.start, e)))
 }
 
 /// "SPLIT 42%" while parts are separated (fraction 0..1), "SPLIT…" at the start.
@@ -115,7 +152,12 @@ pub(crate) fn stick_stem_cache(root: &std::path::Path) -> od_stems::StemCache {
 impl Loaded {
     /// Memory cue starts in seconds, in track order.
     pub(crate) fn memory_starts(&self, duration: f64) -> Vec<f64> {
-        let mut v: Vec<f64> = self.cues.iter().filter(|c| c.slot < 0).map(|c| c.pos as f64 * duration).collect();
+        let mut v: Vec<f64> = self
+            .cues
+            .iter()
+            .filter(|c| c.slot < 0)
+            .map(|c| c.pos as f64 * duration)
+            .collect();
         v.sort_by(f64::total_cmp);
         v
     }
@@ -138,6 +180,24 @@ struct Prepared {
     play_from: Option<f64>,
     /// Replaces the data of the track already on `deck` without a gap.
     swap: Option<Swap>,
+    /// Cached parts follow in a second message (no separation needed).
+    stems_follow: bool,
+    /// The load of this track failed (the deck stops showing it loading).
+    failed: Option<TrackId>,
+}
+
+impl Prepared {
+    fn failed(deck: usize, track: TrackId) -> Self {
+        Self {
+            deck,
+            data: od_engine::TrackData::new(track, od_decode::DecodedAudio::default(), 48_000, Beatgrid::default(), &[], 0.0),
+            vocals: Vec::new(),
+            play_from: None,
+            swap: None,
+            stems_follow: false,
+            failed: Some(track),
+        }
+    }
 }
 
 /// Why a loaded track's data is swapped in place.
@@ -145,6 +205,10 @@ struct Prepared {
 enum Swap {
     /// Stems were separated.
     Stems,
+    /// The cached parts arrived right after a load.
+    CachedStems,
+    /// The cached parts did not fit the audio: separate them again.
+    NoStems,
     /// Analysis (beatgrid, loudness) arrived after loading.
     Analysis,
 }
@@ -248,7 +312,15 @@ impl LaneScroll {
             *self = Self::default();
             return Some(LaneMotion::default());
         };
-        let key = (m.id, (i.span * 1000.0).round() as i64, i.width, i.height, i.phrases, crate::appearance::is_light(), i.vertical);
+        let key = (
+            m.id,
+            (i.span * 1000.0).round() as i64,
+            i.width,
+            i.height,
+            i.phrases,
+            crate::appearance::is_light(),
+            i.vertical,
+        );
         let mut force = !self.loaded;
         if self.key != Some(key) {
             self.key = Some(key);
@@ -257,20 +329,39 @@ impl LaneScroll {
             force = true;
         }
         let rate = i.speed / 1000.0;
-        let elapsed_ms = self.sent_at.map(|t| i.now.duration_since(t).as_secs_f64() * 1000.0).unwrap_or(0.0);
+        let elapsed_ms = self
+            .sent_at
+            .map(|t| i.now.duration_since(t).as_secs_f64() * 1000.0)
+            .unwrap_or(0.0);
         let predicted = self.sent_pos + self.sent_rate * elapsed_ms;
         let drift = i.position - predicted;
         // While playing steadily, glide towards the engine position instead
         // of jumping to it: engine updates arrive in audio-block steps.
-        let pos = if rate != 0.0 && self.sent_rate == rate && drift.abs() < 0.05 { predicted + drift * 0.15 } else { i.position };
+        let pos = if rate != 0.0 && self.sent_rate == rate && drift.abs() < 0.05 {
+            predicted + drift * 0.15
+        } else {
+            i.position
+        };
         let first = ((pos - i.span / 2.0) / i.span).floor() as i64;
         let tiles_moved = self.first != Some(first);
         if tiles_moved || force {
             self.tiles.retain(|k, _| (first..first + 3).contains(k));
             for k in first..first + 3 {
                 self.tiles.entry(k).or_insert_with(|| {
-                    let tile = render::detail_tile(&m.waveform, &m.grid, if i.phrases { &m.phrases } else { &[] }, k as f64 * i.span, i.span, i.width, i.height);
-                    if i.vertical { render::transpose(&tile) } else { tile }
+                    let tile = render::detail_tile(
+                        &m.waveform,
+                        &m.grid,
+                        if i.phrases { &m.phrases } else { &[] },
+                        k as f64 * i.span,
+                        i.span,
+                        i.width,
+                        i.height,
+                    );
+                    if i.vertical {
+                        render::transpose(&tile)
+                    } else {
+                        tile
+                    }
                 });
             }
             self.first = Some(first);
@@ -302,7 +393,9 @@ impl LaneScroll {
 impl Decks {
     /// Tracks currently loaded on decks (preview deck excluded), 0-based decks.
     pub fn loaded_decks(&self) -> Vec<(TrackId, usize)> {
-        (0..self.deck_count).filter_map(|d| self.loaded[d].as_ref().map(|l| (l.id, d))).collect()
+        (0..self.deck_count)
+            .filter_map(|d| self.loaded[d].as_ref().map(|l| (l.id, d)))
+            .collect()
     }
 
     /// Whether loaded tracks came from a stick (ids then refer to it).
@@ -333,9 +426,22 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
     let analysis = st.src().analysis(track).unwrap_or_default();
     let cues = st.src().cues(track).unwrap_or_default();
     let scale = app.ui.window().scale_factor();
-    let gain = analysis.loudness_lufs.map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0)).unwrap_or(0.0);
-    let source = TrackSource { path: st.resolve(&t.path), hash: t.content_hash.clone(), cues: cues.clone(), gain };
-    let artwork = st.src().artwork(track).ok().flatten().and_then(|(data, _)| render::artwork_thumbnail(&data, (72.0 * scale) as u32));
+    let gain = analysis
+        .loudness_lufs
+        .map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0))
+        .unwrap_or(0.0);
+    let source = TrackSource {
+        path: st.resolve(&t.path),
+        hash: t.content_hash.clone(),
+        cues: cues.clone(),
+        gain,
+    };
+    let artwork = st
+        .src()
+        .artwork(track)
+        .ok()
+        .flatten()
+        .and_then(|(data, _)| render::artwork_thumbnail(&data, (72.0 * scale) as u32));
     let meta = Loaded {
         id: track,
         artwork,
@@ -343,7 +449,13 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
         artist: t.tags.artist.clone(),
         key: st.key_text(&t),
         musical_key: t.key,
-        overview: render::overview(&analysis.waveform, &analysis.beatgrid, t.duration, (900.0 * scale) as u32, (30.0 * scale) as u32),
+        overview: render::overview(
+            &analysis.waveform,
+            &analysis.beatgrid,
+            t.duration,
+            (900.0 * scale) as u32,
+            (30.0 * scale) as u32,
+        ),
         waveform: analysis.waveform.clone(),
         grid: analysis.beatgrid.clone(),
         cues: cue_marks(&cues, t.duration, false),
@@ -355,17 +467,34 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
     };
     let read_only = st.read_only();
     drop(st);
-    app.ui.set_engine_message(format!("Loading {} …", meta.title).into());
+    app.ui
+        .set_engine_message(format!("Loading {} …", meta.title).into());
     // Tracks from a stick use the parts separated on the desktop and carried
     // onto the stick (SPEC §10.4), so a Raspberry Pi plays them too.
     let stick_stems = app.state.borrow().stick_root().map(stick_stem_cache);
+    // The old track leaves at once and the new one shows as loading.
+    engine::deck_cmd(app, deck, DeckCommand::Unload);
     let (cache, tx) = {
         let mut d = app.decks.borrow_mut();
+        d.loaded[deck] = None;
         d.pending[deck] = Some(meta);
         d.loaded_from_stick = read_only;
-        (stick_stems.unwrap_or_else(|| d.stem_cache.clone()), d.prepared_tx.clone())
+        (
+            stick_stems.unwrap_or_else(|| d.stem_cache.clone()),
+            d.prepared_tx.clone(),
+        )
     };
-    prepare_in_background(cache, tx, deck, track, source, rate, analysis.beatgrid, play_from, None);
+    prepare_in_background(
+        cache,
+        tx,
+        deck,
+        track,
+        source,
+        rate,
+        analysis.beatgrid,
+        play_from,
+        None,
+    );
 }
 
 /// Decodes a track (with its cached stems, if any) off the UI thread.
@@ -381,12 +510,57 @@ fn prepare_in_background(
     play_from: Option<f64>,
     swap: Option<Swap>,
 ) {
-    std::thread::spawn(move || match od_stems::load_track_data(&cache, track, &src.path, Some(&src.hash), rate, grid, &src.cues, src.gain) {
-        Ok(data) => {
-            let vocals = data.stems.as_ref().map(|s| s.vocal_regions(rate)).unwrap_or_default();
-            let _ = tx.send(Prepared { deck, data, vocals, play_from, swap });
+    std::thread::spawn(move || {
+        if swap.is_none() {
+            // A fresh load: the mix first (playable at once), the cached
+            // parts follow and swap in without a gap.
+            let (mix, shape) = match od_stems::load_mix(track, &src.path, rate, grid, &src.cues, src.gain) {
+                Ok(m) => m,
+                Err(e) => {
+                    tracing::warn!(error = %e, "track load failed");
+                    let _ = tx.send(Prepared::failed(deck, track));
+                    return;
+                }
+            };
+            let stems_follow = cache.exists(&src.hash);
+            let _ = tx.send(Prepared { deck, data: mix.clone(), vocals: Vec::new(), play_from, swap: None, stems_follow, failed: None });
+            if let Some(full) = stems_follow.then(|| od_stems::attach_cached_stems(&cache, &mix, &src.hash, shape)).flatten() {
+                let vocals = full.stems.as_ref().map(|s| s.vocal_regions(rate)).unwrap_or_default();
+                let _ = tx.send(Prepared { deck, data: full, vocals, play_from: None, swap: Some(Swap::CachedStems), stems_follow: false, failed: None });
+            } else if stems_follow {
+                // The cache did not fit after all: separate again.
+                let _ = tx.send(Prepared { deck, data: mix, vocals: Vec::new(), play_from: None, swap: Some(Swap::NoStems), stems_follow: false, failed: None });
+            }
+            return;
         }
-        Err(e) => tracing::warn!(error = %e, "track load failed"),
+        match od_stems::load_track_data(
+            &cache,
+            track,
+            &src.path,
+            Some(&src.hash),
+            rate,
+            grid,
+            &src.cues,
+            src.gain,
+        ) {
+            Ok(data) => {
+                let vocals = data
+                    .stems
+                    .as_ref()
+                    .map(|s| s.vocal_regions(rate))
+                    .unwrap_or_default();
+                let _ = tx.send(Prepared {
+                    deck,
+                    data,
+                    vocals,
+                    play_from,
+                    swap,
+                    stems_follow: false,
+                    failed: None,
+                });
+            }
+            Err(e) => tracing::warn!(error = %e, "track load failed"),
+        }
     });
 }
 
@@ -395,6 +569,25 @@ pub(crate) fn receive_prepared(app: &App) {
     let prepared: Vec<Prepared> = app.decks.borrow().prepared_rx.try_iter().collect();
     for pr in prepared {
         let (deck, play_from) = (pr.deck, pr.play_from);
+        if let Some(track) = pr.failed {
+            let title = {
+                let mut d = app.decks.borrow_mut();
+                let gone = d.pending[deck].take_if(|m| m.id == track);
+                gone.map(|m| m.title).unwrap_or_default()
+            };
+            engine::show_message(app);
+            app.status(format!("Could not load {title}"));
+            continue;
+        }
+        if pr.swap == Some(Swap::NoStems) {
+            if deck != PREVIEW_DECK && app.decks.borrow().loaded_id(deck) == Some(pr.data.id) {
+                let source = app.decks.borrow().loaded[deck].as_ref().map(|m| (m.id, m.source.clone()));
+                if let Some((id, source)) = source {
+                    request_stems(app, id, &source);
+                }
+            }
+            continue;
+        }
         if let Some(why) = pr.swap {
             // Same track still on the deck: swap without a gap.
             if app.decks.borrow().loaded_id(deck) == Some(pr.data.id) {
@@ -414,8 +607,10 @@ pub(crate) fn receive_prepared(app: &App) {
             }
             continue;
         }
-        let needs_stems = !pr.data.has_stems();
-        let meta = app.decks.borrow_mut().pending[deck].take().filter(|m| m.id == pr.data.id);
+        let needs_stems = !pr.data.has_stems() && !pr.stems_follow;
+        let meta = app.decks.borrow_mut().pending[deck]
+            .take()
+            .filter(|m| m.id == pr.data.id);
         let Some(mut meta) = meta else { continue };
         meta.vocals = vocal_marks(&pr.vocals, pr.data.duration());
         let title = meta.title.clone();
@@ -442,7 +637,9 @@ pub(crate) fn receive_prepared(app: &App) {
 /// Double-click in the library: load into the first deck that is not
 /// playing (Perform) or start the preview (Prepare).
 pub(crate) fn load_selected_into_free_deck(app: &App) {
-    let Some(track) = app.state.borrow().player.current else { return };
+    let Some(track) = app.state.borrow().player.current else {
+        return;
+    };
     if app.state.borrow().config.kiosk {
         app.ui.set_browser_open(false);
     }
@@ -465,7 +662,10 @@ pub(crate) fn load_selected_into_free_deck(app: &App) {
 /// not playing, else deck 1.
 pub(crate) fn free_deck(count: usize, playing: &[bool], loaded: impl Fn(usize) -> bool) -> usize {
     let idle = |d: usize| !playing.get(d).copied().unwrap_or(false);
-    (0..count).find(|&d| idle(d) && !loaded(d)).or_else(|| (0..count).find(|&d| idle(d))).unwrap_or(0)
+    (0..count)
+        .find(|&d| idle(d) && !loaded(d))
+        .or_else(|| (0..count).find(|&d| idle(d)))
+        .unwrap_or(0)
 }
 
 /// LOAD on a deck: the selected track (an Explorer file is added to the
@@ -482,7 +682,9 @@ pub(crate) fn load_selected(app: &App, deck: usize) {
 /// OPENDECKS_AUTOLOAD="1:12,2:13" loads tracks on start (standalone
 /// setups and testing).
 pub(crate) fn autoload(app: &App) {
-    let Ok(spec) = std::env::var("OPENDECKS_AUTOLOAD") else { return };
+    let Ok(spec) = std::env::var("OPENDECKS_AUTOLOAD") else {
+        return;
+    };
     for (d, t) in parse_autoload(&spec) {
         load_track(app, d - 1, t, None);
         if app.state.borrow().config.kiosk {
@@ -495,7 +697,12 @@ pub(crate) fn autoload(app: &App) {
 pub(crate) fn parse_autoload(spec: &str) -> Vec<(usize, TrackId)> {
     spec.split(',')
         .filter_map(|part| part.split_once(':'))
-        .filter_map(|(d, t)| Some((d.trim().parse::<usize>().ok()?, TrackId(t.trim().parse::<i64>().ok()?))))
+        .filter_map(|(d, t)| {
+            Some((
+                d.trim().parse::<usize>().ok()?,
+                TrackId(t.trim().parse::<i64>().ok()?),
+            ))
+        })
         .filter(|(d, _)| (1..=DECKS).contains(d))
         .collect()
 }
@@ -514,13 +721,24 @@ pub(crate) fn refresh_analysis(app: &App) {
     let scale = app.ui.window().scale_factor();
     let mut swaps = Vec::new();
     for i in 0..DECKS {
-        let Some(m) = d.loaded[i].as_mut().filter(|m| m.waveform.columns.is_empty()) else { continue };
+        let Some(m) = d.loaded[i]
+            .as_mut()
+            .filter(|m| m.waveform.columns.is_empty())
+        else {
+            continue;
+        };
         let a = st.lib.analysis(m.id).unwrap_or_default();
         if a.waveform.columns.is_empty() {
             continue;
         }
         let duration = st.lib.track(m.id).map(|t| t.duration).unwrap_or(0.0);
-        m.overview = render::overview(&a.waveform, &a.beatgrid, duration, (900.0 * scale) as u32, (30.0 * scale) as u32);
+        m.overview = render::overview(
+            &a.waveform,
+            &a.beatgrid,
+            duration,
+            (900.0 * scale) as u32,
+            (30.0 * scale) as u32,
+        );
         m.phrase_marks = phrase_marks(&a.phrases, &a.beatgrid, duration);
         m.waveform = a.waveform;
         m.grid = a.beatgrid;
@@ -529,7 +747,10 @@ pub(crate) fn refresh_analysis(app: &App) {
             m.key = k.format(st.settings.key_notation());
             m.musical_key = Some(k);
         }
-        m.source.gain = a.loudness_lufs.map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0)).unwrap_or(0.0);
+        m.source.gain = a
+            .loudness_lufs
+            .map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0))
+            .unwrap_or(0.0);
         swaps.push((i, m.id, m.source.clone(), m.grid.clone(), m.musical_key));
         // Rebuild the per-track view parts on the next frame.
         d.views.lanes[i].track = None;
@@ -539,7 +760,17 @@ pub(crate) fn refresh_analysis(app: &App) {
     drop(st);
     for (deck, id, src, grid, key) in swaps {
         engine::deck_cmd(app, deck, DeckCommand::SetTrackKey(key));
-        prepare_in_background(cache.clone(), tx.clone(), deck, id, src, rate, grid, None, Some(Swap::Analysis));
+        prepare_in_background(
+            cache.clone(),
+            tx.clone(),
+            deck,
+            id,
+            src,
+            rate,
+            grid,
+            None,
+            Some(Swap::Analysis),
+        );
     }
 }
 
@@ -566,8 +797,20 @@ fn request_stems(app: &App, track: TrackId, src: &TrackSource) {
         return;
     }
     let cache = d.stem_cache.clone();
-    let worker = d.stem_worker.get_or_insert_with(|| od_stems::StemWorker::spawn(cache, od_stems::StemWorkerOptions { fetch_model, ..Default::default() }));
-    worker.enqueue(od_stems::StemJob { track, path: src.path.clone(), hash: src.hash.clone() });
+    let worker = d.stem_worker.get_or_insert_with(|| {
+        od_stems::StemWorker::spawn(
+            cache,
+            od_stems::StemWorkerOptions {
+                fetch_model,
+                ..Default::default()
+            },
+        )
+    });
+    worker.enqueue(od_stems::StemJob {
+        track,
+        path: src.path.clone(),
+        hash: src.hash.clone(),
+    });
     worker.prioritize(track);
     d.stem_progress.insert(track, 0.0);
 }
@@ -579,7 +822,13 @@ fn request_stems(_app: &App, _track: TrackId, _src: &TrackSource) {}
 #[cfg(feature = "separation")]
 pub(crate) fn poll_stems(app: &App) {
     use od_stems::StemEvent;
-    let events: Vec<StemEvent> = app.decks.borrow().stem_worker.as_ref().map(|w| w.events().try_iter().collect()).unwrap_or_default();
+    let events: Vec<StemEvent> = app
+        .decks
+        .borrow()
+        .stem_worker
+        .as_ref()
+        .map(|w| w.events().try_iter().collect())
+        .unwrap_or_default();
     for ev in events {
         match ev {
             StemEvent::ModelDownload { done, total } => {
@@ -598,12 +847,27 @@ pub(crate) fn poll_stems(app: &App) {
                     let mut d = app.decks.borrow_mut();
                     d.stem_progress.remove(&track);
                     let decks: Vec<(usize, TrackSource, Beatgrid)> = (0..DECKS)
-                        .filter_map(|i| d.loaded[i].as_ref().filter(|l| l.id == track).map(|l| (i, l.source.clone(), l.grid.clone())))
+                        .filter_map(|i| {
+                            d.loaded[i]
+                                .as_ref()
+                                .filter(|l| l.id == track)
+                                .map(|l| (i, l.source.clone(), l.grid.clone()))
+                        })
                         .collect();
                     (d.prepared_tx.clone(), d.stem_cache.clone(), decks)
                 };
                 for (deck, src, grid) in decks {
-                    prepare_in_background(cache.clone(), tx.clone(), deck, track, src, rate, grid, None, Some(Swap::Stems));
+                    prepare_in_background(
+                        cache.clone(),
+                        tx.clone(),
+                        deck,
+                        track,
+                        src,
+                        rate,
+                        grid,
+                        None,
+                        Some(Swap::Stems),
+                    );
                 }
             }
             StemEvent::Failed { track, error } => {
@@ -627,6 +891,7 @@ pub(crate) fn poll_stems(_app: &App) {}
 pub(crate) struct DeckFields {
     pub deck: i32,
     pub loaded: bool,
+    pub loading: bool,
     pub title: SharedString,
     pub artist: SharedString,
     pub bpm: SharedString,
@@ -674,6 +939,8 @@ pub(crate) struct DeckFields {
 pub(crate) struct DeckInputs<'a> {
     pub deck: usize,
     pub meta: Option<&'a Loaded>,
+    /// `meta` is still being decoded.
+    pub loading: bool,
     pub level: f32,
     pub fader: f32,
     pub quantize: bool,
@@ -691,10 +958,16 @@ pub(crate) struct DeckInputs<'a> {
 /// The deck's bar counter in the chosen mode (falls back to counting up).
 fn bar_counter(s: &DeckState, meta: Option<&Loaded>, mode: &str) -> String {
     let up = || format::bar_beat(s.beat, s.beat_in_bar);
-    let Some(m) = meta.filter(|_| s.beat_in_bar > 0) else { return up() };
+    let Some(m) = meta.filter(|_| s.beat_in_bar > 0) else {
+        return up();
+    };
     let beat = s.beat.max(0.0);
     let target = match mode {
-        "to-phrase" => m.phrases.iter().find(|p| (p.start_beat as f64) <= beat && beat < p.end_beat as f64).map(|p| p.end_beat as f64),
+        "to-phrase" => m
+            .phrases
+            .iter()
+            .find(|p| (p.start_beat as f64) <= beat && beat < p.end_beat as f64)
+            .map(|p| p.end_beat as f64),
         "to-memory-cue" => {
             let dur = s.duration.max(1e-6);
             m.cues
@@ -728,7 +1001,13 @@ pub(crate) fn phrase_now(phrases: &[od_core::Phrase], beat: f64) -> String {
     phrases
         .iter()
         .find(|p| p.start_beat <= b && b < p.end_beat)
-        .map(|p| format!("{} {}", render::phrase_label(p.kind), format::bar_countdown(beat, p.end_beat as f64)))
+        .map(|p| {
+            format!(
+                "{} {}",
+                render::phrase_label(p.kind),
+                format::bar_countdown(beat, p.end_beat as f64)
+            )
+        })
         .unwrap_or_default()
 }
 
@@ -738,21 +1017,37 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
     let muted = |stem: od_engine::Stem| s.stem_levels[stem.index()] < 0.5;
     DeckFields {
         deck: i.deck as i32 + 1,
-        loaded: meta.is_some(),
+        // Playable: the engine has the track (a loading one only shows).
+        loaded: meta.is_some() && !i.loading,
+        loading: i.loading,
         title: meta.map(|m| m.title.as_str()).unwrap_or_default().into(),
         artist: meta.map(|m| m.artist.as_str()).unwrap_or_default().into(),
         bpm: format::bpm(Some(s.bpm), 2).into(),
         key: meta.map(|m| m.key.as_str()).unwrap_or_default().into(),
         tempo: format::tempo(s.tempo).into(),
         elapsed: format::deck_time(s.position).into(),
-        remaining: if s.duration > 0.0 { format!("-{}", format::deck_time(s.duration - s.position)) } else { String::new() }.into(),
-        progress: if s.duration > 0.0 { (s.position / s.duration) as f32 } else { 0.0 },
+        remaining: if s.duration > 0.0 {
+            format!("-{}", format::deck_time(s.duration - s.position))
+        } else {
+            String::new()
+        }
+        .into(),
+        progress: if s.duration > 0.0 {
+            (s.position / s.duration) as f32
+        } else {
+            0.0
+        },
         playing: s.playing,
         master: s.is_master,
         sync: s.sync,
         keylock: s.keylock,
         looping: s.loop_state.active,
-        loop_beats: s.loop_state.beats.map(format::beats).unwrap_or_default().into(),
+        loop_beats: s
+            .loop_state
+            .beats
+            .map(format::beats)
+            .unwrap_or_default()
+            .into(),
         slip: s.slip,
         level: i.level,
         fader: i.fader,
@@ -770,8 +1065,17 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         level_inst: s.stem_levels[od_engine::Stem::Inst.index()],
         level_drums: s.stem_levels[od_engine::Stem::Drums.index()],
         level_bass: s.stem_levels[od_engine::Stem::Bass.index()],
-        loop_size: format::beats(s.loop_state.beats.filter(|_| s.loop_state.active).unwrap_or(i.loop_size)).into(),
-        phrase: meta.map(|m| phrase_now(&m.phrases, s.beat)).unwrap_or_default().into(),
+        loop_size: format::beats(
+            s.loop_state
+                .beats
+                .filter(|_| s.loop_state.active)
+                .unwrap_or(i.loop_size),
+        )
+        .into(),
+        phrase: meta
+            .map(|m| phrase_now(&m.phrases, s.beat))
+            .unwrap_or_default()
+            .into(),
         // 33⅓ rpm: 200° per second of audio.
         jog_angle: (s.position * 200.0).rem_euclid(360.0) as f32,
         beat_pos: bar_counter(s, i.meta, i.bar_counter).into(),
@@ -779,8 +1083,15 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         pad_param: i.pad_param.as_str().into(),
         key_shift: pads::key_shift_label(s.key_shift).into(),
         key_sync: s.key_sync,
-        jump_size: pads::beats_label(if s.beat_jump_size > 0.0 { s.beat_jump_size } else { 4.0 }).into(),
-        loop_in_set: !s.loop_state.active && s.loop_state.start.is_some() && s.loop_state.end.is_none(),
+        jump_size: pads::beats_label(if s.beat_jump_size > 0.0 {
+            s.beat_jump_size
+        } else {
+            4.0
+        })
+        .into(),
+        loop_in_set: !s.loop_state.active
+            && s.loop_state.start.is_some()
+            && s.loop_state.end.is_none(),
     }
 }
 
@@ -800,7 +1111,13 @@ impl WaveKey {
     #[cfg(test)]
     pub fn new(track: TrackId, position: f64, span: f64, width: u32, height: u32) -> Self {
         let px_per_sec = width as f64 / span.max(1e-6);
-        Self { track, px: (position * px_per_sec).round() as i64, span: (span * 1e4).round() as i64, width, height }
+        Self {
+            track,
+            px: (position * px_per_sec).round() as i64,
+            span: (span * 1e4).round() as i64,
+            width,
+            height,
+        }
     }
 }
 
@@ -849,6 +1166,7 @@ impl Lane {
         DeckView {
             deck: f.deck,
             loaded: f.loaded,
+            loading: f.loading,
             title: f.title,
             artist: f.artist,
             bpm: f.bpm,
@@ -921,7 +1239,16 @@ impl DeckViews {
             *lane = Lane::default();
             // Empty decks show their hot cue pads and mode too.
             let s = DeckState::default();
-            let ctx = pads::PadCtx { deck: d, mode: PadMode::HotCue, sampler_bank: 0, keyboard_cue: 0, slicer_beats: 8.0, labels: &[], sampler_slots: &[], memory: &[] };
+            let ctx = pads::PadCtx {
+                deck: d,
+                mode: PadMode::HotCue,
+                sampler_bank: 0,
+                keyboard_cue: 0,
+                slicer_beats: 8.0,
+                labels: &[],
+                sampler_slots: &[],
+                memory: &[],
+            };
             let rows = pads::pad_views(&s, &Default::default(), &[], &ctx);
             lane.pads.sync_eq(rows.clone());
             lane.pads_left.sync_eq(rows[..4].to_vec());
@@ -936,7 +1263,13 @@ impl DeckViews {
             });
         }
         let views: Vec<DeckView> = (0..count).map(|d| self.lanes[d].view()).collect();
-        let side = |odd: bool| views.iter().filter(|v| (v.deck % 2 == 1) == odd).cloned().collect::<Vec<_>>();
+        let side = |odd: bool| {
+            views
+                .iter()
+                .filter(|v| (v.deck % 2 == 1) == odd)
+                .cloned()
+                .collect::<Vec<_>>()
+        };
         self.left.sync(side(true), |_, _| false);
         self.right.sync(side(false), |_, _| false);
         self.all.sync(views, |_, _| false);
@@ -980,7 +1313,10 @@ pub(crate) fn project(app: &App, state: &EngineState) {
         (len, ((if count > 2 { 56.0 } else { 84.0 }) * scale) as u32)
     } else {
         // Waveform area of a lane: the window minus the numeral gutter.
-        (((app.ui.window().size().width as f32 / scale - 44.0).max(200.0) * scale) as u32, ((if count > 2 { 64.0 } else { 110.0 }) * scale) as u32)
+        (
+            ((app.ui.window().size().width as f32 / scale - 44.0).max(200.0) * scale) as u32,
+            ((if count > 2 { 64.0 } else { 110.0 }) * scale) as u32,
+        )
     };
     let now = Instant::now();
     if d.views.all.len() != count {
@@ -988,7 +1324,15 @@ pub(crate) fn project(app: &App, state: &EngineState) {
     }
     for i in 0..count {
         let s = &state.decks[i];
-        let meta = d.loaded[i].as_ref().filter(|m| Some(m.id) == s.track);
+        // A track being loaded shows at once; a just-loaded one also while
+        // the engine state has not caught up yet.
+        let playable = d.loaded[i].as_ref().filter(|m| Some(m.id) == s.track);
+        let meta = d.pending[i]
+            .as_ref()
+            .or(playable)
+            .or_else(|| d.loaded[i].as_ref().filter(|_| s.track.is_none()));
+        // Shown but not in the engine yet.
+        let loading = meta.is_some() && (d.pending[i].is_some() || playable.is_none());
         let lane = &mut d.views.lanes[i];
         let mut dirty = false;
         let tid = meta.map(|m| m.id);
@@ -996,7 +1340,11 @@ pub(crate) fn project(app: &App, state: &EngineState) {
             lane.track = tid;
             lane.phrases_on = show_overview_phrases;
             lane.cues = model(meta.map(|m| m.cues.clone()).unwrap_or_default());
-            lane.phrases = model(meta.filter(|_| show_overview_phrases).map(|m| m.phrase_marks.clone()).unwrap_or_default());
+            lane.phrases = model(
+                meta.filter(|_| show_overview_phrases)
+                    .map(|m| m.phrase_marks.clone())
+                    .unwrap_or_default(),
+            );
             lane.overview = meta.map(|m| m.overview.clone()).unwrap_or_default();
             lane.vocals = model(meta.map(|m| m.vocals.clone()).unwrap_or_default());
             lane.artwork = meta.and_then(|m| m.artwork.clone());
@@ -1008,12 +1356,28 @@ pub(crate) fn project(app: &App, state: &EngineState) {
         // their spacing; quantised to 10 ms to avoid re-rendering on every
         // tempo-fader step).
         let span = ((DETAIL_SPAN * d.zoom[i] * s.tempo.max(0.25)) * 100.0).round() / 100.0;
-        let speed = if s.playing && !s.scratching { s.speed } else { 0.0 };
-        let input = ScrollIn { meta, position: s.position, speed, span, width: lane_width, height, phrases: show_phrases, vertical, now };
+        let speed = if s.playing && !s.scratching {
+            s.speed
+        } else {
+            0.0
+        };
+        let input = ScrollIn {
+            meta,
+            position: s.position,
+            speed,
+            span,
+            width: lane_width,
+            height,
+            phrases: show_phrases,
+            vertical,
+            now,
+        };
         if let Some(row) = d.scroll[i].update(&input) {
             d.motion.set_row_data(i, row);
         }
-        let memory = meta.map(|m| m.memory_starts(s.duration)).unwrap_or_default();
+        let memory = meta
+            .map(|m| m.memory_starts(s.duration))
+            .unwrap_or_default();
         let ctx = pads::PadCtx {
             deck: i,
             mode: d.pad_mode[i],
@@ -1031,7 +1395,9 @@ pub(crate) fn project(app: &App, state: &EngineState) {
         if d.pad_mode[i] == PadMode::SeqCall {
             crate::sampler::seq_pads(app, state, &mut rows);
         }
-        if d.pad_mode[i] == PadMode::HotCue && let Some(m) = meta {
+        if d.pad_mode[i] == PadMode::HotCue
+            && let Some(m) = meta
+        {
             // Hot cue pads in their stored colours.
             let bank = s.hot_cue_bank * od_engine::HOT_CUES;
             for r in rows.iter_mut() {
@@ -1049,6 +1415,7 @@ pub(crate) fn project(app: &App, state: &EngineState) {
             &DeckInputs {
                 deck: i,
                 meta,
+                loading,
                 level: state.channels[i].meter.peak,
                 fader: state.channels[i].fader,
                 quantize: state.quantize,
@@ -1086,11 +1453,24 @@ pub(crate) fn persist_cue_events(app: &App, events: &[od_engine::Event]) {
     }
     for ev in events {
         let (track, index, cue) = match *ev {
-            Event::HotCueSet { deck, track, bank, slot, cue } if deck != PREVIEW_DECK => (track, bank * 8 + slot, Some(cue)),
-            Event::HotCueDeleted { deck, track, bank, slot } if deck != PREVIEW_DECK => (track, bank * 8 + slot, None),
+            Event::HotCueSet {
+                deck,
+                track,
+                bank,
+                slot,
+                cue,
+            } if deck != PREVIEW_DECK => (track, bank * 8 + slot, Some(cue)),
+            Event::HotCueDeleted {
+                deck,
+                track,
+                bank,
+                slot,
+            } if deck != PREVIEW_DECK => (track, bank * 8 + slot, None),
             _ => continue,
         };
-        let Ok(index) = u8::try_from(index) else { continue };
+        let Ok(index) = u8::try_from(index) else {
+            continue;
+        };
         let current = app.state.borrow().lib.cues(track).unwrap_or_default();
         let next = apply_hot_cue(current.clone(), index, cue);
         if next == current {
@@ -1110,7 +1490,13 @@ pub(crate) fn persist_cue_events(app: &App, events: &[od_engine::Event]) {
 /// Rebuilds the cue marks and pad labels of every deck showing `track`.
 fn refresh_deck_cues(app: &App, track: TrackId) {
     let cues = app.state.borrow().lib.cues(track).unwrap_or_default();
-    let duration = app.state.borrow().lib.track(track).map(|t| t.duration).unwrap_or(0.0);
+    let duration = app
+        .state
+        .borrow()
+        .lib
+        .track(track)
+        .map(|t| t.duration)
+        .unwrap_or(0.0);
     let mut d = app.decks.borrow_mut();
     for i in 0..DECKS {
         if let Some(m) = d.loaded[i].as_mut().filter(|m| m.id == track) {
@@ -1124,11 +1510,22 @@ fn refresh_deck_cues(app: &App, track: TrackId) {
 
 /// Hot cue labels by library index, for every bank.
 fn hot_labels(cues: &[od_core::Cue]) -> Vec<String> {
-    (0..od_engine::HOT_CUE_BANKS * od_engine::HOT_CUES).map(|s| cues.iter().find(|c| c.kind == CueKind::Hot(s as u8)).map(|c| c.label.clone()).unwrap_or_default()).collect()
+    (0..od_engine::HOT_CUE_BANKS * od_engine::HOT_CUES)
+        .map(|s| {
+            cues.iter()
+                .find(|c| c.kind == CueKind::Hot(s as u8))
+                .map(|c| c.label.clone())
+                .unwrap_or_default()
+        })
+        .collect()
 }
 
 /// The cue list with hot cue `index` set to `cue` (or removed when `None`).
-pub(crate) fn apply_hot_cue(mut cues: Vec<od_core::Cue>, index: u8, cue: Option<od_engine::HotCue>) -> Vec<od_core::Cue> {
+pub(crate) fn apply_hot_cue(
+    mut cues: Vec<od_core::Cue>,
+    index: u8,
+    cue: Option<od_engine::HotCue>,
+) -> Vec<od_core::Cue> {
     let pos = cues.iter().position(|c| c.kind == CueKind::Hot(index));
     match (cue, pos) {
         (Some(h), Some(i)) => {
@@ -1164,7 +1561,10 @@ fn with_pads<R>(app: &App, d: usize, f: impl FnOnce(&DeckState, &pads::PadCtx) -
     let slots = app.sampler.slots.borrow();
     let dk = app.decks.borrow();
     let labels = dk.loaded(d).map(|m| m.labels.clone()).unwrap_or_default();
-    let memory = dk.loaded(d).map(|m| m.memory_starts(s.duration)).unwrap_or_default();
+    let memory = dk
+        .loaded(d)
+        .map(|m| m.memory_starts(s.duration))
+        .unwrap_or_default();
     let ctx = pads::PadCtx {
         deck: d,
         mode: dk.pad_mode[d],
@@ -1183,7 +1583,10 @@ pub(crate) fn pad_rows(app: &App, d: usize, state: &EngineState) -> Vec<PadView>
     let slots = app.sampler.slots.borrow();
     let dk = app.decks.borrow();
     let labels = dk.loaded(d).map(|m| m.labels.as_slice()).unwrap_or(&[]);
-    let memory = dk.loaded(d).map(|m| m.memory_starts(state.decks[d].duration)).unwrap_or_default();
+    let memory = dk
+        .loaded(d)
+        .map(|m| m.memory_starts(state.decks[d].duration))
+        .unwrap_or_default();
     let ctx = pads::PadCtx {
         deck: d,
         mode: dk.pad_mode[d],
@@ -1205,14 +1608,19 @@ pub(crate) fn pad(app: &App, d: usize, index: usize, pressed: bool) {
             return;
         }
         PadMode::SeqCall => {
-            if pressed && engine::ensure_engine(app) && let Some(st) = engine::snapshot(app) {
+            if pressed
+                && engine::ensure_engine(app)
+                && let Some(st) = engine::snapshot(app)
+            {
                 crate::sampler::seq_call(app, index, &st);
             }
             return;
         }
         _ => {}
     }
-    let cmds = with_pads(app, d, |s, ctx| pads::press_commands(s, ctx, index, pressed));
+    let cmds = with_pads(app, d, |s, ctx| {
+        pads::press_commands(s, ctx, index, pressed)
+    });
     for c in cmds {
         engine::send(app, c);
     }
@@ -1223,10 +1631,15 @@ pub(crate) fn pad_alt(app: &App, d: usize, index: usize) {
     let mode = app.decks.borrow().pad_mode[d];
     engine::ensure_engine(app);
     match mode {
-        PadMode::HotCue => engine::deck_cmd(app, d, DeckCommand::DeleteHotCue { slot: index.min(7) }),
+        PadMode::HotCue => {
+            engine::deck_cmd(app, d, DeckCommand::DeleteHotCue { slot: index.min(7) })
+        }
         PadMode::Sampler => {
             let slot = pads::sampler_slot(d, app.sampler.bank.get(), index);
-            engine::send(app, Command::Sampler(od_engine::SamplerCommand::Stop { slot }));
+            engine::send(
+                app,
+                Command::Sampler(od_engine::SamplerCommand::Stop { slot }),
+            );
         }
         PadMode::SeqCall => crate::sampler::seq_clear(app, index),
         _ => {}
@@ -1254,7 +1667,11 @@ pub(crate) fn pad_param(app: &App, d: usize, delta: i32) {
     let s = deck_state(app, d).unwrap_or_default();
     let mode = app.decks.borrow().pad_mode[d];
     match mode {
-        PadMode::HotCue => engine::deck_cmd(app, d, DeckCommand::SetHotCueBank(pads::step_hot_cue_bank(s.hot_cue_bank, delta))),
+        PadMode::HotCue => engine::deck_cmd(
+            app,
+            d,
+            DeckCommand::SetHotCueBank(pads::step_hot_cue_bank(s.hot_cue_bank, delta)),
+        ),
         PadMode::PadFx1 => set_pad_mode(app, d, PadMode::PadFx2),
         PadMode::PadFx2 => set_pad_mode(app, d, PadMode::PadFx1),
         PadMode::BeatJump => step_jump_size(app, d, delta),
@@ -1265,27 +1682,54 @@ pub(crate) fn pad_param(app: &App, d: usize, delta: i32) {
         }
         PadMode::KeyShift => key_shift(app, d, delta),
         PadMode::Slicer => {
-            let beats = pads::step_in(&pads::SLICER_BEATS, app.decks.borrow().slicer_beats[d], delta);
+            let beats = pads::step_in(
+                &pads::SLICER_BEATS,
+                app.decks.borrow().slicer_beats[d],
+                delta,
+            );
             app.decks.borrow_mut().slicer_beats[d] = beats;
             if s.slicer.active {
-                engine::deck_cmd(app, d, DeckCommand::Slicer(od_engine::SlicerCommand::Enable { beats, loop_mode: s.slicer.loop_mode }));
+                engine::deck_cmd(
+                    app,
+                    d,
+                    DeckCommand::Slicer(od_engine::SlicerCommand::Enable {
+                        beats,
+                        loop_mode: s.slicer.loop_mode,
+                    }),
+                );
             }
         }
-        PadMode::BeatLoop | PadMode::Stems | PadMode::MemoryCue | PadMode::Lighting | PadMode::ActiveCensor | PadMode::SeqCall => {}
+        PadMode::BeatLoop
+        | PadMode::Stems
+        | PadMode::MemoryCue
+        | PadMode::Lighting
+        | PadMode::ActiveCensor
+        | PadMode::SeqCall => {}
     }
 }
 
 /// Beat jump size one step up or down.
 pub(crate) fn step_jump_size(app: &App, d: usize, delta: i32) {
-    let cur = deck_state(app, d).map(|s| s.beat_jump_size).filter(|b| *b > 0.0).unwrap_or(4.0);
-    engine::deck_cmd(app, d, DeckCommand::SetBeatJumpSize(pads::step_in(&pads::JUMP_SIZES, cur, delta)));
+    let cur = deck_state(app, d)
+        .map(|s| s.beat_jump_size)
+        .filter(|b| *b > 0.0)
+        .unwrap_or(4.0);
+    engine::deck_cmd(
+        app,
+        d,
+        DeckCommand::SetBeatJumpSize(pads::step_in(&pads::JUMP_SIZES, cur, delta)),
+    );
 }
 
 /// Key shift by `delta` semitones (0 resets), −12 … +12.
 pub(crate) fn key_shift(app: &App, d: usize, delta: i32) {
     engine::ensure_engine(app);
     let cur = deck_state(app, d).map(|s| s.key_shift).unwrap_or(0.0);
-    let next = if delta == 0 { 0.0 } else { (cur.round() + delta as f32).clamp(-12.0, 12.0) };
+    let next = if delta == 0 {
+        0.0
+    } else {
+        (cur.round() + delta as f32).clamp(-12.0, 12.0)
+    };
     engine::deck_cmd(app, d, DeckCommand::SetKeyShift(next));
 }
 
@@ -1299,7 +1743,13 @@ pub(crate) fn toggle_key_sync(app: &App, d: usize) {
 
 /// A constant grid at `bpm` that keeps the first downbeat of `grid` (pure).
 pub(crate) fn tapped_grid(grid: &Beatgrid, bpm: f64, duration: f64) -> Beatgrid {
-    let anchor = grid.beats.iter().find(|b| b.bar_position == 1).or(grid.beats.first()).map(|b| b.time).unwrap_or(0.0);
+    let anchor = grid
+        .beats
+        .iter()
+        .find(|b| b.bar_position == 1)
+        .or(grid.beats.first())
+        .map(|b| b.time)
+        .unwrap_or(0.0);
     let mut g = Beatgrid::constant(bpm, anchor, 1, duration.max(anchor + 1.0));
     g.locked = grid.locked;
     g
@@ -1307,10 +1757,17 @@ pub(crate) fn tapped_grid(grid: &Beatgrid, bpm: f64, duration: f64) -> Beatgrid 
 
 /// The cue list with a memory cue added at `pos` (none within 50 ms), or
 /// the memory cue nearest to `pos` (within 1 s) removed (pure).
-pub(crate) fn edit_memory_cue(mut cues: Vec<od_core::Cue>, pos: f64, add: bool) -> Vec<od_core::Cue> {
+pub(crate) fn edit_memory_cue(
+    mut cues: Vec<od_core::Cue>,
+    pos: f64,
+    add: bool,
+) -> Vec<od_core::Cue> {
     let memory = |c: &od_core::Cue| c.kind == CueKind::Memory;
     if add {
-        if !cues.iter().any(|c| memory(c) && (c.start - pos).abs() < 0.05) {
+        if !cues
+            .iter()
+            .any(|c| memory(c) && (c.start - pos).abs() < 0.05)
+        {
             cues.push(od_core::Cue::memory(pos));
         }
     } else if let Some(i) = cues
@@ -1327,7 +1784,10 @@ pub(crate) fn edit_memory_cue(mut cues: Vec<od_core::Cue>, pos: f64, add: bool) 
 
 /// Makes the memory cue at `start` a saved loop ending at `end`.
 pub(crate) fn set_memory_loop_end(cues: &mut [od_core::Cue], start: f64, end: f64) {
-    if let Some(c) = cues.iter_mut().find(|c| c.kind == CueKind::Memory && (c.start - start).abs() < 0.05) {
+    if let Some(c) = cues
+        .iter_mut()
+        .find(|c| c.kind == CueKind::Memory && (c.start - start).abs() < 0.05)
+    {
         c.loop_end = Some(end);
     }
 }
@@ -1338,9 +1798,25 @@ fn reload_engine_data(app: &App, d: usize) {
     let rate = app.engine.borrow().sample_rate();
     let dk = app.decks.borrow();
     let Some(m) = dk.loaded(d) else { return };
-    let (cache, tx, id, src, grid) = (dk.stem_cache.clone(), dk.prepared_tx.clone(), m.id, m.source.clone(), m.grid.clone());
+    let (cache, tx, id, src, grid) = (
+        dk.stem_cache.clone(),
+        dk.prepared_tx.clone(),
+        m.id,
+        m.source.clone(),
+        m.grid.clone(),
+    );
     drop(dk);
-    prepare_in_background(cache, tx, d, id, src, rate, grid, None, Some(Swap::Analysis));
+    prepare_in_background(
+        cache,
+        tx,
+        d,
+        id,
+        src,
+        rate,
+        grid,
+        None,
+        Some(Swap::Analysis),
+    );
 }
 
 /// Whether deck `d`'s track may be edited (not from a stick).
@@ -1359,7 +1835,11 @@ pub(crate) fn memory_cue(app: &App, d: usize, add: bool) {
     let Some(id) = editable(app, d) else { return };
     let Some(st) = deck_state(app, d) else { return };
     // While a loop plays, MEMORY stores the loop (a saved memory loop).
-    let looped = st.loop_state.start.zip(st.loop_state.end).filter(|_| st.loop_state.active);
+    let looped = st
+        .loop_state
+        .start
+        .zip(st.loop_state.end)
+        .filter(|_| st.loop_state.active);
     let pos = looped.map_or(st.position, |(a, _)| a);
     let current = app.state.borrow().lib.cues(id).unwrap_or_default();
     let mut next = edit_memory_cue(current.clone(), pos, add);
@@ -1378,17 +1858,30 @@ pub(crate) fn memory_cue(app: &App, d: usize, add: bool) {
     }
     refresh_deck_cues(app, id);
     reload_engine_data(app, d);
-    app.after_edit(if add { "Memory cue added" } else { "Memory cue deleted" });
+    app.after_edit(if add {
+        "Memory cue added"
+    } else {
+        "Memory cue deleted"
+    });
 }
 
 /// TAP (controller): after three taps the track gets a constant grid at the
 /// tapped tempo, keeping its first downbeat.
 pub(crate) fn tap_bpm(app: &App, d: usize) {
     let t = TAP_EPOCH.with(|e| e.elapsed().as_secs_f64());
-    let Some(bpm) = app.decks.borrow_mut().taps[d].tap(t) else { return };
+    let Some(bpm) = app.decks.borrow_mut().taps[d].tap(t) else {
+        return;
+    };
     let Some(id) = editable(app, d) else { return };
     let bpm = (bpm as f64 * 100.0).round() / 100.0;
-    let grid = app.state.borrow().lib.beatgrid(id).ok().flatten().unwrap_or_default();
+    let grid = app
+        .state
+        .borrow()
+        .lib
+        .beatgrid(id)
+        .ok()
+        .flatten()
+        .unwrap_or_default();
     if grid.locked {
         app.status("The beatgrid is locked — unlock it in Prepare to tap the tempo");
         return;
@@ -1429,7 +1922,13 @@ pub(crate) fn stem_of_ui(name: &str) -> Option<od_engine::Stem> {
 pub(crate) fn wire(app: &Rc<App>) {
     let zoom = crate::preferences::default_deck_zoom(&app.state.borrow().settings);
     app.decks.borrow_mut().zoom = [zoom; DECKS];
-    let layout = app.state.borrow().lib.meta(META_PERFORM_LAYOUT).ok().flatten();
+    let layout = app
+        .state
+        .borrow()
+        .lib
+        .meta(META_PERFORM_LAYOUT)
+        .ok()
+        .flatten();
     if let Some(l) = layout.filter(|l| PERFORM_LAYOUTS.contains(&l.as_str())) {
         app.ui.global::<crate::PerformLayout>().set_layout(l.into());
     }
@@ -1447,21 +1946,46 @@ pub(crate) fn wire(app: &Rc<App>) {
     }));
     // Deck callbacks carry 1-based deck numbers.
     let idx = |d: i32| (d as usize).saturating_sub(1).min(DECKS - 1);
-    ui.on_deck_toggle_play(handler!(app, |a, d: i32| engine::deck_cmd(&a, d as usize - 1, DeckCommand::TogglePlay)));
+    ui.on_deck_toggle_play(handler!(app, |a, d: i32| engine::deck_cmd(
+        &a,
+        d as usize - 1,
+        DeckCommand::TogglePlay
+    )));
     ui.on_deck_cue(handler!(app, |a, d: i32| {
         engine::deck_cmd(&a, d as usize - 1, DeckCommand::Cue(true));
         engine::deck_cmd(&a, d as usize - 1, DeckCommand::Cue(false));
     }));
     ui.on_deck_sync(handler!(app, |a, d: i32| {
-        let on = deck_state(&a, d as usize - 1).map(|s| s.sync).unwrap_or(false);
+        let on = deck_state(&a, d as usize - 1)
+            .map(|s| s.sync)
+            .unwrap_or(false);
         engine::deck_cmd(&a, d as usize - 1, DeckCommand::SetSync(!on));
     }));
-    ui.on_deck_seek(handler!(app, |a, d: i32, f: f32| engine::deck_cmd(&a, d as usize - 1, DeckCommand::NeedleSearch { fraction: f as f64 })));
+    ui.on_deck_seek(handler!(app, |a, d: i32, f: f32| engine::deck_cmd(
+        &a,
+        d as usize - 1,
+        DeckCommand::NeedleSearch { fraction: f as f64 }
+    )));
     ui.on_deck_hot_cue(handler!(app, |a, d: i32, s: i32| {
-        engine::deck_cmd(&a, d as usize - 1, DeckCommand::HotCue { slot: s as usize, pressed: true });
-        engine::deck_cmd(&a, d as usize - 1, DeckCommand::HotCue { slot: s as usize, pressed: false });
+        engine::deck_cmd(
+            &a,
+            d as usize - 1,
+            DeckCommand::HotCue {
+                slot: s as usize,
+                pressed: true,
+            },
+        );
+        engine::deck_cmd(
+            &a,
+            d as usize - 1,
+            DeckCommand::HotCue {
+                slot: s as usize,
+                pressed: false,
+            },
+        );
     }));
-    ui.on_set_deck_count(handler!(app, |a, n: i32| a.decks.borrow_mut().deck_count = (n as usize).clamp(2, 4)));
+    ui.on_set_deck_count(handler!(app, |a, n: i32| a.decks.borrow_mut().deck_count =
+        (n as usize).clamp(2, 4)));
 
     // These start audio on first use.
     ui.on_deck_master(handler!(app, |a, d: i32| {
@@ -1498,19 +2022,42 @@ pub(crate) fn wire(app: &Rc<App>) {
             "bass" => od_engine::Stem::Bass,
             _ => od_engine::Stem::Inst,
         };
-        let level = deck_state(&a, d).map(|st| st.stem_levels[s.index()]).unwrap_or(1.0);
-        engine::deck_cmd(&a, d, DeckCommand::SetStemLevel { stem: s, level: if level < 0.5 { 1.0 } else { 0.0 } });
+        let level = deck_state(&a, d)
+            .map(|st| st.stem_levels[s.index()])
+            .unwrap_or(1.0);
+        engine::deck_cmd(
+            &a,
+            d,
+            DeckCommand::SetStemLevel {
+                stem: s,
+                level: if level < 0.5 { 1.0 } else { 0.0 },
+            },
+        );
     }));
-    ui.on_deck_stem_level(handler!(app, |a, d: i32, stem: SharedString, level: f32| {
-        engine::ensure_engine(&a);
-        if let Some(s) = stem_of_ui(stem.as_str()) {
-            engine::deck_cmd(&a, idx(d), DeckCommand::SetStemLevel { stem: s, level: level.clamp(0.0, 1.0) });
+    ui.on_deck_stem_level(handler!(
+        app,
+        |a, d: i32, stem: SharedString, level: f32| {
+            engine::ensure_engine(&a);
+            if let Some(s) = stem_of_ui(stem.as_str()) {
+                engine::deck_cmd(
+                    &a,
+                    idx(d),
+                    DeckCommand::SetStemLevel {
+                        stem: s,
+                        level: level.clamp(0.0, 1.0),
+                    },
+                );
+            }
         }
-    }));
+    ));
     ui.on_deck_loop(handler!(app, |a, d: i32, beats: f32| {
         engine::ensure_engine(&a);
         let d = idx(d);
-        let b = if beats > 0.0 { beats as f64 } else { a.decks.borrow().loop_size[d] };
+        let b = if beats > 0.0 {
+            beats as f64
+        } else {
+            a.decks.borrow().loop_size[d]
+        };
         engine::deck_cmd(&a, d, DeckCommand::AutoLoop { beats: b });
     }));
     // Manual loop: in point, then out point (the loop starts); a running
@@ -1532,8 +2079,14 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_deck_tempo_range(handler!(app, |a, d: i32| {
         engine::ensure_engine(&a);
         let d = idx(d);
-        let r = deck_state(&a, d).map(|s| s.tempo_range).unwrap_or(TempoRange::Ten);
-        engine::deck_cmd(&a, d, DeckCommand::SetTempoRange(crate::controller::next_tempo_range(r)));
+        let r = deck_state(&a, d)
+            .map(|s| s.tempo_range)
+            .unwrap_or(TempoRange::Ten);
+        engine::deck_cmd(
+            &a,
+            d,
+            DeckCommand::SetTempoRange(crate::controller::next_tempo_range(r)),
+        );
     }));
     ui.on_deck_loop_exit(handler!(app, |a, d: i32| {
         engine::ensure_engine(&a);
@@ -1542,24 +2095,53 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_deck_loop_scale(handler!(app, |a, d: i32, f: f32| {
         engine::ensure_engine(&a);
         let d = idx(d);
-        let looping = deck_state(&a, d).map(|s| s.loop_state.active).unwrap_or(false);
+        let looping = deck_state(&a, d)
+            .map(|s| s.loop_state.active)
+            .unwrap_or(false);
         if looping {
-            engine::deck_cmd(&a, d, if f < 1.0 { DeckCommand::LoopHalve } else { DeckCommand::LoopDouble });
+            engine::deck_cmd(
+                &a,
+                d,
+                if f < 1.0 {
+                    DeckCommand::LoopHalve
+                } else {
+                    DeckCommand::LoopDouble
+                },
+            );
         }
         let mut decks = a.decks.borrow_mut();
         decks.loop_size[d] = (decks.loop_size[d] * f as f64).clamp(1.0 / 32.0, 32.0);
     }));
     ui.on_deck_beat_jump(handler!(app, |a, d: i32, beats: f32| {
         engine::ensure_engine(&a);
-        engine::deck_cmd(&a, idx(d), DeckCommand::BeatJump { beats: beats as f64 });
+        engine::deck_cmd(
+            &a,
+            idx(d),
+            DeckCommand::BeatJump {
+                beats: beats as f64,
+            },
+        );
     }));
-    ui.on_deck_pad(handler!(app, |a, d: i32, i: i32, pressed: bool| pad(&a, idx(d), i.max(0) as usize, pressed)));
-    ui.on_deck_pad_alt(handler!(app, |a, d: i32, i: i32| pad_alt(&a, idx(d), i.max(0) as usize)));
+    ui.on_deck_pad(handler!(app, |a, d: i32, i: i32, pressed: bool| pad(
+        &a,
+        idx(d),
+        i.max(0) as usize,
+        pressed
+    )));
+    ui.on_deck_pad_alt(handler!(app, |a, d: i32, i: i32| pad_alt(
+        &a,
+        idx(d),
+        i.max(0) as usize
+    )));
     ui.on_deck_pad_mode_step(handler!(app, |a, d: i32, x: i32| {
         let mode = pads::step_mode(a.decks.borrow().pad_mode[idx(d)], x);
         set_pad_mode(&a, idx(d), mode);
     }));
-    ui.on_deck_pad_mode_set(handler!(app, |a, d: i32, i: i32| set_pad_mode(&a, idx(d), pads::UI_MODES[(i.max(0) as usize).min(pads::UI_MODES.len() - 1)])));
+    ui.on_deck_pad_mode_set(handler!(app, |a, d: i32, i: i32| set_pad_mode(
+        &a,
+        idx(d),
+        pads::UI_MODES[(i.max(0) as usize).min(pads::UI_MODES.len() - 1)]
+    )));
     ui.on_deck_pad_param(handler!(app, |a, d: i32, x: i32| pad_param(&a, idx(d), x)));
     ui.on_deck_key_sync(handler!(app, |a, d: i32| toggle_key_sync(&a, idx(d))));
     ui.on_deck_key_shift(handler!(app, |a, d: i32, x: i32| key_shift(&a, idx(d), x)));
@@ -1583,10 +2165,24 @@ mod tests {
         named.label = "Drop".into();
         let cues = vec![named, od_core::Cue::hot(0, 1.0)];
         // Moving C keeps its label; setting B adds it; deleting A removes it.
-        let moved = apply_hot_cue(cues, 2, Some(od_engine::HotCue { start: 12.5, loop_end: None }));
+        let moved = apply_hot_cue(
+            cues,
+            2,
+            Some(od_engine::HotCue {
+                start: 12.5,
+                loop_end: None,
+            }),
+        );
         let c = moved.iter().find(|c| c.kind == CueKind::Hot(2)).unwrap();
         assert_eq!((c.start, c.label.as_str()), (12.5, "Drop"));
-        let added = apply_hot_cue(moved, 1, Some(od_engine::HotCue { start: 4.0, loop_end: Some(6.0) }));
+        let added = apply_hot_cue(
+            moved,
+            1,
+            Some(od_engine::HotCue {
+                start: 4.0,
+                loop_end: Some(6.0),
+            }),
+        );
         let b = added.iter().find(|c| c.kind == CueKind::Hot(1)).unwrap();
         assert_eq!((b.start, b.loop_end), (4.0, Some(6.0)));
         let removed = apply_hot_cue(added, 0, None);
@@ -1603,7 +2199,11 @@ mod tests {
         assert_eq!(edit_memory_cue(added.clone(), 20.01, true).len(), 3);
         // Delete takes the nearest memory cue within a second, never a hot cue.
         let removed = edit_memory_cue(added, 10.4, false);
-        assert!(!removed.iter().any(|c| c.kind == CueKind::Memory && c.start == 10.0));
+        assert!(
+            !removed
+                .iter()
+                .any(|c| c.kind == CueKind::Memory && c.start == 10.0)
+        );
         assert_eq!(edit_memory_cue(removed.clone(), 1.0, false), removed);
         // MEMORY while looping saves the loop.
         let mut with_loop = edit_memory_cue(Vec::new(), 32.0, true);
@@ -1617,14 +2217,25 @@ mod tests {
         let g = Beatgrid::constant(120.0, 0.25, 3, 60.0);
         let first_down = g.beats.iter().find(|b| b.bar_position == 1).unwrap().time;
         let t = tapped_grid(&g, 125.0, 60.0);
-        assert!(t.beats.iter().any(|b| b.bar_position == 1 && (b.time - first_down).abs() < 1e-9));
+        assert!(
+            t.beats
+                .iter()
+                .any(|b| b.bar_position == 1 && (b.time - first_down).abs() < 1e-9)
+        );
         assert!((t.beats[1].time - t.beats[0].time - 60.0 / 125.0).abs() < 1e-9);
-        assert!(!tapped_grid(&Beatgrid::default(), 128.0, 30.0).beats.is_empty());
+        assert!(
+            !tapped_grid(&Beatgrid::default(), 128.0, 30.0)
+                .beats
+                .is_empty()
+        );
     }
 
     #[test]
     fn autoload_spec() {
-        assert_eq!(parse_autoload("1:12, 2:13"), vec![(1, TrackId(12)), (2, TrackId(13))]);
+        assert_eq!(
+            parse_autoload("1:12, 2:13"),
+            vec![(1, TrackId(12)), (2, TrackId(13))]
+        );
         assert_eq!(parse_autoload("5:1,x:2,3:y,4"), vec![]);
         assert_eq!(parse_autoload(""), vec![]);
     }
@@ -1640,7 +2251,22 @@ mod tests {
     #[test]
     fn empty_deck_projection() {
         let s = DeckState::default();
-        let f = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: None, loop_size: 0.5, bar_counter: "up", pad_mode: PadMode::HotCue, pad_param: String::new() });
+        let f = deck_fields(
+            &s,
+            &DeckInputs {
+                deck: 1,
+                meta: None,
+                loading: false,
+                level: 0.0,
+                fader: 1.0,
+                quantize: true,
+                stems_busy: None,
+                loop_size: 0.5,
+                bar_counter: "up",
+                pad_mode: PadMode::HotCue,
+                pad_param: String::new(),
+            },
+        );
         assert_eq!(f.deck, 2);
         assert!(!f.loaded);
         assert_eq!(f.bpm, "");
@@ -1648,7 +2274,22 @@ mod tests {
         assert_eq!(f.loop_size, "1/2");
         assert_eq!(f.elapsed, "0:00.0");
         // Unchanged state projects equal, so no row is written.
-        let g = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: None, loop_size: 0.5, bar_counter: "up", pad_mode: PadMode::HotCue, pad_param: String::new() });
+        let g = deck_fields(
+            &s,
+            &DeckInputs {
+                deck: 1,
+                meta: None,
+                loading: false,
+                level: 0.0,
+                fader: 1.0,
+                quantize: true,
+                stems_busy: None,
+                loop_size: 0.5,
+                bar_counter: "up",
+                pad_mode: PadMode::HotCue,
+                pad_param: String::new(),
+            },
+        );
         assert_eq!(f, g);
     }
 
@@ -1672,10 +2313,16 @@ mod tests {
 
     #[test]
     fn active_loop_comes_from_the_marked_cue() {
-        let mut l = od_core::Cue { loop_end: Some(36.0), ..od_core::Cue::memory(32.0) };
+        let mut l = od_core::Cue {
+            loop_end: Some(36.0),
+            ..od_core::Cue::memory(32.0)
+        };
         assert_eq!(active_loop(std::slice::from_ref(&l)), None);
         l.active = true;
-        assert_eq!(active_loop(&[od_core::Cue::memory(1.0), l]), Some((32.0, 36.0)));
+        assert_eq!(
+            active_loop(&[od_core::Cue::memory(1.0), l]),
+            Some((32.0, 36.0))
+        );
     }
 
     #[test]
@@ -1690,10 +2337,16 @@ mod tests {
     fn stick_tracks_use_the_stems_on_the_stick() {
         let root = std::path::Path::new("/Volumes/STICK");
         let cache = stick_stem_cache(root);
-        assert_eq!(cache.dir(), std::path::Path::new("/Volumes/STICK/OPENDECKS/stems"));
+        assert_eq!(
+            cache.dir(),
+            std::path::Path::new("/Volumes/STICK/OPENDECKS/stems")
+        );
         // Same file name as the sync writes (od-devices `stem_file`).
         let hash = od_core::ContentHash("ab12".into());
-        assert_eq!(cache.path(&hash), std::path::Path::new("/Volumes/STICK/OPENDECKS/stems/ab12.odstem"));
+        assert_eq!(
+            cache.path(&hash),
+            std::path::Path::new("/Volumes/STICK/OPENDECKS/stems/ab12.odstem")
+        );
     }
 
     #[test]

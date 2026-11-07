@@ -41,36 +41,51 @@ component Chip inherits Rectangle {
 
 export component MicControls inherits HorizontalLayout {
     spacing: 8px;
-    padding-top: 11px; padding-bottom: 11px;
-    Chip {
-        accessible-label: "global.mic.on"; accessible-role: checkbox; accessible-checkable: true; accessible-checked: Mic.on;
-        label: "MIC"; on: Mic.on;
-        tooltip: Mic.error != "" ? Mic.error : Mic.device != "" ? @tr("Microphone / aux input: {}", Mic.device) : @tr("Microphone / aux input (system default)");
-        clicked => { Mic.toggle(); }
-    }
-    Knob {
-        accessible-role: slider; accessible-label: "global.mic.level"; accessible-value: Mic.level;
-        label: ""; size: 20px; minimum: 0; maximum: 1.5; default-value: 0.8; value: Mic.level;
-        changed(v) => { Mic.set-level(v); }
-    }
-    // Input level.
-    Rectangle {
-        width: 4px; height: 24px;
-        background: Theme.plate;
-        Rectangle {
-            y: parent.height * (1 - min(1, Mic.peak)); height: parent.height * min(1, Mic.peak);
-            background: Mic.peak > 0.9 ? Theme.fault : Theme.live;
+    // Each control centred on the bar's row.
+    VerticalLayout {
+        alignment: center;
+        Chip {
+            accessible-label: "global.mic.on"; accessible-role: checkbox; accessible-checkable: true; accessible-checked: Mic.on;
+            label: "MIC"; on: Mic.on;
+            tooltip: Mic.error != "" ? Mic.error : Mic.device != "" ? @tr("Microphone / aux input: {}", Mic.device) : @tr("Microphone / aux input (system default)");
+            clicked => { Mic.toggle(); }
         }
     }
-    Chip {
-        accessible-label: "global.mic.talkover"; accessible-role: checkbox; accessible-checkable: true; accessible-checked: Mic.talkover;
-        label: Mic.ducking ? @tr("TALK ▼") : @tr("TALK"); on: Mic.talkover; tone: Theme.attention;
-        tooltip: @tr("Talkover: the music ducks while you speak");
-        clicked => { Mic.toggle-talkover(); }
+    VerticalLayout {
+        alignment: center;
+        Knob {
+            accessible-role: slider; accessible-label: "global.mic.level"; accessible-value: Mic.level;
+            label: ""; size: 20px; minimum: 0; maximum: 1.5; default-value: 0.8; value: Mic.level;
+            changed(v) => { Mic.set-level(v); }
+        }
     }
-    Chip {
-        accessible-label: "global.mic.device"; accessible-role: button;
-        label: "IN"; tooltip: @tr("Next input device");
-        clicked => { Mic.next-device(); }
+    // Input level.
+    VerticalLayout {
+        alignment: center;
+        Rectangle {
+            width: 4px; height: 24px;
+            background: Theme.plate;
+            Rectangle {
+                y: parent.height * (1 - min(1, Mic.peak)); height: parent.height * min(1, Mic.peak);
+                background: Mic.peak > 0.9 ? Theme.fault : Theme.live;
+            }
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        Chip {
+            accessible-label: "global.mic.talkover"; accessible-role: checkbox; accessible-checkable: true; accessible-checked: Mic.talkover;
+            label: Mic.ducking ? @tr("TALK ▼") : @tr("TALK"); on: Mic.talkover; tone: Theme.attention;
+            tooltip: @tr("Talkover: the music ducks while you speak");
+            clicked => { Mic.toggle-talkover(); }
+        }
+    }
+    VerticalLayout {
+        alignment: center;
+        Chip {
+            accessible-label: "global.mic.device"; accessible-role: button;
+            label: "IN"; tooltip: @tr("Next input device");
+            clicked => { Mic.next-device(); }
+        }
     }
 }

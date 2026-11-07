@@ -53,14 +53,23 @@ pub(crate) fn test_env() -> &'static Path {
 /// (`pitch` Hz), `secs` long. Distinct pitches give distinct content hashes.
 pub(crate) fn write_wav(path: &Path, secs: f32, pitch: f32) {
     let rate = 44_100u32;
-    let spec = hound::WavSpec { channels: 2, sample_rate: rate, bits_per_sample: 16, sample_format: hound::SampleFormat::Int };
+    let spec = hound::WavSpec {
+        channels: 2,
+        sample_rate: rate,
+        bits_per_sample: 16,
+        sample_format: hound::SampleFormat::Int,
+    };
     std::fs::create_dir_all(path.parent().unwrap()).unwrap();
     let mut w = hound::WavWriter::create(path, spec).unwrap();
     let beat = rate as f32 * 0.5;
     for n in 0..(secs * rate as f32) as usize {
         let t = n as f32 / rate as f32;
         let in_beat = (n as f32 % beat) / rate as f32;
-        let click = if in_beat < 0.03 { (1.0 - in_beat / 0.03) * (2.0 * std::f32::consts::PI * 60.0 * in_beat).sin() * 0.8 } else { 0.0 };
+        let click = if in_beat < 0.03 {
+            (1.0 - in_beat / 0.03) * (2.0 * std::f32::consts::PI * 60.0 * in_beat).sin() * 0.8
+        } else {
+            0.0
+        };
         let tone = (2.0 * std::f32::consts::PI * pitch * t).sin() * 0.15;
         let s = ((click + tone) * i16::MAX as f32) as i16;
         w.write_sample(s).unwrap();
@@ -107,21 +116,37 @@ impl Fixture {
             lib.set_tags(id, tags).unwrap();
             tracks.push((id, title.to_string()));
         }
-        let playlist = lib.create_node(None, NodeKind::Playlist, "Warm-up").unwrap();
+        let playlist = lib
+            .create_node(None, NodeKind::Playlist, "Warm-up")
+            .unwrap();
         lib.add_to_node(playlist, &[tracks[0].0], None).unwrap();
         let explorer_root = root.join("home");
         let outside_folder = explorer_root.join("Crate");
         let outside_file = outside_folder.join("Outside Loop.wav");
         write_wav(&outside_file, 6.0, 660.0);
-        lib.set_meta("explorer.roots", &serde_json::to_string(&vec![explorer_root.clone()]).unwrap()).unwrap();
+        lib.set_meta(
+            "explorer.roots",
+            &serde_json::to_string(&vec![explorer_root.clone()]).unwrap(),
+        )
+        .unwrap();
         // English UI (menu titles are matched in English), recordings in the
         // temporary folder, not in ~/Music.
         let mut settings = crate::settings::Settings::default();
         settings.view.language = "en".into();
         settings.recording.folder = root.join("recordings").display().to_string();
-        lib.set_meta(crate::settings::META_SETTINGS, &settings.to_json()).unwrap();
+        lib.set_meta(crate::settings::META_SETTINGS, &settings.to_json())
+            .unwrap();
         drop(lib);
-        Self { _dir: dir, root, library, explorer_root, outside_folder, outside_file, tracks, playlist }
+        Self {
+            _dir: dir,
+            root,
+            library,
+            explorer_root,
+            outside_folder,
+            outside_file,
+            tracks,
+            playlist,
+        }
     }
 
     /// A second connection to the library (assertions).
@@ -143,7 +168,12 @@ impl Rect {
     pub fn of(e: &ElementHandle) -> Self {
         let p = e.absolute_position();
         let s = e.size();
-        Self { x: p.x, y: p.y, w: s.width, h: s.height }
+        Self {
+            x: p.x,
+            y: p.y,
+            w: s.width,
+            h: s.height,
+        }
     }
     pub fn right(&self) -> f32 {
         self.x + self.w
@@ -161,7 +191,10 @@ impl Rect {
         if w > 0.5 && h > 0.5 { w * h } else { 0.0 }
     }
     pub fn contains(&self, o: &Rect, tol: f32) -> bool {
-        o.x >= self.x - tol && o.y >= self.y - tol && o.right() <= self.right() + tol && o.bottom() <= self.bottom() + tol
+        o.x >= self.x - tol
+            && o.y >= self.y - tol
+            && o.right() <= self.right() + tol
+            && o.bottom() <= self.bottom() + tol
     }
 }
 
@@ -185,8 +218,22 @@ impl Ui {
         cfg.window = Some(size);
         let app = App::new(cfg).expect("app starts headless");
         app.ui.show().unwrap();
-        let ui = Self { app, fx, steps: Cell::new(0) };
+        let ui = Self {
+            app,
+            fx,
+            steps: Cell::new(0),
+        };
         ui.resize(size);
+        // Let the start-up analysis of the fixture land first: its results
+        // refresh the list and the player, which would otherwise race the
+        // test's first clicks and typing (a user meets a settled library).
+        let fixture: Vec<od_core::TrackId> = ui.fx.tracks.iter().map(|(id, _)| *id).collect();
+        ui.wait_until(60.0, |u| {
+            let lib = u.fx.lib();
+            fixture.iter().all(|id| lib.track(*id).is_ok_and(|t| t.bpm.is_some()))
+                && slint::Model::iter(&u.app.ui.get_tracks()).all(|r| r.analysed || r.id < 0)
+        });
+        ui.pump(100);
         ui
     }
 
@@ -195,7 +242,10 @@ impl Ui {
     }
 
     pub fn resize(&self, (w, h): (u32, u32)) {
-        self.app.ui.window().set_size(LogicalSize::new(w as f32, h as f32));
+        self.app
+            .ui
+            .window()
+            .set_size(LogicalSize::new(w as f32, h as f32));
         self.pump(400);
     }
 
@@ -239,7 +289,8 @@ impl Ui {
     }
 
     pub fn get(&self, label: &str) -> ElementHandle {
-        self.find(label).unwrap_or_else(|| panic!("no element labelled `{label}`"))
+        self.find(label)
+            .unwrap_or_else(|| panic!("no element labelled `{label}`"))
     }
 
     pub fn has(&self, label: &str) -> bool {
@@ -248,7 +299,10 @@ impl Ui {
 
     /// The shown value of a labelled read-out (`accessible-value`).
     pub fn value(&self, label: &str) -> String {
-        self.get(label).accessible_value().map(|v| v.to_string()).unwrap_or_default()
+        self.get(label)
+            .accessible_value()
+            .map(|v| v.to_string())
+            .unwrap_or_default()
     }
 
     /// Every element with a convention label (docs/parity.md) in the main
@@ -263,7 +317,10 @@ impl Ui {
         for (l, es) in self.labelled() {
             if l.starts_with(prefix) {
                 for e in es {
-                    let v = e.accessible_value().map(|v| v.to_string()).unwrap_or_default();
+                    let v = e
+                        .accessible_value()
+                        .map(|v| v.to_string())
+                        .unwrap_or_default();
                     out.push((l.clone(), v, e));
                 }
             }
@@ -273,7 +330,10 @@ impl Ui {
 
     /// The first element under `prefix` whose value equals `value`.
     pub fn by_value(&self, prefix: &str, value: &str) -> Option<(String, ElementHandle)> {
-        self.with_prefix(prefix).into_iter().find(|(_, v, _)| v == value).map(|(l, _, e)| (l, e))
+        self.with_prefix(prefix)
+            .into_iter()
+            .find(|(_, v, _)| v == value)
+            .map(|(l, _, e)| (l, e))
     }
 
     /// An item of an open (context) menu by its title. Native `MenuItem`s
@@ -284,7 +344,11 @@ impl Ui {
         let t = title.to_string();
         let in_tree: Vec<Rect> = self
             .find("browser.tree")
-            .map(|tree| tree.query_descendants().match_predicate(move |e| e.accessible_label().is_some_and(|l| l == t)).find_all())
+            .map(|tree| {
+                tree.query_descendants()
+                    .match_predicate(move |e| e.accessible_label().is_some_and(|l| l == t))
+                    .find_all()
+            })
             .unwrap_or_default()
             .iter()
             .map(Rect::of)
@@ -293,7 +357,9 @@ impl Ui {
             .filter(|e| e.accessible_role() == Some(i_slint_backend_testing::AccessibleRole::Text))
             .find(|e| {
                 let r = Rect::of(e);
-                !in_tree.iter().any(|t| (t.x - r.x).abs() < 0.5 && (t.y - r.y).abs() < 0.5 && (t.w - r.w).abs() < 0.5)
+                !in_tree.iter().any(|t| {
+                    (t.x - r.x).abs() < 0.5 && (t.y - r.y).abs() < 0.5 && (t.w - r.w).abs() < 0.5
+                })
             })
     }
 
@@ -327,12 +393,19 @@ impl Ui {
     }
 
     pub fn press_at(&self, p: LogicalPosition, button: PointerEventButton) {
-        self.window().dispatch_event(WindowEvent::PointerMoved { position: p });
-        self.window().dispatch_event(WindowEvent::PointerPressed { position: p, button });
+        self.window()
+            .dispatch_event(WindowEvent::PointerMoved { position: p });
+        self.window().dispatch_event(WindowEvent::PointerPressed {
+            position: p,
+            button,
+        });
     }
 
     pub fn release_at(&self, p: LogicalPosition, button: PointerEventButton) {
-        self.window().dispatch_event(WindowEvent::PointerReleased { position: p, button });
+        self.window().dispatch_event(WindowEvent::PointerReleased {
+            position: p,
+            button,
+        });
     }
 
     pub fn click_at(&self, p: LogicalPosition, button: PointerEventButton) {
@@ -386,7 +459,9 @@ impl Ui {
         let n = ((dx * dx + dy * dy).sqrt() / 4.0).ceil().max(4.0) as usize;
         for i in 1..=n {
             let t = i as f32 / n as f32;
-            self.window().dispatch_event(WindowEvent::PointerMoved { position: LogicalPosition::new(from.x + dx * t, from.y + dy * t) });
+            self.window().dispatch_event(WindowEvent::PointerMoved {
+                position: LogicalPosition::new(from.x + dx * t, from.y + dy * t),
+            });
             self.pump(16);
         }
         self.release_at(to, PointerEventButton::Left);
@@ -401,25 +476,43 @@ impl Ui {
     pub fn scroll(&self, label: &str, dy: f32) {
         self.step();
         let p = Rect::of(&self.get(label)).centre();
-        self.window().dispatch_event(WindowEvent::PointerMoved { position: p });
-        self.window().dispatch_event(WindowEvent::PointerScrolled { position: p, delta_x: 0.0, delta_y: dy });
+        self.window()
+            .dispatch_event(WindowEvent::PointerMoved { position: p });
+        self.window().dispatch_event(WindowEvent::PointerScrolled {
+            position: p,
+            delta_x: 0.0,
+            delta_y: dy,
+        });
         self.pump(50);
     }
 
     /// Scrolls the scrollable `container` (wheel, one step) until the element
     /// found by `find` lies fully inside it. Returns the element.
-    pub fn scroll_into_view(&self, container: &str, find: impl Fn(&Self) -> Option<ElementHandle>) -> Option<ElementHandle> {
+    pub fn scroll_into_view(
+        &self,
+        container: &str,
+        find: impl Fn(&Self) -> Option<ElementHandle>,
+    ) -> Option<ElementHandle> {
         let c = Rect::of(&self.get(container));
         let e = find(self)?;
         let r = Rect::of(&e);
         if c.contains(&r, 0.5) {
             return Some(e);
         }
-        let dy = if r.bottom() > c.bottom() { c.bottom() - r.bottom() - 4.0 } else { c.y - r.y + 4.0 };
+        let dy = if r.bottom() > c.bottom() {
+            c.bottom() - r.bottom() - 4.0
+        } else {
+            c.y - r.y + 4.0
+        };
         self.step();
         let p = c.centre();
-        self.window().dispatch_event(WindowEvent::PointerMoved { position: p });
-        self.window().dispatch_event(WindowEvent::PointerScrolled { position: p, delta_x: 0.0, delta_y: dy });
+        self.window()
+            .dispatch_event(WindowEvent::PointerMoved { position: p });
+        self.window().dispatch_event(WindowEvent::PointerScrolled {
+            position: p,
+            delta_x: 0.0,
+            delta_y: dy,
+        });
         self.pump(300);
         find(self)
     }
@@ -429,8 +522,10 @@ impl Ui {
         self.step();
         for c in text.chars() {
             let s: slint::SharedString = c.to_string().into();
-            self.window().dispatch_event(WindowEvent::KeyPressed { text: s.clone() });
-            self.window().dispatch_event(WindowEvent::KeyReleased { text: s });
+            self.window()
+                .dispatch_event(WindowEvent::KeyPressed { text: s.clone() });
+            self.window()
+                .dispatch_event(WindowEvent::KeyReleased { text: s });
         }
         self.pump(50);
     }
@@ -439,19 +534,26 @@ impl Ui {
     pub fn key(&self, key: slint::platform::Key) {
         self.step();
         let s: slint::SharedString = key.into();
-        self.window().dispatch_event(WindowEvent::KeyPressed { text: s.clone() });
-        self.window().dispatch_event(WindowEvent::KeyReleased { text: s });
+        self.window()
+            .dispatch_event(WindowEvent::KeyPressed { text: s.clone() });
+        self.window()
+            .dispatch_event(WindowEvent::KeyReleased { text: s });
         self.pump(50);
     }
 }
 
 /// Labelled elements of any component (main window, Preferences window).
-pub(crate) fn labelled_in(root: &impl i_slint_backend_testing::ElementRoot) -> BTreeMap<String, Vec<ElementHandle>> {
+pub(crate) fn labelled_in(
+    root: &impl i_slint_backend_testing::ElementRoot,
+) -> BTreeMap<String, Vec<ElementHandle>> {
     let mut out: BTreeMap<String, Vec<ElementHandle>> = BTreeMap::new();
     let found = root
         .root_element()
         .query_descendants()
-        .match_predicate(|e| e.accessible_label().is_some_and(|l| od_parity::labels::is_valid_label(&l)))
+        .match_predicate(|e| {
+            e.accessible_label()
+                .is_some_and(|l| od_parity::labels::is_valid_label(&l))
+        })
         .find_all();
     for e in found {
         if let Some(l) = e.accessible_label() {
@@ -466,6 +568,17 @@ pub(crate) fn interactive(e: &ElementHandle) -> bool {
     use i_slint_backend_testing::AccessibleRole as R;
     matches!(
         e.accessible_role(),
-        Some(R::Button | R::Checkbox | R::Combobox | R::Slider | R::Spinbox | R::Tab | R::TextInput | R::Switch | R::ListItem | R::RadioButton)
+        Some(
+            R::Button
+                | R::Checkbox
+                | R::Combobox
+                | R::Slider
+                | R::Spinbox
+                | R::Tab
+                | R::TextInput
+                | R::Switch
+                | R::ListItem
+                | R::RadioButton
+        )
     )
 }

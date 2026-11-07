@@ -48,7 +48,13 @@ pub struct DeckSettings {
 
 impl Default for DeckSettings {
     fn default() -> Self {
-        Self { tempo_range: "ten".into(), quantize: true, jog_mode: "vinyl".into(), auto_cue: true, sync_mode: "beat".into() }
+        Self {
+            tempo_range: "ten".into(),
+            quantize: true,
+            jog_mode: "vinyl".into(),
+            auto_cue: true,
+            sync_mode: "beat".into(),
+        }
     }
 }
 
@@ -68,7 +74,12 @@ pub struct MixerSettings {
 
 impl Default for MixerSettings {
     fn default() -> Self {
-        Self { eq_mode: "isolator".into(), fader_curve: "smooth".into(), crossfader_curve: "constant_power".into(), auto_gain: true }
+        Self {
+            eq_mode: "isolator".into(),
+            fader_curve: "smooth".into(),
+            crossfader_curve: "constant_power".into(),
+            auto_gain: true,
+        }
     }
 }
 
@@ -254,7 +265,14 @@ pub struct PerformSettings {
 
 impl Default for PerformSettings {
     fn default() -> Self {
-        Self { fx_panel: false, sampler_panel: false, color_fx: "filter".into(), mixer_panel: true, rec_panel: true, mpl_panel: false }
+        Self {
+            fx_panel: false,
+            sampler_panel: false,
+            color_fx: "filter".into(),
+            mixer_panel: true,
+            rec_panel: true,
+            mpl_panel: false,
+        }
     }
 }
 
@@ -275,7 +293,12 @@ pub struct BrowserSettings {
 
 impl Default for BrowserSettings {
     fn default() -> Self {
-        Self { columns: Vec::new(), sort_then: Vec::new(), font_size: 14, line_spacing: "normal".into() }
+        Self {
+            columns: Vec::new(),
+            sort_then: Vec::new(),
+            font_size: 14,
+            line_spacing: "normal".into(),
+        }
     }
 }
 
@@ -288,7 +311,9 @@ pub struct SortSpec {
 }
 
 /// Colour FX names stored in [`PerformSettings::color_fx`], in panel order.
-pub const COLOR_FX: [&str; 9] = ["filter", "echo", "noise", "space", "crush", "pitch", "dub_echo", "sweep", "smart"];
+pub const COLOR_FX: [&str; 9] = [
+    "filter", "echo", "noise", "space", "crush", "pitch", "dub_echo", "sweep", "smart",
+];
 
 /// The update check (SPEC §14.1; Preferences > Advanced).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -306,7 +331,12 @@ pub struct UpdateSettings {
 
 impl Default for UpdateSettings {
     fn default() -> Self {
-        Self { auto_check: true, prereleases: false, skip_version: String::new(), last_check: 0 }
+        Self {
+            auto_check: true,
+            prereleases: false,
+            skip_version: String::new(),
+            last_check: 0,
+        }
     }
 }
 
@@ -330,7 +360,12 @@ impl Default for Settings {
 
 impl Default for AudioSettings {
     fn default() -> Self {
-        Self { device: String::new(), buffer: 0, sample_rate: 0, headphones: "auto".into() }
+        Self {
+            device: String::new(),
+            buffer: 0,
+            sample_rate: 0,
+            headphones: "auto".into(),
+        }
     }
 }
 
@@ -358,19 +393,35 @@ impl Default for ViewSettings {
 impl Default for AnalysisSettings {
     fn default() -> Self {
         let d = od_analysis::AnalysisOptions::default();
-        Self { bpm_min: d.min_bpm as u32, bpm_max: d.max_bpm as u32, detect_key: true, detect_phrases: d.detect_phrases, auto_analyse: true }
+        Self {
+            bpm_min: d.min_bpm as u32,
+            bpm_max: d.max_bpm as u32,
+            detect_key: true,
+            detect_phrases: d.detect_phrases,
+            auto_analyse: true,
+        }
     }
 }
 
 impl Default for RecordingSettings {
     fn default() -> Self {
-        Self { format: "wav".into(), folder: String::new(), auto_split: false, silence_start: false, silence_stop: false, name_pattern: String::new(), gain_db: 0.0 }
+        Self {
+            format: "wav".into(),
+            folder: String::new(),
+            auto_split: false,
+            silence_start: false,
+            silence_stop: false,
+            name_pattern: String::new(),
+            gain_db: 0.0,
+        }
     }
 }
 
 impl Default for AdvancedSettings {
     fn default() -> Self {
-        Self { backup_on_start: true }
+        Self {
+            backup_on_start: true,
+        }
     }
 }
 
@@ -390,7 +441,9 @@ impl Settings {
     /// Reads the settings from JSON; unknown or broken values fall back to
     /// their defaults.
     pub fn from_json(text: &str) -> Self {
-        serde_json::from_str::<Settings>(text).map(Settings::sanitized).unwrap_or_default()
+        serde_json::from_str::<Settings>(text)
+            .map(Settings::sanitized)
+            .unwrap_or_default()
     }
 
     pub fn to_json(&self) -> String {
@@ -436,7 +489,9 @@ impl Settings {
         if !self.browser.columns.is_empty() {
             self.browser.columns = crate::browser::sanitize_columns(&self.browser.columns);
         }
-        self.browser.sort_then.retain(|s| crate::browser::sort_key_known(&s.column));
+        self.browser
+            .sort_then
+            .retain(|s| crate::browser::sort_key_known(&s.column));
         self.browser.sort_then.truncate(3);
         if !FONT_SIZES.contains(&self.browser.font_size) {
             self.browser.font_size = 14;
@@ -468,8 +523,17 @@ impl Settings {
             m.crossfader_curve = "constant_power".into();
         }
         let r = &mut self.recording;
-        r.gain_db = if r.gain_db.is_finite() { r.gain_db.clamp(-12.0, 12.0) } else { 0.0 };
-        r.name_pattern = r.name_pattern.trim().chars().filter(|c| !matches!(c, '/' | '\\' | ':') && !c.is_control()).collect();
+        r.gain_db = if r.gain_db.is_finite() {
+            r.gain_db.clamp(-12.0, 12.0)
+        } else {
+            0.0
+        };
+        r.name_pattern = r
+            .name_pattern
+            .trim()
+            .chars()
+            .filter(|c| !matches!(c, '/' | '\\' | ':') && !c.is_control())
+            .collect();
         self
     }
 
@@ -495,31 +559,63 @@ impl Settings {
         for (k, v) in values {
             // Per-deck values: the first deck that carries one wins.
             let key = match k.split_once('.') {
-                Some((d, rest)) if d.starts_with("deck") && d[4..].parse::<u8>().is_ok() => format!("deck.{rest}"),
+                Some((d, rest)) if d.starts_with("deck") && d[4..].parse::<u8>().is_ok() => {
+                    format!("deck.{rest}")
+                }
                 _ => k.clone(),
             };
             if key.starts_with("deck.") && applied.contains(&key) {
                 continue;
             }
             let ok = match key.as_str() {
-                "view.language" => ["en", "de"].contains(&v.as_str()).then(|| self.view.language = v.clone()).is_some(),
-                "view.key_notation" => ["camelot", "openkey", "musical"].contains(&v.as_str()).then(|| self.view.key_notation = v.clone()).is_some(),
-                "view.waveform" => ["3band", "blue", "rgb"].contains(&v.as_str()).then(|| self.view.waveform = v.clone()).is_some(),
+                "view.language" => ["en", "de"]
+                    .contains(&v.as_str())
+                    .then(|| self.view.language = v.clone())
+                    .is_some(),
+                "view.key_notation" => ["camelot", "openkey", "musical"]
+                    .contains(&v.as_str())
+                    .then(|| self.view.key_notation = v.clone())
+                    .is_some(),
+                "view.waveform" => ["3band", "blue", "rgb"]
+                    .contains(&v.as_str())
+                    .then(|| self.view.waveform = v.clone())
+                    .is_some(),
                 "view.phrases" => flag(v).map(|b| self.view.phrases = b).is_some(),
-                "view.bar_counter" => BAR_COUNTERS.contains(&v.as_str()).then(|| self.view.bar_counter = v.clone()).is_some(),
+                "view.bar_counter" => BAR_COUNTERS
+                    .contains(&v.as_str())
+                    .then(|| self.view.bar_counter = v.clone())
+                    .is_some(),
                 "analysis.bpm_min" => v.parse().map(|n| self.analysis.bpm_min = n).is_ok(),
                 "analysis.bpm_max" => v.parse().map(|n| self.analysis.bpm_max = n).is_ok(),
                 "analysis.detect_key" => flag(v).map(|b| self.analysis.detect_key = b).is_some(),
-                "analysis.detect_phrases" => flag(v).map(|b| self.analysis.detect_phrases = b).is_some(),
-                "analysis.auto_analyse" => flag(v).map(|b| self.analysis.auto_analyse = b).is_some(),
-                "recording.folder" => (!v.is_empty()).then(|| self.recording.folder = v.clone()).is_some(),
+                "analysis.detect_phrases" => {
+                    flag(v).map(|b| self.analysis.detect_phrases = b).is_some()
+                }
+                "analysis.auto_analyse" => {
+                    flag(v).map(|b| self.analysis.auto_analyse = b).is_some()
+                }
+                "recording.folder" => (!v.is_empty())
+                    .then(|| self.recording.folder = v.clone())
+                    .is_some(),
                 "recording.auto_split" => flag(v).map(|b| self.recording.auto_split = b).is_some(),
                 "perform.quantize" => flag(v).map(|b| self.deck.quantize = b).is_some(),
-                "deck.tempo_range" => TEMPO_RANGES.contains(&v.as_str()).then(|| self.deck.tempo_range = v.clone()).is_some(),
+                "deck.tempo_range" => TEMPO_RANGES
+                    .contains(&v.as_str())
+                    .then(|| self.deck.tempo_range = v.clone())
+                    .is_some(),
                 "deck.auto_cue" => flag(v).map(|b| self.deck.auto_cue = b).is_some(),
-                "mixer.eq_mode" => EQ_MODES.contains(&v.as_str()).then(|| self.mixer.eq_mode = v.clone()).is_some(),
-                "mixer.fader_curve" => FADER_CURVES.contains(&v.as_str()).then(|| self.mixer.fader_curve = v.clone()).is_some(),
-                "mixer.crossfader_curve" => CROSSFADER_CURVES.contains(&v.as_str()).then(|| self.mixer.crossfader_curve = v.clone()).is_some(),
+                "mixer.eq_mode" => EQ_MODES
+                    .contains(&v.as_str())
+                    .then(|| self.mixer.eq_mode = v.clone())
+                    .is_some(),
+                "mixer.fader_curve" => FADER_CURVES
+                    .contains(&v.as_str())
+                    .then(|| self.mixer.fader_curve = v.clone())
+                    .is_some(),
+                "mixer.crossfader_curve" => CROSSFADER_CURVES
+                    .contains(&v.as_str())
+                    .then(|| self.mixer.crossfader_curve = v.clone())
+                    .is_some(),
                 _ => false,
             };
             if ok {
@@ -540,7 +636,11 @@ impl Settings {
 
     /// The interface language: the setting, else the system's.
     pub fn language(&self) -> String {
-        if self.view.language.is_empty() { std::env::var("LANG").unwrap_or_default() } else { self.view.language.clone() }
+        if self.view.language.is_empty() {
+            std::env::var("LANG").unwrap_or_default()
+        } else {
+            self.view.language.clone()
+        }
     }
 
     pub fn analysis_options(&self, lite: bool) -> od_analysis::AnalysisOptions {
@@ -554,7 +654,10 @@ impl Settings {
 
     pub fn recordings_dir(&self) -> PathBuf {
         if self.recording.folder.is_empty() {
-            std::env::var_os("HOME").map(PathBuf::from).unwrap_or_default().join("Music/OpenDecks Recordings")
+            std::env::var_os("HOME")
+                .map(PathBuf::from)
+                .unwrap_or_default()
+                .join("Music/OpenDecks Recordings")
         } else {
             PathBuf::from(&self.recording.folder)
         }
@@ -586,7 +689,11 @@ impl Overrides {
     pub fn apply(&self, stored: &Settings) -> Settings {
         let mut s = stored.clone();
         if let Some(l) = &self.language {
-            s.view.language = if l.starts_with("de") { "de".into() } else { "en".into() };
+            s.view.language = if l.starts_with("de") {
+                "de".into()
+            } else {
+                "en".into()
+            };
         }
         if let Some(k) = self.key_notation {
             s.view.key_notation = notation_name(k).into();
@@ -624,7 +731,10 @@ impl GlobalConfig {
     }
 
     pub fn load_from(path: &Path) -> Self {
-        std::fs::read_to_string(path).ok().and_then(|t| toml::from_str(&t).ok()).unwrap_or_default()
+        std::fs::read_to_string(path)
+            .ok()
+            .and_then(|t| toml::from_str(&t).ok())
+            .unwrap_or_default()
     }
 
     pub fn load() -> Self {
@@ -646,7 +756,8 @@ impl GlobalConfig {
 /// The library the app opens: the `--library` flag, else the configured
 /// location, else the default.
 pub fn library_path(flag: Option<PathBuf>) -> PathBuf {
-    flag.or_else(|| GlobalConfig::load().library).unwrap_or_else(od_library::Library::default_path)
+    flag.or_else(|| GlobalConfig::load().library)
+        .unwrap_or_else(od_library::Library::default_path)
 }
 
 #[cfg(test)]
@@ -662,7 +773,10 @@ mod tests {
         s.view.language = "de".into();
         let p = od_devices::pioneer::player_settings(Some(&stick_player_settings(&s)));
         assert!(!p.quantize && !p.jog_vinyl && p.auto_cue);
-        assert_eq!(p.tempo_range, od_format_pioneer::mysetting::TempoRange::Sixteen);
+        assert_eq!(
+            p.tempo_range,
+            od_format_pioneer::mysetting::TempoRange::Sixteen
+        );
         assert_eq!(p.language, od_format_pioneer::mysetting::Language::German);
     }
 
@@ -689,7 +803,10 @@ mod tests {
         s.perform.sampler_panel = true;
         s.perform.color_fx = "dub_echo".into();
         s.browser.columns = vec!["title".into(), "album".into(), "bpm".into()];
-        s.browser.sort_then = vec![SortSpec { column: "bpm".into(), descending: true }];
+        s.browser.sort_then = vec![SortSpec {
+            column: "bpm".into(),
+            descending: true,
+        }];
         s.browser.font_size = 16;
         s.browser.line_spacing = "roomy".into();
         s.view.zoom_span = 16.0;
@@ -705,20 +822,45 @@ mod tests {
         s.recording.name_pattern = "Club {date}".into();
         s.recording.gain_db = -6.0;
         assert_eq!(Settings::from_json(&s.to_json()), s);
-        assert_eq!(Settings::from_json(&Settings::default().to_json()), Settings::default());
+        assert_eq!(
+            Settings::from_json(&Settings::default().to_json()),
+            Settings::default()
+        );
     }
 
     #[test]
     fn missing_and_broken_values_fall_back() {
-        let s = Settings::from_json(r#"{"view": {"scale": 9.0, "key_notation": "solfege"}, "audio": {"buffer": 512}}"#);
+        let s = Settings::from_json(
+            r#"{"view": {"scale": 9.0, "key_notation": "solfege"}, "audio": {"buffer": 512}}"#,
+        );
         assert_eq!(s.view.scale, 1.0);
         assert_eq!(s.view.key_notation, "camelot");
         assert_eq!(s.view.appearance, "dark");
         assert_eq!(s.view.bar_counter, "to-phrase");
-        assert_eq!(Settings::from_json(r#"{"view": {"bar_counter": "sideways"}}"#).view.bar_counter, "to-phrase");
-        assert_eq!(Settings::from_json(r#"{"view": {"bar_counter": "up"}}"#).view.bar_counter, "up");
-        assert_eq!(Settings::from_json(r#"{"view": {"appearance": "sepia"}}"#).view.appearance, "dark");
-        assert_eq!(Settings::from_json(r#"{"view": {"appearance": "light"}}"#).view.appearance, "light");
+        assert_eq!(
+            Settings::from_json(r#"{"view": {"bar_counter": "sideways"}}"#)
+                .view
+                .bar_counter,
+            "to-phrase"
+        );
+        assert_eq!(
+            Settings::from_json(r#"{"view": {"bar_counter": "up"}}"#)
+                .view
+                .bar_counter,
+            "up"
+        );
+        assert_eq!(
+            Settings::from_json(r#"{"view": {"appearance": "sepia"}}"#)
+                .view
+                .appearance,
+            "dark"
+        );
+        assert_eq!(
+            Settings::from_json(r#"{"view": {"appearance": "light"}}"#)
+                .view
+                .appearance,
+            "light"
+        );
         assert_eq!(s.audio.buffer, 512);
         assert_eq!(s.audio.headphones, "auto");
         assert!(s.analysis.auto_analyse);
@@ -727,27 +869,64 @@ mod tests {
         assert_eq!(Settings::from_json("not json"), Settings::default());
         // Panels start closed; an unknown colour FX falls back to the filter.
         assert!(!s.perform.fx_panel && !s.perform.sampler_panel);
-        assert_eq!(Settings::from_json(r#"{"perform": {"color_fx": "laser"}}"#).perform.color_fx, "filter");
+        assert_eq!(
+            Settings::from_json(r#"{"perform": {"color_fx": "laser"}}"#)
+                .perform
+                .color_fx,
+            "filter"
+        );
     }
 
     #[test]
     fn phrase_display_options() {
         let d = Settings::default();
-        assert!(d.view.phrases && d.view.phrases_overview, "phrases on both waveforms by default");
+        assert!(
+            d.view.phrases && d.view.phrases_overview,
+            "phrases on both waveforms by default"
+        );
         assert_eq!(d.view.phrase_types, "names");
         // Settings stored before the options existed keep phrases everywhere.
         let old = Settings::from_json(r#"{"view": {"phrases": false}}"#);
         assert!(!old.view.phrases && old.view.phrases_overview && old.view.phrase_types == "names");
-        assert_eq!(Settings::from_json(r#"{"view": {"phrase_types": "colors"}}"#).view.phrase_types, "colors");
-        assert_eq!(Settings::from_json(r#"{"view": {"phrase_types": "glyphs"}}"#).view.phrase_types, "names");
+        assert_eq!(
+            Settings::from_json(r#"{"view": {"phrase_types": "colors"}}"#)
+                .view
+                .phrase_types,
+            "colors"
+        );
+        assert_eq!(
+            Settings::from_json(r#"{"view": {"phrase_types": "glyphs"}}"#)
+                .view
+                .phrase_types,
+            "names"
+        );
     }
 
     #[test]
     fn new_values_fall_back_and_row_heights() {
-        let s = Settings::from_json(r#"{"deck": {"tempo_range": "huge", "jog_mode": "spin"}, "mixer": {"eq_mode": "x", "fader_curve": "y", "crossfader_curve": "z"}, "browser": {"font_size": 99, "line_spacing": "airy"}, "view": {"zoom_span": 3.0}, "recording": {"gain_db": 40.0, "name_pattern": " a/b:c "}}"#);
-        assert_eq!((s.deck.tempo_range.as_str(), s.deck.jog_mode.as_str()), ("ten", "vinyl"));
-        assert_eq!((s.mixer.eq_mode.as_str(), s.mixer.fader_curve.as_str(), s.mixer.crossfader_curve.as_str()), ("isolator", "smooth", "constant_power"));
-        assert_eq!((s.browser.font_size, s.browser.line_spacing.as_str(), s.view.zoom_span), (14, "normal", 8.0));
+        let s = Settings::from_json(
+            r#"{"deck": {"tempo_range": "huge", "jog_mode": "spin"}, "mixer": {"eq_mode": "x", "fader_curve": "y", "crossfader_curve": "z"}, "browser": {"font_size": 99, "line_spacing": "airy"}, "view": {"zoom_span": 3.0}, "recording": {"gain_db": 40.0, "name_pattern": " a/b:c "}}"#,
+        );
+        assert_eq!(
+            (s.deck.tempo_range.as_str(), s.deck.jog_mode.as_str()),
+            ("ten", "vinyl")
+        );
+        assert_eq!(
+            (
+                s.mixer.eq_mode.as_str(),
+                s.mixer.fader_curve.as_str(),
+                s.mixer.crossfader_curve.as_str()
+            ),
+            ("isolator", "smooth", "constant_power")
+        );
+        assert_eq!(
+            (
+                s.browser.font_size,
+                s.browser.line_spacing.as_str(),
+                s.view.zoom_span
+            ),
+            (14, "normal", 8.0)
+        );
         assert_eq!(s.recording.gain_db, 12.0);
         assert_eq!(s.recording.name_pattern, "abc");
         // Settings stored before these existed keep the defaults.
@@ -785,9 +964,24 @@ mod tests {
         assert!(!s.view.phrases && !s.deck.quantize && !s.deck.auto_cue);
         assert_eq!((s.analysis.bpm_min, s.analysis.bpm_max), (78, 155));
         assert_eq!(s.deck.tempo_range, "six", "the first deck wins");
-        assert_eq!((s.mixer.eq_mode.as_str(), s.mixer.fader_curve.as_str(), s.mixer.crossfader_curve.as_str()), ("classic", "sharp", "cut"));
-        assert!(!applied.contains(&"recording.auto_split".to_string()), "broken values are skipped");
-        assert!(!applied.iter().any(|k| k.contains("keylock") || k.contains("time_display")), "unknown keys are skipped");
+        assert_eq!(
+            (
+                s.mixer.eq_mode.as_str(),
+                s.mixer.fader_curve.as_str(),
+                s.mixer.crossfader_curve.as_str()
+            ),
+            ("classic", "sharp", "cut")
+        );
+        assert!(
+            !applied.contains(&"recording.auto_split".to_string()),
+            "broken values are skipped"
+        );
+        assert!(
+            !applied
+                .iter()
+                .any(|k| k.contains("keylock") || k.contains("time_display")),
+            "unknown keys are skipped"
+        );
         assert_eq!(applied.len(), 10);
     }
 
@@ -811,7 +1005,12 @@ mod tests {
     fn overrides_win_without_changing_the_stored_settings() {
         let mut stored = Settings::default();
         stored.view.key_notation = "musical".into();
-        let o = Overrides { key_notation: Some(KeyNotation::OpenKey), language: Some("de_DE.UTF-8".into()), high_contrast: Some(true), ..Default::default() };
+        let o = Overrides {
+            key_notation: Some(KeyNotation::OpenKey),
+            language: Some("de_DE.UTF-8".into()),
+            high_contrast: Some(true),
+            ..Default::default()
+        };
         let eff = o.apply(&stored);
         assert_eq!(eff.key_notation(), KeyNotation::OpenKey);
         assert_eq!(eff.view.language, "de");
@@ -825,7 +1024,9 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let p = dir.path().join("sub/config.toml");
         assert_eq!(GlobalConfig::load_from(&p), GlobalConfig::default());
-        let c = GlobalConfig { library: Some("/music/lib.sqlite".into()) };
+        let c = GlobalConfig {
+            library: Some("/music/lib.sqlite".into()),
+        };
         c.save_to(&p).unwrap();
         assert_eq!(GlobalConfig::load_from(&p), c);
     }

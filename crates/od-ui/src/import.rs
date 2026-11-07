@@ -28,7 +28,9 @@ pub(crate) fn run_rekordbox_import(app: &App) {
     let wake = app.analysis.wake.clone();
     let ui = app.ui.as_weak();
     let say = move |ui: &slint::Weak<crate::AppWindow>, text: String| {
-        let _ = ui.upgrade_in_event_loop(move |ui| ui.set_status_text(od_i18n::translate_message(&text).into()));
+        let _ = ui.upgrade_in_event_loop(move |ui| {
+            ui.set_status_text(od_i18n::translate_message(&text).into())
+        });
     };
     say(&ui, "Reading rekordbox library…".into());
     std::thread::spawn(move || {
@@ -47,13 +49,20 @@ pub(crate) fn run_rekordbox_import(app: &App) {
             Ok(l) => l,
             Err(e) => return say(&ui, format!("Cannot open library: {e}")),
         };
-        let opts = ImportOptions { include_history: true, copy_audio_to: None, analyse_missing: true };
+        let opts = ImportOptions {
+            include_history: true,
+            copy_audio_to: None,
+            analyse_missing: true,
+        };
         let mut last = std::time::Instant::now();
         let ui2 = ui.clone();
         let result = od_import_rekordbox::import(&source, &mut lib, &opts, |p| {
             if last.elapsed().as_millis() > 200 {
                 last = std::time::Instant::now();
-                say(&ui2, format!("rekordbox import: {:?} {}/{}", p.phase, p.done, p.total));
+                say(
+                    &ui2,
+                    format!("rekordbox import: {:?} {}/{}", p.phase, p.done, p.total),
+                );
             }
             true
         });
@@ -67,7 +76,11 @@ pub(crate) fn run_rekordbox_import(app: &App) {
                         r.playlists,
                         r.cues,
                         r.grids,
-                        if r.missing_files.is_empty() { String::new() } else { format!(", {} files not found", r.missing_files.len()) }
+                        if r.missing_files.is_empty() {
+                            String::new()
+                        } else {
+                            format!(", {} files not found", r.missing_files.len())
+                        }
                     ),
                 );
                 let _ = wake.send(());
@@ -83,15 +96,35 @@ pub(crate) fn run_rekordbox_import(app: &App) {
 pub(crate) fn library_action(app: &App, id: &str) {
     let message = match id {
         "library.export.xml" => {
-            let Some(f) = rfd::FileDialog::new().set_title(od_i18n::tr("Export library XML")).set_file_name("opendecks.xml").add_filter("XML", &["xml"]).save_file() else { return };
+            let Some(f) = rfd::FileDialog::new()
+                .set_title(od_i18n::tr("Export library XML"))
+                .set_file_name("opendecks.xml")
+                .add_filter("XML", &["xml"])
+                .save_file()
+            else {
+                return;
+            };
             export_xml(app, &f)
         }
         "library.import.xml" => {
-            let Some(f) = rfd::FileDialog::new().set_title(od_i18n::tr("Import library XML")).add_filter("XML", &["xml"]).pick_file() else { return };
+            let Some(f) = rfd::FileDialog::new()
+                .set_title(od_i18n::tr("Import library XML"))
+                .add_filter("XML", &["xml"])
+                .pick_file()
+            else {
+                return;
+            };
             import_xml(app, &f)
         }
         "library.export.archive" => {
-            let Some(f) = rfd::FileDialog::new().set_title(od_i18n::tr("Export library archive")).set_file_name("library.odlib").add_filter("OpenDecks library", &["odlib"]).save_file() else { return };
+            let Some(f) = rfd::FileDialog::new()
+                .set_title(od_i18n::tr("Export library archive"))
+                .set_file_name("library.odlib")
+                .add_filter("OpenDecks library", &["odlib"])
+                .save_file()
+            else {
+                return;
+            };
             let audio = rfd::MessageDialog::new()
                 .set_title(od_i18n::tr("Export library archive"))
                 .set_description(od_i18n::tr("Include the audio files? The archive then holds everything to move the library to another computer."))
@@ -102,18 +135,40 @@ pub(crate) fn library_action(app: &App, id: &str) {
             return;
         }
         "library.restore.archive" => {
-            let Some(f) = rfd::FileDialog::new().set_title(od_i18n::tr("Restore library archive")).add_filter("OpenDecks library", &["odlib"]).pick_file() else { return };
-            let Some(dir) = rfd::FileDialog::new().set_title(od_i18n::tr("Folder for the restored library")).pick_folder() else { return };
+            let Some(f) = rfd::FileDialog::new()
+                .set_title(od_i18n::tr("Restore library archive"))
+                .add_filter("OpenDecks library", &["odlib"])
+                .pick_file()
+            else {
+                return;
+            };
+            let Some(dir) = rfd::FileDialog::new()
+                .set_title(od_i18n::tr("Folder for the restored library"))
+                .pick_folder()
+            else {
+                return;
+            };
             restore_archive(app, &f, &dir)
         }
         "library.consolidate" => {
-            let Some(dir) = rfd::FileDialog::new().set_title(od_i18n::tr("Folder to collect all tracks in")).pick_folder() else { return };
+            let Some(dir) = rfd::FileDialog::new()
+                .set_title(od_i18n::tr("Folder to collect all tracks in"))
+                .pick_folder()
+            else {
+                return;
+            };
             consolidate(app, &dir);
             return;
         }
         "library.import.rekordbox-settings" => import_rekordbox_settings(app, None),
         "library.import.itunes" => {
-            let Some(f) = rfd::FileDialog::new().set_title(od_i18n::tr("Import a Music / iTunes library")).add_filter("XML", &["xml"]).pick_file() else { return };
+            let Some(f) = rfd::FileDialog::new()
+                .set_title(od_i18n::tr("Import a Music / iTunes library"))
+                .add_filter("XML", &["xml"])
+                .pick_file()
+            else {
+                return;
+            };
             import_itunes(app, &f)
         }
         _ => return,
@@ -138,7 +193,10 @@ pub(crate) fn import_xml(app: &App, path: &Path) -> String {
     let m = match r {
         Ok(r) => {
             let _ = app.analysis.wake.send(());
-            let mut m = od_i18n::trf("Imported {} tracks, {} playlists and {} cues from XML", &[&r.tracks, &r.playlists, &r.cues]);
+            let mut m = od_i18n::trf(
+                "Imported {} tracks, {} playlists and {} cues from XML",
+                &[&r.tracks, &r.playlists, &r.cues],
+            );
             if !r.missing.is_empty() {
                 m.push_str(&od_i18n::trf(" · {} files not found", &[&r.missing.len()]));
             }
@@ -160,7 +218,10 @@ pub(crate) fn import_itunes(app: &App, path: &Path) -> String {
     let m = match r {
         Ok(r) => {
             let _ = app.analysis.wake.send(());
-            let mut m = od_i18n::trf("Imported {} tracks and {} playlists from the Music library", &[&r.tracks, &r.playlists]);
+            let mut m = od_i18n::trf(
+                "Imported {} tracks and {} playlists from the Music library",
+                &[&r.tracks, &r.playlists],
+            );
             if !r.missing.is_empty() {
                 m.push_str(&od_i18n::trf(" · {} files not found", &[&r.missing.len()]));
             }
@@ -180,9 +241,13 @@ pub(crate) fn export_archive(app: &App, path: &Path, include_audio: bool) {
     let path = path.to_path_buf();
     app.status("Writing the library archive…");
     std::thread::spawn(move || {
-        let r = od_library::Library::open(&library).and_then(|lib| lib.export_archive(&path, include_audio, |_, _| {}));
+        let r = od_library::Library::open(&library)
+            .and_then(|lib| lib.export_archive(&path, include_audio, |_, _| {}));
         let m = match r {
-            Ok(n) => od_i18n::trf("Library archive saved: {} ({} audio files)", &[&path.display(), &n]),
+            Ok(n) => od_i18n::trf(
+                "Library archive saved: {} ({} audio files)",
+                &[&path.display(), &n],
+            ),
             Err(e) => od_i18n::trf("Library archive failed: {}", &[&e]),
         };
         let _ = tx.send(WorkerEvent::Message(m));
@@ -199,7 +264,10 @@ pub(crate) fn restore_archive(app: &App, archive: &Path, dir: &Path) -> String {
             let mut c = crate::settings::GlobalConfig::load();
             c.library = Some(db.clone());
             match c.save() {
-                Ok(()) => od_i18n::trf("Library restored to {} — it opens at the next start", &[&db.display()]),
+                Ok(()) => od_i18n::trf(
+                    "Library restored to {} — it opens at the next start",
+                    &[&db.display()],
+                ),
                 Err(e) => format!("{e}"),
             }
         }
@@ -218,9 +286,13 @@ pub(crate) fn consolidate(app: &App, dir: &Path) {
     let dir = dir.to_path_buf();
     app.status("Consolidating the library…");
     std::thread::spawn(move || {
-        let r = od_library::Library::open(&library).and_then(|mut lib| lib.consolidate(&dir, |_, _| {}));
+        let r = od_library::Library::open(&library)
+            .and_then(|mut lib| lib.consolidate(&dir, |_, _| {}));
         let m = match r {
-            Ok(n) => od_i18n::trf("Consolidated: {} tracks copied to {}", &[&n, &dir.display()]),
+            Ok(n) => od_i18n::trf(
+                "Consolidated: {} tracks copied to {}",
+                &[&n, &dir.display()],
+            ),
             Err(e) => od_i18n::trf("Consolidating failed: {}", &[&e]),
         };
         let _ = tx.send(WorkerEvent::Message(m));
@@ -236,13 +308,22 @@ pub(crate) fn import_rekordbox_settings(app: &App, dir: Option<&Path>) -> String
         Err(e) => return od_i18n::trf("No rekordbox preferences found: {}", &[&e]),
     };
     let values = settings.preference_values();
-    let applied = app.state.borrow().stored.clone().apply_values(&values).len();
+    let applied = app
+        .state
+        .borrow()
+        .stored
+        .clone()
+        .apply_values(&values)
+        .len();
     app.state.borrow_mut().change_settings(|s| {
         s.apply_values(&values);
     });
     let keys = apply_keymap(app, &settings.keymap_toml());
     crate::preferences::apply_all(app);
-    od_i18n::trf("Took over {} rekordbox preferences and {} shortcuts", &[&applied, &keys])
+    od_i18n::trf(
+        "Took over {} rekordbox preferences and {} shortcuts",
+        &[&applied, &keys],
+    )
 }
 
 /// Applies imported bindings one by one, skipping those that would collide
@@ -305,7 +386,14 @@ fn drop_list_of(st: &crate::state::AppState) -> Option<od_library::NodeId> {
     if st.read_only() || st.explorer.open.is_some() || st.browser.special.is_some() {
         return None;
     }
-    st.browser.node.filter(|n| st.lib.node(*n).is_ok_and(|n| matches!(n.kind, od_library::NodeKind::Playlist | od_library::NodeKind::Set)))
+    st.browser.node.filter(|n| {
+        st.lib.node(*n).is_ok_and(|n| {
+            matches!(
+                n.kind,
+                od_library::NodeKind::Playlist | od_library::NodeKind::Set
+            )
+        })
+    })
 }
 
 /// Where dropped files go, from the drop target under the pointer
@@ -331,8 +419,12 @@ pub(crate) fn file_drop(target: i32) -> FileDrop {
         DropTarget::Row(n) => FileDrop::Row(n),
         DropTarget::Tree(id) if id >= 0 => FileDrop::List(od_library::NodeId(id as i64)),
         DropTarget::Tree(_) => FileDrop::Collection,
-        DropTarget::Deck if (1..=crate::decks::DECKS as i32).contains(&target) => FileDrop::Deck(target as usize - 1),
-        DropTarget::Deck if target == -1 || target == -2 => FileDrop::Player(target.unsigned_abs() as u8),
+        DropTarget::Deck if (1..=crate::decks::DECKS as i32).contains(&target) => {
+            FileDrop::Deck(target as usize - 1)
+        }
+        DropTarget::Deck if target == -1 || target == -2 => {
+            FileDrop::Player(target.unsigned_abs() as u8)
+        }
         DropTarget::Deck => FileDrop::Collection,
     }
 }
@@ -362,7 +454,13 @@ pub(crate) fn files_dropped(app: &App, paths: Vec<std::path::PathBuf>, target: i
         }
         FileDrop::List(node) => {
             let st = app.state.borrow();
-            let takes = !st.read_only() && st.lib.node(node).is_ok_and(|n| matches!(n.kind, od_library::NodeKind::Playlist | od_library::NodeKind::Set));
+            let takes = !st.read_only()
+                && st.lib.node(node).is_ok_and(|n| {
+                    matches!(
+                        n.kind,
+                        od_library::NodeKind::Playlist | od_library::NodeKind::Set
+                    )
+                });
             (if takes { Some(node) } else { drop_list_of(&st) }, None)
         }
         FileDrop::Row(n) => {
@@ -390,12 +488,20 @@ pub(crate) fn files_dropped(app: &App, paths: Vec<std::path::PathBuf>, target: i
 /// Adds `files` to the collection (known paths are kept) and, when `list`
 /// is given, inserts them into that list in order before position `at`
 /// (`None`: at the end). Returns (added, failed).
-pub(crate) fn add_files(lib: &mut od_library::Library, files: &[std::path::PathBuf], list: Option<od_library::NodeId>, at: Option<usize>) -> (usize, usize) {
+pub(crate) fn add_files(
+    lib: &mut od_library::Library,
+    files: &[std::path::PathBuf],
+    list: Option<od_library::NodeId>,
+    at: Option<usize>,
+) -> (usize, usize) {
     let (mut added, mut failed) = (0, 0);
     let mut ids = Vec::new();
     for f in files {
         let known = lib.track_by_path(f).ok().flatten().map(|t| t.id);
-        match known.map(Ok).unwrap_or_else(|| crate::workers::import_file(lib, f).inspect(|_| added += 1)) {
+        match known
+            .map(Ok)
+            .unwrap_or_else(|| crate::workers::import_file(lib, f).inspect(|_| added += 1))
+        {
             Ok(id) => ids.push(id),
             Err(e) => {
                 failed += 1;
@@ -451,7 +557,13 @@ fn follow_pointer(app: &App) {
 /// the content of height `content_h`) in logical window coordinates (origin
 /// top-left), for a backing scale `backing` and a UI scale factor `ui`
 /// (pure).
-pub(crate) fn content_point_to_logical(px: f64, py: f64, content_h: f64, backing: f64, ui: f64) -> (f32, f32) {
+pub(crate) fn content_point_to_logical(
+    px: f64,
+    py: f64,
+    content_h: f64,
+    backing: f64,
+    ui: f64,
+) -> (f32, f32) {
     let k = if ui > 0.0 { backing / ui } else { 1.0 };
     ((px * k) as f32, ((content_h - py) * k) as f32)
 }
@@ -466,13 +578,21 @@ fn pointer_in_window(window: &slint::Window) -> Option<(f32, f32)> {
     window
         .with_winit_window(|w| {
             let handle = w.window_handle().ok()?;
-            let RawWindowHandle::AppKit(h) = handle.as_raw() else { return None };
+            let RawWindowHandle::AppKit(h) = handle.as_raw() else {
+                return None;
+            };
             // SAFETY: winit's content view lives as long as its window, and
             // this runs on the main (UI) thread.
             let view: &objc2_app_kit::NSView = unsafe { h.ns_view.cast().as_ref() };
             let p = view.window()?.mouseLocationOutsideOfEventStream();
             let frame = view.frame();
-            let (x, y) = content_point_to_logical(p.x - frame.origin.x, p.y - frame.origin.y, frame.size.height, w.scale_factor(), ui);
+            let (x, y) = content_point_to_logical(
+                p.x - frame.origin.x,
+                p.y - frame.origin.y,
+                frame.size.height,
+                w.scale_factor(),
+                ui,
+            );
             Some((x, y))
         })
         .flatten()
@@ -504,11 +624,15 @@ pub(crate) fn wire_native_drop(app: &std::rc::Rc<App>) {
                     file_drag_begin(&a, hovered.get());
                     follow_pointer(&a);
                     let w = weak.clone();
-                    follow.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(30), move || {
-                        if let Some(a) = w.upgrade() {
-                            follow_pointer(&a);
-                        }
-                    });
+                    follow.start(
+                        slint::TimerMode::Repeated,
+                        std::time::Duration::from_millis(30),
+                        move || {
+                            if let Some(a) = w.upgrade() {
+                                follow_pointer(&a);
+                            }
+                        },
+                    );
                 }
             }
             WindowEvent::HoveredFileCancelled => {
@@ -522,15 +646,19 @@ pub(crate) fn wire_native_drop(app: &std::rc::Rc<App>) {
                 hovered.set(0);
                 pending.borrow_mut().push(path.clone());
                 let (weak, pending, follow) = (weak.clone(), pending.clone(), follow.clone());
-                timer.start(slint::TimerMode::SingleShot, std::time::Duration::from_millis(120), move || {
-                    follow.stop();
-                    let paths = std::mem::take(&mut *pending.borrow_mut());
-                    if let Some(a) = weak.upgrade() {
-                        let target = a.ui.global::<crate::DragState>().get_target();
-                        file_drag_end(&a);
-                        files_dropped(&a, paths, target);
-                    }
-                });
+                timer.start(
+                    slint::TimerMode::SingleShot,
+                    std::time::Duration::from_millis(120),
+                    move || {
+                        follow.stop();
+                        let paths = std::mem::take(&mut *pending.borrow_mut());
+                        if let Some(a) = weak.upgrade() {
+                            let target = a.ui.global::<crate::DragState>().get_target();
+                            file_drag_end(&a);
+                            files_dropped(&a, paths, target);
+                        }
+                    },
+                );
             }
             _ => {}
         }

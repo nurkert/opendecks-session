@@ -41,6 +41,7 @@ pub(crate) fn read(root: &Path) -> Result<SrcLibrary> {
             key: t.key,
             db_cues: None,
             anlz: if t.anlz_path.is_empty() { Vec::new() } else { anlz_family(on_stick(root, &t.anlz_path)) },
+            artwork: t.artwork_path.as_deref().map(|p| on_stick(root, p)),
             smart: SmartFields { play_count: t.play_count as i64, ..Default::default() },
         });
     }

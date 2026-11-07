@@ -192,9 +192,11 @@ status = "done"
 prio = "P3"
 tests = [
   "od-ui::ui_tests::prepare::artwork_in_info_panel_and_player",
+  "od-ui::ui_tests::browser::preview_and_artwork_columns",
+  "od-import-rekordbox::tests::master_db_import",
 ]
-evidence = ["crates/od-ui/src/browser/mod.rs::artwork_image", "ui/info.slint"]
-note = "Stored (`schema.sql` `artwork`) and exported to sticks (`pdb/rows.rs`); shown as a thumbnail in the info panel and next to the title of the Prepare player (deck artwork is part of the deck header)"
+evidence = ["crates/od-ui/src/browser/mod.rs::artwork_image", "crates/od-ui/src/browser/tracks.rs::list_images", "ui/info.slint"]
+note = "Stored (`schema.sql` `artwork`) and exported to sticks (`pdb/rows.rs`); shown as a thumbnail in the info panel and next to the title of the Prepare player (deck artwork is part of the deck header), and in the ARTWORK column of the track list and Explorer (default on; decoded off the UI thread). Imported from embedded pictures and from rekordbox's own artwork folder (`djmdContent.ImagePath`, larger `_m` variant first; also filled in for tracks imported before)"
 
 [[feature]]
 id = "browser-tree-nodes"
@@ -730,9 +732,10 @@ tests = [
   "od-ui::decks::tests::free_deck_prefers_idle_empty",
   "od-ui::ui_tests::features::load_gestures_double_click_and_menu",
   "od-ui::ui_tests::features::drag_row_onto_deck_loads_it",
+  "od-ui::ui_tests::perform::loading_shows_at_once",
 ]
-evidence = ["crates/od-ui/src/decks.rs::free_deck"]
-note = "Double-click / activate loads into a free deck, drag a row onto a deck, context menu Load to deck ▸ Deck n, controller load; all driven through the window by UI tests"
+evidence = ["crates/od-ui/src/decks.rs::free_deck", "crates/od-ui/src/decks.rs::prepare_in_background"]
+note = "Double-click / activate loads into a free deck, drag a row onto a deck, context menu Load to deck ▸ Deck n, controller load; all driven through the window by UI tests. The old track leaves at once and the new one shows with a LOADING sweep; the mix is decoded first (playable at once), cached parts swap in without a gap"
 spec = "UX §2.1"
 
 [[feature]]
@@ -1644,6 +1647,7 @@ tests = [
   "od-ui::decks::tests::empty_deck_projection",
   "od-ui::ui_tests::features::deck_header_readouts",
   "od-ui::render::tests::artwork_thumbnails_are_square",
+  "od-engine::deck_features::bpm_readout_is_steady_on_millisecond_grids",
 ]
 evidence = ["crates/od-ui/src/format.rs"]
 note = "Number, cover art (from the library, as a thumbnail), title, artist, BPM, remaining / elapsed time, key, SYNC / MASTER"
@@ -3033,11 +3037,12 @@ prio = "P2"
 tests = [
   "od-ui::ui_tests::stage::cdj_browse_screen_loads_a_track",
   "od-ui::ui_tests::stage::cdj_mode_player_screens",
+  "od-ui::ui_tests::stage::cdj_beat_position_follows_playback",
   "od-ui::cdj::tests::checklist_follows_the_workflow",
   "od-ui::cdj::tests::sync_does_not_count_and_drift_resets",
 ]
 evidence = []
-note = "CDJ toggle (Alt+J): player screens per deck (waveform, overview needle search, jog display with remaining time / bar counter / phrase, hot cues with hold, memory cue call, loop in / out / reloop, beat jump, search, tempo range, master tempo), BROWSE screen (source → playlists → tracks, from the library or a stick), player cue rules, sync off, self-ticking checklist"
+note = "CDJ toggle (Alt+J): player screens per deck (waveform, overview needle search, jog display with remaining time / bar counter / phrase, four-segment beat position under the waveform (beat 1 accented) for visual beat matching, hot cues with hold, memory cue call, loop in / out / reloop, beat jump, search, tempo range, master tempo), BROWSE screen (source → playlists → tracks, from the library or a stick), player cue rules, sync off, self-ticking checklist"
 spec = "SPEC §10.3c"
 
 [[feature]]
@@ -3056,9 +3061,11 @@ tests = [
   "od-mcp::stdio::http_refuses_non_loopback",
   "od-library::tests::edit_with_is_atomic_and_one_step",
   "od-library::tests::external_writes_are_detected",
+  "od-mcp::stdio::lighting_rig_and_live_control",
+  "od-ui::ui_tests::remote::app_follows_rig_edits_and_live_commands_from_outside",
 ]
-evidence = ["apps/od-mcp/src/tools.rs", "apps/od-mcp/src/server.rs", "docs/mcp.md"]
-note = "Owner request 2026-11-06 (SPEC §5.6). `opendecks-mcp` (MCP 2025-06-18, stdio or loopback HTTP): 8 read and 10 write tools, track/node resources, build_set and fix_transitions prompts; each write is one undo step \"MCP: …\" plus change-log rows (stick sync); setup in docs/mcp.md"
+evidence = ["apps/od-mcp/src/tools.rs", "apps/od-mcp/src/server.rs", "apps/od-mcp/src/lighting.rs", "crates/od-lighting/src/rig.rs", "docs/mcp.md"]
+note = "Owner request 2026-11-06 (SPEC §5.6). `opendecks-mcp` (MCP 2025-06-18, stdio or loopback HTTP): 8 read and 10 write tools, track/node resources, build_set and fix_transitions prompts; each write is one undo step \"MCP: …\" plus change-log rows (stick sync); setup in docs/mcp.md. Owner request 2026-11-07: the light show too — 8 lighting tools (rig overview, patch, settings, group looks, outputs, cue stack, track cues, live actions); the app reloads the edited rig and runs live actions from the rig's inbox"
 spec = "SPEC §5.6"
 
 [[feature]]

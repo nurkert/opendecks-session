@@ -2,9 +2,9 @@
 //! in the library meta), the status band and key bindings.
 
 use crate::app::{App, handler};
+use crate::keymap::{Chord, Context};
 use crate::settings::Settings;
 use crate::state::AppConfig;
-use crate::keymap::{Chord, Context};
 use crate::{AppWindow, browser, devices, recorder};
 use slint::{ComponentHandle, SharedString};
 use std::rc::Rc;
@@ -42,7 +42,10 @@ pub(crate) fn set_prepare_layout(app: &App, layout: &str) {
 
 /// The next Prepare layout (the top-bar switch).
 pub(crate) fn next_layout(current: &str) -> &'static str {
-    let i = PREPARE_LAYOUTS.iter().position(|l| *l == current).unwrap_or(0);
+    let i = PREPARE_LAYOUTS
+        .iter()
+        .position(|l| *l == current)
+        .unwrap_or(0);
     PREPARE_LAYOUTS[(i + 1) % PREPARE_LAYOUTS.len()]
 }
 
@@ -76,7 +79,14 @@ pub(crate) fn apply_panels(app: &App) {
 /// Status band summary of the open list: "12 TRACKS · 1:02:03 · 84.2 MB"
 /// and the selection count when more than one row is selected.
 pub(crate) fn list_summary(count: usize, seconds: f64, bytes: u64, selected: usize) -> String {
-    let mut s = od_i18n::trf("{} TRACKS  ·  {}  ·  {}", &[&count, &crate::format::time(seconds), &crate::format::bytes(bytes)]);
+    let mut s = od_i18n::trf(
+        "{} TRACKS  ·  {}  ·  {}",
+        &[
+            &count,
+            &crate::format::time(seconds),
+            &crate::format::bytes(bytes),
+        ],
+    );
     if selected > 1 {
         s.push_str("  ·  ");
         s.push_str(&od_i18n::trf("{} SELECTED", &[&selected]));
@@ -135,7 +145,11 @@ pub(crate) fn apply_language(lang: &str) {
 pub(crate) fn apply_browser_style(ui: &AppWindow, settings: &Settings, kiosk: bool) {
     let size = settings.browser.font_size as f32;
     ui.global::<crate::TableStyle>().set_text(size);
-    let row = if kiosk { 44.0 } else { settings.row_height().max(size + 10.0) };
+    let row = if kiosk {
+        44.0
+    } else {
+        settings.row_height().max(size + 10.0)
+    };
     ui.global::<crate::Theme>().set_row_height(row);
     ui.set_density(settings.browser.line_spacing.clone().into());
 }
@@ -153,7 +167,8 @@ pub(crate) fn apply_theme(theme: &crate::Theme<'_>, settings: &Settings, lite: b
 
 /// Parses a stored pane size.
 fn pane(v: Option<String>) -> Option<f32> {
-    v.and_then(|v| v.parse::<f32>().ok()).filter(|v| v.is_finite())
+    v.and_then(|v| v.parse::<f32>().ok())
+        .filter(|v| v.is_finite())
 }
 
 /// Restores the last list, track, section, mode and pane sizes.
@@ -162,8 +177,12 @@ pub(crate) fn restore_view(app: &App) {
         let st = app.state.borrow();
         let get = |k: &str| st.lib.meta(k).ok().flatten();
         (
-            get(META_NODE).and_then(|v| v.parse::<i64>().ok()).map(od_library::NodeId),
-            get(META_TRACK).and_then(|v| v.parse::<i64>().ok()).map(od_core::TrackId),
+            get(META_NODE)
+                .and_then(|v| v.parse::<i64>().ok())
+                .map(od_library::NodeId),
+            get(META_TRACK)
+                .and_then(|v| v.parse::<i64>().ok())
+                .map(od_core::TrackId),
             get(META_SECTION),
             get(META_MODE),
             pane(get(META_SIDEBAR)),
@@ -197,14 +216,26 @@ pub(crate) fn restore_view(app: &App) {
 /// Remembers the view for the next start (best effort).
 pub(crate) fn remember_view(app: &App) {
     let mut st = app.state.borrow_mut();
-    let node = st.browser.node.map(|n| n.0.to_string()).unwrap_or_else(|| "-1".into());
-    let track = st.player.current.map(|t| t.0.to_string()).unwrap_or_default();
+    let node = st
+        .browser
+        .node
+        .map(|n| n.0.to_string())
+        .unwrap_or_else(|| "-1".into());
+    let track = st
+        .player
+        .current
+        .map(|t| t.0.to_string())
+        .unwrap_or_default();
     let _ = st.lib.set_meta(META_NODE, &node);
     let _ = st.lib.set_meta(META_TRACK, &track);
     let _ = st.lib.set_meta(META_SECTION, app.ui.get_section().as_str());
     let _ = st.lib.set_meta(META_MODE, app.ui.get_mode().as_str());
-    let _ = st.lib.set_meta(META_SIDEBAR, &app.ui.get_sidebar_width().to_string());
-    let _ = st.lib.set_meta(META_UPPER, &app.ui.get_upper_height().to_string());
+    let _ = st
+        .lib
+        .set_meta(META_SIDEBAR, &app.ui.get_sidebar_width().to_string());
+    let _ = st
+        .lib
+        .set_meta(META_UPPER, &app.ui.get_upper_height().to_string());
     let cdj = app.ui.global::<crate::Cdj>().get_enabled();
     let _ = st.lib.set_meta(META_CDJ, if cdj { "1" } else { "0" });
 }
@@ -214,12 +245,18 @@ pub(crate) fn refresh_status(app: &App) {
     let st = app.state.borrow();
     let journal = st.lib.journal(1).unwrap_or_default();
     app.ui.set_undo_label(
-        journal.first().filter(|j| !j.undone).map(|j| od_i18n::translate_message(&j.label).to_uppercase()).unwrap_or_default().into(),
+        journal
+            .first()
+            .filter(|j| !j.undone)
+            .map(|j| od_i18n::translate_message(&j.label).to_uppercase())
+            .unwrap_or_default()
+            .into(),
     );
     match analysis_band(st.analysis) {
         Some((progress, (done, total))) => {
             app.ui.set_analysis_progress(progress);
-            app.ui.set_analysis_text(od_i18n::trf("ANALYSING {}/{}", &[&done, &total]).into());
+            app.ui
+                .set_analysis_text(od_i18n::trf("ANALYSING {}/{}", &[&done, &total]).into());
         }
         None => {
             app.ui.set_analysis_progress(0.0);
@@ -236,9 +273,21 @@ fn analysis_band((done, total): (usize, usize)) -> Option<(f32, (usize, usize))>
 /// Keyboard: every key press goes through the keymap (Preferences >
 /// Keyboard); unbound keys are left to the focused element.
 fn key(app: &Rc<App>, text: &str, control: bool, meta: bool, alt: bool, shift: bool) -> bool {
-    let Some(chord) = Chord::from_event(text, control, meta, alt, shift, app.prefs.borrow().layout) else { return false };
-    let mode = if app.ui.get_mode() == "perform" { Context::Perform } else { Context::Prepare };
-    let id = app.state.borrow().keymap.lookup(&chord, mode).map(|a| a.id.clone());
+    let Some(chord) = Chord::from_event(text, control, meta, alt, shift, app.prefs.borrow().layout)
+    else {
+        return false;
+    };
+    let mode = if app.ui.get_mode() == "perform" {
+        Context::Perform
+    } else {
+        Context::Prepare
+    };
+    let id = app
+        .state
+        .borrow()
+        .keymap
+        .lookup(&chord, mode)
+        .map(|a| a.id.clone());
     match id {
         Some(id) => {
             tracing::debug!(%chord, id, "key");
@@ -253,14 +302,21 @@ fn key(app: &Rc<App>, text: &str, control: bool, meta: bool, alt: bool, shift: b
 /// effect, as the platform writes them ("" when unbound or unknown).
 pub(crate) fn shortcut_text(keymap: &crate::keymap::Keymap, id: &str) -> String {
     let platform = keymap.platform();
-    keymap.bindings(id).iter().map(|c| c.display(platform)).collect::<Vec<_>>().join("  ·  ")
+    keymap
+        .bindings(id)
+        .iter()
+        .map(|c| c.display(platform))
+        .collect::<Vec<_>>()
+        .join("  ·  ")
 }
 
 /// Tooltips of a window look up the current binding when they open.
 pub(crate) fn wire_tooltips(app: &Rc<App>, tips: &crate::TooltipState<'_>) {
     let weak = Rc::downgrade(app);
     tips.on_shortcut_for(move |id| {
-        let Some(app) = weak.upgrade() else { return SharedString::new() };
+        let Some(app) = weak.upgrade() else {
+            return SharedString::new();
+        };
         let st = app.state.borrow();
         shortcut_text(&st.keymap, id.as_str()).into()
     });
@@ -288,10 +344,14 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_redo(handler!(app, |a| a.redo()));
     let weak = Rc::downgrade(app);
     ui.on_key_pressed(move |text, control, meta, alt, shift| {
-        let Some(app) = weak.upgrade() else { return false };
+        let Some(app) = weak.upgrade() else {
+            return false;
+        };
         key(&app, text.as_str(), control, meta, alt, shift)
     });
-    ui.on_key_released(handler!(app, |a, text: SharedString| crate::commands::release(&a, text.as_str())));
+    ui.on_key_released(handler!(app, |a, text: SharedString| {
+        crate::commands::release(&a, text.as_str())
+    }));
     ui.on_open_preferences(handler!(app, |a| crate::preferences::open(&a)));
     ui.on_cycle_layout(handler!(app, |a| {
         if a.ui.get_mode() == "perform" {
@@ -303,10 +363,16 @@ pub(crate) fn wire(app: &Rc<App>) {
     }));
     // Files from Finder / the file manager.
     ui.on_drop_accepts(|data| data.has_file_paths());
-    ui.on_files_dropped(handler!(app, |a, data: slint::DataTransfer, target: i32| {
-        let paths: Vec<std::path::PathBuf> = data.file_paths().map(|p| p.map(|p| p.to_path_buf()).collect()).unwrap_or_default();
-        crate::import::files_dropped(&a, paths, target);
-    }));
+    ui.on_files_dropped(handler!(
+        app,
+        |a, data: slint::DataTransfer, target: i32| {
+            let paths: Vec<std::path::PathBuf> = data
+                .file_paths()
+                .map(|p| p.map(|p| p.to_path_buf()).collect())
+                .unwrap_or_default();
+            crate::import::files_dropped(&a, paths, target);
+        }
+    ));
     crate::import::wire_native_drop(app);
     let weak = Rc::downgrade(app);
     ui.on_menu_action(move |id| {
@@ -325,7 +391,12 @@ mod tests {
         use crate::keymap::{Chord, Keymap, Platform};
         let mut k = Keymap::new(Platform::Mac);
         assert_eq!(shortcut_text(&k, "deck1.play"), "Z");
-        assert_eq!(shortcut_text(&k, "prefs.open"), Chord::parse("Mod+,", Platform::Mac).unwrap().display(Platform::Mac));
+        assert_eq!(
+            shortcut_text(&k, "prefs.open"),
+            Chord::parse("Mod+,", Platform::Mac)
+                .unwrap()
+                .display(Platform::Mac)
+        );
         let p = Chord::parse("Shift+P", Platform::Mac).unwrap();
         k.set("deck1.play", vec![p.clone()]);
         assert_eq!(shortcut_text(&k, "deck1.play"), p.display(Platform::Mac));
@@ -348,9 +419,15 @@ mod tests {
     fn list_summary_counts_time_size_and_selection() {
         // Language-neutral checks (other tests may switch the language).
         let s = list_summary(12, 3723.0, 84_200_000, 1);
-        assert!(s.starts_with("12 ") && s.contains("1:02:03") && s.ends_with("84 MB"), "{s}");
+        assert!(
+            s.starts_with("12 ") && s.contains("1:02:03") && s.ends_with("84 MB"),
+            "{s}"
+        );
         let sel = list_summary(3, 60.0, 0, 2);
-        assert!(sel.len() > list_summary(3, 60.0, 0, 1).len() && sel.contains(" 2 "), "{sel}");
+        assert!(
+            sel.len() > list_summary(3, 60.0, 0, 1).len() && sel.contains(" 2 "),
+            "{sel}"
+        );
     }
 
     #[test]

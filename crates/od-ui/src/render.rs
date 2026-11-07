@@ -83,12 +83,20 @@ const LIGHT: Pal = Pal {
 };
 
 fn pal() -> &'static Pal {
-    if crate::appearance::is_light() { &LIGHT } else { &DARK }
+    if crate::appearance::is_light() {
+        &LIGHT
+    } else {
+        &DARK
+    }
 }
 
 fn bands() -> [[u8; 3]; 3] {
     let p = pal();
-    if COLORBLIND.load(std::sync::atomic::Ordering::Relaxed) { p.bands_cb } else { p.bands }
+    if COLORBLIND.load(std::sync::atomic::Ordering::Relaxed) {
+        p.bands_cb
+    } else {
+        p.bands
+    }
 }
 
 /// Colour of a phrase kind (shared by the phrase bar in the UI).
@@ -128,7 +136,12 @@ pub fn phrase_label(kind: PhraseKind) -> &'static str {
 
 fn fill(buf: &mut SharedPixelBuffer<Rgba8Pixel>, rgb: [u8; 3]) {
     for p in buf.make_mut_slice() {
-        *p = Rgba8Pixel { r: rgb[0], g: rgb[1], b: rgb[2], a: 255 };
+        *p = Rgba8Pixel {
+            r: rgb[0],
+            g: rgb[1],
+            b: rgb[2],
+            a: 255,
+        };
     }
 }
 
@@ -139,7 +152,12 @@ fn vline(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, y0: u32, y1: u32, rgb:
     }
     let px = buf.make_mut_slice();
     for y in y0.min(h)..y1.min(h) {
-        px[(y * w + x) as usize] = Rgba8Pixel { r: rgb[0], g: rgb[1], b: rgb[2], a: 255 };
+        px[(y * w + x) as usize] = Rgba8Pixel {
+            r: rgb[0],
+            g: rgb[1],
+            b: rgb[2],
+            a: 255,
+        };
     }
 }
 
@@ -149,11 +167,34 @@ fn dim(rgb: [u8; 3]) -> [u8; 3] {
 
 /// Draws one three-band column centred on `mid`; `amp` is the half height of
 /// the loudest band.
-fn column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, played: bool) {
-    styled_column(STYLE.load(std::sync::atomic::Ordering::Relaxed), buf, x, mid, amp, c, played)
+fn column(
+    buf: &mut SharedPixelBuffer<Rgba8Pixel>,
+    x: u32,
+    mid: u32,
+    amp: u32,
+    c: &WaveformColumn,
+    played: bool,
+) {
+    styled_column(
+        STYLE.load(std::sync::atomic::Ordering::Relaxed),
+        buf,
+        x,
+        mid,
+        amp,
+        c,
+        played,
+    )
 }
 
-fn styled_column(style: u8, buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, played: bool) {
+fn styled_column(
+    style: u8,
+    buf: &mut SharedPixelBuffer<Rgba8Pixel>,
+    x: u32,
+    mid: u32,
+    amp: u32,
+    c: &WaveformColumn,
+    played: bool,
+) {
     match style {
         1 => return mono_column(buf, x, mid, amp, c, played),
         2 => return rgb_column(buf, x, mid, amp, c, played),
@@ -172,38 +213,76 @@ fn styled_column(style: u8, buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid
 }
 
 /// Blue style: one envelope in blue, the highs lighter on top.
-fn mono_column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, played: bool) {
+fn mono_column(
+    buf: &mut SharedPixelBuffer<Rgba8Pixel>,
+    x: u32,
+    mid: u32,
+    amp: u32,
+    c: &WaveformColumn,
+    played: bool,
+) {
     let top = c.low.max(c.mid).max(c.high).max(1) as f32;
     let body = bands()[0];
     let light = body.map(|v| v / 2 + 120);
     for (v, rgb) in [(c.low.max(c.mid), body), (c.high, light)] {
         let a = (v as f32 / top * amp as f32).round() as u32;
         if a > 0 {
-            vline(buf, x, mid.saturating_sub(a), mid + a, if played { dim(rgb) } else { rgb });
+            vline(
+                buf,
+                x,
+                mid.saturating_sub(a),
+                mid + a,
+                if played { dim(rgb) } else { rgb },
+            );
         }
     }
 }
 
 /// RGB style: one envelope whose colour mixes the bands (lows red, mids
 /// green, highs blue), so the timbre shows as hue.
-fn rgb_column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, played: bool) {
+fn rgb_column(
+    buf: &mut SharedPixelBuffer<Rgba8Pixel>,
+    x: u32,
+    mid: u32,
+    amp: u32,
+    c: &WaveformColumn,
+    played: bool,
+) {
     let top = c.low.max(c.mid).max(c.high);
     if top == 0 || amp == 0 {
         return;
     }
     // The loudest band is full intensity; the others in proportion.
     let rgb = [c.low, c.mid, c.high].map(|v| ((v as u32 * 255) / top as u32).max(40) as u8);
-    vline(buf, x, mid.saturating_sub(amp), mid + amp, if played { dim(rgb) } else { rgb });
+    vline(
+        buf,
+        x,
+        mid.saturating_sub(amp),
+        mid + amp,
+        if played { dim(rgb) } else { rgb },
+    );
 }
 
 /// Paints phrase colours as a strip of `strip` pixels along the bottom.
-fn phrase_strip(buf: &mut SharedPixelBuffer<Rgba8Pixel>, phrases: &[Phrase], grid: &Beatgrid, x_of: impl Fn(f64) -> Option<u32>, strip: u32) {
+fn phrase_strip(
+    buf: &mut SharedPixelBuffer<Rgba8Pixel>,
+    phrases: &[Phrase],
+    grid: &Beatgrid,
+    x_of: impl Fn(f64) -> Option<u32>,
+    strip: u32,
+) {
     let (w, h) = (buf.width(), buf.height());
     for p in phrases {
-        let (Some(a), Some(b)) = (grid.beats.get(p.start_beat as usize), grid.beats.get((p.end_beat as usize).min(grid.beats.len().saturating_sub(1)))) else {
+        let (Some(a), Some(b)) = (
+            grid.beats.get(p.start_beat as usize),
+            grid.beats
+                .get((p.end_beat as usize).min(grid.beats.len().saturating_sub(1))),
+        ) else {
             continue;
         };
-        let (Some(x0), Some(x1)) = (x_of(a.time), x_of(b.time)) else { continue };
+        let (Some(x0), Some(x1)) = (x_of(a.time), x_of(b.time)) else {
+            continue;
+        };
         let rgb = phrase_rgb(p.kind);
         for x in x0..x1.min(w) {
             vline(buf, x, h.saturating_sub(strip), h, rgb);
@@ -244,7 +323,12 @@ pub fn overview(w: &Waveform, grid: &Beatgrid, duration: f64, width: u32, height
 pub fn preview(w: &Waveform, width: u32, height: u32) -> Image {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width.max(1), height.max(1));
     for p in buf.make_mut_slice() {
-        *p = Rgba8Pixel { r: 0, g: 0, b: 0, a: 0 };
+        *p = Rgba8Pixel {
+            r: 0,
+            g: 0,
+            b: 0,
+            a: 0,
+        };
     }
     let cols = w.overview(width.max(1) as usize);
     let max = cols.iter().map(|c| c.peak).max().unwrap_or(1).max(1) as f32;
@@ -260,21 +344,48 @@ pub fn preview(w: &Waveform, width: u32, height: u32) -> Image {
 /// `span` seconds in total, with beat ticks from `grid` and a phrase strip
 /// along the bottom. Audio already played is drawn dimmed.
 #[allow(clippy::too_many_arguments)]
-pub fn detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], position: f64, span: f64, width: u32, height: u32) -> Image {
-    draw_detail(w, grid, phrases, position - span / 2.0, span, Some(position), width, height)
+pub fn detail(
+    w: &Waveform,
+    grid: &Beatgrid,
+    phrases: &[Phrase],
+    position: f64,
+    span: f64,
+    width: u32,
+    height: u32,
+) -> Image {
+    draw_detail(
+        w,
+        grid,
+        phrases,
+        position - span / 2.0,
+        span,
+        Some(position),
+        width,
+        height,
+    )
 }
 
 /// One tile of the scrolling waveform: `span` seconds from `start`, nothing
 /// dimmed. The UI scrolls tiles by translating them, so the CPU renders a
 /// tile only when the playhead enters a new one.
-pub fn detail_tile(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64, span: f64, width: u32, height: u32) -> Image {
+pub fn detail_tile(
+    w: &Waveform,
+    grid: &Beatgrid,
+    phrases: &[Phrase],
+    start: f64,
+    span: f64,
+    width: u32,
+    height: u32,
+) -> Image {
     draw_detail(w, grid, phrases, start, span, None, width, height)
 }
 
 /// A tile turned for the vertical lanes: time runs top to bottom, the
 /// waveform's amplitude spreads left and right.
 pub fn transpose(img: &Image) -> Image {
-    let Some(src) = img.to_rgba8() else { return img.clone() };
+    let Some(src) = img.to_rgba8() else {
+        return img.clone();
+    };
     let (w, h) = (src.width(), src.height());
     let mut out = SharedPixelBuffer::<Rgba8Pixel>::new(h, w);
     let from = src.as_slice();
@@ -288,7 +399,16 @@ pub fn transpose(img: &Image) -> Image {
 }
 
 #[allow(clippy::too_many_arguments)]
-fn draw_detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64, span: f64, dim_before: Option<f64>, width: u32, height: u32) -> Image {
+fn draw_detail(
+    w: &Waveform,
+    grid: &Beatgrid,
+    phrases: &[Phrase],
+    start: f64,
+    span: f64,
+    dim_before: Option<f64>,
+    width: u32,
+    height: u32,
+) -> Image {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width.max(1), height.max(1));
     fill(&mut buf, pal().ground);
     let secs_per_px = span / width.max(1) as f64;
@@ -313,13 +433,17 @@ fn draw_detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64, sp
         if a >= w.columns.len() {
             continue;
         }
-        let c = w.columns[a..b.min(w.columns.len())].iter().fold(WaveformColumn::default(), |acc, c| WaveformColumn {
-            low: acc.low.max(c.low),
-            mid: acc.mid.max(c.mid),
-            high: acc.high.max(c.high),
-            peak: acc.peak.max(c.peak),
-        });
-        let amp = (c.peak as f32 / 255.0 * (wave_h as f32 / 2.0 - mark_h as f32 - 2.0)).max(1.0) as u32;
+        let c = w.columns[a..b.min(w.columns.len())].iter().fold(
+            WaveformColumn::default(),
+            |acc, c| WaveformColumn {
+                low: acc.low.max(c.low),
+                mid: acc.mid.max(c.mid),
+                high: acc.high.max(c.high),
+                peak: acc.peak.max(c.peak),
+            },
+        );
+        let amp =
+            (c.peak as f32 / 255.0 * (wave_h as f32 / 2.0 - mark_h as f32 - 2.0)).max(1.0) as u32;
         column(&mut buf, x, mid, amp, &c, dim_before.is_some_and(|p| t < p));
     }
     // Beatgrid on top of the waveform, as thin lines DJs read at a glance:
@@ -336,14 +460,30 @@ fn draw_detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64, sp
             let x = ((b.time - start) / secs_per_px) as u32;
             let downbeat = b.bar_position == 1;
             let phrase = downbeat && (i / 4) % 16 == 0;
-            let line = if phrase { pal().phrase_line } else if downbeat { pal().downbeat } else { pal().beat };
+            let line = if phrase {
+                pal().phrase_line
+            } else if downbeat {
+                pal().downbeat
+            } else {
+                pal().beat
+            };
             vline(&mut buf, x, 0, wave_h, line);
             if downbeat {
                 // Marker at the top: a 3 px wide block, strongest at 16 bars.
-                let mark = if phrase { pal().phrase_mark } else { pal().downbeat_mark };
+                let mark = if phrase {
+                    pal().phrase_mark
+                } else {
+                    pal().downbeat_mark
+                };
                 for dx in 0..3u32 {
                     vline(&mut buf, (x + dx).saturating_sub(1), 0, mark_h, mark);
-                    vline(&mut buf, (x + dx).saturating_sub(1), wave_h - mark_h, wave_h, mark);
+                    vline(
+                        &mut buf,
+                        (x + dx).saturating_sub(1),
+                        wave_h - mark_h,
+                        wave_h,
+                        mark,
+                    );
                 }
             }
         }
@@ -369,7 +509,12 @@ pub fn ground_texture() -> Image {
         }
         let v = |base: i32| (base + level).clamp(0, 255) as u8;
         for y in 0..h {
-            px[(y * w + x) as usize] = Rgba8Pixel { r: v(0x15), g: v(0x15), b: v(0x14), a: 255 };
+            px[(y * w + x) as usize] = Rgba8Pixel {
+                r: v(0x15),
+                g: v(0x15),
+                b: v(0x14),
+                a: 255,
+            };
         }
     }
     Image::from_rgba8(buf)
@@ -377,10 +522,24 @@ pub fn ground_texture() -> Image {
 
 /// Cover art scaled to a square thumbnail of `size` pixels (PNG / JPEG).
 pub fn artwork_thumbnail(data: &[u8], size: u32) -> Option<Image> {
+    artwork_pixels(data, size).map(Image::from_rgba8)
+}
+
+/// [`artwork_thumbnail`] as a pixel buffer (can be made on any thread).
+pub fn artwork_pixels(data: &[u8], size: u32) -> Option<SharedPixelBuffer<Rgba8Pixel>> {
     let img = image::load_from_memory(data).ok()?;
-    let thumb = img.resize_to_fill(size.max(1), size.max(1), image::imageops::FilterType::Triangle).to_rgba8();
-    let buf = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(thumb.as_raw(), thumb.width(), thumb.height());
-    Some(Image::from_rgba8(buf))
+    let thumb = img
+        .resize_to_fill(
+            size.max(1),
+            size.max(1),
+            image::imageops::FilterType::Triangle,
+        )
+        .to_rgba8();
+    Some(SharedPixelBuffer::<Rgba8Pixel>::clone_from_slice(
+        thumb.as_raw(),
+        thumb.width(),
+        thumb.height(),
+    ))
 }
 
 #[cfg(test)]
@@ -391,14 +550,25 @@ mod tests {
     fn renders_sizes() {
         let w = Waveform {
             columns_per_second: 150.0,
-            columns: vec![WaveformColumn { low: 200, mid: 20, high: 10, peak: 200 }; 1500],
+            columns: vec![
+                WaveformColumn {
+                    low: 200,
+                    mid: 20,
+                    high: 10,
+                    peak: 200
+                };
+                1500
+            ],
         };
         let g = Beatgrid::constant(120.0, 0.0, 1, 10.0);
         let img = overview(&w, &g, 10.0, 400, 80);
         assert_eq!(img.size().width, 400);
         let d = detail(&w, &g, &[], 5.0, 8.0, 600, 100);
         assert_eq!(d.size().height, 100);
-        assert_eq!(overview(&Waveform::default(), &g, 0.0, 10, 10).size().width, 10);
+        assert_eq!(
+            overview(&Waveform::default(), &g, 0.0, 10, 10).size().width,
+            10
+        );
         assert_eq!(ground_texture().size().width, 640);
     }
 
@@ -406,8 +576,23 @@ mod tests {
     fn three_bands_stack_by_amplitude() {
         let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(1, 41);
         fill(&mut buf, GROUND);
-        column(&mut buf, 0, 20, 20, &WaveformColumn { low: 200, mid: 100, high: 50, peak: 200 }, false);
-        let at = |y: usize| { let p = buf.as_slice()[y]; [p.r, p.g, p.b] };
+        column(
+            &mut buf,
+            0,
+            20,
+            20,
+            &WaveformColumn {
+                low: 200,
+                mid: 100,
+                high: 50,
+                peak: 200,
+            },
+            false,
+        );
+        let at = |y: usize| {
+            let p = buf.as_slice()[y];
+            [p.r, p.g, p.b]
+        };
         // Outermost: only the low band reaches; then mids; the centre is highs.
         assert_eq!(at(1), LOW);
         assert_eq!(at(14), MID);
@@ -416,12 +601,18 @@ mod tests {
 
     #[test]
     fn beatgrid_lines_sit_on_the_beats() {
-        let w = Waveform { columns_per_second: 150.0, columns: vec![WaveformColumn::default(); 1500] };
+        let w = Waveform {
+            columns_per_second: 150.0,
+            columns: vec![WaveformColumn::default(); 1500],
+        };
         // 120 BPM: a beat every 0.5 s; 8 s across 400 px = 25 px per beat.
         let g = Beatgrid::constant(120.0, 0.0, 1, 10.0);
         let img = detail(&w, &g, &[], 4.0, 8.0, 400, 90);
         let buf = img.to_rgba8().unwrap();
-        let px = |x: u32, y: u32| { let p = buf.as_slice()[(y * 400 + x) as usize]; [p.r, p.g, p.b] };
+        let px = |x: u32, y: u32| {
+            let p = buf.as_slice()[(y * 400 + x) as usize];
+            [p.r, p.g, p.b]
+        };
         // Beat 0 (bar 1, a 16-bar start) at x = 0; beat 8 (bar 3) centred at x = 200.
         assert_eq!(px(0, 40), PHRASE_LINE);
         assert_eq!(px(0, 2), PHRASE_MARK);
@@ -438,25 +629,54 @@ mod tests {
 
     #[test]
     fn tiles_join_seamlessly() {
-        let w = Waveform { columns_per_second: 150.0, columns: (0..1500).map(|i| WaveformColumn { low: (i % 200) as u8, mid: 40, high: 20, peak: (i % 200) as u8 }).collect() };
+        let w = Waveform {
+            columns_per_second: 150.0,
+            columns: (0..1500)
+                .map(|i| WaveformColumn {
+                    low: (i % 200) as u8,
+                    mid: 40,
+                    high: 20,
+                    peak: (i % 200) as u8,
+                })
+                .collect(),
+        };
         let g = Beatgrid::constant(120.0, 0.0, 1, 10.0);
         // Two 4 s tiles side by side equal one 8 s detail without dimming.
-        let a = detail_tile(&w, &g, &[], 0.0, 4.0, 200, 60).to_rgba8().unwrap();
-        let b = detail_tile(&w, &g, &[], 4.0, 4.0, 200, 60).to_rgba8().unwrap();
-        let whole = detail_tile(&w, &g, &[], 0.0, 8.0, 400, 60).to_rgba8().unwrap();
+        let a = detail_tile(&w, &g, &[], 0.0, 4.0, 200, 60)
+            .to_rgba8()
+            .unwrap();
+        let b = detail_tile(&w, &g, &[], 4.0, 4.0, 200, 60)
+            .to_rgba8()
+            .unwrap();
+        let whole = detail_tile(&w, &g, &[], 0.0, 8.0, 400, 60)
+            .to_rgba8()
+            .unwrap();
         for y in [10u32, 30, 50] {
             for x in [0u32, 57, 199] {
-                assert_eq!(a.as_slice()[(y * 200 + x) as usize], whole.as_slice()[(y * 400 + x) as usize]);
-                assert_eq!(b.as_slice()[(y * 200 + x) as usize], whole.as_slice()[(y * 400 + 200 + x) as usize]);
+                assert_eq!(
+                    a.as_slice()[(y * 200 + x) as usize],
+                    whole.as_slice()[(y * 400 + x) as usize]
+                );
+                assert_eq!(
+                    b.as_slice()[(y * 200 + x) as usize],
+                    whole.as_slice()[(y * 400 + 200 + x) as usize]
+                );
             }
         }
     }
 
     #[test]
     fn phrase_strip_is_painted() {
-        let w = Waveform { columns_per_second: 150.0, columns: vec![WaveformColumn::default(); 1500] };
+        let w = Waveform {
+            columns_per_second: 150.0,
+            columns: vec![WaveformColumn::default(); 1500],
+        };
         let g = Beatgrid::constant(120.0, 0.0, 1, 10.0);
-        let phrases = [Phrase { start_beat: 0, end_beat: 16, kind: PhraseKind::Chorus }];
+        let phrases = [Phrase {
+            start_beat: 0,
+            end_beat: 16,
+            kind: PhraseKind::Chorus,
+        }];
         let img = detail(&w, &g, &phrases, 4.0, 8.0, 200, 90);
         let buf = img.to_rgba8().unwrap();
         let p = buf.as_slice()[(89 * 200 + 150) as usize];
@@ -467,7 +687,9 @@ mod tests {
     fn artwork_thumbnails_are_square() {
         let mut png = Vec::new();
         let img = image::RgbaImage::from_pixel(40, 20, image::Rgba([200, 10, 10, 255]));
-        image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+        image::DynamicImage::ImageRgba8(img)
+            .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+            .unwrap();
         let t = artwork_thumbnail(&png, 16).unwrap();
         assert_eq!((t.size().width, t.size().height), (16, 16));
         assert!(artwork_thumbnail(b"not an image", 16).is_none());
@@ -475,7 +697,12 @@ mod tests {
 
     #[test]
     fn waveform_styles() {
-        let c = WaveformColumn { low: 200, mid: 50, high: 10, peak: 200 };
+        let c = WaveformColumn {
+            low: 200,
+            mid: 50,
+            high: 10,
+            peak: 200,
+        };
         // Styles by number (the global switch is shared by parallel tests).
         let px = |style: u8| {
             let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(1, 21);
@@ -484,7 +711,10 @@ mod tests {
             [p.r, p.g, p.b]
         };
         let rgb = px(2);
-        assert!(rgb[0] == 255 && rgb[1] < 100 && rgb[2] < 100, "bass-heavy column is red in RGB: {rgb:?}");
+        assert!(
+            rgb[0] == 255 && rgb[1] < 100 && rgb[2] < 100,
+            "bass-heavy column is red in RGB: {rgb:?}"
+        );
         let blue = px(1);
         assert!(blue[2] > blue[0], "blue style: {blue:?}");
         assert_ne!(px(0), rgb);
@@ -495,11 +725,19 @@ mod tests {
         let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(3, 2);
         // Mark the first column (time 0) red.
         for y in 0..2 {
-            buf.make_mut_slice()[(y * 3) as usize] = Rgba8Pixel { r: 255, g: 0, b: 0, a: 255 };
+            buf.make_mut_slice()[(y * 3) as usize] = Rgba8Pixel {
+                r: 255,
+                g: 0,
+                b: 0,
+                a: 255,
+            };
         }
         let t = transpose(&Image::from_rgba8(buf)).to_rgba8().unwrap();
         assert_eq!((t.width(), t.height()), (2, 3));
-        assert!(t.as_slice()[..2].iter().all(|p| p.r == 255), "time 0 is the top row");
+        assert!(
+            t.as_slice()[..2].iter().all(|p| p.r == 255),
+            "time 0 is the top row"
+        );
         assert!(t.as_slice()[2..].iter().all(|p| p.r == 0));
     }
 }

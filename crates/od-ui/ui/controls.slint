@@ -185,11 +185,12 @@ export component Knob inherits Rectangle {
     in property <string> label;
     in property <color> tone: Theme.bone-2;
     in property <length> size: 30px;
-    // Room under the ring for the legend (smaller on compact strips).
+    // Room under the ring for the legend (smaller on compact strips); a
+    // knob without a legend is just its ring, so it centres on its row.
     in property <length> label-h: 16px;
     callback changed(float);
     width: max(root.size + 8px, lbl.preferred-width + 4px);
-    height: root.size + root.label-h;
+    height: root.size + (root.label == "" ? 0px : root.label-h);
 
     property <float> norm: (root.value - root.minimum) / (root.maximum - root.minimum);
     property <angle> a: -225deg + 270deg * root.norm;

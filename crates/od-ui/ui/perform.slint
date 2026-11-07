@@ -106,6 +106,25 @@ component Readout inherits VerticalLayout {
     }
 }
 
+// Shown over a deck's overview from the moment a track is chosen until it
+// is playable: a light sweep runs across the new track's waveform.
+component LoadingVeil inherits Rectangle {
+    in property <color> tone;
+    background: Theme.ground.with-alpha(0.45);
+    property <float> phase: mod(animation-tick() / 1ms, 900) / 900;
+    Rectangle {
+        x: (parent.width + self.width) * root.phase - self.width;
+        width: max(24px, parent.width * 0.18);
+        background: @linear-gradient(90deg, root.tone.with-alpha(0) 0%, root.tone.with-alpha(0.55) 50%, root.tone.with-alpha(0) 100%);
+    }
+    Text {
+        text: @tr("LOADING");
+        font-size: 10px; font-weight: 600; letter-spacing: 1.5px;
+        color: Theme.bone;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+}
+
 // Track overview with progress veil, cue lines, needle search, phrase bar.
 component Overview inherits VerticalLayout {
     in property <DeckView> deck;
@@ -141,11 +160,12 @@ component Overview inherits VerticalLayout {
             clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); }
             moved => { if (self.pressed) { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
         }
-        if !root.deck.loaded: Rectangle {
+        if root.deck.loading: LoadingVeil { tone: Theme.deck-color(root.deck.deck); }
+        if !root.deck.loaded && !root.deck.loading: Rectangle {
             background: Theme.ground-band;
             HorizontalLayout {
                 alignment: center;
-                PlateButton { compact: true; label: @tr("LOAD SELECTED"); tone: Theme.deck-color(root.deck.deck); clicked => { root.load(); } }
+                VerticalLayout { alignment: center; PlateButton { compact: true; label: @tr("LOAD SELECTED"); tone: Theme.deck-color(root.deck.deck); clicked => { root.load(); } } }
             }
         }
     }
@@ -561,8 +581,8 @@ component KioskDeck inherits Rectangle {
                 alignment: center;
                 Text {
                     accessible-role: text; accessible-label: "deck\{root.deck.deck}.title"; accessible-value: self.text;
-                    text: root.deck.loaded ? root.deck.title : @tr("Not loaded");
-                    font-family: Theme.family; font-size: 13px; font-weight: 600; color: root.deck.loaded ? Theme.bone : Theme.bone-3; overflow: elide;
+                    text: root.deck.loaded || root.deck.loading ? root.deck.title : @tr("Not loaded");
+                    font-family: Theme.family; font-size: 13px; font-weight: 600; color: root.deck.loaded || root.deck.loading ? Theme.bone : Theme.bone-3; overflow: elide;
                 }
                 Text {
                     accessible-role: text; accessible-label: "deck\{root.deck.deck}.artist"; accessible-value: root.deck.artist;
@@ -608,9 +628,10 @@ component KioskDeck inherits Rectangle {
                     clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); }
                     moved => { if (self.pressed) { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
                 }
-                if !root.deck.loaded: Rectangle {
+                if root.deck.loading: LoadingVeil { tone: Theme.deck-color(root.deck.deck); }
+                if !root.deck.loaded && !root.deck.loading: Rectangle {
                     background: Theme.ground-band;
-                    HorizontalLayout { alignment: center; padding-top: 0px; PlateButton { tall: true; label: @tr("LOAD SELECTED"); tone: root.tone; clicked => { root.load(); } } }
+                    HorizontalLayout { alignment: center; VerticalLayout { alignment: center; PlateButton { tall: true; label: @tr("LOAD SELECTED"); tone: root.tone; clicked => { root.load(); } } } }
                 }
             }
             for st in [{ id: "vocal", label: "VOC", tone: Theme.w546 }, { id: "inst", label: "INST", tone: Theme.w656 }, { id: "drums", label: "DRM", tone: Theme.w486 }, { id: "bass", label: "BASS", tone: Theme.w405 }]: Toggle {
@@ -737,9 +758,9 @@ export component DeckPanel inherits Rectangle {
                     accessible-role: text;
                     accessible-label: "deck\{root.deck.deck}.title";
                     accessible-value: self.text;
-                    text: root.deck.loaded ? root.deck.title : @tr("Not loaded");
+                    text: root.deck.loaded || root.deck.loading ? root.deck.title : @tr("Not loaded");
                     font-family: Theme.family; font-size: root.compact ? 14px : 17px; font-weight: 600;
-                    color: root.deck.loaded ? Theme.bone : Theme.bone-3;
+                    color: root.deck.loaded || root.deck.loading ? Theme.bone : Theme.bone-3;
                     overflow: elide;
                 }
                 Text {
@@ -855,7 +876,7 @@ export component DeckPanel inherits Rectangle {
                 Transport { accessible-role: button; accessible-label: "deck\{root.deck.deck}.cue"; kind: "cue"; tone: Theme.attention; size: root.touch-size ? 44px : 30px; clicked => { root.cue(); } }
                 Transport { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.deck.playing; accessible-label: "deck\{root.deck.deck}.play"; kind: "play"; on: root.deck.playing; tone: Theme.live; size: root.touch-size ? 44px : 30px; clicked => { root.toggle-play(); } }
                 for c in root.deck.pads: DeckPad { accessible-role: button; accessible-label: "deck\{root.deck.deck}.pad." + PadLetters.of[c.index]; horizontal-stretch: 1; height: root.pad-h; p: c; mode: root.deck.pad-mode; press(d) => { root.pad(c.index, d); } alt => { root.pad-alt(c.index); } }
-                Toggle {
+                VerticalLayout { alignment: center; Toggle {
                     accessible-role: combobox;
                     accessible-label: "deck\{root.deck.deck}.pad-mode";
                     accessible-value: self.label;
@@ -866,7 +887,7 @@ export component DeckPanel inherits Rectangle {
                     tooltip: @tr("Pad mode: click for the next one");
                     command: "deck" + root.deck.deck + ".padmode.next";
                     clicked => { root.pad-mode-step(1); }
-                }
+                } }
             }
             HorizontalLayout {
                 spacing: 4px;
@@ -1006,11 +1027,11 @@ component ChannelStrip inherits Rectangle {
     VerticalLayout {
         spacing: 2px;
         Text { text: root.ch.channel; font-family: Theme.family; font-size: 14px; font-weight: 600; color: root.tone; horizontal-alignment: center; }
-        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.trim"; accessible-value: root.ch.trim; label: "TRIM"; value: root.ch.trim; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; changed(v) => { root.trim(v); } }
-        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-high"; accessible-value: root.ch.high; label: root.ch.parts ? "VOC" : "HI"; value: root.ch.high; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; tone: Theme.w486; changed(v) => { root.eq(2, v); } }
-        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-mid"; accessible-value: root.ch.mid; label: root.ch.parts ? "INST" : "MID"; value: root.ch.mid; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; tone: Theme.w546; changed(v) => { root.eq(1, v); } }
-        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-low"; accessible-value: root.ch.low; label: root.ch.parts ? "DRUM" : "LOW"; value: root.ch.low; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; tone: Theme.w656; changed(v) => { root.eq(0, v); } }
-        Knob { accessible-role: slider; accessible-label: "fx.cfx.ch\{root.ch.channel}"; accessible-value: root.ch.cfx; label: "CFX"; value: root.ch.cfx; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; tone: Theme.w405; changed(v) => { root.cfx(v); } }
+        HorizontalLayout { alignment: center; Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.trim"; accessible-value: root.ch.trim; label: "TRIM"; value: root.ch.trim; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; changed(v) => { root.trim(v); } } }
+        HorizontalLayout { alignment: center; Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-high"; accessible-value: root.ch.high; label: root.ch.parts ? "VOC" : "HI"; value: root.ch.high; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; tone: Theme.w486; changed(v) => { root.eq(2, v); } } }
+        HorizontalLayout { alignment: center; Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-mid"; accessible-value: root.ch.mid; label: root.ch.parts ? "INST" : "MID"; value: root.ch.mid; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; tone: Theme.w546; changed(v) => { root.eq(1, v); } } }
+        HorizontalLayout { alignment: center; Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-low"; accessible-value: root.ch.low; label: root.ch.parts ? "DRUM" : "LOW"; value: root.ch.low; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; tone: Theme.w656; changed(v) => { root.eq(0, v); } } }
+        HorizontalLayout { alignment: center; Knob { accessible-role: slider; accessible-label: "fx.cfx.ch\{root.ch.channel}"; accessible-value: root.ch.cfx; label: "CFX"; value: root.ch.cfx; size: root.compact ? 16px : 22px; label-h: root.compact ? 11px : 16px; tone: Theme.w405; changed(v) => { root.cfx(v); } } }
         Toggle {
             accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.ch.parts;
             accessible-label: "mixer.ch\{root.ch.channel}.stem";
@@ -1167,8 +1188,8 @@ component GlobalBar inherits Rectangle {
             MicControls { }
             Rectangle { width: 10px; }
             Caps { text: @tr("PHONES"); vertical-alignment: center; }
-            Knob { accessible-role: slider; accessible-label: "global.phones.mix"; accessible-value: root.headphone-mix; label: "MIX"; size: 20px; minimum: 0; maximum: 1; default-value: 0.5; value: root.headphone-mix; changed(v) => { root.set-headphone-mix(v); } }
-            Knob { accessible-role: slider; accessible-label: "global.phones.level"; accessible-value: root.headphone-level; label: @tr("LEVEL"); size: 20px; minimum: 0; maximum: 1; default-value: 0.8; value: root.headphone-level; changed(v) => { root.set-headphone-level(v); } }
+            VerticalLayout { alignment: center; Knob { accessible-role: slider; accessible-label: "global.phones.mix"; accessible-value: root.headphone-mix; label: "MIX"; size: 20px; minimum: 0; maximum: 1; default-value: 0.5; value: root.headphone-mix; changed(v) => { root.set-headphone-mix(v); } } }
+            VerticalLayout { alignment: center; Knob { accessible-role: slider; accessible-label: "global.phones.level"; accessible-value: root.headphone-level; label: @tr("LEVEL"); size: 20px; minimum: 0; maximum: 1; default-value: 0.8; value: root.headphone-level; changed(v) => { root.set-headphone-level(v); } } }
         }
         HorizontalLayout {
             width: max(220px, root.centre-width);

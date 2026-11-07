@@ -149,7 +149,7 @@ pub(crate) fn read(conn: &Connection, rb_dir: &Path, with_smart: bool) -> Result
         "SELECT c.ID, c.FolderPath, c.Title, a.Name, al.Name, g.Name, l.Name, rm.Name, co.Name,
                 c.Commnt, c.ReleaseYear, c.TrackNo, c.Rating, c.ColorID, c.BPM, c.Length,
                 c.SampleRate, c.BitRate, c.BitDepth, c.FileSize, k.ScaleName, c.AnalysisDataPath,
-                c.StockDate, c.created_at, c.ReleaseDate, c.DJPlayCount, c.FileNameL, oa.Name
+                c.StockDate, c.created_at, c.ReleaseDate, c.DJPlayCount, c.FileNameL, oa.Name, c.ImagePath
          FROM djmdContent c
          LEFT JOIN djmdArtist a ON a.ID = c.ArtistID
          LEFT JOIN djmdAlbum al ON al.ID = c.AlbumID
@@ -171,6 +171,7 @@ pub(crate) fn read(conn: &Connection, rb_dir: &Path, with_smart: bool) -> Result
         let bpm = int(r, 14)?;
         let key_name = text(r, 20)?;
         let anlz = text(r, 21)?;
+        let image = text(r, 28)?;
         Ok(SrcTrack {
             src_id: id,
             path: PathBuf::from(&path),
@@ -201,6 +202,7 @@ pub(crate) fn read(conn: &Connection, rb_dir: &Path, with_smart: bool) -> Result
             } else {
                 anlz_family(share.join(anlz.trim_start_matches(['/', '\\'])))
             },
+            artwork: (!image.is_empty()).then(|| share.join(image.trim_start_matches(['/', '\\']))),
             smart: SmartFields {
                 original_artist: text(r, 27)?,
                 key_name,
