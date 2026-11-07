@@ -3669,6 +3669,22 @@ msgctxt "Sidebar"
 msgid "+ FOLDER"
 msgstr "+ ORDNER"
 
+#. Touch screen: the new-list keys as 44 px plates.
+#: ui/sidebar.slint
+msgctxt "Sidebar"
+msgid "SET"
+msgstr "SET"
+
+#: ui/sidebar.slint
+msgctxt "Sidebar"
+msgid "SMART"
+msgstr "SMART"
+
+#: ui/sidebar.slint
+msgctxt "Sidebar"
+msgid "FOLDER"
+msgstr "ORDNER"
+
 #: ui/sidebar.slint:437
 msgctxt "Sidebar"
 msgid "New folder"
@@ -4187,10 +4203,6 @@ msgstr "SCHLIESSEN"
 #~ msgctxt "PreparePlayer"
 #~ msgid "LOCK"
 #~ msgstr "SPERREN"
-
-#~ msgctxt "Sidebar"
-#~ msgid "SET"
-#~ msgstr "SET"
 
 #~ msgctxt "AppWindow"
 #~ msgid "PLAYLIST"

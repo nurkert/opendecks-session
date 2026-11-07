@@ -438,3 +438,15 @@ fn preview_and_artwork_columns() {
         ui.app.ui.get_tracks().iter().map(|r| (r.title.to_string(), r.analysed, r.preview.size(), r.artwork.size())).collect::<Vec<_>>()
     );
 }
+
+/// Kiosk lists keep title and artist readable on the 800 px touch screen.
+#[test]
+fn kiosk_list_keeps_title_and_artist_readable() {
+    let ui = Ui::start(Fixture::new(), (800, 480), true);
+    ui.app.ui.set_browser_open(true);
+    ui.pump(300);
+    for (col, min) in [("title", 120.0), ("artist", 80.0)] {
+        let w = Rect::of(&ui.get(&format!("browser.header.{col}"))).w;
+        assert!(w >= min, "{col} column is {w} px wide");
+    }
+}

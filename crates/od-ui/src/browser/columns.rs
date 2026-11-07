@@ -66,6 +66,9 @@ pub(crate) const DEFAULT_COLUMNS: &[&str] = &[
     "artwork", "preview", "title", "artist", "genre", "bpm", "key", "time", "rating",
 ];
 
+/// The columns of the kiosk's lists (800 px touch screen).
+pub(crate) const KIOSK_COLUMNS: &[&str] = &["title", "artist", "bpm", "key"];
+
 /// The columns of an Explorer folder (files that may not be in the
 /// collection: no genre, rating or play data).
 pub(crate) const EXPLORER_COLUMNS: &[&str] = &[
@@ -164,9 +167,13 @@ pub(crate) fn refresh(app: &App) {
     } else {
         sanitize(&st.settings.browser.columns)
     };
-    // The 800 px touch screen has no room for the ARTWORK column (the deck
-    // headers show the cover).
-    let ids: Vec<String> = ids.into_iter().filter(|c| !(st.config.kiosk && c == "artwork")).collect();
+    // The 800 px touch screen keeps the columns you browse by, so title and
+    // artist stay readable (the deck headers show cover and waveform).
+    let ids: Vec<String> = if st.config.kiosk && st.explorer.open.is_none() {
+        KIOSK_COLUMNS.iter().map(|s| s.to_string()).collect()
+    } else {
+        ids.into_iter().filter(|c| !(st.config.kiosk && c == "artwork")).collect()
+    };
     let b = &st.browser;
     let kiosk = st.config.kiosk;
     let then = &st.settings.browser.sort_then;

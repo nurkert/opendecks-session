@@ -1301,6 +1301,9 @@ export component PerformView inherits Rectangle {
     in property <bool> tight;
     // Window height below 860 px: slimmer lanes and upright waveforms.
     in property <bool> short;
+    // Too short for everything (AppWindow.perform-crowd): 1 = compact decks
+    // and mixer, 2 = also without the waveform zone.
+    in property <int> crowd;
     in property <bool> touch-size;
     in property <bool> show-mixer: true;
     // REC section in the global bar (top bar REC toggle).
@@ -1366,7 +1369,7 @@ export component PerformView inherits Rectangle {
         if Cdj.enabled: CdjSteps { }
         // Zoomed waveforms; they take any spare height. In CDJ practice
         // mode each player screen carries its own.
-        if !Cdj.enabled && PerformLayout.layout == "standard": HorizontalLayout {
+        if !Cdj.enabled && PerformLayout.layout == "standard" && root.crowd < 2: HorizontalLayout {
         vertical-stretch: PerformLayout.wave-size == 0 ? 0 : 1;
         WaveZoneColumn {
             zoom(delta) => { root.zoom(1, delta); root.zoom(2, delta); root.zoom(3, delta); root.zoom(4, delta); }
@@ -1453,7 +1456,7 @@ export component PerformView inherits Rectangle {
                     if !Cdj.enabled && !root.touch-size: DeckPanel {
                     deck: d;
                     browse: PerformLayout.layout == "browse";
-                    compact: root.tight || root.narrow || root.decks.length > 2;
+                    compact: root.tight || root.narrow || root.decks.length > 2 || root.crowd >= 1;
                     touch-size: root.touch-size;
                     key-column: root.width >= 1000px;
                     toggle-play => { root.toggle-play(d.deck); }
@@ -1488,7 +1491,7 @@ export component PerformView inherits Rectangle {
             VerticalLayout {
             horizontal-stretch: 0;
             spacing: 0;
-            if PerformLayout.layout == "vertical" && !Cdj.enabled && !root.touch-size: HorizontalLayout {
+            if PerformLayout.layout == "vertical" && !Cdj.enabled && !root.touch-size && root.crowd < 2: HorizontalLayout {
                 accessible-role: groupbox; accessible-label: "wave.vertical";
                 height: root.touch-size ? 140px : root.tight || root.short ? 120px : 200px;
                 spacing: 0;
@@ -1527,7 +1530,7 @@ export component PerformView inherits Rectangle {
                 width: root.show-mixer && PerformLayout.layout != "browse" ? self.preferred-width : 0px;
                 horizontal-stretch: 0;
                 // Under the upright waveforms the mixer stays compact.
-                compact: root.tight || root.narrow || root.decks.length > 2 || PerformLayout.layout == "vertical";
+                compact: root.tight || root.narrow || root.decks.length > 2 || PerformLayout.layout == "vertical" || root.crowd >= 1;
                 channels: root.channels;
                 trim(c, v) => { root.trim(c, v); }
                 eq(c, b, v) => { root.eq(c, b, v); }
@@ -1565,7 +1568,7 @@ export component PerformView inherits Rectangle {
                     deck: d;
                     browse: PerformLayout.layout == "browse";
                     mirror: true;
-                    compact: root.tight || root.narrow || root.decks.length > 2;
+                    compact: root.tight || root.narrow || root.decks.length > 2 || root.crowd >= 1;
                     touch-size: root.touch-size;
                     key-column: root.width >= 1000px;
                     toggle-play => { root.toggle-play(d.deck); }

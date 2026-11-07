@@ -233,6 +233,68 @@ pub(crate) fn show_message(app: &App) {
     app.ui.set_engine_message(msg.into());
 }
 
+thread_local! {
+    /// What the Perform crowding level was found for (see `perform_crowd`).
+    static CROWD_KEY: std::cell::RefCell<String> = const { std::cell::RefCell::new(String::new()) };
+    /// Window height not available to the content (an in-window menu bar),
+    /// learnt while the content fits.
+    static CHROME: std::cell::Cell<f32> = const { std::cell::Cell::new(0.0) };
+}
+
+/// Perform too short for decks, waveforms and the open bottom panels: steps
+/// `perform-crowd` up (compact decks and mixer, then no waveform zone) one
+/// frame at a time while the content's smallest height exceeds the window,
+/// so the status band stays inside. Starts again from the full layout when
+/// the window, the layout or a panel changes.
+fn perform_crowd(app: &App) {
+    let ui = &app.ui;
+    let size = ui.window().size();
+    let lighting = ui.global::<crate::Lighting>().get_panel();
+    let layout = ui.global::<crate::PerformLayout>();
+    let key = format!(
+        "{}x{} {} s{} f{} m{} x{} l{} c{} {}:{} d{} u{}",
+        size.width,
+        size.height,
+        ui.get_mode(),
+        ui.get_sampler_panel(),
+        ui.get_fx_panel(),
+        ui.get_mpl_panel(),
+        ui.get_mixer_panel(),
+        lighting,
+        ui.global::<crate::Cdj>().get_enabled(),
+        layout.get_layout(),
+        layout.get_wave_size(),
+        slint::Model::row_count(&ui.get_decks()),
+        ui.get_update_state(),
+    );
+    let changed = CROWD_KEY.with(|k| {
+        let mut k = k.borrow_mut();
+        if *k != key {
+            *k = key;
+            true
+        } else {
+            false
+        }
+    });
+    // The window's logical height; the content gets it less the menu bar
+    // (when the menu bar is part of the window), unless its minimum is taller.
+    let window_h = size.height as f32 / ui.window().scale_factor();
+    let (content_min, content_h) = (ui.get_content_min(), ui.get_content_height());
+    if content_min < content_h - 0.5 {
+        CHROME.with(|c| c.set((window_h - content_h).max(0.0)));
+    }
+    let overflow = content_min - (window_h - CHROME.with(|c| c.get()));
+    let crowd = ui.get_perform_crowd();
+    // The kiosk has its own touch layout for its one screen size.
+    if changed || ui.get_mode() != "perform" || app.state.borrow().config.kiosk {
+        if crowd != 0 {
+            ui.set_perform_crowd(0);
+        }
+    } else if crowd < 2 && overflow > 0.5 {
+        ui.set_perform_crowd(crowd + 1);
+    }
+}
+
 fn frame(app: &App) {
     let scale = app.ui.window().scale_factor();
     let small = (app.ui.window().size().height as f32 / scale) < 620.0;
@@ -253,6 +315,7 @@ fn frame(app: &App) {
     if app.ui.get_short_screen() != short {
         app.ui.set_short_screen(short);
     }
+    perform_crowd(app);
     decks::receive_prepared(app);
     decks::poll_stems(app);
     explorer::poll(app);

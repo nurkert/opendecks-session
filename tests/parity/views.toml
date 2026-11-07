@@ -3861,9 +3861,9 @@ title = "FX panel"
 mode = "perform"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop", "kiosk"]
-bands = ["topbar", "fx", "wave", "deck-row", "global", "browser", "status"]
+bands = ["topbar", "fx", "deck-row", "global", "browser", "status"]
 features = ["fx-panel", "fx-beat-fx", "fx-beat-fx-controls", "fx-colour-fx-select", "fx-stem-fx"]
-note = "Docked above the waveform zone; the browser loses exactly the panel height (UX §2.8) Deviation: stem FX targets belong to each unit (PART: ALL / VOC / DRUM / BASS / INST once a channel is the target, fx.unitN.part.*), not one column shared by both units."
+note = "Docked above the waveform zone; the browser loses exactly the panel height (UX §2.8) down to its minimum. With both units chaining three effects the panel is two rows (200 px): at desktop and laptop size the decks and mixer then go compact and the waveform zone steps aside so the status band stays in the window (Perform crowding), so this view does not list the wave.* regions; the perform.* views cover them. Deviation: stem FX targets belong to each unit (PART: ALL / VOC / DRUM / BASS / INST once a channel is the target, fx.unitN.part.*), not one column shared by both units."
 
 [[view.region]]
 id = "topbar"
@@ -3967,42 +3967,6 @@ elements = [
 ]
 note = "Deviation: Colour FX stay in the mixer as on the hardware (a CFX knob in every channel strip, the type selector under them) so they work with the FX panel closed; they act on the channels only, so there are no sampler / master CFX knobs, and the effect has no separate preset or parameter control. 4 decks add fx.cfx.ch3 / ch4."
 
-[[view.region]]
-id = "wave.zoom"
-band = "wave"
-place = "far left, 14 pt column"
-order = "column"
-elements = [
-  "wave.collapse",
-  "wave.zoom-in",
-  "wave.zoom-reset",
-  "wave.zoom-out",
-  "wave.expand",
-]
-note = "UX §1.3"
-
-[[view.region]]
-id = "wave.lanes"
-band = "wave"
-place = "full width, one lane per deck, playhead at the horizontal centre"
-order = "column"
-elements = [
-  "wave.lane1",
-  "wave.lane2",
-]
-note = "UX §1.3; 4 decks: lane numbers at the right edge (§1.4)"
-
-# ---- Mix Point Link panel ----
-[[view.region]]
-id = "wave.playhead"
-band = "wave"
-place = "centre line across all lanes"
-order = "any"
-elements = [
-  "wave.playhead",
-]
-note = "Drawn over the lanes by design, so it is not a sibling of them (no-overlap does not apply)."
-
 [[view.kiosk]]
 omit = [
   "topbar.master-volume",
@@ -4062,6 +4026,7 @@ omit = [
 ]
 reason = "The controller’s COLOR FX select keys and one CFX knob per channel."
 
+# ---- Mix Point Link panel ----
 [[view]]
 id = "panel.mix-point-link"
 title = "Mix Point Link panel"

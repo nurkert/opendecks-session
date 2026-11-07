@@ -96,12 +96,14 @@ export component SamplerPanel inherits Rectangle {
     callback bpm-scale(float);
     callback seq-save();
     property <length> row-h: 32px;
-    property <length> gap: 4px;
-    height: Theme.touch ? 2 * 44px + root.gap + 8px : 2 * root.row-h + 26px + 2 * root.gap + 18px;
+    property <length> gap: 2px;
+    // Exactly the content: padding, the pad row (as tall as the slot column:
+    // three 24 px rows), the gap and the footer.
+    height: Theme.touch ? 2 * 44px + root.gap + 8px : 2 * 6px + 3 * 24px + 2 * root.gap + root.gap + 26px;
     background: Theme.ground;
 
     VerticalLayout {
-        padding-left: 14px; padding-right: 14px; padding-top: Theme.touch ? 4px : 9px; padding-bottom: Theme.touch ? 4px : 9px;
+        padding-left: 14px; padding-right: 14px; padding-top: Theme.touch ? 4px : 6px; padding-bottom: Theme.touch ? 4px : 6px;
         spacing: root.gap;
         // Kiosk: the controller's pads play the slots; the selected slot,
         // its gain, cue and tempo on 44 px keys.

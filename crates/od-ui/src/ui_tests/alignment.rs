@@ -112,12 +112,6 @@ fn check_size(size_id: &str) {
             continue;
         }
         for f in snapped_children(&ui.app.ui.root_element()) {
-            // Known, reported separately: on the 190 px kiosk sidebar the
-            // three new-list keys (+ SET / + SMART / + FOLDER) need ~213 px,
-            // so the column overflows and the tree stays at the sidebar width.
-            if kiosk && f.starts_with("`browser.tree` sits at the left") {
-                continue;
-            }
             failures.push(format!("{} {}: {f}", size_id, view.id));
         }
     }

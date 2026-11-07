@@ -488,3 +488,83 @@ fn loading_shows_at_once() {
         "playable after decoding"
     );
 }
+
+/// Bottom panels (sampler, Beat FX, Mix Point Link) do not push the status
+/// band out of the window: the waveform lanes shrink to their smallest
+/// height, then decks and mixer go compact, then the waveform zone steps
+/// aside; the browser keeps its minimum.
+#[test]
+fn bottom_panels_keep_the_status_band_in_the_window() {
+    let mut failures = Vec::new();
+    let cases: [((u32, u32), &[&str]); 7] = [
+        ((1440, 900), &["sampler"]),
+        ((1440, 900), &["fx"]),
+        ((1440, 900), &["mpl"]),
+        ((1440, 900), &["sampler", "fx"]),
+        ((1280, 800), &["sampler"]),
+        ((1280, 800), &["fx"]),
+        ((1280, 800), &["mpl"]),
+    ];
+    for (size, panels) in cases {
+        let ui = Ui::open(size);
+        perform(&ui);
+        let w = &ui.app.ui;
+        for p in panels {
+            match *p {
+                "sampler" => {
+                    if !w.get_sampler_panel() {
+                        w.invoke_toggle_sampler_panel();
+                    }
+                }
+                "fx" => {
+                    if !w.get_fx_panel() {
+                        w.invoke_toggle_fx_panel();
+                    }
+                }
+                _ => {
+                    if !w.get_mpl_panel() {
+                        w.invoke_menu_action("perform.mpl.panel".into());
+                    }
+                }
+            }
+        }
+        ui.pump(300);
+        let (ww, wh) = ui.size();
+        let win = Rect { x: 0.0, y: 0.0, w: ww, h: wh };
+        for l in ["status.summary", "status.activity", "global.xfader", "deck1.play"] {
+            let r = Rect::of(&ui.get(l));
+            if !win.contains(&r, 0.5) {
+                failures.push(format!("{size:?} {panels:?}: `{l}` at y {:.0}..{:.0} outside the {wh:.0} px window", r.y, r.bottom()));
+            }
+        }
+        // The browser keeps its minimum (the source rail at 24 px a key).
+        if Rect::of(&ui.get("browser.splitter")).h < 216.0 {
+            failures.push(format!("{size:?} {panels:?}: browser below its minimum"));
+        }
+        // Lanes that are shown stay readable.
+        if let Some(l) = ui.find("wave.lane1") {
+            if Rect::of(&l).h < 23.5 {
+                failures.push(format!("{size:?} {panels:?}: waveform lane below 24 px"));
+            }
+        }
+    }
+    assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+/// Closing the panels gives the decks and the waveform zone back.
+#[test]
+fn closing_bottom_panels_restores_the_full_perform_layout() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let w = &ui.app.ui;
+    w.invoke_toggle_sampler_panel();
+    w.invoke_toggle_fx_panel();
+    ui.pump(300);
+    assert_eq!(w.get_perform_crowd(), 2);
+    assert!(!ui.has("wave.lane1"));
+    w.invoke_toggle_sampler_panel();
+    w.invoke_toggle_fx_panel();
+    ui.pump(300);
+    assert_eq!(w.get_perform_crowd(), 0);
+    assert!(ui.has("wave.lane1") && Rect::of(&ui.get("wave.lane1")).h >= 36.0);
+}

@@ -242,6 +242,17 @@ export component AppWindow inherits Window {
     callback tree-filter(string);
     // Window shorter than 860 px (set from the frame tick, like small-screen).
     in property <bool> short-screen;
+    // Perform when the window is too short for decks, waveforms and the open
+    // bottom panels (set from the frame tick, see `content-overflow`):
+    // 0 = full, 1 = compact decks and mixer, 2 = also without the waveform
+    // zone. The waveform lanes first shrink to their smallest height by
+    // themselves; the browser keeps its minimum.
+    in property <int> perform-crowd;
+    // The content's smallest height and the height it is laid out in (the
+    // window, or the content's minimum when that is taller); the frame tick
+    // compares them with the window to find an overflow.
+    out property <length> content-min: main.min-height;
+    out property <length> content-height: root.height;
     // Window narrower than 1500 px: compact top bar.
     in property <bool> narrow-screen;
     callback toggle-full-screen();
@@ -545,7 +556,7 @@ export component AppWindow inherits Window {
             reject
         }
 
-        VerticalLayout {
+        main := VerticalLayout {
             TopBar {
                 open-preferences => { root.open-preferences(); }
                 cycle-appearance => { root.cycle-appearance(); }
@@ -719,6 +730,7 @@ export component AppWindow inherits Window {
                 headphone-level: root.headphone-level;
                 tight: root.small-screen;
                 short: root.short-screen;
+                crowd: root.perform-crowd;
                 touch-size: root.kiosk;
                 show-mixer: !root.small-screen && root.mixer-panel;
                 recording: root.recording;

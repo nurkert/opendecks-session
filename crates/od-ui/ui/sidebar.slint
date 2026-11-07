@@ -166,6 +166,31 @@ component ExplorerItem inherits Rectangle {
 
 // One source of the rail: a short legend with a tick that lights while
 // the source is open; a click opens the source (or scrolls the tree to it).
+// New-list key of the touch screen: a 44 px plate with a plus over a short
+// caption (the kiosk sidebar is too narrow for the worded keys).
+component NewListKey inherits Rectangle {
+    in property <string> label;
+    in property <string> tooltip;
+    in property <string> command;
+    in property <color> tone: Theme.bone-2;
+    callback clicked();
+    accessible-role: button;
+    min-width: 44px; height: 44px;
+    background: touch.pressed ? Theme.plate-raised : Theme.plate;
+    border-width: 1px;
+    border-color: Theme.rule;
+    Rectangle { y: 0; height: 2px; background: root.tone; }
+    Glyph { x: (parent.width - 10px) / 2; y: 10px; width: 10px; height: 10px; kind: "plus"; tone: root.tone; }
+    Text {
+        y: 25px; width: parent.width; height: 12px;
+        text: root.label;
+        font-family: Theme.family; font-size: 8px; font-weight: 600; letter-spacing: 0.6px;
+        color: Theme.bone-2;
+        horizontal-alignment: center; vertical-alignment: center;
+    }
+    touch := TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
 export component RailItem inherits Rectangle {
     in property <string> label;
     in property <string> tooltip;
@@ -284,10 +309,37 @@ export component Sidebar inherits Rectangle {
     function reveal(y: length) {
         tree.content-y = -max(0px, min(y, tree.content-height - tree.height));
     }
+    // A source opened elsewhere (controller, menu, view switch) scrolls into
+    // view when the part from `y` to `end` is not fully shown; selecting in
+    // the visible tree never jumps.
+    function show(y: length, end: length) {
+        if (y < -tree.content-y || end > -tree.content-y + tree.height) { root.reveal(y); }
+    }
+    changed selected-node => {
+        if (self.selected-node == -1) { root.show(coll-h.y, coll-h.y + 2 * root.tree-row); }
+        if (self.selected-node == -4) { root.show(rel-h.y, rel-h.y + 2 * root.tree-row); }
+        if (self.selected-node == -3) { root.show(tag-h.y, tag-h.y + 2 * root.tree-row); }
+    }
 
+    VerticalLayout {
+    // Touch screen: the sources as a grid of 44 px keys across the top, four
+    // a row, so the tree below keeps the sidebar's full width for its
+    // headings and keys; the new-list keys fill the last row.
+    if Theme.touch: GridLayout {
+        spacing: 0px;
+        for it[i] in root.rail-items: RailItem {
+            row: Math.floor(i / 4); col: Math.mod(i, 4);
+            accessible-label: it.a11y; label: it.label; tone: it.tone; tooltip: it.tip;
+            current: root.rail-current(i);
+            clicked => { root.rail-click(i); }
+        }
+        NewListKey { row: 2; col: 1; accessible-label: "browser.tree.new-set"; label: @tr("SET"); tooltip: @tr("New set"); command: "browser.new.set"; tone: Theme.attention; clicked => { root.create-node("set"); } }
+        NewListKey { row: 2; col: 2; accessible-label: "browser.tree.new-smart"; label: @tr("SMART"); tooltip: @tr("New smart list"); command: "browser.new.smart"; tone: Theme.w436; clicked => { root.create-node("smart"); } }
+        NewListKey { row: 2; col: 3; accessible-label: "browser.tree.new-folder"; label: @tr("FOLDER"); tooltip: @tr("New folder"); command: "browser.new.folder"; clicked => { root.create-node("folder"); } }
+    }
+    if Theme.touch: HLine { tone: Theme.rule; }
     HorizontalLayout {
-      // Source rail (UX §1.6 order, without the streaming and cloud sources);
-      // on the touch screen two 44 px keys a row.
+      // Source rail (UX §1.6 order, without the streaming and cloud sources).
       if !Theme.touch: VerticalLayout {
         width: 38px;
         padding-top: 0px;
@@ -300,20 +352,7 @@ export component Sidebar inherits Rectangle {
         }
         Rectangle { vertical-stretch: 1; min-height: 0px; }
       }
-      if Theme.touch: VerticalLayout {
-        width: 88px;
-        alignment: start;
-        GridLayout {
-            spacing: 0px;
-            for it[i] in root.rail-items: RailItem {
-                row: Math.floor(i / 2); col: Math.mod(i, 2);
-                accessible-label: it.a11y; label: it.label; tone: it.tone; tooltip: it.tip;
-                current: root.rail-current(i);
-                clicked => { root.rail-click(i); }
-            }
-        }
-      }
-      VLine { weight: 1px; tone: Theme.rule; }
+      if !Theme.touch: VLine { weight: 1px; tone: Theme.rule; }
       VerticalLayout {
         if root.browse-focus: Rectangle { height: 2px; background: Theme.attention; }
         // Filter the lists by name (folders that hold a match stay open).
@@ -371,6 +410,8 @@ export component Sidebar inherits Rectangle {
                     index: i;
                     item: f;
                     selected: root.explorer-selected == f.id && root.section == "library";
+                    // Opened elsewhere: the folder scrolls into view.
+                    changed selected => { if (self.selected) { root.show(self.y, self.y + self.height); } }
                     clicked => { root.explorer-select(f.id); }
                     toggled => { root.explorer-toggle(f.id); }
                     remove => { root.explorer-remove-root(f.id); }
@@ -502,8 +543,8 @@ export component Sidebar inherits Rectangle {
                 }
             }
         }
-        HLine { tone: Theme.rule; }
-        HorizontalLayout {
+        if !Theme.touch: HLine { tone: Theme.rule; }
+        if !Theme.touch: HorizontalLayout {
             padding: 8px;
             spacing: 4px;
             // New list buttons share the width (the sidebar is resizable).
@@ -512,5 +553,6 @@ export component Sidebar inherits Rectangle {
             Toggle { accessible-label: "browser.tree.new-folder"; accessible-role: button; horizontal-stretch: 1; label: @tr("+ FOLDER"); tooltip: @tr("New folder"); command: "browser.new.folder"; clicked => { root.create-node("folder"); } }
         }
       }
+    }
     }
 }
