@@ -95,6 +95,18 @@ pub(crate) struct Deck {
     key_sync: bool,
     track_key: Option<MusicalKey>,
     stretcher: Option<Stretcher>,
+    /// Stem FX: the part sent to a Beat FX unit on its own (`None` = off),
+    /// its stretcher (fed in lock-step with `stretcher`) and its output.
+    fx_part: Option<crate::stems::Stem>,
+    part_st: Option<Stretcher>,
+    part_buf: Vec<f32>,
+    /// Frame offset into `part_buf` of the segment being rendered.
+    part_off: usize,
+    /// Rendering into a scratch buffer (keylock crossfade): no part output.
+    part_suppress: bool,
+    part_discard: usize,
+    kl_part_in: [Vec<f32>; 2],
+    kl_part_out: [Vec<f32>; 2],
     kl_active: bool,
     /// The stretcher is being primed over several blocks; output comes from
     /// the resampler until the playhead reaches `kl_target`.
@@ -157,6 +169,8 @@ fn hermite(xm1: f32, x0: f32, x1: f32, x2: f32, t: f32) -> f32 {
 impl Deck {
     pub fn new(index: usize, sample_rate: u32, max_block: usize, profile: Profile) -> Self {
         let stretcher = Stretcher::new(sample_rate, profile);
+        // Stem FX under keylock needs a second stretcher (not on Lite).
+        let part_st = if profile == Profile::Full { Stretcher::new(sample_rate, profile) } else { None };
         Self {
             index,
             sr: sample_rate as f64,
@@ -185,6 +199,14 @@ impl Deck {
             key_sync: false,
             track_key: None,
             stretcher,
+            fx_part: None,
+            part_st,
+            part_buf: vec![0.0; max_block * 2],
+            part_off: 0,
+            part_suppress: false,
+            part_discard: 0,
+            kl_part_in: [vec![0.0; MAX_FEED], vec![0.0; MAX_FEED]],
+            kl_part_out: [vec![0.0; max_block.max(MAX_FEED)], vec![0.0; max_block.max(MAX_FEED)]],
             kl_active: false,
             kl_priming: false,
             kl_target: 0.0,
@@ -310,6 +332,28 @@ impl Deck {
     fn beat_len_frames(&self) -> f64 {
         let bpm = self.track_bpm().unwrap_or(120.0);
         60.0 / bpm * self.sr
+    }
+
+    /// Stem FX: sends `part` to its own output ([`Deck::part_output`]) instead
+    /// of the main one. A change re-primes keylock so both stretchers start
+    /// together.
+    pub(crate) fn set_fx_part(&mut self, part: Option<crate::stems::Stem>) {
+        if self.fx_part != part {
+            self.fx_part = part;
+            self.kl_active = false;
+            self.kl_priming = false;
+        }
+    }
+
+    /// The part split off for Stem FX in the last block, if any.
+    pub(crate) fn part_output(&mut self, frames: usize) -> Option<&mut [f32]> {
+        let active = self.fx_part.is_some() && self.track.as_ref().is_some_and(|t| t.stems.is_some());
+        active.then(|| &mut self.part_buf[..frames * 2])
+    }
+
+    /// Splitting in the keylock path (needs the part stretcher).
+    fn split_keylock(&self, track: &TrackData) -> Option<crate::stems::Stem> {
+        self.fx_part.filter(|_| self.part_st.is_some() && track.stems.is_some())
     }
 
     /// Any positional discontinuity: the keylock stretcher must re-prime.
@@ -1352,6 +1396,9 @@ impl Deck {
     /// Renders `frames` frames of interleaved stereo into `out`.
     pub fn render(&mut self, out: &mut [f32], frames: usize, ctx: &mut RtCtx) {
         let out = &mut out[..frames * 2];
+        if self.fx_part.is_some() {
+            self.part_buf[..frames * 2].fill(0.0);
+        }
         if self.track.is_none() {
             out.fill(0.0);
             return;
@@ -1374,6 +1421,7 @@ impl Deck {
             }
             if seg > 0 {
                 let before = self.pos;
+                self.part_off = done;
                 self.render_segment(&mut out[done * 2..(done + seg) * 2], seg, ctx);
                 done += seg;
                 if let Some((s, e)) = arm
@@ -1457,16 +1505,24 @@ impl Deck {
     /// levels applied, following an active loop) and advances it.
     fn fill_feed(&mut self, track: &TrackData, req: usize, loop_range: Option<(i64, i64)>) {
         let frames = track.frames() as i64;
+        let split = self.split_keylock(track);
         let [l, r] = &mut self.kl_in;
+        let [pl, pr] = &mut self.kl_part_in;
         let mut p = self.kl_feed_pos;
-        let stems = Self::stems_active(track, &mut self.stem_feed, &self.stem_target)
+        let stems = (Self::stems_active(track, &mut self.stem_feed, &self.stem_target) || split.is_some())
             .then_some(track.stems.as_ref())
             .flatten();
         for k in 0..req {
             if let Some(st) = stems {
                 self.stem_feed.tick(&self.stem_target);
-                let c = self.stem_feed.coefs();
-                (l[k], r[k]) = frame_at(&track.samples, st, p as isize, &c);
+                if let Some(part) = split {
+                    let (cm, cp) = crate::stems::split_coefs(self.stem_feed.level, part);
+                    (l[k], r[k]) = frame_at(&track.samples, st, p as isize, &cm);
+                    (pl[k], pr[k]) = frame_at(&track.samples, st, p as isize, &cp);
+                } else {
+                    let c = self.stem_feed.coefs();
+                    (l[k], r[k]) = frame_at(&track.samples, st, p as isize, &c);
+                }
             } else if p < 0 || p >= frames {
                 l[k] = 0.0;
                 r[k] = 0.0;
@@ -1498,7 +1554,35 @@ impl Deck {
             self.fill_feed(track, req, loop_range);
             let [l, r] = &self.kl_in;
             st.process(&l[..req], &r[..req]);
+            self.feed_part(track, req);
             fed += req;
+        }
+    }
+
+    /// Feeds the part stretcher the frames `fill_feed` just produced.
+    fn feed_part(&mut self, track: &TrackData, req: usize) {
+        if self.split_keylock(track).is_some()
+            && let Some(ps) = self.part_st.as_mut()
+        {
+            let [pl, pr] = &self.kl_part_in;
+            ps.process(&pl[..req], &pr[..req]);
+        }
+    }
+
+    /// Drops the part stretcher's start delay, as `kl_drop_discard` does.
+    fn part_drop_discard(&mut self) {
+        let Some(ps) = self.part_st.as_mut() else { return };
+        while self.part_discard > 0 {
+            let [l, r] = &mut self.kl_part_out;
+            let k = self.part_discard.min(l.len()).min(ps.available());
+            if k == 0 {
+                break;
+            }
+            let got = ps.retrieve(&mut l[..k], &mut r[..k]);
+            if got == 0 {
+                break;
+            }
+            self.part_discard -= got;
         }
     }
 
@@ -1536,6 +1620,9 @@ impl Deck {
         let restart = !self.kl_priming || self.frames_until(self.kl_target).is_none();
         if restart {
             st.reset();
+            if let Some(ps) = self.part_st.as_mut() {
+                ps.reset();
+            }
             st.set_time_ratio(1.0 / self.speed);
             let pad = st.preferred_start_pad();
             let delay = st.start_delay();
@@ -1553,12 +1640,19 @@ impl Deck {
             self.kl_target = target;
             self.kl_feed_pos = target as i64 - pad as i64;
             self.kl_discard = delay;
+            self.part_discard = delay;
             self.kl_priming = true;
         }
         st.set_time_ratio(1.0 / self.speed);
         st.set_pitch_scale(self.pitch_scale());
+        let pitch = self.pitch_scale();
+        if let Some(ps) = self.part_st.as_mut() {
+            ps.set_time_ratio(1.0 / self.speed);
+            ps.set_pitch_scale(pitch);
+        }
         self.kl_feed(&mut st, &track, self.kl_discard + n, budget);
         self.kl_drop_discard(&mut st);
+        self.part_drop_discard();
         let ready = self.kl_discard == 0 && st.available() >= n;
         let until = self.frames_until(self.kl_target).unwrap_or(f64::MAX);
         let k = ((until / self.speed).ceil() as usize).min(n);
@@ -1576,11 +1670,15 @@ impl Deck {
         let m = n - k;
         let saved = self.pos;
         let mut mix = std::mem::take(&mut self.kl_mix);
+        self.part_suppress = true;
         self.render_resample(&mut mix[..m * 2], m);
+        self.part_suppress = false;
         self.pos = saved;
         self.kl_priming = false;
         self.kl_active = true;
+        self.part_off += k;
         self.render_keylock(&mut out[k * 2..], m);
+        self.part_off -= k;
         let fade = m.min(64);
         for i in 0..fade {
             let w = (i + 1) as f32 / (fade + 1) as f32;
@@ -1595,7 +1693,8 @@ impl Deck {
     fn render_resample(&mut self, out: &mut [f32], n: usize) {
         {
             let track = self.track.as_ref().unwrap();
-            if Self::stems_active(track, &mut self.stem_play, &self.stem_target) {
+            let split = self.fx_part.is_some() && !self.part_suppress && track.stems.is_some();
+            if Self::stems_active(track, &mut self.stem_play, &self.stem_target) || split {
                 self.render_resample_stems(out, n);
                 return;
             }
@@ -1661,9 +1760,18 @@ impl Deck {
         let (li, lo) = (self.loop_in.unwrap_or(0.0), self.loop_out.unwrap_or(0.0));
         let target = self.stem_target;
         let ramp = &mut self.stem_play;
-        for f in out.as_chunks_mut::<2>().0.iter_mut().take(n) {
+        let split = self.fx_part.filter(|_| !self.part_suppress);
+        let off = self.part_off;
+        let part_buf = &mut self.part_buf;
+        for (idx, f) in out.as_chunks_mut::<2>().0.iter_mut().take(n).enumerate() {
             ramp.tick(&target);
-            let c = ramp.coefs();
+            let (c, cp) = match split {
+                Some(part) => {
+                    let (m, p) = crate::stems::split_coefs(ramp.level, part);
+                    (m, Some(p))
+                }
+                None => (ramp.coefs(), None),
+            };
             let ip = pos.floor();
             let t = (pos - ip) as f32;
             let i = ip as isize;
@@ -1673,6 +1781,14 @@ impl Deck {
             let (d0, d1) = frame_at(s, stems, i + 2, &c);
             f[0] = hermite(a0, b0, c0, d0, t);
             f[1] = hermite(a1, b1, c1, d1, t);
+            if let Some(cp) = cp {
+                let (a0, a1) = frame_at(s, stems, i - 1, &cp);
+                let (b0, b1) = frame_at(s, stems, i, &cp);
+                let (c0, c1) = frame_at(s, stems, i + 1, &cp);
+                let (d0, d1) = frame_at(s, stems, i + 2, &cp);
+                part_buf[(off + idx) * 2] = hermite(a0, b0, c0, d0, t);
+                part_buf[(off + idx) * 2 + 1] = hermite(a1, b1, c1, d1, t);
+            }
             pos += speed;
             if loop_check && lo > li {
                 let len = lo - li;
@@ -1700,6 +1816,11 @@ impl Deck {
         };
         st.set_time_ratio(1.0 / self.speed);
         st.set_pitch_scale(self.pitch_scale());
+        let pitch = self.pitch_scale();
+        if let Some(ps) = self.part_st.as_mut() {
+            ps.set_time_ratio(1.0 / self.speed);
+            ps.set_pitch_scale(pitch);
+        }
         let loop_range = match (self.loop_active, self.loop_in, self.loop_out) {
             (true, Some(i), Some(o)) if o - i >= 2.0 => Some((i.round() as i64, o.round() as i64)),
             _ => None,
@@ -1712,7 +1833,9 @@ impl Deck {
             self.fill_feed(&track, req, loop_range);
             let [l, r] = &self.kl_in;
             st.process(&l[..req], &r[..req]);
+            self.feed_part(&track, req);
         }
+        self.part_drop_discard();
         // Drop the start delay after a (re-)prime.
         while self.kl_discard > 0 {
             let [l, r] = &mut self.kl_out;
@@ -1726,9 +1849,23 @@ impl Deck {
             }
             self.kl_discard -= got;
         }
+        let split = self.split_keylock(&track).is_some();
         let [l, r] = &mut self.kl_out;
         let want = n.min(st.available());
         let got = if want > 0 { st.retrieve(&mut l[..want], &mut r[..want]) } else { 0 };
+        // The part stretcher runs in lock-step: same input, same output count.
+        if split
+            && !self.part_suppress
+            && let Some(ps) = self.part_st.as_mut()
+        {
+            let [pl, pr] = &mut self.kl_part_out;
+            let pgot = if got > 0 { ps.retrieve(&mut pl[..got.min(ps.available())], &mut pr[..got.min(ps.available())]) } else { 0 };
+            let off = self.part_off;
+            for i in 0..pgot.min(n) {
+                self.part_buf[(off + i) * 2] = pl[i];
+                self.part_buf[(off + i) * 2 + 1] = pr[i];
+            }
+        }
         for (i, f) in out.as_chunks_mut::<2>().0.iter_mut().take(n).enumerate() {
             if i < got {
                 f[0] = l[i];

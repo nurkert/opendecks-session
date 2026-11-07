@@ -417,6 +417,20 @@ impl EngineProcessor {
         }
     }
 
+    /// Tells each deck which part (if any) a live unit takes for Stem FX.
+    fn update_fx_parts(&mut self) {
+        for d in 0..self.decks.len() {
+            let part = self.beat_fx.iter().enumerate().find_map(|(k, u)| {
+                let live = k % BEAT_FX_SLOTS == 0 || self.beat_fx_multi[k / BEAT_FX_SLOTS];
+                match u.target() {
+                    FxTarget::Part(c, s) if live && c == d => Some(s),
+                    _ => None,
+                }
+            });
+            self.decks[d].set_fx_part(part);
+        }
+    }
+
     fn ctx(&mut self) -> RtCtx<'_> {
         RtCtx {
             quantize: self.quantize,
@@ -472,6 +486,9 @@ impl EngineProcessor {
                         }
                     }
                     self.beat_fx[u * BEAT_FX_SLOTS].apply(c);
+                    if matches!(c, BeatFxCommand::SetTarget(_)) {
+                        self.update_fx_parts();
+                    }
                 }
             }
             Command::BeatFxSlot { unit, slot, cmd } => {
@@ -483,6 +500,7 @@ impl EngineProcessor {
                 if u < BEAT_FX_UNITS {
                     self.beat_fx_multi[u] = on;
                 }
+                self.update_fx_parts();
             }
             Command::PadFx(ch, c) => {
                 if let Some(unit) = self.pad_fx.get_mut(ch) {
@@ -600,6 +618,19 @@ impl EngineProcessor {
                 let is_master = self.master == Some(i);
                 deck.prepare(n, if is_master { None } else { target }, is_master);
                 deck.render(&mut self.deck_bufs[i], n, &mut ctx);
+            }
+        }
+        // Stem FX: the split-off part goes through its unit(s), then back in.
+        for i in 0..self.decks.len() {
+            let Some(part) = self.decks[i].part_output(n) else { continue };
+            for (k, unit) in self.beat_fx.iter_mut().enumerate() {
+                let live = k % BEAT_FX_SLOTS == 0 || self.beat_fx_multi[k / BEAT_FX_SLOTS];
+                if live && matches!(unit.target(), FxTarget::Part(c, _) if c == i) {
+                    unit.process(part, &clocks[i]);
+                }
+            }
+            for (m, p) in self.deck_bufs[i][..n * 2].iter_mut().zip(part.iter()) {
+                *m += *p;
             }
         }
 

@@ -257,3 +257,59 @@ fn vocal_regions_follow_the_vocal_stem() {
     assert!((r[0].0 - 2.0).abs() < 0.3 && (r[0].1 - 8.0).abs() < 0.3, "breath bridged: {r:?}");
     assert!((r[1].0 - 12.0).abs() < 0.3 && (r[1].1 - 16.0).abs() < 0.3, "{r:?}");
 }
+
+fn stem_fx(rig: &mut Rig, part: Stem, on: bool) {
+    for c in [
+        BeatFxCommand::SetKind(BeatFxKind::Trans),
+        BeatFxCommand::SetBeats(0.25),
+        BeatFxCommand::SetLevel(1.0),
+        BeatFxCommand::SetTarget(FxTarget::Part(0, part)),
+        BeatFxCommand::SetOn(on),
+    ] {
+        rig.send(Command::BeatFx(0, c));
+    }
+}
+
+/// Stem FX on the vocals: the vocals are gated, drums and inst untouched;
+/// with the unit off the split is inaudible. With and without keylock.
+#[test]
+fn stem_fx_changes_only_its_part() {
+    for keylock in [false, true] {
+        let mut rig = playing_rig(keylock, 0.25);
+        rig.render(800); // past the keylock start
+        let reference = rig.render(400);
+        stem_fx(&mut rig, Stem::Vocals, false);
+        rig.render(400); // keylock re-primes both stretchers
+        let split = rig.render(400);
+        for f in [FV, FD, FO] {
+            let fr = if keylock { f } else { f * 1.04 };
+            let d = db(tone_level(&split, fr), tone_level(&reference, fr));
+            assert!(d.abs() < 0.5, "keylock {keylock}: split alone changed {f} Hz by {d:.2} dB");
+        }
+        stem_fx(&mut rig, Stem::Vocals, true);
+        rig.render(50);
+        let fx = rig.render(400);
+        let fr = |f: f64| if keylock { f } else { f * 1.04 };
+        let vocals = db(tone_level(&fx, fr(FV)), tone_level(&reference, fr(FV)));
+        eprintln!("keylock {keylock}: vocals {vocals:.1} dB");
+        assert!(vocals < -2.0, "keylock {keylock}: vocals gated, only {vocals:.1} dB");
+        for f in [FD, FO] {
+            let d = db(tone_level(&fx, fr(f)), tone_level(&reference, fr(f)));
+            assert!(d.abs() < 0.5, "keylock {keylock}: {f} Hz changed by {d:.2} dB");
+        }
+        assert!(fx.iter().all(|v| v.is_finite()));
+    }
+}
+
+/// Without parts (a plain track) a Stem FX target leaves the deck dry.
+#[test]
+fn stem_fx_without_parts_is_dry() {
+    let mut rig = Rig::new(2);
+    rig.deck(0, DeckCommand::Load(sine_track(1, 5.0, 440.0, 0.3, 120.0)));
+    rig.deck(0, DeckCommand::Play);
+    let mut dry = Rig::new(2);
+    dry.deck(0, DeckCommand::Load(sine_track(1, 5.0, 440.0, 0.3, 120.0)));
+    dry.deck(0, DeckCommand::Play);
+    stem_fx(&mut rig, Stem::Vocals, true);
+    assert_eq!(rig.render(200), dry.render(200));
+}

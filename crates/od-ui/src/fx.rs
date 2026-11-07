@@ -130,6 +130,7 @@ pub(crate) fn target_number(t: FxTarget) -> i32 {
         FxTarget::Master => 0,
         FxTarget::Channel(c) => c as i32 + 1,
         FxTarget::Sampler => -1,
+        FxTarget::Part(c, _) => c as i32 + 1,
     }
 }
 
@@ -147,6 +148,21 @@ pub(crate) fn idle_unit() -> BeatFxState {
     BeatFxState { level: 0.5, beats: 0.75, ..Default::default() }
 }
 
+/// Parts of the Stem FX keys, in their order.
+pub(crate) const STEM_PARTS: [od_engine::Stem; 4] = [od_engine::Stem::Vocals, od_engine::Stem::Drums, od_engine::Stem::Bass, od_engine::Stem::Inst];
+
+/// The target for Stem FX key `part` (-1 = whole channel) on the unit's channel.
+pub(crate) fn part_target(current: FxTarget, part: i32) -> FxTarget {
+    let channel = match current {
+        FxTarget::Channel(c) | FxTarget::Part(c, _) => c,
+        other => return other,
+    };
+    match STEM_PARTS.get(part.max(-1) as usize).filter(|_| part >= 0) {
+        Some(p) => FxTarget::Part(channel, *p),
+        None => FxTarget::Channel(channel),
+    }
+}
+
 /// Projects slots 2 and 3 of a unit (pure).
 pub(crate) fn slot_views(slots: &[BeatFxState]) -> Vec<FxSlotView> {
     slots
@@ -159,6 +175,10 @@ pub(crate) fn slot_views(slots: &[BeatFxState]) -> Vec<FxSlotView> {
 /// Projects one unit (pure).
 pub(crate) fn unit_view(unit: usize, s: &BeatFxState) -> FxUnitView {
     FxUnitView {
+        part: match s.target {
+            FxTarget::Part(_, p) => STEM_PARTS.iter().position(|x| *x == p).map_or(-1, |i| i as i32),
+            _ => -1,
+        },
         multi: false,
         slots: Default::default(),
         unit: unit as i32 + 1,
@@ -372,6 +392,10 @@ pub(crate) fn wire(app: &Rc<App>) {
     let slots = slint::ComponentHandle::global::<crate::FxSlots>(&app.ui);
     slots.on_multi(handler!(app, |a, n: i32| toggle_multi(&a, u(n))));
     slots.on_auto(handler!(app, |a, n: i32| auto_beat(&a, u(n))));
+    slots.on_part(handler!(app, |a, n: i32, p: i32| {
+        let current = unit_state(&a, u(n)).map(|s| s.target).unwrap_or_default();
+        send(&a, u(n), BeatFxCommand::SetTarget(part_target(current, p)));
+    }));
     slots.on_kind_step(handler!(app, |a, n: i32, k: i32, d: i32| {
         let kind = slot_state(&a, u(n), k as usize).map(|s| s.kind).unwrap_or_default();
         send_slot(&a, u(n), k as usize, BeatFxCommand::SetKind(step_kind(kind, d)));

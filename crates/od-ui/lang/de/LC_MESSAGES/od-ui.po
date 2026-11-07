@@ -4468,3 +4468,13 @@ msgstr "Leer. Ziehe Tracks aus der Liste darüber auf diese Liste."
 msgctxt "SubBrowserPane"
 msgid "No tracks in this list."
 msgstr "Keine Tracks in dieser Liste."
+
+#: ui/fx.slint
+msgctxt "FxUnit"
+msgid "The effect takes the whole channel"
+msgstr "Der Effekt nimmt den ganzen Kanal"
+
+#: ui/fx.slint
+msgctxt "FxUnit"
+msgid "Stem FX: the effect takes only this part of the channel"
+msgstr "Stem FX: Der Effekt nimmt nur diesen Part des Kanals"

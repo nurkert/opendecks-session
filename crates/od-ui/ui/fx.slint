@@ -16,6 +16,8 @@ export global FxSlots {
     callback level(int, int, float);
     callback on(int, int);
     callback auto(int);
+    // Stem FX part (unit, part index or -1).
+    callback part(int, int);
 }
 
 // Effect names, in engine order (Beat FX) and settings order (Colour FX).
@@ -177,6 +179,18 @@ component FxUnit inherits Rectangle {
                     label: "M"; on: root.u.target == 0; tone: Theme.bone-2;
                     tooltip: @tr("Insert the effect on the master output");
                     clicked => { root.target(0); }
+                }
+            }
+            // Stem FX: which part of the channel the effect takes.
+            if root.u.target > 0: HorizontalLayout {
+                spacing: 3px;
+                if !root.narrow: Caps { text: "PART"; font-size: 9px; vertical-alignment: center; width: 22px; }
+                for p[k] in [{ id: "all", label: "ALL", i: -1 }, { id: "vocal", label: "VOC", i: 0 }, { id: "drums", label: "DRUM", i: 1 }, { id: "bass", label: "BASS", i: 2 }, { id: "inst", label: "INST", i: 3 }]: Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.part == p.i;
+                    accessible-label: "fx.unit\{root.u.unit}.part." + p.id;
+                    size: 20px; width: 38px; label: p.label; on: root.u.part == p.i; tone: Theme.w656;
+                    tooltip: p.i < 0 ? @tr("The effect takes the whole channel") : @tr("Stem FX: the effect takes only this part of the channel");
+                    clicked => { FxSlots.part(root.u.unit, p.i); }
                 }
             }
             if !root.tiny: HorizontalLayout {

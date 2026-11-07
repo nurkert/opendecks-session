@@ -227,6 +227,25 @@ impl StemRamp {
     }
 }
 
+/// Mix coefficients for part levels `[vocals, drums, bass, inst]`.
+#[inline(always)]
+pub(crate) fn coefs_of(level: [f32; 4]) -> [f32; 4] {
+    let [v, d, b, i] = level;
+    [i, v - i, d - i, b - i]
+}
+
+/// Stem FX split: coefficients of the deck without `part` and of `part`
+/// alone (their sum is the deck's normal output).
+#[inline(always)]
+pub(crate) fn split_coefs(level: [f32; 4], part: Stem) -> ([f32; 4], [f32; 4]) {
+    let k = part.index();
+    let mut main = level;
+    main[k] = 0.0;
+    let mut alone = [0.0; 4];
+    alone[k] = level[k];
+    (coefs_of(main), coefs_of(alone))
+}
+
 /// Mix frame `i` with stem levels applied; zero outside the track.
 #[inline(always)]
 pub(crate) fn frame_at(mix: &[f32], stems: &StemData, i: isize, c: &[f32; 4]) -> (f32, f32) {

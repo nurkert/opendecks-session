@@ -2028,10 +2028,14 @@ id = "fx-stem-fx"
 area = "effects"
 name = "Stem FX (FX on one part)"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "Not yet: FX on one part needs that part as its own time-stretched signal (a second keylock path per deck). Planned with the keylock refactor; part levels, part isolation and Beat FX on the whole channel work today"
+tests = [
+  "od-engine::stems::stem_fx_changes_only_its_part",
+  "od-engine::stems::stem_fx_without_parts_is_dry",
+  "od-ui::ui_tests::perform::stem_fx_part_keys",
+]
+note = "PART keys under a unit's channel assign (ALL / VOC / DRUM / BASS / INST): the deck splits that part off (a second stretcher keeps it in step under keylock), the unit processes only the part, and it rejoins the channel before EQ and fader; Lite (Pi) supports it without keylock"
 
 [[feature]]
 id = "fx-panel"

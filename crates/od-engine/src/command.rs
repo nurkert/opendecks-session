@@ -537,6 +537,8 @@ pub enum FxTarget {
     Channel(usize),
     /// The sampler output (before it joins the master).
     Sampler,
+    /// Stem FX: one part of channel `n`'s deck (the rest stays dry).
+    Part(usize, crate::stems::Stem),
 }
 
 #[derive(Clone, Copy, Debug)]

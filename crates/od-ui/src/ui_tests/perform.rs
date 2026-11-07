@@ -251,3 +251,24 @@ fn smart_fader_swaps_the_basses() {
     assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.channels[0].eq[0] == 0.0)), "flat again");
     assert_eq!(crate::fx::color_fx_kind("smart"), od_engine::ColorFxKind::Smart);
 }
+
+/// Stem FX: with a unit on channel 1, the PART keys put it on one part.
+#[test]
+fn stem_fx_part_keys() {
+    use od_engine::{FxTarget, Stem};
+    assert_eq!(crate::fx::part_target(FxTarget::Channel(1), 0), FxTarget::Part(1, Stem::Vocals));
+    assert_eq!(crate::fx::part_target(FxTarget::Part(1, Stem::Vocals), -1), FxTarget::Channel(1));
+    assert_eq!(crate::fx::part_target(FxTarget::Master, 2), FxTarget::Master);
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    if !ui.app.ui.get_fx_panel() {
+        ui.app.ui.invoke_toggle_fx_panel();
+    }
+    ui.pump(200);
+    ui.click("fx.unit1.assign.ch1");
+    assert!(ui.wait_until(5.0, |u| u.has("fx.unit1.part.drums")));
+    ui.click("fx.unit1.part.drums");
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.beat_fx[0].target == FxTarget::Part(0, Stem::Drums))));
+    ui.click("fx.unit1.part.all");
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.beat_fx[0].target == FxTarget::Channel(0))));
+}

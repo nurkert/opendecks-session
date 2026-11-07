@@ -349,6 +349,9 @@ export struct FxUnitView {
     tapped: bool,
     // Engaged Release FX: -1 none, 0 vinyl brake, 1 backspin, 2 echo out.
     release: int,
+    // Stem FX: the part of the target channel the unit takes
+    // (-1 = the whole channel, 0 vocals, 1 drums, 2 bass, 3 inst).
+    part: int,
     // Multi mode: slots 2 and 3 chained after the unit's effect.
     multi: bool,
     slots: [FxSlotView],

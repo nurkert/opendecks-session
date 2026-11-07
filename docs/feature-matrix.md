@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 214 features; 202 in scope: 201 DONE (100 %), 0 PARTIAL, 0 ENGINE-ONLY, 1 MISSING; 7 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 214 features; 202 in scope: 202 DONE (100 %), 0 PARTIAL, 0 ENGINE-ONLY, 0 MISSING; 7 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -200,7 +200,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Sound Colour FX selection (filter, noise, space, crush, echo) | DONE | `fx.rs::select_color_fx`; One global selection (‹ NAME › under the mixer, keyboard, controller CFX buttons with LEDs), persisted, applied to every channel | 3 | **P1** |
 | Release FX | DONE | `fx.slint::FxUnit`; BRAKE / BACKSPIN / ECHO OUT per unit while held (panel, keyboard); controller release button = echo out | 2 | P2 |
 | Pad FX | DONE | `fx.rs::pad_fx_preset`; Two pages of eight presets (beat and release FX) on the deck pads | 3 | P2 |
-| Stem FX (FX on one part) | MISSING | Not yet: FX on one part needs that part as its own time-stretched signal (a second keylock path per deck). Planned with the keylock refactor; part levels, part isolation and Beat FX on the whole channel work today | — | P3 |
+| Stem FX (FX on one part) | DONE | PART keys under a unit's channel assign (ALL / VOC / DRUM / BASS / INST): the deck splits that part off (a second stretcher keeps it in step under keylock), the unit processes only the part, and it rejoins the channel before EQ and fader; Lite (Pi) supports it without keylock | 3 | P3 |
 | FX panel (FX1 \| FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row) | DONE | `crates/od-ui/ui/fx.slint`; FX1 \| FX2: effect, beat, assign (channels, sampler, master), level, parameter, ON, AUTO, TAP, Release FX, and ×3 multi mode with three chained slots (effect, beat, depth, ON each); (SPEC §10.2; UX §1.5) | 4 | **P1** |
 | Colour FX: pitch, dub echo, sweep | DONE | `settings.rs::COLOR_FX`; Pitch, dub echo and sweep selectable like the others; (SPEC §10.2) | 2 | P3 |
 
@@ -323,10 +323,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 201 |
+| DONE | 202 |
 | PARTIAL | 0 |
 | ENGINE-ONLY | 0 |
-| MISSING | 1 |
+| MISSING | 0 |
 | deferred (in scope, later milestone) | 7 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **214** |
