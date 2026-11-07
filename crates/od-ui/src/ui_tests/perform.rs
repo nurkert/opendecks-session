@@ -420,12 +420,10 @@ fn stem_fx_part_keys() {
     ui.click("fx.unit1.assign.ch1");
     assert!(ui.wait_until(5.0, |u| u.has("fx.unit1.part.drums")));
     ui.click("fx.unit1.part.drums");
-    assert!(
-        ui.wait_until(5.0, |u| {
-            crate::engine::snapshot(&u.app)
-                .is_some_and(|s| s.beat_fx[0].target == FxTarget::Part(0, Stem::Drums))
-        })
-    );
+    assert!(ui.wait_until(5.0, |u| {
+        crate::engine::snapshot(&u.app)
+            .is_some_and(|s| s.beat_fx[0].target == FxTarget::Part(0, Stem::Drums))
+    }));
     ui.click("fx.unit1.part.all");
     assert!(ui.wait_until(5.0, |u| {
         crate::engine::snapshot(&u.app).is_some_and(|s| s.beat_fx[0].target == FxTarget::Channel(0))
@@ -475,16 +473,27 @@ fn loading_shows_at_once() {
     perform(&ui);
     let (first, second) = (ui.fx.tracks[0].clone(), ui.fx.tracks[1].clone());
     crate::decks::load_track(&ui.app, 0, first.0, None);
-    assert!(ui.wait_until(30.0, |u| u.app.decks.borrow().loaded_id(0) == Some(first.0)), "first track loaded");
+    assert!(
+        ui.wait_until(30.0, |u| u.app.decks.borrow().loaded_id(0) == Some(first.0)),
+        "first track loaded"
+    );
     crate::decks::load_track(&ui.app, 0, second.0, None);
     // One frame later: the new title shows, loading, before decoding ends.
     ui.pump(16);
     let deck = super::flows::deck_views(&ui)[0].clone();
     assert_eq!(deck.title.as_str(), second.1, "the new track shows at once");
-    assert!(deck.loading || ui.app.decks.borrow().loaded_id(0) == Some(second.0), "LOADING until playable");
-    assert_ne!(ui.app.decks.borrow().loaded_id(0), Some(first.0), "the old track left at once");
     assert!(
-        ui.wait_until(30.0, |u| !super::flows::deck_views(u)[0].loading && u.app.decks.borrow().loaded_id(0) == Some(second.0)),
+        deck.loading || ui.app.decks.borrow().loaded_id(0) == Some(second.0),
+        "LOADING until playable"
+    );
+    assert_ne!(
+        ui.app.decks.borrow().loaded_id(0),
+        Some(first.0),
+        "the old track left at once"
+    );
+    assert!(
+        ui.wait_until(30.0, |u| !super::flows::deck_views(u)[0].loading
+            && u.app.decks.borrow().loaded_id(0) == Some(second.0)),
         "playable after decoding"
     );
 }
@@ -492,59 +501,65 @@ fn loading_shows_at_once() {
 /// Bottom panels (sampler, Beat FX, Mix Point Link) do not push the status
 /// band out of the window: the waveform lanes shrink to their smallest
 /// height, then decks and mixer go compact, then the waveform zone steps
-/// aside; the browser keeps its minimum.
+/// aside; when that is still not enough, the panel open longest closes with
+/// a status hint. The browser keeps its minimum. Every subset, opened one
+/// after the other, at desktop and laptop size.
 #[test]
 fn bottom_panels_keep_the_status_band_in_the_window() {
     let mut failures = Vec::new();
-    let cases: [((u32, u32), &[&str]); 7] = [
-        ((1440, 900), &["sampler"]),
-        ((1440, 900), &["fx"]),
-        ((1440, 900), &["mpl"]),
-        ((1440, 900), &["sampler", "fx"]),
-        ((1280, 800), &["sampler"]),
-        ((1280, 800), &["fx"]),
-        ((1280, 800), &["mpl"]),
-    ];
-    for (size, panels) in cases {
-        let ui = Ui::open(size);
-        perform(&ui);
-        let w = &ui.app.ui;
-        for p in panels {
-            match *p {
-                "sampler" => {
-                    if !w.get_sampler_panel() {
-                        w.invoke_toggle_sampler_panel();
+    let all = ["sampler", "fx", "mpl"];
+    for size in [(1440, 900), (1280, 800)] {
+        for mask in 1..8u32 {
+            let panels: Vec<&str> = all.iter().enumerate().filter(|(i, _)| mask & (1 << i) != 0).map(|(_, p)| *p).collect();
+            let ui = Ui::open(size);
+            perform(&ui);
+            let w = &ui.app.ui;
+            let shown = |p: &str| match p {
+                "sampler" => w.get_sampler_panel(),
+                "fx" => w.get_fx_panel(),
+                _ => w.get_mpl_panel(),
+            };
+            for p in &panels {
+                if !shown(p) {
+                    match *p {
+                        "sampler" => w.invoke_toggle_sampler_panel(),
+                        "fx" => w.invoke_toggle_fx_panel(),
+                        _ => w.invoke_menu_action("perform.mpl.panel".into()),
                     }
                 }
-                "fx" => {
-                    if !w.get_fx_panel() {
-                        w.invoke_toggle_fx_panel();
-                    }
-                }
-                _ => {
-                    if !w.get_mpl_panel() {
-                        w.invoke_menu_action("perform.mpl.panel".into());
-                    }
+                ui.pump(300);
+            }
+            let (ww, wh) = ui.size();
+            let win = Rect { x: 0.0, y: 0.0, w: ww, h: wh };
+            for l in ["status.summary", "status.activity", "global.xfader", "deck1.play"] {
+                let r = Rect::of(&ui.get(l));
+                if !win.contains(&r, 0.5) {
+                    failures.push(format!("{size:?} {panels:?}: `{l}` at y {:.0}..{:.0} outside the {wh:.0} px window", r.y, r.bottom()));
                 }
             }
-        }
-        ui.pump(300);
-        let (ww, wh) = ui.size();
-        let win = Rect { x: 0.0, y: 0.0, w: ww, h: wh };
-        for l in ["status.summary", "status.activity", "global.xfader", "deck1.play"] {
-            let r = Rect::of(&ui.get(l));
-            if !win.contains(&r, 0.5) {
-                failures.push(format!("{size:?} {panels:?}: `{l}` at y {:.0}..{:.0} outside the {wh:.0} px window", r.y, r.bottom()));
+            // The browser keeps its minimum (the source rail at 24 px a key).
+            if Rect::of(&ui.get("browser.splitter")).h < 216.0 {
+                failures.push(format!("{size:?} {panels:?}: browser below its minimum"));
             }
-        }
-        // The browser keeps its minimum (the source rail at 24 px a key).
-        if Rect::of(&ui.get("browser.splitter")).h < 216.0 {
-            failures.push(format!("{size:?} {panels:?}: browser below its minimum"));
-        }
-        // Lanes that are shown stay readable.
-        if let Some(l) = ui.find("wave.lane1") {
-            if Rect::of(&l).h < 23.5 {
-                failures.push(format!("{size:?} {panels:?}: waveform lane below 24 px"));
+            // Lanes that are shown stay readable.
+            if let Some(l) = ui.find("wave.lane1") {
+                if Rect::of(&l).h < 23.5 {
+                    failures.push(format!("{size:?} {panels:?}: waveform lane below 24 px"));
+                }
+            }
+            // The panel opened last stays; closed ones are off in the toggles
+            // and the settings, and the status band says why.
+            let last = *panels.last().unwrap();
+            if !shown(last) {
+                failures.push(format!("{size:?} {panels:?}: the panel opened last (`{last}`) was closed"));
+            }
+            let st = ui.app.state.borrow().settings.perform.clone();
+            if (st.sampler_panel, st.fx_panel, st.mpl_panel) != (w.get_sampler_panel(), w.get_fx_panel(), w.get_mpl_panel()) {
+                failures.push(format!("{size:?} {panels:?}: panel toggles and settings disagree"));
+            }
+            let closed: Vec<&&str> = panels.iter().filter(|p| !shown(p)).collect();
+            if !closed.is_empty() && !w.get_status_text().contains("not enough room") {
+                failures.push(format!("{size:?} {panels:?}: {closed:?} closed without a status hint (`{}`)", w.get_status_text()));
             }
         }
     }

@@ -86,7 +86,9 @@ pub fn parse_plist(text: &str) -> Result<Plist> {
                 b"dict" => stack.push(Frame::Dict(Vec::new(), None)),
                 b"array" => stack.push(Frame::Array(Vec::new())),
                 b"plist" => {}
-                other => scalar = Some((String::from_utf8_lossy(other).into_owned(), String::new())),
+                other => {
+                    scalar = Some((String::from_utf8_lossy(other).into_owned(), String::new()))
+                }
             },
             Event::Empty(e) => match e.name().as_ref() {
                 b"true" => push(&mut stack, &mut root, Plist::Bool(true))?,
@@ -117,7 +119,9 @@ pub fn parse_plist(text: &str) -> Result<Plist> {
                 },
                 b"plist" => {}
                 _ => {
-                    let Some((tag, text)) = scalar.take() else { continue };
+                    let Some((tag, text)) = scalar.take() else {
+                        continue;
+                    };
                     if tag == "key" {
                         if let Some(Frame::Dict(_, key)) = stack.last_mut() {
                             *key = Some(text);
@@ -165,8 +169,13 @@ pub fn import_itunes(lib: &mut Library, path: &Path) -> Result<ItunesImportRepor
     let mut ids: HashMap<i64, TrackId> = HashMap::new();
     if let Some(Plist::Dict(tracks)) = root.get("Tracks") {
         for (_, t) in tracks {
-            let Some(loc) = t.str("Location") else { continue };
-            if t.str("Kind").is_some_and(|k| k.contains("video")) || t.flag("Movie") || t.flag("Podcast") {
+            let Some(loc) = t.str("Location") else {
+                continue;
+            };
+            if t.str("Kind").is_some_and(|k| k.contains("video"))
+                || t.flag("Movie")
+                || t.flag("Podcast")
+            {
                 continue;
             }
             let file = path_from_location(loc);
@@ -214,7 +223,14 @@ pub fn import_itunes(lib: &mut Library, path: &Path) -> Result<ItunesImportRepor
     // library itself ("Master") and the built-in smart lists are skipped.
     let mut by_pid: HashMap<String, NodeId> = HashMap::new();
     let lists: Vec<&Plist> = match root.get("Playlists") {
-        Some(Plist::Array(v)) => v.iter().filter(|p| !p.flag("Master") && p.get("Distinguished Kind").is_none() && !matches!(p.get("Visible"), Some(Plist::Bool(false)))).collect(),
+        Some(Plist::Array(v)) => v
+            .iter()
+            .filter(|p| {
+                !p.flag("Master")
+                    && p.get("Distinguished Kind").is_none()
+                    && !matches!(p.get("Visible"), Some(Plist::Bool(false)))
+            })
+            .collect(),
         _ => Vec::new(),
     };
     if lists.is_empty() {
@@ -241,7 +257,11 @@ pub fn import_itunes(lib: &mut Library, path: &Path) -> Result<ItunesImportRepor
             } else {
                 let n = lib.create_node(Some(parent), NodeKind::Playlist, name)?;
                 let members: Vec<TrackId> = match p.get("Playlist Items") {
-                    Some(Plist::Array(items)) => items.iter().filter_map(|i| i.int("Track ID")).filter_map(|i| ids.get(&i).copied()).collect(),
+                    Some(Plist::Array(items)) => items
+                        .iter()
+                        .filter_map(|i| i.int("Track ID"))
+                        .filter_map(|i| ids.get(&i).copied())
+                        .collect(),
                     _ => Vec::new(),
                 };
                 lib.add_to_node(n, &members, None)?;
@@ -255,7 +275,11 @@ pub fn import_itunes(lib: &mut Library, path: &Path) -> Result<ItunesImportRepor
         if rest.len() == before {
             // Their parent folder is not in the file: place them at the top.
             for p in rest {
-                lib.create_node(Some(top), NodeKind::Playlist, p.str("Name").unwrap_or("Playlist"))?;
+                lib.create_node(
+                    Some(top),
+                    NodeKind::Playlist,
+                    p.str("Name").unwrap_or("Playlist"),
+                )?;
                 report.playlists += 1;
             }
             break;
@@ -353,8 +377,17 @@ mod tests {
         assert_eq!(p.int("a"), Some(-3));
         assert_eq!(p.get("b"), Some(&Plist::Real(1.5)));
         assert!(!p.flag("c"));
-        assert_eq!(p.get("d"), Some(&Plist::Array(vec![Plist::Str("x".into()), Plist::Str(String::new())])));
-        assert_eq!(p.get("e"), Some(&Plist::Other("2020-01-01T00:00:00Z".into())));
+        assert_eq!(
+            p.get("d"),
+            Some(&Plist::Array(vec![
+                Plist::Str("x".into()),
+                Plist::Str(String::new())
+            ]))
+        );
+        assert_eq!(
+            p.get("e"),
+            Some(&Plist::Other("2020-01-01T00:00:00Z".into()))
+        );
         assert!(parse_plist("<plist><dict><key>a</key></array></plist>").is_err());
         assert_eq!((stars(0), stars(20), stars(80), stars(100)), (0, 1, 4, 5));
     }
@@ -368,21 +401,48 @@ mod tests {
         std::fs::write(&a, vec![1u8; 2048]).unwrap();
         std::fs::write(&b, vec![2u8; 2048]).unwrap();
         let xml = dir.path().join("Library.xml");
-        std::fs::write(&xml, library_xml(&a, &b, &dir.path().join("Music/gone.mp3"))).unwrap();
+        std::fs::write(
+            &xml,
+            library_xml(&a, &b, &dir.path().join("Music/gone.mp3")),
+        )
+        .unwrap();
         let mut lib = Library::open(&dir.path().join("lib.sqlite")).unwrap();
         let r = import_itunes(&mut lib, &xml).unwrap();
         assert_eq!((r.tracks, r.playlists, r.missing.len()), (2, 2, 1));
         let t = lib.track_by_path(&a).unwrap().expect("track added");
-        assert_eq!((t.tags.title.as_str(), t.tags.artist.as_str(), t.tags.genre.as_str(), t.tags.year, t.tags.rating), ("Sunrise & Co", "The Band", "House", Some(2019), 4));
+        assert_eq!(
+            (
+                t.tags.title.as_str(),
+                t.tags.artist.as_str(),
+                t.tags.genre.as_str(),
+                t.tags.year,
+                t.tags.rating
+            ),
+            ("Sunrise & Co", "The Band", "House", Some(2019), 4)
+        );
         let nodes = lib.all_nodes().unwrap();
         let top = nodes.iter().find(|n| n.name == IMPORT_FOLDER).unwrap();
         let gigs = nodes.iter().find(|n| n.name == "Gigs").unwrap();
         assert_eq!((gigs.kind, gigs.parent), (NodeKind::Folder, Some(top.id)));
         let warm = nodes.iter().find(|n| n.name == "Warm-up").unwrap();
         assert_eq!(warm.parent, Some(gigs.id), "the folder tree is kept");
-        let titles: Vec<String> = lib.node_tracks(warm.id).unwrap().into_iter().map(|t| t.tags.title).collect();
-        assert_eq!(titles, ["Second", "Sunrise & Co"], "playlist order, missing file left out");
-        assert!(!nodes.iter().any(|n| n.name == "Library" || n.name == "Music"), "built-in lists skipped");
+        let titles: Vec<String> = lib
+            .node_tracks(warm.id)
+            .unwrap()
+            .into_iter()
+            .map(|t| t.tags.title)
+            .collect();
+        assert_eq!(
+            titles,
+            ["Second", "Sunrise & Co"],
+            "playlist order, missing file left out"
+        );
+        assert!(
+            !nodes
+                .iter()
+                .any(|n| n.name == "Library" || n.name == "Music"),
+            "built-in lists skipped"
+        );
         // A second import finds the tracks again.
         let r2 = import_itunes(&mut lib, &xml).unwrap();
         assert_eq!(r2.tracks, 2);

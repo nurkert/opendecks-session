@@ -20,7 +20,11 @@ use std::net::SocketAddr;
 use std::path::PathBuf;
 
 #[derive(Parser)]
-#[command(name = "opendecks-mcp", version, about = "MCP server for preparing sets with an LLM client")]
+#[command(
+    name = "opendecks-mcp",
+    version,
+    about = "MCP server for preparing sets with an LLM client"
+)]
 struct Cli {
     /// Library database (default: the app's library: `library` in config.toml, else the platform default).
     #[arg(long)]
@@ -56,10 +60,13 @@ fn main() -> anyhow::Result<()> {
         )
         .init();
     let path = library_path(cli.library);
-    let lib = Library::open(&path).with_context(|| format!("opening library {}", path.display()))?;
+    let lib =
+        Library::open(&path).with_context(|| format!("opening library {}", path.display()))?;
     tracing::info!("library {}", path.display());
     let server = OpenDecksServer::new(lib);
-    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build()?;
+    let rt = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()?;
     rt.block_on(async move {
         match cli.http {
             None => {
@@ -74,7 +81,9 @@ fn main() -> anyhow::Result<()> {
 
 async fn serve_http(server: OpenDecksServer, addr: SocketAddr) -> anyhow::Result<()> {
     use rmcp::transport::streamable_http_server::session::local::LocalSessionManager;
-    use rmcp::transport::streamable_http_server::{StreamableHttpServerConfig, StreamableHttpService};
+    use rmcp::transport::streamable_http_server::{
+        StreamableHttpServerConfig, StreamableHttpService,
+    };
     if !addr.ip().is_loopback() {
         bail!("--http only listens on loopback addresses (127.0.0.1 or [::1]), not {addr}");
     }

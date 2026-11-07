@@ -27,7 +27,10 @@ pub enum SyncError {
     #[error("sync cancelled")]
     Cancelled,
     #[error("{format} export failed: {message}")]
-    Format { format: &'static str, message: String },
+    Format {
+        format: &'static str,
+        message: String,
+    },
 }
 
 pub type Result<T> = std::result::Result<T, SyncError>;
@@ -72,8 +75,14 @@ pub trait FormatWriter {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Progress {
     Planning,
-    Copying { done_bytes: u64, total_bytes: u64, current: String },
-    Writing { format: &'static str },
+    Copying {
+        done_bytes: u64,
+        total_bytes: u64,
+        current: String,
+    },
+    Writing {
+        format: &'static str,
+    },
     Finishing,
 }
 
@@ -98,7 +107,11 @@ pub struct SyncOptions {
 
 /// The device's node tree for export: assigned nodes become roots, smart
 /// playlists become static playlists, folders keep their children.
-pub fn device_tree(lib: &Library, device: DeviceId, on_device: &HashSet<TrackId>) -> od_library::Result<Vec<(Node, Vec<Entry>)>> {
+pub fn device_tree(
+    lib: &Library,
+    device: DeviceId,
+    on_device: &HashSet<TrackId>,
+) -> od_library::Result<Vec<(Node, Vec<Entry>)>> {
     let mut out = Vec::new();
     let mut seen = HashSet::new();
     let assigned = lib.device_nodes(device)?;
@@ -128,11 +141,17 @@ pub fn device_tree(lib: &Library, device: DeviceId, on_device: &HashSet<TrackId>
                 NodeKind::Smart => {
                     node.kind = NodeKind::Playlist;
                     node.smart_rule = None;
-                    lib.node_tracks(id)?.into_iter().map(|t| Entry::new(t.id)).collect()
+                    lib.node_tracks(id)?
+                        .into_iter()
+                        .map(|t| Entry::new(t.id))
+                        .collect()
                 }
                 _ => lib.entries(id)?,
             };
-            let entries = entries.into_iter().filter(|e| on_device.contains(&e.track)).collect();
+            let entries = entries
+                .into_iter()
+                .filter(|e| on_device.contains(&e.track))
+                .collect();
             out.push((node, entries));
             let children = lib.children(Some(id))?;
             for c in children.into_iter().rev() {
@@ -143,13 +162,20 @@ pub fn device_tree(lib: &Library, device: DeviceId, on_device: &HashSet<TrackId>
     Ok(out)
 }
 
-fn copy_file(src: &Path, dst: &Path, cancel: &AtomicBool, mut on_bytes: impl FnMut(u64)) -> Result<()> {
+fn copy_file(
+    src: &Path,
+    dst: &Path,
+    cancel: &AtomicBool,
+    mut on_bytes: impl FnMut(u64),
+) -> Result<()> {
     if let Some(parent) = dst.parent() {
         std::fs::create_dir_all(parent)?;
     }
     let tmp = dst.with_file_name(format!(
         ".{}.part",
-        dst.file_name().map(|n| n.to_string_lossy()).unwrap_or_default()
+        dst.file_name()
+            .map(|n| n.to_string_lossy())
+            .unwrap_or_default()
     ));
     let mut input = std::fs::File::open(src)?;
     let mut output = std::fs::File::create(&tmp)?;
@@ -204,15 +230,32 @@ pub fn sync_device(
     let pending = lib.pending_changes(device)?;
     let interrupted = od_format_native::interrupted_sync(root)?.is_some();
     let mut placement = PlacementMap::load(root);
-    let full = opts.force_full || interrupted || lib.device(device)?.synced_seq == 0 || placement.tracks.is_empty();
-    let mut report = SyncReport { full, ..Default::default() };
+    let full = opts.force_full
+        || interrupted
+        || lib.device(device)?.synced_seq == 0
+        || placement.tracks.is_empty();
+    let mut report = SyncReport {
+        full,
+        ..Default::default()
+    };
 
     let wanted: Vec<TrackRecord> = lib.device_tracks(device)?;
-    od_format_native::begin_sync(root, &od_format_native::SyncJournal { started_at: lib.now()?, full })?;
+    od_format_native::begin_sync(
+        root,
+        &od_format_native::SyncJournal {
+            started_at: lib.now()?,
+            full,
+        },
+    )?;
 
     // Decide placements and the files to copy.
     let wanted_ids: HashSet<TrackId> = wanted.iter().map(|t| t.id).collect();
-    let removed: Vec<TrackId> = placement.tracks.keys().filter(|id| !wanted_ids.contains(id)).copied().collect();
+    let removed: Vec<TrackId> = placement
+        .tracks
+        .keys()
+        .filter(|id| !wanted_ids.contains(id))
+        .copied()
+        .collect();
     let mut taken: HashSet<String> = placement
         .tracks
         .iter()
@@ -221,13 +264,20 @@ pub fn sync_device(
         .collect();
     let mut placed = Vec::with_capacity(wanted.len());
     let mut to_copy: Vec<(usize, PathBuf)> = Vec::new();
-    let mut changed: BTreeSet<TrackId> = if full { wanted_ids.iter().copied().collect() } else { pending.tracks.clone() };
+    let mut changed: BTreeSet<TrackId> = if full {
+        wanted_ids.iter().copied().collect()
+    } else {
+        pending.tracks.clone()
+    };
     for t in wanted {
         if t.missing || !t.path.exists() {
             report.skipped_missing.push(t.id);
             if let Some(p) = placement.tracks.get(&t.id) {
                 // Keep whatever is already on the stick.
-                placed.push(PlacedTrack { stick_path: p.path.clone(), record: t });
+                placed.push(PlacedTrack {
+                    stick_path: p.path.clone(),
+                    record: t,
+                });
             }
             continue;
         }
@@ -242,13 +292,17 @@ pub fn sync_device(
             }
         };
         let dst = stick_file(root, &stick_path);
-        let up_to_date = existing.is_some_and(|p| p.hash == t.content_hash && p.size == t.file_size)
+        let up_to_date = existing
+            .is_some_and(|p| p.hash == t.content_hash && p.size == t.file_size)
             && std::fs::metadata(&dst).is_ok_and(|m| m.len() == t.file_size);
         if !up_to_date {
             to_copy.push((placed.len(), t.path.clone()));
             changed.insert(t.id);
         }
-        placed.push(PlacedTrack { record: t, stick_path });
+        placed.push(PlacedTrack {
+            record: t,
+            stick_path,
+        });
     }
 
     // Space check (files being replaced free their old size).
@@ -256,7 +310,9 @@ pub fn sync_device(
         .iter()
         .map(|(i, _)| {
             let t = &placed[*i];
-            let old = std::fs::metadata(stick_file(root, &t.stick_path)).map(|m| m.len()).unwrap_or(0);
+            let old = std::fs::metadata(stick_file(root, &t.stick_path))
+                .map(|m| m.len())
+                .unwrap_or(0);
             t.record.file_size.saturating_sub(old)
         })
         .sum();
@@ -281,7 +337,10 @@ pub fn sync_device(
     }
 
     // Copy audio.
-    let total_bytes: u64 = to_copy.iter().map(|(i, _)| placed[*i].record.file_size).sum();
+    let total_bytes: u64 = to_copy
+        .iter()
+        .map(|(i, _)| placed[*i].record.file_size)
+        .sum();
     let mut done_bytes = 0;
     for (i, src) in &to_copy {
         let t = &placed[*i];
@@ -289,21 +348,32 @@ pub fn sync_device(
         let name = t.record.tags.title.clone();
         copy_file(src, &dst, cancel, |n| {
             done_bytes += n;
-            progress(Progress::Copying { done_bytes, total_bytes, current: name.clone() });
+            progress(Progress::Copying {
+                done_bytes,
+                total_bytes,
+                current: name.clone(),
+            });
         })?;
         report.copied += 1;
         report.bytes_copied += t.record.file_size;
         placement.tracks.insert(
             t.record.id,
-            Placement { path: t.stick_path.clone(), hash: t.record.content_hash.clone(), size: t.record.file_size },
+            Placement {
+                path: t.stick_path.clone(),
+                hash: t.record.content_hash.clone(),
+                size: t.record.file_size,
+            },
         );
     }
     for t in &placed {
-        placement.tracks.entry(t.record.id).or_insert_with(|| Placement {
-            path: t.stick_path.clone(),
-            hash: t.record.content_hash.clone(),
-            size: t.record.file_size,
-        });
+        placement
+            .tracks
+            .entry(t.record.id)
+            .or_insert_with(|| Placement {
+                path: t.stick_path.clone(),
+                hash: t.record.content_hash.clone(),
+                size: t.record.file_size,
+            });
     }
     placement.save(root)?;
     if cancel.load(Ordering::Relaxed) {
@@ -327,7 +397,10 @@ pub fn sync_device(
     };
     for w in writers.iter_mut() {
         progress(Progress::Writing { format: w.name() });
-        w.write(&ctx).map_err(|message| SyncError::Format { format: w.name(), message })?;
+        w.write(&ctx).map_err(|message| SyncError::Format {
+            format: w.name(),
+            message,
+        })?;
         report.proposals.extend(w.proposals());
     }
     report.updated = changed.len();
@@ -350,22 +423,34 @@ pub struct NativeWriter {
 
 impl Default for NativeWriter {
     fn default() -> Self {
-        Self { stems: Some(od_library::data_dir().join("stems")) }
+        Self {
+            stems: Some(od_library::data_dir().join("stems")),
+        }
     }
 }
 
 /// Stem file name for a content hash (as the stem cache names them).
 fn stem_file(hash: &od_core::ContentHash) -> String {
-    let name: String = hash.0.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+    let name: String = hash
+        .0
+        .chars()
+        .filter(|c| c.is_ascii_alphanumeric())
+        .collect();
     format!("{name}.odstem")
 }
 
 impl NativeWriter {
     /// Copies cached stems of the device's tracks and removes stale ones.
     fn carry_stems(&self, ctx: &SyncContext) -> std::io::Result<()> {
-        let Some(src) = &self.stems else { return Ok(()) };
+        let Some(src) = &self.stems else {
+            return Ok(());
+        };
         let dst = ctx.root.join("OPENDECKS").join("stems");
-        let wanted: HashSet<String> = ctx.tracks.iter().map(|t| stem_file(&t.record.content_hash)).collect();
+        let wanted: HashSet<String> = ctx
+            .tracks
+            .iter()
+            .map(|t| stem_file(&t.record.content_hash))
+            .collect();
         for name in &wanted {
             let from = src.join(name);
             let to = dst.join(name);
@@ -401,8 +486,11 @@ impl FormatWriter for NativeWriter {
                 .into_iter()
                 .map(|t| t.id)
                 .collect();
-            let paths: HashMap<TrackId, &str> =
-                ctx.tracks.iter().map(|t| (t.record.id, t.stick_path.as_str())).collect();
+            let paths: HashMap<TrackId, &str> = ctx
+                .tracks
+                .iter()
+                .map(|t| (t.record.id, t.stick_path.as_str()))
+                .collect();
             for t in ctx.tracks {
                 let id = t.record.id;
                 if !ctx.full && present.contains(&id) && !ctx.changed.contains(&id) {
@@ -444,7 +532,12 @@ mod tests {
         std::fs::create_dir_all(&music).unwrap();
         std::fs::create_dir_all(&stick).unwrap();
         let lib = Library::open(&dir.path().join("lib/library.sqlite")).unwrap();
-        Fixture { _dir: dir, music, stick, lib }
+        Fixture {
+            _dir: dir,
+            music,
+            stick,
+            lib,
+        }
     }
 
     fn add(f: &mut Fixture, name: &str, artist: &str) -> TrackId {
@@ -461,16 +554,29 @@ mod tests {
                 channels: 2,
                 bit_rate: None,
                 bits_per_sample: None,
-                tags: TrackTags { title: name.into(), artist: artist.into(), ..Default::default() },
+                tags: TrackTags {
+                    title: name.into(),
+                    artist: artist.into(),
+                    ..Default::default()
+                },
                 artwork: None,
             })
             .unwrap()
     }
 
     fn run(f: &mut Fixture, dev: DeviceId) -> SyncReport {
-        let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![Box::new(NativeWriter { stems: None })];
-        sync_device(&mut f.lib, dev, &f.stick.clone(), &mut writers, &SyncOptions::default(), &AtomicBool::new(false), |_| {})
-            .unwrap()
+        let mut writers: Vec<Box<dyn FormatWriter + Send>> =
+            vec![Box::new(NativeWriter { stems: None })];
+        sync_device(
+            &mut f.lib,
+            dev,
+            &f.stick.clone(),
+            &mut writers,
+            &SyncOptions::default(),
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap()
     }
 
     #[test]
@@ -481,14 +587,25 @@ mod tests {
         let c = add(&mut f, "Gamma", "Artist Two");
         let pl = f.lib.create_node(None, NodeKind::Playlist, "Gig").unwrap();
         f.lib.add_to_node(pl, &[a, b], None).unwrap();
-        let dev = f.lib.register_device("uuid", "Stick", DeviceFormats::default()).unwrap();
+        let dev = f
+            .lib
+            .register_device("uuid", "Stick", DeviceFormats::default())
+            .unwrap();
         f.lib.set_device_nodes(dev, &[pl]).unwrap();
 
         let r = run(&mut f, dev);
         assert!(r.full);
         assert_eq!((r.copied, r.tracks), (2, 2));
-        assert!(f.stick.join("Contents/Artist One/Unknown Album/Alpha.mp3").exists());
-        assert!(od_format_native::interrupted_sync(&f.stick).unwrap().is_none());
+        assert!(
+            f.stick
+                .join("Contents/Artist One/Unknown Album/Alpha.mp3")
+                .exists()
+        );
+        assert!(
+            od_format_native::interrupted_sync(&f.stick)
+                .unwrap()
+                .is_none()
+        );
         assert!(f.lib.pending_changes(dev).unwrap().is_empty());
 
         // A cue edit only rewrites that track's metadata.
@@ -505,9 +622,19 @@ mod tests {
         f.lib.add_to_node(pl, &[c], None).unwrap();
         let r = run(&mut f, dev);
         assert_eq!((r.copied, r.removed), (1, 1));
-        assert!(!f.stick.join("Contents/Artist Two/Unknown Album/Beta.mp3").exists());
+        assert!(
+            !f.stick
+                .join("Contents/Artist Two/Unknown Album/Beta.mp3")
+                .exists()
+        );
         let stick = od_format_native::Stick::open(&f.stick).unwrap().unwrap();
-        let names: Vec<_> = stick.library.node_tracks(pl).unwrap().into_iter().map(|t| t.tags.title).collect();
+        let names: Vec<_> = stick
+            .library
+            .node_tracks(pl)
+            .unwrap()
+            .into_iter()
+            .map(|t| t.tags.title)
+            .collect();
         assert_eq!(names, vec!["Alpha", "Gamma"]);
         assert_eq!(stick.library.track_count().unwrap(), 2);
         let path = stick.library.track(c).unwrap().path;
@@ -521,7 +648,10 @@ mod tests {
         let b = add(&mut f, "Beta", "Y");
         let pl = f.lib.create_node(None, NodeKind::Playlist, "Gig").unwrap();
         f.lib.add_to_node(pl, &[a, b], None).unwrap();
-        let dev = f.lib.register_device("uuid", "Stick", DeviceFormats::default()).unwrap();
+        let dev = f
+            .lib
+            .register_device("uuid", "Stick", DeviceFormats::default())
+            .unwrap();
         f.lib.set_device_nodes(dev, &[pl]).unwrap();
         // Only Alpha has separated stems on the desktop.
         let stems = f.music.join("stem-cache");
@@ -529,13 +659,29 @@ mod tests {
         let ha = f.lib.track(a).unwrap().content_hash;
         std::fs::write(stems.join(stem_file(&ha)), b"stems of alpha").unwrap();
         let sync = |f: &mut Fixture| {
-            let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![Box::new(NativeWriter { stems: Some(stems.clone()) })];
-            sync_device(&mut f.lib, dev, &f.stick.clone(), &mut writers, &SyncOptions::default(), &AtomicBool::new(false), |_| {}).unwrap();
+            let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![Box::new(NativeWriter {
+                stems: Some(stems.clone()),
+            })];
+            sync_device(
+                &mut f.lib,
+                dev,
+                &f.stick.clone(),
+                &mut writers,
+                &SyncOptions::default(),
+                &AtomicBool::new(false),
+                |_| {},
+            )
+            .unwrap();
         };
         sync(&mut f);
         let on_stick = f.stick.join("OPENDECKS/stems").join(stem_file(&ha));
         assert_eq!(std::fs::read(&on_stick).unwrap(), b"stems of alpha");
-        assert_eq!(std::fs::read_dir(f.stick.join("OPENDECKS/stems")).unwrap().count(), 1);
+        assert_eq!(
+            std::fs::read_dir(f.stick.join("OPENDECKS/stems"))
+                .unwrap()
+                .count(),
+            1
+        );
         // Alpha leaves the playlist: its stems leave the stick.
         f.lib.remove_from_node(pl, &[0]).unwrap();
         sync(&mut f);
@@ -548,11 +694,20 @@ mod tests {
         let a = add(&mut f, "Alpha", "X");
         let pl = f.lib.create_node(None, NodeKind::Playlist, "P").unwrap();
         f.lib.add_to_node(pl, &[a], None).unwrap();
-        let dev = f.lib.register_device("u", "S", DeviceFormats::default()).unwrap();
+        let dev = f
+            .lib
+            .register_device("u", "S", DeviceFormats::default())
+            .unwrap();
         f.lib.set_device_nodes(dev, &[pl]).unwrap();
         run(&mut f, dev);
-        od_format_native::begin_sync(&f.stick, &od_format_native::SyncJournal { started_at: "x".into(), full: false })
-            .unwrap();
+        od_format_native::begin_sync(
+            &f.stick,
+            &od_format_native::SyncJournal {
+                started_at: "x".into(),
+                full: false,
+            },
+        )
+        .unwrap();
         assert!(run(&mut f, dev).full);
     }
 
@@ -563,7 +718,10 @@ mod tests {
         std::fs::remove_file(f.music.join("Alpha.mp3")).unwrap();
         let pl = f.lib.create_node(None, NodeKind::Playlist, "P").unwrap();
         f.lib.add_to_node(pl, &[a], None).unwrap();
-        let dev = f.lib.register_device("u", "S", DeviceFormats::default()).unwrap();
+        let dev = f
+            .lib
+            .register_device("u", "S", DeviceFormats::default())
+            .unwrap();
         f.lib.set_device_nodes(dev, &[pl]).unwrap();
         let r = run(&mut f, dev);
         assert_eq!(r.skipped_missing, vec![a]);
@@ -576,7 +734,10 @@ mod tests {
         let mut f = fixture();
         let a = add(&mut f, "Alpha", "X");
         let smart = f.lib.create_node(None, NodeKind::Smart, "All").unwrap();
-        let dev = f.lib.register_device("u", "S", DeviceFormats::default()).unwrap();
+        let dev = f
+            .lib
+            .register_device("u", "S", DeviceFormats::default())
+            .unwrap();
         f.lib.set_device_nodes(dev, &[smart]).unwrap();
         let on: HashSet<TrackId> = [a].into_iter().collect();
         let tree = device_tree(&f.lib, dev, &on).unwrap();

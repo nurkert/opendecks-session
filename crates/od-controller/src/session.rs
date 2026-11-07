@@ -2,7 +2,7 @@
 //! → MIDI out. The I/O layer (`io`) and the tests drive it directly.
 
 use crate::action::{ControlAction, DeckAction, ParamTarget};
-use crate::device_module::{module_for, DeviceModule, ModuleContext};
+use crate::device_module::{DeviceModule, ModuleContext, module_for};
 use crate::feedback::ControlFeedback;
 use crate::mapping::{InputMode, LayerMode, Mapping};
 use crate::midi::MidiMessage;
@@ -84,12 +84,20 @@ impl ControllerSession {
     }
 
     fn software_layers(&self) -> bool {
-        self.mapping.file.layers.as_ref().is_some_and(|l| l.mode == LayerMode::Software)
+        self.mapping
+            .file
+            .layers
+            .as_ref()
+            .is_some_and(|l| l.mode == LayerMode::Software)
     }
 
     fn resolve_deck(&self, slot: Option<u8>) -> Option<u8> {
         let slot = slot?;
-        if self.software_layers() { self.active.get(&slot).copied().or(Some(slot)) } else { Some(slot) }
+        if self.software_layers() {
+            self.active.get(&slot).copied().or(Some(slot))
+        } else {
+            Some(slot)
+        }
     }
 
     fn shift_held(&self, slot: Option<u8>) -> bool {
@@ -103,12 +111,20 @@ impl ControllerSession {
     /// outputs reset to off.
     pub fn connect_messages(&mut self) -> Vec<Vec<u8>> {
         self.output.reset();
-        self.mapping.file.init.iter().map(|m| m.bytes.clone()).collect()
+        self.mapping
+            .file
+            .init
+            .iter()
+            .map(|m| m.bytes.clone())
+            .collect()
     }
 
     /// Processes one raw MIDI message.
     pub fn handle_midi(&mut self, bytes: &[u8]) -> Processed {
-        let mut res = Processed { message: MidiMessage::parse(bytes), ..Default::default() };
+        let mut res = Processed {
+            message: MidiMessage::parse(bytes),
+            ..Default::default()
+        };
         let mapping = self.mapping.clone();
         let mut raw_actions = Vec::new();
         let ctx = ModuleContext { mapping: &mapping };
@@ -122,7 +138,10 @@ impl ControllerSession {
         for &idx in mapping.inputs_at(addr) {
             let b = &mapping.inputs[idx];
             let iv = match b.mode {
-                InputMode::Button => InputValue::Button { pressed: value > 0, velocity: value },
+                InputMode::Button => InputValue::Button {
+                    pressed: value > 0,
+                    velocity: value,
+                },
                 InputMode::Absolute => {
                     let v = value as f32 / 127.0;
                     InputValue::Absolute(if b.invert { 1.0 - v } else { v })
@@ -133,7 +152,9 @@ impl ControllerSession {
                         self.msb.insert(idx, value);
                         continue;
                     }
-                    let Some(msb) = self.msb.get(&idx).copied() else { continue };
+                    let Some(msb) = self.msb.get(&idx).copied() else {
+                        continue;
+                    };
                     let v = (((msb as u16) << 7) | value as u16) as f32 / 16383.0;
                     InputValue::Absolute(if b.invert { 1.0 - v } else { v })
                 }
@@ -143,27 +164,36 @@ impl ControllerSession {
                 }
             };
             if let Some(want) = b.shift
-                && self.shift_held(b.slot) != want {
-                    continue;
-                }
+                && self.shift_held(b.slot) != want
+            {
+                continue;
+            }
             let deck = self.resolve_deck(b.slot);
-            let Some(action) = b.template.produce(deck, iv) else { continue };
+            let Some(action) = b.template.produce(deck, iv) else {
+                continue;
+            };
             if b.template.is_shift
-                && let (Some(slot), InputValue::Button { pressed, .. }) = (b.slot, iv) {
-                    self.shift.insert(slot, pressed);
-                }
+                && let (Some(slot), InputValue::Button { pressed, .. }) = (b.slot, iv)
+            {
+                self.shift.insert(slot, pressed);
+            }
             if b.takeover
                 && let Some((target, v)) = action.param()
-                    && !self.takeover.input(target, target.to_unit(v)) {
-                        res.hits.push(MappingHit {
-                            binding: b.name.clone(),
-                            action: Some(action),
-                            suppressed: Some("soft takeover"),
-                            verify: b.verify,
-                        });
-                        continue;
-                    }
-            if let ControlAction::Deck { deck, action: DeckAction::DeckSelect } = action {
+                && !self.takeover.input(target, target.to_unit(v))
+            {
+                res.hits.push(MappingHit {
+                    binding: b.name.clone(),
+                    action: Some(action),
+                    suppressed: Some("soft takeover"),
+                    verify: b.verify,
+                });
+                continue;
+            }
+            if let ControlAction::Deck {
+                deck,
+                action: DeckAction::DeckSelect,
+            } = action
+            {
                 self.select_deck(deck);
             }
             res.hits.push(MappingHit {
@@ -182,8 +212,12 @@ impl ControllerSession {
 
     /// Makes `deck` the active deck of its side.
     pub fn select_deck(&mut self, deck: u8) {
-        let Some(layers) = &self.mapping.file.layers else { return };
-        let Some(side) = layers.sides.iter().position(|s| s.contains(&deck)) else { return };
+        let Some(layers) = &self.mapping.file.layers else {
+            return;
+        };
+        let Some(side) = layers.sides.iter().position(|s| s.contains(&deck)) else {
+            return;
+        };
         let side = side as u8 + 1;
         if self.active.insert(side, deck) != Some(deck) {
             // Physical controls now address another deck: pick up again.

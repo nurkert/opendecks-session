@@ -43,13 +43,13 @@
 //!   listed in [`ImportReport::missing_files`].
 
 pub mod itunes;
-pub mod xml;
 mod masterdb;
 mod model;
-mod smart;
 pub mod settings;
+mod smart;
 pub mod sqlcipher;
 mod stick;
+pub mod xml;
 
 use model::{AnlzData, SrcLibrary, SrcNode, SrcTrack, load_anlz};
 use od_core::{Beatgrid, ContentHash, DataSource, TrackAnalysis, TrackId};
@@ -188,7 +188,11 @@ pub fn preview(source: &Source) -> Result<ImportPreview> {
     let src = read_source(source, true)?;
     let cues = match source {
         Source::RekordboxLibrary { .. } => src.db_cue_count,
-        Source::RekordboxStick { .. } => src.tracks.iter().map(|t| load_anlz(&t.anlz).cues.len()).sum(),
+        Source::RekordboxStick { .. } => src
+            .tracks
+            .iter()
+            .map(|t| load_anlz(&t.anlz).cues.len())
+            .sum(),
     };
     Ok(ImportPreview {
         tracks: src.tracks.len(),
@@ -211,7 +215,12 @@ pub fn import(
     mut progress: impl FnMut(ImportProgress) -> bool,
 ) -> Result<ImportReport> {
     let mut tick = |phase, done, total, item: &str| -> Result<()> {
-        if progress(ImportProgress { phase, done, total, item: item.to_string() }) {
+        if progress(ImportProgress {
+            phase,
+            done,
+            total,
+            item: item.to_string(),
+        }) {
             Ok(())
         } else {
             Err(ImportError::Cancelled)
@@ -220,7 +229,11 @@ pub fn import(
     tick(ImportPhase::Reading, 0, 0, "")?;
     let src = read_source(source, true)?;
     let is_stick = matches!(source, Source::RekordboxStick { .. });
-    let mut report = ImportReport { skipped: src.skipped.clone(), notes: src.notes.clone(), ..Default::default() };
+    let mut report = ImportReport {
+        skipped: src.skipped.clone(),
+        notes: src.notes.clone(),
+        ..Default::default()
+    };
     if lib.path().is_some() {
         lib.backup_now("before-rekordbox-import")?;
     }
@@ -230,14 +243,20 @@ pub fn import(
     let mut ids: HashMap<String, TrackId> = HashMap::new();
     let mut fallback_grids = 0usize;
     for (i, t) in src.tracks.iter().enumerate() {
-        let name = t.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+        let name = t
+            .path
+            .file_name()
+            .map(|n| n.to_string_lossy().into_owned())
+            .unwrap_or_default();
         tick(ImportPhase::Tracks, i, total, &name)?;
         match import_track(lib, t, is_stick, opts, &mut report, &mut fallback_grids) {
             Ok(Some(id)) => {
                 ids.insert(t.src_id.clone(), id);
             }
             Ok(None) => {}
-            Err(e) => report.skipped.push((t.path.display().to_string(), e.to_string())),
+            Err(e) => report
+                .skipped
+                .push((t.path.display().to_string(), e.to_string())),
         }
     }
     tick(ImportPhase::Tracks, total, total, "")?;
@@ -248,7 +267,9 @@ pub fn import(
         ));
     }
     if is_stick && !report.missing_files.is_empty() {
-        report.notes.push("some files listed in export.pdb are not on the stick".into());
+        report
+            .notes
+            .push("some files listed in export.pdb are not on the stick".into());
     }
 
     // Playlists.
@@ -256,7 +277,10 @@ pub fn import(
     let mut plan = build_tree(&src.playlists, &ids);
     if opts.include_history && !src.history.is_empty() {
         let history = build_tree(&src.history, &ids);
-        plan.push(Plan::Folder { name: "rekordbox History".into(), children: history });
+        plan.push(Plan::Folder {
+            name: "rekordbox History".into(),
+            children: history,
+        });
     }
     let smart = src.playlists.iter().filter(|p| p.was_smart).count();
     if smart > 0 {
@@ -306,20 +330,39 @@ pub fn import(
 /// of the same size).
 fn copy_into(t: &SrcTrack, dest: &Path) -> Result<PathBuf> {
     use od_library::relocate::sanitize;
-    let artist = sanitize(if t.tags.artist.is_empty() { "Unknown Artist" } else { &t.tags.artist });
-    let name = t.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| "track".into());
+    let artist = sanitize(if t.tags.artist.is_empty() {
+        "Unknown Artist"
+    } else {
+        &t.tags.artist
+    });
+    let name = t
+        .path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| "track".into());
     let size = std::fs::metadata(&t.path)?.len();
-    let stem = Path::new(&name).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-    let ext = Path::new(&name).extension().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+    let stem = Path::new(&name)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let ext = Path::new(&name)
+        .extension()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
     let mut n = 1;
     let mut target = dest.join(&artist).join(sanitize(&name));
     loop {
         match std::fs::metadata(&target) {
-            Ok(m) if m.len() == size && od_decode::content_hash(&target)? == od_decode::content_hash(&t.path)? => {
+            Ok(m)
+                if m.len() == size
+                    && od_decode::content_hash(&target)? == od_decode::content_hash(&t.path)? =>
+            {
                 return Ok(target);
             }
             Ok(_) => {
-                target = dest.join(&artist).join(sanitize(&format!("{stem} ({n}).{ext}")));
+                target = dest
+                    .join(&artist)
+                    .join(sanitize(&format!("{stem} ({n}).{ext}")));
                 n += 1;
             }
             Err(_) => break,
@@ -361,7 +404,9 @@ fn import_track(
 ) -> Result<Option<TrackId>> {
     let exists = t.path.is_file();
     if od_core::AudioFormat::from_path(&t.path).is_none() {
-        report.skipped.push((t.path.display().to_string(), "unsupported file type".into()));
+        report
+            .skipped
+            .push((t.path.display().to_string(), "unsupported file type".into()));
         return Ok(None);
     }
     // Find an existing library track: by path, then by content hash.
@@ -370,7 +415,11 @@ fn import_track(
     if existing.is_none() && exists {
         let h = od_decode::content_hash(&t.path)?;
         let matches = lib.tracks_by_hash(&h)?;
-        existing = matches.iter().find(|r| !r.missing).or(matches.first()).map(|r| r.id);
+        existing = matches
+            .iter()
+            .find(|r| !r.missing)
+            .or(matches.first())
+            .map(|r| r.id);
         hash = Some(h);
     }
     let id = match existing {
@@ -385,11 +434,16 @@ fn import_track(
                     path = copy_into(t, dest)?;
                     if let Some(r) = lib.track_by_path(&path)? {
                         report.tracks_existing += 1;
-                        return finish_track(lib, r.id, t, true, opts, report, fallback_grids).map(Some);
+                        return finish_track(lib, r.id, t, true, opts, report, fallback_grids)
+                            .map(Some);
                     }
                 }
             }
-            let probe = if exists { od_decode::probe(&path).ok() } else { None };
+            let probe = if exists {
+                od_decode::probe(&path).ok()
+            } else {
+                None
+            };
             let (tags, artwork) = match &probe {
                 Some(p) => (merge_tags(&t.tags, p.tags.clone()), p.artwork.clone()),
                 None => (t.tags.clone(), None),
@@ -397,13 +451,27 @@ fn import_track(
             let new = NewTrack {
                 path: path.clone(),
                 content_hash: hash.unwrap_or(ContentHash(String::new())),
-                file_size: if exists { std::fs::metadata(&path)?.len() } else { t.file_size },
+                file_size: if exists {
+                    std::fs::metadata(&path)?.len()
+                } else {
+                    t.file_size
+                },
                 format: od_core::AudioFormat::from_path(&path),
-                duration: probe.as_ref().and_then(|p| p.duration).filter(|d| *d > 0.0).unwrap_or(t.duration),
-                sample_rate: probe.as_ref().map(|p| p.sample_rate).unwrap_or(t.sample_rate),
+                duration: probe
+                    .as_ref()
+                    .and_then(|p| p.duration)
+                    .filter(|d| *d > 0.0)
+                    .unwrap_or(t.duration),
+                sample_rate: probe
+                    .as_ref()
+                    .map(|p| p.sample_rate)
+                    .unwrap_or(t.sample_rate),
                 channels: probe.as_ref().map(|p| p.channels).unwrap_or(2),
                 bit_rate: probe.as_ref().and_then(|p| p.bit_rate_kbps).or(t.bit_rate),
-                bits_per_sample: probe.as_ref().and_then(|p| p.bits_per_sample).or(t.bits_per_sample),
+                bits_per_sample: probe
+                    .as_ref()
+                    .and_then(|p| p.bits_per_sample)
+                    .or(t.bits_per_sample),
                 tags,
                 artwork,
             };
@@ -426,9 +494,16 @@ fn source_artwork(t: &SrcTrack) -> Option<(Vec<u8>, String)> {
     let larger = path.file_stem().zip(path.extension()).map(|(s, e)| {
         path.with_file_name(format!("{}_m.{}", s.to_string_lossy(), e.to_string_lossy()))
     });
-    let path = larger.filter(|p| p.is_file()).unwrap_or_else(|| path.clone());
+    let path = larger
+        .filter(|p| p.is_file())
+        .unwrap_or_else(|| path.clone());
     let data = std::fs::read(&path).ok()?;
-    let media_type = match path.extension().and_then(|e| e.to_str()).map(str::to_ascii_lowercase).as_deref() {
+    let media_type = match path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
         Some("png") => "image/png",
         _ => "image/jpeg",
     };
@@ -452,7 +527,9 @@ fn finish_track(
     }
     let before = lib.beatgrid_with_source(id)?;
     let grid_will_change = anlz.grid.is_some()
-        && before.as_ref().is_none_or(|(g, s)| !g.locked && *s <= DataSource::Imported);
+        && before
+            .as_ref()
+            .is_none_or(|(g, s)| !g.locked && *s <= DataSource::Imported);
     let mut a: TrackAnalysis = lib.analysis(id)?;
     a.beatgrid = anlz.grid.clone().unwrap_or_default();
     a.key = t.key;
@@ -491,7 +568,11 @@ fn finish_track(
     let cues = t.db_cues.clone().unwrap_or(anlz.cues);
     if !cues.is_empty() {
         lib.store_imported_cues(id, &cues)?;
-        report.cues += lib.cues(id)?.iter().filter(|c| c.source == DataSource::Imported).count();
+        report.cues += lib
+            .cues(id)?
+            .iter()
+            .filter(|c| c.source == DataSource::Imported)
+            .count();
     }
     if opts.analyse_missing
         && file_exists
@@ -514,7 +595,10 @@ fn build_tree(nodes: &[SrcNode], ids: &HashMap<String, TrackId>) -> Vec<Plan> {
     let mut children: HashMap<Option<&str>, Vec<&SrcNode>> = HashMap::new();
     for n in nodes {
         // Nodes whose parent is missing (deleted) go to the top level.
-        let parent = n.parent.as_deref().filter(|p| known.contains(p) && *p != n.id);
+        let parent = n
+            .parent
+            .as_deref()
+            .filter(|p| known.contains(p) && *p != n.id);
         children.entry(parent).or_default().push(n);
     }
     for list in children.values_mut() {
@@ -532,11 +616,18 @@ fn build_tree(nodes: &[SrcNode], ids: &HashMap<String, TrackId>) -> Vec<Plan> {
                 continue;
             }
             out.push(if n.folder {
-                Plan::Folder { name: n.name.clone(), children: walk(Some(n.id.as_str()), children, ids, seen) }
+                Plan::Folder {
+                    name: n.name.clone(),
+                    children: walk(Some(n.id.as_str()), children, ids, seen),
+                }
             } else {
                 Plan::Playlist {
                     name: n.name.clone(),
-                    tracks: n.tracks.iter().filter_map(|t| ids.get(t).copied()).collect(),
+                    tracks: n
+                        .tracks
+                        .iter()
+                        .filter_map(|t| ids.get(t).copied())
+                        .collect(),
                 }
             });
         }
@@ -573,8 +664,14 @@ fn existing_tree(lib: &Library, folder: NodeId) -> Result<Vec<Plan>> {
     let mut out = Vec::new();
     for n in lib.children(Some(folder))? {
         out.push(match n.kind {
-            NodeKind::Folder => Plan::Folder { name: n.name, children: existing_tree(lib, n.id)? },
-            _ => Plan::Playlist { name: n.name, tracks: lib.entries(n.id)?.into_iter().map(|e| e.track).collect() },
+            NodeKind::Folder => Plan::Folder {
+                name: n.name,
+                children: existing_tree(lib, n.id)?,
+            },
+            _ => Plan::Playlist {
+                name: n.name,
+                tracks: lib.entries(n.id)?.into_iter().map(|e| e.track).collect(),
+            },
         });
     }
     Ok(out)

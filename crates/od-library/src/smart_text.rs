@@ -94,7 +94,11 @@ pub fn parse(text: &str) -> Result<Rule, String> {
             }
             "added" => {
                 let (op, value) = parse_age(rest).ok_or_else(bad)?;
-                Rule::Cond { field: Field::AddedDaysAgo, op, value }
+                Rule::Cond {
+                    field: Field::AddedDaysAgo,
+                    op,
+                    value,
+                }
             }
             n @ ("title" | "artist" | "album" | "genre" | "label" | "comment" | "format") => {
                 if rest.is_empty() {
@@ -109,9 +113,21 @@ pub fn parse(text: &str) -> Result<Rule, String> {
                     "comment" => Field::Comment,
                     _ => Field::Format,
                 };
-                Rule::Cond { field, op: if negate { Op::NotContains } else { Op::Contains }, value: json!(rest) }
+                Rule::Cond {
+                    field,
+                    op: if negate {
+                        Op::NotContains
+                    } else {
+                        Op::Contains
+                    },
+                    value: json!(rest),
+                }
             }
-            _ => return Err(format!("Unknown field “{name}”. Use bpm, key, genre, artist, title, album, label, comment, rating, year, plays, added or format.")),
+            _ => {
+                return Err(format!(
+                    "Unknown field “{name}”. Use bpm, key, genre, artist, title, album, label, comment, rating, year, plays, added or format."
+                ));
+            }
         };
         rules.push(rule);
     }
@@ -121,16 +137,24 @@ pub fn parse(text: &str) -> Result<Rule, String> {
 fn number(v: &Value) -> String {
     let f = v.as_f64().unwrap_or(0.0);
     let r = (f * 1000.0).round() / 1000.0;
-    if (r - r.round()).abs() < 1e-9 { format!("{}", r.round() as i64) } else { format!("{r}") }
+    if (r - r.round()).abs() < 1e-9 {
+        format!("{}", r.round() as i64)
+    } else {
+        format!("{r}")
+    }
 }
 
 /// Formats a rule back into text (inverse of [`parse`] for rules it produced).
 pub fn format(rule: &Rule) -> String {
-    let Rule::All(rules) = rule else { return String::new() };
+    let Rule::All(rules) = rule else {
+        return String::new();
+    };
     rules
         .iter()
         .filter_map(|r| {
-            let Rule::Cond { field, op, value } = r else { return None };
+            let Rule::Cond { field, op, value } = r else {
+                return None;
+            };
             let name = match field {
                 Field::Title => "title",
                 Field::Artist => "artist",
@@ -156,17 +180,33 @@ pub fn format(rule: &Rule) -> String {
                 Op::Is if *field == Field::Key => format!("{name} {}", text.unwrap_or_default()),
                 Op::Between => {
                     let a = value.as_array().cloned().unwrap_or_default();
-                    format!("{name} {}-{}", number(a.first().unwrap_or(&json!(0))), number(a.get(1).unwrap_or(&json!(0))))
+                    format!(
+                        "{name} {}-{}",
+                        number(a.first().unwrap_or(&json!(0))),
+                        number(a.get(1).unwrap_or(&json!(0)))
+                    )
                 }
-                Op::GreaterThan if *field == Field::AddedDaysAgo => format!("{name} > {}d", number(value)),
-                Op::LessThan if *field == Field::AddedDaysAgo => format!("{name} < {}d", number(value)),
+                Op::GreaterThan if *field == Field::AddedDaysAgo => {
+                    format!("{name} > {}d", number(value))
+                }
+                Op::LessThan if *field == Field::AddedDaysAgo => {
+                    format!("{name} < {}d", number(value))
+                }
                 Op::GreaterThan => {
                     let v = value.as_f64().unwrap_or(0.0);
-                    if (v - v.round()).abs() < 1e-6 { format!("{name} >= {}", number(value)) } else { format!("{name} > {}", number(value)) }
+                    if (v - v.round()).abs() < 1e-6 {
+                        format!("{name} >= {}", number(value))
+                    } else {
+                        format!("{name} > {}", number(value))
+                    }
                 }
                 Op::LessThan => {
                     let v = value.as_f64().unwrap_or(0.0);
-                    if (v - v.round()).abs() < 1e-6 { format!("{name} <= {}", number(value)) } else { format!("{name} < {}", number(value)) }
+                    if (v - v.round()).abs() < 1e-6 {
+                        format!("{name} <= {}", number(value))
+                    } else {
+                        format!("{name} < {}", number(value))
+                    }
                 }
                 Op::Is | Op::IsNot => format!("{name} {}", text.unwrap_or_else(|| number(value))),
             })
@@ -181,10 +221,14 @@ mod tests {
 
     #[test]
     fn parses_and_formats() {
-        let r = parse("bpm 120-126, key 8a~, genre house, -genre techno, rating >= 3, added < 30d").unwrap();
+        let r = parse("bpm 120-126, key 8a~, genre house, -genre techno, rating >= 3, added < 30d")
+            .unwrap();
         let Rule::All(v) = &r else { panic!() };
         assert_eq!(v.len(), 6);
-        assert_eq!(format(&r), "bpm 120-126, key 8A~, genre house, -genre techno, rating >= 3, added < 30d");
+        assert_eq!(
+            format(&r),
+            "bpm 120-126, key 8A~, genre house, -genre techno, rating >= 3, added < 30d"
+        );
         assert!(parse("tempo 120").is_err());
         assert!(parse("key zz").is_err());
         assert_eq!(parse("").unwrap(), Rule::All(vec![]));

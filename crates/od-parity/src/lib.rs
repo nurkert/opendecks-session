@@ -53,6 +53,13 @@ impl Inputs {
     }
 
     pub fn report(&self) -> check::Report {
-        check::check(&self.features, &self.views, &self.flows, &self.tests, &self.ui_labels, self.ui_results.as_ref())
+        check::check(
+            &self.features,
+            &self.views,
+            &self.flows,
+            &self.tests,
+            &self.ui_labels,
+            self.ui_results.as_ref(),
+        )
     }
 }

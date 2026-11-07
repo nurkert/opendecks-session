@@ -21,6 +21,8 @@ concurrency:
 
 env:
   CARGO_TERM_COLOR: always
+  # Zero in-scope gaps: a new gap fails feature_set_complete.
+  OD_PARITY_STRICT: "1"
 
 jobs:
   test:
@@ -54,20 +56,20 @@ jobs:
   # tests run in the test job above.
   parity:
     runs-on: ubuntu-24.04
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: packaging/linux/install-build-deps.sh
       # Headless UI suites (Slint testing backend, no display): view
-      # completeness at every size and the superiority flows. Report-only
-      # unless OD_PARITY_STRICT=1; they write target/parity/ for the report.
+      # completeness at every size and the superiority flows; they write
+      # target/parity/ for the report. The gap count is zero, so any gap
+      # fails the build (docs/parity.md, "Becoming the CI gate").
       - name: View completeness and flows
         run: cargo test --locked -p od-ui --lib ui_tests -- --nocapture
       - name: Parity gap report
         run: |
-          cargo run --locked -p od-parity --bin parity -- check --out parity-report.md
+          cargo run --locked -p od-parity --bin parity -- check --strict --out parity-report.md
       - name: Job summary
         if: always()
         run: test -f parity-report.md && cat parity-report.md >> "$GITHUB_STEP_SUMMARY" || true

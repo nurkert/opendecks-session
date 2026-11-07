@@ -23,12 +23,16 @@ use od_core::KeyNotation;
 fn detect_lite() -> bool {
     // Raspberry Pi and other small ARM boards run the Lite profile.
     std::fs::read_to_string("/proc/device-tree/model").is_ok_and(|m| m.contains("Raspberry Pi"))
-        || std::thread::available_parallelism().is_ok_and(|n| n.get() <= 4) && cfg!(target_os = "linux") && cfg!(target_arch = "aarch64")
+        || std::thread::available_parallelism().is_ok_and(|n| n.get() <= 4)
+            && cfg!(target_os = "linux")
+            && cfg!(target_arch = "aarch64")
 }
 
 fn main() -> anyhow::Result<()> {
     tracing_subscriber::fmt()
-        .with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()))
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "info".into()),
+        )
         .init();
     let mut args = std::env::args().skip(1);
     let mut library = None;
@@ -59,7 +63,9 @@ fn main() -> anyhow::Result<()> {
                 })
             }
             "--help" | "-h" => {
-                println!("opendecks [--library PATH] [--profile lite|full] [--kiosk] [--scale F] [--lang en|de] [--keys camelot|openkey|musical] [--colorblind] [--high-contrast] [--no-motion] [--appearance dark|light|system] [--window WxH]");
+                println!(
+                    "opendecks [--library PATH] [--profile lite|full] [--kiosk] [--scale F] [--lang en|de] [--keys camelot|openkey|musical] [--colorblind] [--high-contrast] [--no-motion] [--appearance dark|light|system] [--window WxH]"
+                );
                 return Ok(());
             }
             other => anyhow::bail!("unknown option {other}"),

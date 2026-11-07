@@ -159,7 +159,15 @@ impl TrackData {
         stems: Option<&StemInput>,
     ) -> Result<Arc<Self>, DecodeError> {
         let audio = od_decode::decode(path, Layout::Stereo)?;
-        Ok(Self::new_with_stems(id, audio, engine_rate, beatgrid, cues, auto_gain_db, stems))
+        Ok(Self::new_with_stems(
+            id,
+            audio,
+            engine_rate,
+            beatgrid,
+            cues,
+            auto_gain_db,
+            stems,
+        ))
     }
 
     /// A copy of this track with `stems` attached (stems arriving after a

@@ -7,9 +7,9 @@
 //! USB stick appends to the change log, which [`devices`] uses to decide
 //! whether a stick is out of date.
 
-mod blob;
 pub mod archive;
 pub mod backup;
+mod blob;
 pub mod devices;
 pub mod duplicates;
 pub mod journal;
@@ -86,11 +86,19 @@ impl Library {
         let conn = if portable {
             // FAT/exFAT do not support POSIX byte-range locks; lock with a
             // dot-file instead.
-            Connection::open_with_flags_and_vfs(path, rusqlite::OpenFlags::default(), c"unix-dotfile")?
+            Connection::open_with_flags_and_vfs(
+                path,
+                rusqlite::OpenFlags::default(),
+                c"unix-dotfile",
+            )?
         } else {
             Connection::open(path)?
         };
-        let mut lib = Self { conn, path: Some(path.to_path_buf()), seen_data_version: Cell::new(0) };
+        let mut lib = Self {
+            conn,
+            path: Some(path.to_path_buf()),
+            seen_data_version: Cell::new(0),
+        };
         lib.configure(portable)?;
         if existed && lib.schema_version()? < SCHEMA_VERSION && lib.schema_version()? > 0 {
             backup::backup_before_migration(&lib)?;
@@ -103,7 +111,11 @@ impl Library {
     /// Opens a private in-memory library (tests, previews).
     pub fn open_in_memory() -> Result<Self> {
         let conn = Connection::open_in_memory()?;
-        let mut lib = Self { conn, path: None, seen_data_version: Cell::new(0) };
+        let mut lib = Self {
+            conn,
+            path: None,
+            seen_data_version: Cell::new(0),
+        };
         lib.configure(false)?;
         lib.migrate()?;
         Ok(lib)
@@ -131,7 +143,8 @@ impl Library {
             "PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL;"
         };
         self.conn.execute_batch(journal)?;
-        self.conn.execute_batch("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;")?;
+        self.conn
+            .execute_batch("PRAGMA foreign_keys = ON; PRAGMA busy_timeout = 5000;")?;
         Ok(())
     }
 
@@ -147,12 +160,17 @@ impl Library {
         if version == SCHEMA_VERSION {
             return Ok(());
         }
-        let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
         // Re-read inside the write lock: another process may have migrated.
         let version = schema_version(&tx)?;
         if version == 0 {
             tx.execute_batch(include_str!("schema.sql"))?;
-            tx.execute("INSERT INTO meta (key, value) VALUES ('schema_version', '1')", [])?;
+            tx.execute(
+                "INSERT INTO meta (key, value) VALUES ('schema_version', '1')",
+                [],
+            )?;
         }
         if version < 2 {
             tx.execute_batch(
@@ -166,11 +184,18 @@ impl Library {
             )?;
         }
         // Version 3: active loops (a fresh schema already has the column).
-        let has_active: i64 = tx.query_row("SELECT COUNT(*) FROM pragma_table_info('cue') WHERE name = 'active'", [], |r| r.get(0))?;
+        let has_active: i64 = tx.query_row(
+            "SELECT COUNT(*) FROM pragma_table_info('cue') WHERE name = 'active'",
+            [],
+            |r| r.get(0),
+        )?;
         if has_active == 0 {
             tx.execute_batch("ALTER TABLE cue ADD COLUMN active INTEGER NOT NULL DEFAULT 0;")?;
         }
-        tx.execute("UPDATE meta SET value = ?1 WHERE key = 'schema_version'", [SCHEMA_VERSION.to_string()])?;
+        tx.execute(
+            "UPDATE meta SET value = ?1 WHERE key = 'schema_version'",
+            [SCHEMA_VERSION.to_string()],
+        )?;
         tx.commit()?;
         Ok(())
     }
@@ -180,7 +205,9 @@ impl Library {
     /// (the app and the MCP server) waits for the busy timeout instead of
     /// failing on a lock upgrade.
     pub(crate) fn tx<T>(&mut self, f: impl FnOnce(&Transaction) -> Result<T>) -> Result<T> {
-        let tx = self.conn.transaction_with_behavior(TransactionBehavior::Immediate)?;
+        let tx = self
+            .conn
+            .transaction_with_behavior(TransactionBehavior::Immediate)?;
         let out = f(&tx)?;
         tx.commit()?;
         Ok(out)
@@ -190,7 +217,9 @@ impl Library {
     /// process such as the MCP server, or a second window) commits to the
     /// database. Commits on this connection do not change it.
     pub fn data_version(&self) -> Result<i64> {
-        Ok(self.conn.query_row("PRAGMA data_version", [], |r| r.get(0))?)
+        Ok(self
+            .conn
+            .query_row("PRAGMA data_version", [], |r| r.get(0))?)
     }
 
     /// Cheap poll for writes made by other connections since the previous
@@ -204,7 +233,9 @@ impl Library {
 
     /// Current head of the change log.
     pub fn change_seq(&self) -> Result<i64> {
-        Ok(self.conn.query_row("SELECT coalesce(max(seq), 0) FROM change", [], |r| r.get(0))?)
+        Ok(self
+            .conn
+            .query_row("SELECT coalesce(max(seq), 0) FROM change", [], |r| r.get(0))?)
     }
 }
 
@@ -218,7 +249,11 @@ fn schema_version(conn: &Connection) -> Result<i64> {
         return Ok(0);
     }
     let v: Option<String> = conn
-        .query_row("SELECT value FROM meta WHERE key = 'schema_version'", [], |r| r.get(0))
+        .query_row(
+            "SELECT value FROM meta WHERE key = 'schema_version'",
+            [],
+            |r| r.get(0),
+        )
         .optional()?;
     Ok(v.and_then(|v| v.parse().ok()).unwrap_or(0))
 }
@@ -241,7 +276,9 @@ pub fn data_dir() -> PathBuf {
     if let Some(dir) = std::env::var_os("OPENDECKS_DATA_DIR") {
         return PathBuf::from(dir);
     }
-    let home = std::env::var_os("HOME").map(PathBuf::from).unwrap_or_else(|| PathBuf::from("."));
+    let home = std::env::var_os("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("."));
     if cfg!(target_os = "macos") {
         home.join("Library/Application Support/OpenDecks Session")
     } else {
@@ -257,7 +294,12 @@ pub(crate) mod test_util {
     use super::*;
     use od_core::{AudioFormat, ContentHash, TrackTags};
 
-    pub fn track(lib: &mut Library, name: &str, bpm: Option<f64>, key: Option<&str>) -> od_core::TrackId {
+    pub fn track(
+        lib: &mut Library,
+        name: &str,
+        bpm: Option<f64>,
+        key: Option<&str>,
+    ) -> od_core::TrackId {
         let id = lib
             .add_track(&NewTrack {
                 path: PathBuf::from(format!("/music/{name}.mp3")),
@@ -269,15 +311,29 @@ pub(crate) mod test_util {
                 channels: 2,
                 bit_rate: Some(320),
                 bits_per_sample: None,
-                tags: TrackTags { title: name.into(), artist: "Artist".into(), ..Default::default() },
+                tags: TrackTags {
+                    title: name.into(),
+                    artist: "Artist".into(),
+                    ..Default::default()
+                },
                 artwork: None,
             })
             .unwrap();
         if let Some(bpm) = bpm {
-            lib.conn.execute("UPDATE track SET bpm = ?1 WHERE id = ?2", rusqlite::params![bpm, id.0]).unwrap();
+            lib.conn
+                .execute(
+                    "UPDATE track SET bpm = ?1 WHERE id = ?2",
+                    rusqlite::params![bpm, id.0],
+                )
+                .unwrap();
         }
         if let Some(k) = key {
-            lib.conn.execute("UPDATE track SET musical_key = ?1 WHERE id = ?2", rusqlite::params![k, id.0]).unwrap();
+            lib.conn
+                .execute(
+                    "UPDATE track SET musical_key = ?1 WHERE id = ?2",
+                    rusqlite::params![k, id.0],
+                )
+                .unwrap();
         }
         id
     }
@@ -306,7 +362,11 @@ mod tests {
         {
             let conn = Connection::open(&p).unwrap();
             conn.execute_batch(include_str!("schema.sql")).unwrap();
-            conn.execute("INSERT INTO meta (key, value) VALUES ('schema_version', '1')", []).unwrap();
+            conn.execute(
+                "INSERT INTO meta (key, value) VALUES ('schema_version', '1')",
+                [],
+            )
+            .unwrap();
         }
         let lib = Library::open(&p).unwrap();
         assert_eq!(lib.schema_version().unwrap(), SCHEMA_VERSION);
@@ -320,20 +380,40 @@ mod tests {
         {
             let conn = Connection::open(&p).unwrap();
             // A version 2 cue table has no `active` column.
-            let old = include_str!("schema.sql").replace(",\n    active   INTEGER NOT NULL DEFAULT 0   -- active loop (schema 3)", "");
+            let old = include_str!("schema.sql").replace(
+                ",\n    active   INTEGER NOT NULL DEFAULT 0   -- active loop (schema 3)",
+                "",
+            );
             assert!(!old.contains("active   INTEGER"));
             conn.execute_batch(&old).unwrap();
-            conn.execute("INSERT INTO meta (key, value) VALUES ('schema_version', '2')", []).unwrap();
+            conn.execute(
+                "INSERT INTO meta (key, value) VALUES ('schema_version', '2')",
+                [],
+            )
+            .unwrap();
         }
         let mut lib = Library::open(&p).unwrap();
         assert_eq!(lib.schema_version().unwrap(), 3);
         let t = crate::test_util::track(&mut lib, "Looped", Some(120.0), None);
-        let looped = od_core::Cue { loop_end: Some(12.0), active: true, ..od_core::Cue::memory(8.0) };
-        let plain = od_core::Cue { active: true, ..od_core::Cue::memory(20.0) };
+        let looped = od_core::Cue {
+            loop_end: Some(12.0),
+            active: true,
+            ..od_core::Cue::memory(8.0)
+        };
+        let plain = od_core::Cue {
+            active: true,
+            ..od_core::Cue::memory(20.0)
+        };
         lib.set_cues(t, vec![looped, plain]).unwrap();
         let back = lib.cues(t).unwrap();
-        assert!(back.iter().any(|c| c.start == 8.0 && c.active), "an active loop keeps its flag");
-        assert!(back.iter().any(|c| c.start == 20.0 && !c.active), "only loops can be active");
+        assert!(
+            back.iter().any(|c| c.start == 8.0 && c.active),
+            "an active loop keeps its flag"
+        );
+        assert!(
+            back.iter().any(|c| c.start == 20.0 && !c.active),
+            "only loops can be active"
+        );
     }
 
     #[test]
@@ -345,7 +425,9 @@ mod tests {
         assert!(!app.external_change().unwrap());
         // Own writes do not count.
         let _ = other.external_change().unwrap();
-        other.create_node(None, NodeKind::Playlist, "From MCP").unwrap();
+        other
+            .create_node(None, NodeKind::Playlist, "From MCP")
+            .unwrap();
         assert!(!other.external_change().unwrap());
         assert!(app.external_change().unwrap());
         assert!(!app.external_change().unwrap());
@@ -360,13 +442,24 @@ mod tests {
             .edit_with("MCP: Create set", |l| {
                 let node = l.new_node(None, NodeKind::Set, "Friday")?;
                 let id = node.id;
-                let tree = Subtree { nodes: vec![node], entries: vec![(id, vec![Entry::new(a)])], device_links: vec![] };
-                Ok((vec![EntityState::Subtree { root: id, tree: Some(tree) }], id))
+                let tree = Subtree {
+                    nodes: vec![node],
+                    entries: vec![(id, vec![Entry::new(a)])],
+                    device_links: vec![],
+                };
+                Ok((
+                    vec![EntityState::Subtree {
+                        root: id,
+                        tree: Some(tree),
+                    }],
+                    id,
+                ))
             })
             .unwrap();
         assert_eq!(lib.entries(id).unwrap().len(), 1);
         assert_eq!(lib.journal(1).unwrap()[0].label, "MCP: Create set");
-        let failed: Result<()> = lib.edit_with("MCP: broken", |_| Err(LibraryError::Invalid("no".into())));
+        let failed: Result<()> =
+            lib.edit_with("MCP: broken", |_| Err(LibraryError::Invalid("no".into())));
         assert!(failed.is_err());
         assert_eq!(lib.undo().unwrap().as_deref(), Some("MCP: Create set"));
         assert!(lib.node(id).is_err());

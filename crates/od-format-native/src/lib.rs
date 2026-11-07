@@ -67,7 +67,9 @@ pub fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     }
     let tmp = path.with_file_name(format!(
         ".{}.tmp",
-        path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default()
+        path.file_name()
+            .map(|n| n.to_string_lossy())
+            .unwrap_or_default()
     ));
     {
         let mut f = std::fs::File::create(&tmp)?;
@@ -140,7 +142,11 @@ impl Stick {
         }
         let marker = read_marker(root)?;
         let library = Library::open_portable(&library_path(root))?;
-        Ok(Some(Stick { root: root.to_path_buf(), marker, library }))
+        Ok(Some(Stick {
+            root: root.to_path_buf(),
+            marker,
+            library,
+        }))
     }
 
     /// Absolute path of a track file stored with a stick-relative path.
@@ -167,7 +173,14 @@ mod tests {
         write_marker(root.path(), &m).unwrap();
         assert_eq!(read_marker(root.path()).unwrap(), Some(m));
 
-        begin_sync(root.path(), &SyncJournal { started_at: "now".into(), full: false }).unwrap();
+        begin_sync(
+            root.path(),
+            &SyncJournal {
+                started_at: "now".into(),
+                full: false,
+            },
+        )
+        .unwrap();
         assert!(interrupted_sync(root.path()).unwrap().is_some());
         end_sync(root.path()).unwrap();
         end_sync(root.path()).unwrap();
@@ -176,7 +189,10 @@ mod tests {
         assert!(Stick::open(root.path()).unwrap().is_none());
         drop(open_library(root.path()).unwrap());
         let stick = Stick::open(root.path()).unwrap().unwrap();
-        assert_eq!(stick.resolve(Path::new("/Contents/a.mp3")), root.path().join("Contents/a.mp3"));
+        assert_eq!(
+            stick.resolve(Path::new("/Contents/a.mp3")),
+            root.path().join("Contents/a.mp3")
+        );
         // No WAL side files on the stick.
         assert!(!dir(root.path()).join("library.sqlite-wal").exists());
     }
@@ -190,6 +206,9 @@ mod tests {
             r#"{"format_version":99,"device_uuid":"x","name":"n","created_by":"c"}"#,
         )
         .unwrap();
-        assert!(matches!(read_marker(root.path()), Err(NativeError::TooNew(99))));
+        assert!(matches!(
+            read_marker(root.path()),
+            Err(NativeError::TooNew(99))
+        ));
     }
 }

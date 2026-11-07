@@ -994,7 +994,10 @@ fn modified(path: &std::path::Path) -> Option<std::time::SystemTime> {
 pub(crate) fn poll_remote(app: &App) {
     let path = {
         let mut rt = app.lighting.borrow_mut();
-        if rt.polled.is_some_and(|t| t.elapsed() < Duration::from_millis(100)) {
+        if rt
+            .polled
+            .is_some_and(|t| t.elapsed() < Duration::from_millis(100))
+        {
             return;
         }
         rt.polled = Some(Instant::now());

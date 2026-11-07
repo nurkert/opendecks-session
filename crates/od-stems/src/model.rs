@@ -53,7 +53,10 @@ pub fn model_available() -> bool {
 /// or cancelled downloads leave `<file>.part` and resume on the next call.
 /// Alternatively place the file there manually ([`MODEL`] has URL and hash).
 #[cfg(feature = "separation")]
-pub fn fetch_model(progress: &mut dyn FnMut(u64, u64), cancel: &AtomicBool) -> Result<PathBuf, Error> {
+pub fn fetch_model(
+    progress: &mut dyn FnMut(u64, u64),
+    cancel: &AtomicBool,
+) -> Result<PathBuf, Error> {
     use sha2::{Digest, Sha256};
     use std::io::{Read, Write};
 
@@ -148,9 +151,16 @@ pub fn fetch_model(progress: &mut dyn FnMut(u64, u64), cancel: &AtomicBool) -> R
         progress(done, MODEL.size);
     }
     file.into_inner().map_err(|e| e.into_error())?.sync_all()?;
-    let got: String = hasher.finalize().iter().map(|b| format!("{b:02x}")).collect();
+    let got: String = hasher
+        .finalize()
+        .iter()
+        .map(|b| format!("{b:02x}"))
+        .collect();
     if done < MODEL.size {
-        return Err(net(&format!("connection ended after {done} of {} bytes (will resume)", MODEL.size)));
+        return Err(net(&format!(
+            "connection ended after {done} of {} bytes (will resume)",
+            MODEL.size
+        )));
     }
     if got != MODEL.sha256 || done != MODEL.size {
         let _ = std::fs::remove_file(&tmp);

@@ -1,6 +1,6 @@
 //! MIDI monitor: a bounded log of raw messages with decoded mapping hits.
 
-use crate::midi::{hex, MidiMessage};
+use crate::midi::{MidiMessage, hex};
 use crate::session::MappingHit;
 use crossbeam_channel::{Receiver, Sender, TrySendError};
 use std::collections::VecDeque;
@@ -31,7 +31,12 @@ impl fmt::Display for MonitorEvent {
             Direction::In => "IN ",
             Direction::Out => "OUT",
         };
-        write!(f, "{:>9.3}s {dir} [{:<8}] ", self.at.as_secs_f64(), hex(&self.bytes))?;
+        write!(
+            f,
+            "{:>9.3}s {dir} [{:<8}] ",
+            self.at.as_secs_f64(),
+            hex(&self.bytes)
+        )?;
         match &self.message {
             Some(m) => write!(f, "{m}")?,
             None => write!(f, "(undecodable)")?,
@@ -87,13 +92,7 @@ impl MidiMonitor {
         self.inner.lock().unwrap().enabled = on;
     }
 
-    pub fn record(
-        &self,
-        port: &str,
-        direction: Direction,
-        bytes: &[u8],
-        hits: Vec<MappingHit>,
-    ) {
+    pub fn record(&self, port: &str, direction: Direction, bytes: &[u8], hits: Vec<MappingHit>) {
         let mut g = self.inner.lock().unwrap();
         if !g.enabled {
             return;
@@ -107,7 +106,8 @@ impl MidiMonitor {
             hits,
         };
         // Drop subscribers that went away; never block on slow ones.
-        g.subscribers.retain(|s| !matches!(s.try_send(ev.clone()), Err(TrySendError::Disconnected(_))));
+        g.subscribers
+            .retain(|s| !matches!(s.try_send(ev.clone()), Err(TrySendError::Disconnected(_))));
         if g.log.len() == g.capacity {
             g.log.pop_front();
         }

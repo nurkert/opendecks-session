@@ -86,7 +86,9 @@ fn decrypt_page(keys: &Keys, page: &[u8], pgno: u32) -> Result<Vec<u8>, CipherEr
     let payload = &page[start..size - RESERVE];
     let iv = &page[size - RESERVE..size - HMAC_LEN];
     let tag = &page[size - HMAC_LEN..];
-    page_mac(keys, payload, iv, pgno).verify_slice(tag).map_err(|_| CipherError::BadPage(pgno))?;
+    page_mac(keys, payload, iv, pgno)
+        .verify_slice(tag)
+        .map_err(|_| CipherError::BadPage(pgno))?;
     let mut out = vec![0u8; size];
     out[start..size - RESERVE].copy_from_slice(payload);
     Aes256CbcDec::new(&keys.enc.into(), iv.into())
@@ -121,7 +123,11 @@ pub fn decrypt_file(src: &Path, dest: &Path, passphrase: &[u8]) -> Result<(), Ci
 }
 
 /// Decrypts database bytes (and optional WAL bytes) into a plain database.
-pub fn decrypt_bytes(data: &[u8], wal: Option<&[u8]>, passphrase: &[u8]) -> Result<Vec<u8>, CipherError> {
+pub fn decrypt_bytes(
+    data: &[u8],
+    wal: Option<&[u8]>,
+    passphrase: &[u8],
+) -> Result<Vec<u8>, CipherError> {
     if data.len() < 512 {
         return Err(CipherError::TooShort);
     }
@@ -154,9 +160,15 @@ pub fn decrypt_bytes(data: &[u8], wal: Option<&[u8]>, passphrase: &[u8]) -> Resu
 fn wal_checksum(big_endian: bool, data: &[u8], mut s0: u32, mut s1: u32) -> (u32, u32) {
     for w in data.chunks_exact(8) {
         let (a, b) = if big_endian {
-            (u32::from_be_bytes(w[0..4].try_into().unwrap()), u32::from_be_bytes(w[4..8].try_into().unwrap()))
+            (
+                u32::from_be_bytes(w[0..4].try_into().unwrap()),
+                u32::from_be_bytes(w[4..8].try_into().unwrap()),
+            )
         } else {
-            (u32::from_le_bytes(w[0..4].try_into().unwrap()), u32::from_le_bytes(w[4..8].try_into().unwrap()))
+            (
+                u32::from_le_bytes(w[0..4].try_into().unwrap()),
+                u32::from_le_bytes(w[4..8].try_into().unwrap()),
+            )
         };
         s0 = s0.wrapping_add(a).wrapping_add(s1);
         s1 = s1.wrapping_add(b).wrapping_add(s0);
@@ -165,7 +177,12 @@ fn wal_checksum(big_endian: bool, data: &[u8], mut s0: u32, mut s1: u32) -> (u32
 }
 
 /// Applies all committed, checksum-valid frames of a WAL file.
-fn apply_wal(keys: &Keys, wal: &[u8], page_size: usize, pages: &mut Vec<Vec<u8>>) -> Result<(), CipherError> {
+fn apply_wal(
+    keys: &Keys,
+    wal: &[u8],
+    page_size: usize,
+    pages: &mut Vec<Vec<u8>>,
+) -> Result<(), CipherError> {
     const HDR: usize = 32;
     const FHDR: usize = 24;
     if wal.len() < HDR {
@@ -232,25 +249,36 @@ fn apply_wal(keys: &Keys, wal: &[u8], page_size: usize, pages: &mut Vec<Vec<u8>>
 /// Test helper: encrypts a plain SQLite database the way SQLCipher 4 does,
 /// so the decryption path can be tested without an SQLCipher build.
 #[cfg(test)]
-pub(crate) fn encrypt_bytes(plain: &[u8], passphrase: &[u8], salt: [u8; 16], page_size: usize) -> Vec<u8> {
+pub(crate) fn encrypt_bytes(
+    plain: &[u8],
+    passphrase: &[u8],
+    salt: [u8; 16],
+    page_size: usize,
+) -> Vec<u8> {
     use aes::cipher::BlockEncryptMut;
     type Enc = cbc::Encryptor<aes::Aes256>;
     assert!(is_plain_sqlite(plain));
-    assert_eq!(plain[20] as usize, RESERVE, "plain db must reserve 80 bytes per page");
+    assert_eq!(
+        plain[20] as usize, RESERVE,
+        "plain db must reserve 80 bytes per page"
+    );
     let keys = Keys::derive(passphrase, &salt);
     let mut out = Vec::with_capacity(plain.len());
     for (i, page) in plain.chunks(page_size).enumerate() {
         let pgno = i as u32 + 1;
         let start = if pgno == 1 { SALT_LEN } else { 0 };
         let mut buf = page[..page_size - RESERVE].to_vec();
-        let iv: [u8; 16] = std::array::from_fn(|k| (pgno as u8).wrapping_mul(31).wrapping_add(k as u8));
+        let iv: [u8; 16] =
+            std::array::from_fn(|k| (pgno as u8).wrapping_mul(31).wrapping_add(k as u8));
         Enc::new(&keys.enc.into(), &iv.into())
             .encrypt_padded_mut::<NoPadding>(&mut buf[start..], page_size - RESERVE - start)
             .unwrap();
         if pgno == 1 {
             buf[..SALT_LEN].copy_from_slice(&salt);
         }
-        let tag = page_mac(&keys, &buf[start..], &iv, pgno).finalize().into_bytes();
+        let tag = page_mac(&keys, &buf[start..], &iv, pgno)
+            .finalize()
+            .into_bytes();
         out.extend_from_slice(&buf);
         out.extend_from_slice(&iv);
         out.extend_from_slice(&tag);

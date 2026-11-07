@@ -303,17 +303,32 @@ pub fn default_settings_dir() -> Option<PathBuf> {
 
 /// Files that hold settings OpenDecks has no equivalent for.
 const OTHER_FILES: &[(&str, &str)] = &[
-    ("MidiMappings", "controller MIDI mappings: OpenDecks ships its own controller mappings"),
+    (
+        "MidiMappings",
+        "controller MIDI mappings: OpenDecks ships its own controller mappings",
+    ),
     ("pad", "custom pad layouts: no equivalent"),
-    ("FxUnitSettings7.xml", "effect unit presets: OpenDecks effects differ"),
-    ("PadFxSettings.xml", "Pad FX presets: OpenDecks effects differ"),
+    (
+        "FxUnitSettings7.xml",
+        "effect unit presets: OpenDecks effects differ",
+    ),
+    (
+        "PadFxSettings.xml",
+        "Pad FX presets: OpenDecks effects differ",
+    ),
     ("MFXSettings.xml", "Merge FX presets: no equivalent"),
-    ("SamplerSettings1.xml", "sampler bank: OpenDecks sampler banks are stored in the library"),
+    (
+        "SamplerSettings1.xml",
+        "sampler bank: OpenDecks sampler banks are stored in the library",
+    ),
     ("GrooveCircuitSettings.xml", "Groove Circuit: no equivalent"),
     ("VideoSettings.xml", "video: out of scope"),
     ("LightingDB", "lighting: out of scope"),
     ("EditSettings.xml", "edit mode: no equivalent"),
-    ("browseSetting.xml", "browser column layout: OpenDecks has its own browser layout"),
+    (
+        "browseSetting.xml",
+        "browser column layout: OpenDecks has its own browser layout",
+    ),
 ];
 
 /// Reads the preference files of `dir` (and of `dir/PIONEER`, where a stick
@@ -328,11 +343,17 @@ pub fn load_files(dir: &Path) -> std::io::Result<SettingsFiles> {
     };
     f.rekordbox3_settings = read_text("rekordbox3.settings", &mut f.paths);
     f.play_settings = read_text("PlaySettings.xml", &mut f.paths);
-    if let Some(id) = f.rekordbox3_settings.as_deref().and_then(|s| values(s).remove("performaceKeyMapping"))
+    if let Some(id) = f
+        .rekordbox3_settings
+        .as_deref()
+        .and_then(|s| values(s).remove("performaceKeyMapping"))
         && !id.is_empty()
         && id.chars().all(|c| c.is_ascii_alphanumeric())
     {
-        f.key_mappings = read_text(&format!("KeyMappings/rekordbox_{id}.mappings"), &mut f.paths);
+        f.key_mappings = read_text(
+            &format!("KeyMappings/rekordbox_{id}.mappings"),
+            &mut f.paths,
+        );
     }
     let mut read_bin = |name: &str| -> Option<Vec<u8>> {
         for d in [dir.to_path_buf(), dir.join("PIONEER")] {
@@ -371,7 +392,10 @@ pub fn read(dir: Option<&Path>) -> std::io::Result<(RekordboxSettings, SettingsR
     let dir = match dir {
         Some(d) => d.to_path_buf(),
         None => default_settings_dir().ok_or_else(|| {
-            std::io::Error::new(std::io::ErrorKind::NotFound, "no rekordbox preference folder found")
+            std::io::Error::new(
+                std::io::ErrorKind::NotFound,
+                "no rekordbox preference folder found",
+            )
         })?,
     };
     Ok(parse(&load_files(&dir)?))
@@ -380,7 +404,11 @@ pub fn read(dir: Option<&Path>) -> std::io::Result<(RekordboxSettings, SettingsR
 // ───────────────────────────── XML ─────────────────────────────
 
 fn unescape(s: &str) -> String {
-    let mut out = s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", "\"").replace("&apos;", "'");
+    let mut out = s
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&apos;", "'");
     // Numeric entities (`&#96;` is how rekordbox writes a backtick).
     while let Some(i) = out.find("&#") {
         let Some(len) = out[i..].find(';') else { break };
@@ -390,7 +418,9 @@ fn unescape(s: &str) -> String {
         } else {
             num.parse().ok()
         };
-        let Some(c) = code.and_then(char::from_u32) else { break };
+        let Some(c) = code.and_then(char::from_u32) else {
+            break;
+        };
         out.replace_range(i..i + len + 1, &c.to_string());
     }
     out.replace("&amp;", "&")
@@ -414,7 +444,9 @@ fn elements(xml: &str, tag: &str) -> Vec<HashMap<String, String>> {
         while let Some(eq) = s.find('=') {
             let name = s[..eq].trim().to_string();
             let v = s[eq + 1..].trim_start();
-            let Some(q) = v.chars().next().filter(|c| *c == '"' || *c == '\'') else { break };
+            let Some(q) = v.chars().next().filter(|c| *c == '"' || *c == '\'') else {
+                break;
+            };
             let Some(close) = v[1..].find(q) else { break };
             attrs.insert(name, unescape(&v[1..1 + close]));
             s = &v[close + 2..];
@@ -552,7 +584,10 @@ fn command_target(id: &str) -> Option<String> {
         0x30..=0x33 => (n >> 8) - 0x2f,
         _ => return None,
     };
-    DECK_COMMANDS.iter().find(|(c, _)| *c as u16 == n & 0xff).map(|(_, s)| format!("deck{deck}.{s}"))
+    DECK_COMMANDS
+        .iter()
+        .find(|(c, _)| *c as u16 == n & 0xff)
+        .map(|(_, s)| format!("deck{deck}.{s}"))
 }
 
 /// rekordbox key text (`shift + command + cursor left`) → OpenDecks
@@ -599,7 +634,12 @@ pub fn translate_key(key: &str) -> Option<String> {
         }
     }
     let mut out = String::new();
-    for (on, m) in [(primary, "Mod+"), (secondary, "Meta+"), (alt, "Alt+"), (shift, "Shift+")] {
+    for (on, m) in [
+        (primary, "Mod+"),
+        (secondary, "Meta+"),
+        (alt, "Alt+"),
+        (shift, "Shift+"),
+    ] {
         if on {
             out.push_str(m);
         }
@@ -616,7 +656,15 @@ struct Builder {
 }
 
 impl Builder {
-    fn entry(&mut self, setting: &str, source: &str, value: impl Into<String>, status: MapStatus, target: &str, note: &str) {
+    fn entry(
+        &mut self,
+        setting: &str,
+        source: &str,
+        value: impl Into<String>,
+        status: MapStatus,
+        target: &str,
+        note: &str,
+    ) {
         self.r.entries.push(MappingEntry {
             setting: setting.into(),
             source: source.into(),
@@ -629,7 +677,12 @@ impl Builder {
 }
 
 fn int(v: &HashMap<String, String>, name: &str) -> Option<i64> {
-    v.get(name)?.trim().parse::<f64>().ok().filter(|f| f.is_finite()).map(|f| f as i64)
+    v.get(name)?
+        .trim()
+        .parse::<f64>()
+        .ok()
+        .filter(|f| f.is_finite())
+        .map(|f| f as i64)
 }
 
 fn flag(v: &HashMap<String, String>, name: &str) -> Option<bool> {
@@ -671,7 +724,10 @@ const HANDLED: &[&str] = &[
 
 /// Maps the contents of the preference files. Pure: no file access.
 pub fn parse(files: &SettingsFiles) -> (RekordboxSettings, SettingsReport) {
-    let mut b = Builder { s: RekordboxSettings::default(), r: SettingsReport::default() };
+    let mut b = Builder {
+        s: RekordboxSettings::default(),
+        r: SettingsReport::default(),
+    };
     b.r.files = files.paths.clone();
     if let Some(xml) = &files.rekordbox3_settings {
         parse_rekordbox3(&mut b, &values(xml));
@@ -685,21 +741,26 @@ pub fn parse(files: &SettingsFiles) -> (RekordboxSettings, SettingsReport) {
     if let Some(body) = files.mysetting.as_deref().and_then(my_settings_body) {
         parse_mysetting(&mut b, body);
     } else if files.mysetting.is_some() {
-        b.r.unmapped_files.push(("MYSETTING.DAT".into(), "unexpected header".into()));
+        b.r.unmapped_files
+            .push(("MYSETTING.DAT".into(), "unexpected header".into()));
     }
     if let Some(body) = files.mysetting2.as_deref().and_then(my_settings_body) {
         parse_mysetting2(&mut b, body);
     } else if files.mysetting2.is_some() {
-        b.r.unmapped_files.push(("MYSETTING2.DAT".into(), "unexpected header".into()));
+        b.r.unmapped_files
+            .push(("MYSETTING2.DAT".into(), "unexpected header".into()));
     }
     if let Some(body) = files.djmmysetting.as_deref().and_then(my_settings_body) {
         parse_djm(&mut b, body);
     } else if files.djmmysetting.is_some() {
-        b.r.unmapped_files.push(("DJMMYSETTING.DAT".into(), "unexpected header".into()));
+        b.r.unmapped_files
+            .push(("DJMMYSETTING.DAT".into(), "unexpected header".into()));
     }
     if files.devsetting.is_some() {
-        b.r.unmapped_files
-            .push(("DEVSETTING.DAT".into(), "device settings: layout not publicly documented".into()));
+        b.r.unmapped_files.push((
+            "DEVSETTING.DAT".into(),
+            "device settings: layout not publicly documented".into(),
+        ));
     }
     for name in &files.other {
         if let Some((_, why)) = OTHER_FILES.iter().find(|(n, _)| n == name) {
@@ -712,7 +773,13 @@ pub fn parse(files: &SettingsFiles) -> (RekordboxSettings, SettingsReport) {
 }
 
 fn is_per_deck_handled(name: &str) -> bool {
-    let deck_keys = ["_Quantize", "_BeatJumpBeat", "_MasterTempo", "_TimeMode", "_WaveViewRatioDJ"];
+    let deck_keys = [
+        "_Quantize",
+        "_BeatJumpBeat",
+        "_MasterTempo",
+        "_TimeMode",
+        "_WaveViewRatioDJ",
+    ];
     (name.starts_with("Player") && deck_keys.iter().any(|k| name.ends_with(k)))
         || name.starts_with("AutoCueEnableDeck")
 }
@@ -740,8 +807,11 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
         match k {
             Some(k) => {
                 b.s.key_notation = Some(k);
-                let (val, od) =
-                    if k == KeyDisplay::Classic { ("Classic", "musical") } else { ("Alphanumeric", "camelot") };
+                let (val, od) = if k == KeyDisplay::Classic {
+                    ("Classic", "musical")
+                } else {
+                    ("Alphanumeric", "camelot")
+                };
                 b.entry(
                     "Key notation",
                     &src("KeyStringSetting"),
@@ -751,7 +821,14 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
                     "encoding inferred: 1 = Classic, 2 = Alphanumeric",
                 );
             }
-            None => b.entry("Key notation", &src("KeyStringSetting"), n.to_string(), MapStatus::Unmapped, "", "unknown value"),
+            None => b.entry(
+                "Key notation",
+                &src("KeyStringSetting"),
+                n.to_string(),
+                MapStatus::Unmapped,
+                "",
+                "unknown value",
+            ),
         }
     }
     if let Some(n) = int(v, "ColorType") {
@@ -786,13 +863,27 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
                 "view.waveform = 3band",
                 "OpenDecks has no RGB view; 3-band is the closest coloured view",
             ),
-            None => b.entry("Waveform colour", &src("ColorType"), n.to_string(), MapStatus::Unmapped, "", "unknown value"),
+            None => b.entry(
+                "Waveform colour",
+                &src("ColorType"),
+                n.to_string(),
+                MapStatus::Unmapped,
+                "",
+                "unknown value",
+            ),
         }
         b.s.waveform_color = c;
     }
     if let Some(on) = flag(v, "showPhrase") {
         b.s.phrase_display = Some(on);
-        b.entry("Phrase display", &src("showPhrase"), yes(on), MapStatus::Mapped, &format!("view.phrases = {on}"), "");
+        b.entry(
+            "Phrase display",
+            &src("showPhrase"),
+            yes(on),
+            MapStatus::Mapped,
+            &format!("view.phrases = {on}"),
+            "",
+        );
     }
     if let Some(on) = flag(v, "showPhraseFull") {
         b.s.phrase_display_overview = Some(on);
@@ -807,7 +898,14 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
     }
     if let Some(on) = flag(v, "showPhraseNameAlways") {
         b.s.phrase_names_always = Some(on);
-        b.entry("Phrase names always visible", &src("showPhraseNameAlways"), yes(on), MapStatus::Unmapped, "", "no OpenDecks option");
+        b.entry(
+            "Phrase names always visible",
+            &src("showPhraseNameAlways"),
+            yes(on),
+            MapStatus::Unmapped,
+            "",
+            "no OpenDecks option",
+        );
     }
     if let Some(n) = int(v, "BeatCountDisplayMode") {
         let c = match n {
@@ -831,7 +929,14 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
     }
     if let Some(n) = int(v, "BeatCountDisplayStyle") {
         b.s.bar_counter_style = Some(n);
-        b.entry("Bar/beat counter style", &src("BeatCountDisplayStyle"), n.to_string(), MapStatus::Unmapped, "", "encoding not documented; OpenDecks has one counter style");
+        b.entry(
+            "Bar/beat counter style",
+            &src("BeatCountDisplayStyle"),
+            n.to_string(),
+            MapStatus::Unmapped,
+            "",
+            "encoding not documented; OpenDecks has one counter style",
+        );
     }
     let tm: Vec<(usize, TimeDisplay)> = (0..4)
         .filter_map(|d| {
@@ -850,13 +955,18 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
         b.entry(
             "Time display (elapsed/remaining)",
             &src("Player0..3_TimeMode"),
-            tm.iter().map(|(_, t)| t.as_str()).collect::<Vec<_>>().join("/"),
+            tm.iter()
+                .map(|(_, t)| t.as_str())
+                .collect::<Vec<_>>()
+                .join("/"),
             MapStatus::EngineOnly,
             "view.time_display (no persisted preference yet)",
             "encoding inferred: 0 = elapsed, 1 = remaining; per deck",
         );
     }
-    let zoom: Vec<(usize, i64)> = (0..4).filter_map(|d| int(v, &format!("Player{d}_WaveViewRatioDJ")).map(|z| (d, z))).collect();
+    let zoom: Vec<(usize, i64)> = (0..4)
+        .filter_map(|d| int(v, &format!("Player{d}_WaveViewRatioDJ")).map(|z| (d, z)))
+        .collect();
     for (d, z) in &zoom {
         b.s.waveform_zoom[*d] = Some(*z);
     }
@@ -864,7 +974,10 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
         b.entry(
             "Waveform zoom default",
             &src("Player0..3_WaveViewRatioDJ"),
-            zoom.iter().map(|(_, z)| z.to_string()).collect::<Vec<_>>().join("/"),
+            zoom.iter()
+                .map(|(_, z)| z.to_string())
+                .collect::<Vec<_>>()
+                .join("/"),
             MapStatus::Unmapped,
             "",
             "rekordbox's zoom step encoding is not documented; OpenDecks keeps its zoom in beats",
@@ -872,7 +985,9 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
     }
 
     // Quantize: one flag per deck (Player1..4); OpenDecks quantize is global.
-    let q: Vec<bool> = (1..=4).filter_map(|d| flag(v, &format!("Player{d}_Quantize"))).collect();
+    let q: Vec<bool> = (1..=4)
+        .filter_map(|d| flag(v, &format!("Player{d}_Quantize")))
+        .collect();
     if !q.is_empty() {
         let on = q.iter().any(|x| *x);
         b.s.quantize = Some(on);
@@ -896,8 +1011,9 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
             "OpenDecks has one sync mode (beat sync with phase); rekordbox's alternatives have no equivalent",
         );
     }
-    let ac: Vec<(usize, bool)> =
-        (1..=4).filter_map(|d| flag(v, &format!("AutoCueEnableDeck{d}")).map(|x| (d, x))).collect();
+    let ac: Vec<(usize, bool)> = (1..=4)
+        .filter_map(|d| flag(v, &format!("AutoCueEnableDeck{d}")).map(|x| (d, x)))
+        .collect();
     for (d, on) in &ac {
         b.s.auto_cue[d - 1] = Some(*on);
     }
@@ -905,7 +1021,10 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
         b.entry(
             "Auto cue",
             &src("AutoCueEnableDeck1..4"),
-            ac.iter().map(|(_, x)| yes(*x)).collect::<Vec<_>>().join("/"),
+            ac.iter()
+                .map(|(_, x)| yes(*x))
+                .collect::<Vec<_>>()
+                .join("/"),
             MapStatus::EngineOnly,
             "deck.auto_cue (DeckCommand::SetAutoCue)",
             "per deck",
@@ -921,8 +1040,9 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
             "OpenDecks uses a fixed auto-cue threshold",
         );
     }
-    let mt: Vec<(usize, bool)> =
-        (0..4).filter_map(|d| flag(v, &format!("Player{d}_MasterTempo")).map(|x| (d, x))).collect();
+    let mt: Vec<(usize, bool)> = (0..4)
+        .filter_map(|d| flag(v, &format!("Player{d}_MasterTempo")).map(|x| (d, x)))
+        .collect();
     for (d, on) in &mt {
         b.s.master_tempo[*d] = Some(*on);
     }
@@ -930,14 +1050,21 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
         b.entry(
             "Master tempo (key lock)",
             &src("Player0..3_MasterTempo"),
-            mt.iter().map(|(_, x)| yes(*x)).collect::<Vec<_>>().join("/"),
+            mt.iter()
+                .map(|(_, x)| yes(*x))
+                .collect::<Vec<_>>()
+                .join("/"),
             MapStatus::EngineOnly,
             "deck.keylock (DeckCommand::SetKeylock)",
             "per deck",
         );
     }
     let bj: Vec<(usize, i64)> = (1..=4)
-        .filter_map(|d| int(v, &format!("Player{d}_BeatJumpBeat")).filter(|n| *n > 0).map(|x| (d, x)))
+        .filter_map(|d| {
+            int(v, &format!("Player{d}_BeatJumpBeat"))
+                .filter(|n| *n > 0)
+                .map(|x| (d, x))
+        })
         .collect();
     for (d, n) in &bj {
         b.s.beat_jump_beats[d - 1] = Some(*n as f64);
@@ -946,7 +1073,10 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
         b.entry(
             "Beat jump size",
             &src("Player1..4_BeatJumpBeat"),
-            bj.iter().map(|(_, n)| n.to_string()).collect::<Vec<_>>().join("/"),
+            bj.iter()
+                .map(|(_, n)| n.to_string())
+                .collect::<Vec<_>>()
+                .join("/"),
             MapStatus::EngineOnly,
             "deck.beat_jump (DeckCommand::SetBeatJumpSize)",
             "beats, per deck",
@@ -975,7 +1105,11 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
         );
     }
     if let Some(on) = flag(v, "hotCueAutoLoad") {
-        b.s.hot_cue_auto_load = Some(if on { HotCueAutoLoad::On } else { HotCueAutoLoad::Off });
+        b.s.hot_cue_auto_load = Some(if on {
+            HotCueAutoLoad::On
+        } else {
+            HotCueAutoLoad::Off
+        });
         b.entry(
             "Hot cue auto load",
             &src("hotCueAutoLoad"),
@@ -1005,7 +1139,11 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
         b.s.eq_type = t;
         match t {
             Some(t) => {
-                let (val, od) = if t == EqType::Eq { ("EQ", "classic") } else { ("Isolator", "isolator") };
+                let (val, od) = if t == EqType::Eq {
+                    ("EQ", "classic")
+                } else {
+                    ("Isolator", "isolator")
+                };
                 b.entry(
                     "Mixer EQ type",
                     &src("EqualizerType"),
@@ -1015,10 +1153,20 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
                     "encoding inferred: 0 = EQ, 1 = Isolator",
                 );
             }
-            None => b.entry("Mixer EQ type", &src("EqualizerType"), n.to_string(), MapStatus::Unmapped, "", "unknown value"),
+            None => b.entry(
+                "Mixer EQ type",
+                &src("EqualizerType"),
+                n.to_string(),
+                MapStatus::Unmapped,
+                "",
+                "unknown value",
+            ),
         }
     }
-    for (name, setting) in [("ChFaderCurve", "Channel fader curve (internal mixer)"), ("CrossFaderCurve", "Crossfader curve (internal mixer)")] {
+    for (name, setting) in [
+        ("ChFaderCurve", "Channel fader curve (internal mixer)"),
+        ("CrossFaderCurve", "Crossfader curve (internal mixer)"),
+    ] {
         if let Some(n) = int(v, name) {
             b.entry(
                 setting,
@@ -1041,7 +1189,10 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
             "OpenDecks has a cue/master mix knob, no mono split mode",
         );
     }
-    if let Some(dir) = v.get("RecordSaveDirectory").filter(|d| !d.trim().is_empty()) {
+    if let Some(dir) = v
+        .get("RecordSaveDirectory")
+        .filter(|d| !d.trim().is_empty())
+    {
         b.s.recording_folder = Some(PathBuf::from(dir));
         b.entry(
             "Recording folder",
@@ -1088,8 +1239,16 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
     }
     for (name, setting, target) in [
         ("enableKeyAnalysis", "Analyse key", "analysis.detect_key"),
-        ("trackAnalysisSettingsSongStruct", "Analyse phrases", "analysis.detect_phrases"),
-        ("AutoAnalysis", "Analyse new tracks automatically", "analysis.auto_analyse"),
+        (
+            "trackAnalysisSettingsSongStruct",
+            "Analyse phrases",
+            "analysis.detect_phrases",
+        ),
+        (
+            "AutoAnalysis",
+            "Analyse new tracks automatically",
+            "analysis.auto_analyse",
+        ),
     ] {
         if let Some(on) = flag(v, name) {
             match name {
@@ -1097,7 +1256,14 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
                 "trackAnalysisSettingsSongStruct" => b.s.analysis_phrases = Some(on),
                 _ => b.s.auto_analyse = Some(on),
             }
-            b.entry(setting, &src(name), yes(on), MapStatus::Mapped, &format!("{target} = {on}"), "");
+            b.entry(
+                setting,
+                &src(name),
+                yes(on),
+                MapStatus::Mapped,
+                &format!("{target} = {on}"),
+                "",
+            );
         }
     }
     for k in v.keys() {
@@ -1110,7 +1276,9 @@ fn parse_rekordbox3(b: &mut Builder, v: &HashMap<String, String>) {
 fn parse_play_settings(b: &mut Builder, v: &HashMap<String, String>) {
     let mut vals = Vec::new();
     for d in 0..4 {
-        let Some(n) = int(v, &format!("TempoRange{d}")) else { continue };
+        let Some(n) = int(v, &format!("TempoRange{d}")) else {
+            continue;
+        };
         let r = match n {
             6 => Some(TempoRange::Six),
             10 => Some(TempoRange::Ten),
@@ -1148,8 +1316,13 @@ fn parse_key_mappings(b: &mut Builder, xml: &str) {
     let name = values(xml).remove("keyMappingName");
     let mut mapped = 0;
     for m in elements(xml, "MAPPING") {
-        let (Some(id), Some(key)) = (m.get("commandId"), m.get("key")) else { continue };
-        let description = m.get("description").map(|d| d.trim().to_string()).unwrap_or_default();
+        let (Some(id), Some(key)) = (m.get("commandId"), m.get("key")) else {
+            continue;
+        };
+        let description = m
+            .get("description")
+            .map(|d| d.trim().to_string())
+            .unwrap_or_default();
         let binding = translate_key(key);
         let target = command_target(id);
         if binding.is_some() && target.is_some() {
@@ -1168,7 +1341,11 @@ fn parse_key_mappings(b: &mut Builder, xml: &str) {
         "Keyboard shortcuts",
         &format!("KeyMappings: {}", name.as_deref().unwrap_or("?")),
         format!("{mapped} of {total} shortcuts"),
-        if mapped > 0 { MapStatus::Mapped } else { MapStatus::Unmapped },
+        if mapped > 0 {
+            MapStatus::Mapped
+        } else {
+            MapStatus::Unmapped
+        },
         "keymap [bindings]",
         "only shortcuts with an OpenDecks command; see the shortcut list",
     );
@@ -1182,38 +1359,88 @@ fn parse_mysetting(b: &mut Builder, body: &[u8]) {
         && b.s.quantize.is_none()
     {
         b.s.quantize = Some(on);
-        b.entry("Quantize", &src("quantize"), yes(on), MapStatus::EngineOnly, &format!("perform.quantize = {on}"), "");
+        b.entry(
+            "Quantize",
+            &src("quantize"),
+            yes(on),
+            MapStatus::EngineOnly,
+            &format!("perform.quantize = {on}"),
+            "",
+        );
     }
     if let Some(v) = byte(body, 12) {
         match v {
             0x80..=0x87 => {
                 let db = -36 - 6 * (v - 0x80) as i32;
                 b.s.auto_cue_level_db = Some(db);
-                b.entry("Auto cue level", &src("auto_cue_level"), format!("{db} dB"), MapStatus::Unmapped, "", "OpenDecks uses a fixed auto-cue threshold");
+                b.entry(
+                    "Auto cue level",
+                    &src("auto_cue_level"),
+                    format!("{db} dB"),
+                    MapStatus::Unmapped,
+                    "",
+                    "OpenDecks uses a fixed auto-cue threshold",
+                );
             }
             0x88 => {
                 b.s.auto_cue_memory = true;
-                b.entry("Auto cue level", &src("auto_cue_level"), "memory", MapStatus::Unmapped, "", "OpenDecks uses a fixed auto-cue threshold");
+                b.entry(
+                    "Auto cue level",
+                    &src("auto_cue_level"),
+                    "memory",
+                    MapStatus::Unmapped,
+                    "",
+                    "OpenDecks uses a fixed auto-cue threshold",
+                );
             }
             _ => {}
         }
     }
-    if let Some((_, code)) = byte(body, 13).and_then(|v| MY_LANGUAGES.iter().find(|(c, _)| *c == v)) {
+    if let Some((_, code)) = byte(body, 13).and_then(|v| MY_LANGUAGES.iter().find(|(c, _)| *c == v))
+    {
         b.s.language = Some((*code).to_string());
         if *code == "en" || *code == "de" {
-            b.entry("Language", &src("language"), *code, MapStatus::Mapped, &format!("view.language = {code}"), "");
+            b.entry(
+                "Language",
+                &src("language"),
+                *code,
+                MapStatus::Mapped,
+                &format!("view.language = {code}"),
+                "",
+            );
         } else {
-            b.entry("Language", &src("language"), *code, MapStatus::Unmapped, "", "OpenDecks is translated to English and German only");
+            b.entry(
+                "Language",
+                &src("language"),
+                *code,
+                MapStatus::Unmapped,
+                "",
+                "OpenDecks is translated to English and German only",
+            );
         }
     }
     if let Some(on) = byte(body, 23).and_then(on_off) {
-        b.entry("Sync on load", &src("sync"), yes(on), MapStatus::Unmapped, "", "OpenDecks does not enable sync on load");
+        b.entry(
+            "Sync on load",
+            &src("sync"),
+            yes(on),
+            MapStatus::Unmapped,
+            "",
+            "OpenDecks does not enable sync on load",
+        );
     }
     if let Some(v) = byte(body, 25)
         && let Some(q) = [1.0, 0.5, 0.25, 0.125].get(v.wrapping_sub(0x80) as usize)
     {
         b.s.quantize_beats = Some(*q);
-        b.entry("Quantize beat value", &src("quantize_beat_value"), format!("{q} beat"), MapStatus::Unmapped, "", "OpenDecks quantizes to whole beats");
+        b.entry(
+            "Quantize beat value",
+            &src("quantize_beat_value"),
+            format!("{q} beat"),
+            MapStatus::Unmapped,
+            "",
+            "OpenDecks quantizes to whole beats",
+        );
     }
     if let Some(v) = byte(body, 26) {
         let a = match v {
@@ -1224,39 +1451,100 @@ fn parse_mysetting(b: &mut Builder, body: &[u8]) {
         };
         if let (Some(a), None) = (a, b.s.hot_cue_auto_load) {
             b.s.hot_cue_auto_load = Some(a);
-            b.entry("Hot cue auto load", &src("hotcue_autoload"), format!("{a:?}"), MapStatus::Unmapped, "", "OpenDecks always loads a track's stored hot cues");
+            b.entry(
+                "Hot cue auto load",
+                &src("hotcue_autoload"),
+                format!("{a:?}"),
+                MapStatus::Unmapped,
+                "",
+                "OpenDecks always loads a track's stored hot cues",
+            );
         }
     }
     if let Some(on) = byte(body, 27).and_then(on_off) {
         b.s.hot_cue_color = Some(on);
-        b.entry("Hot cue colours on players", &src("hotcue_color"), yes(on), MapStatus::Unmapped, "", "OpenDecks always shows hot cue colours");
+        b.entry(
+            "Hot cue colours on players",
+            &src("hotcue_color"),
+            yes(on),
+            MapStatus::Unmapped,
+            "",
+            "OpenDecks always shows hot cue colours",
+        );
     }
     if let Some(on) = byte(body, 30).and_then(on_off)
         && b.s.needle_lock.is_none()
     {
         b.s.needle_lock = Some(on);
-        b.entry("Needle lock", &src("needle_lock"), yes(on), MapStatus::Unmapped, "", "OpenDecks has no needle search lock");
+        b.entry(
+            "Needle lock",
+            &src("needle_lock"),
+            yes(on),
+            MapStatus::Unmapped,
+            "",
+            "OpenDecks has no needle search lock",
+        );
     }
     if let Some(on) = byte(body, 35).and_then(on_off)
         && b.s.auto_cue.iter().all(Option::is_none)
     {
         b.s.auto_cue = [Some(on); 4];
-        b.entry("Auto cue", &src("auto_cue"), yes(on), MapStatus::EngineOnly, "deck.auto_cue (DeckCommand::SetAutoCue)", "all decks");
+        b.entry(
+            "Auto cue",
+            &src("auto_cue"),
+            yes(on),
+            MapStatus::EngineOnly,
+            "deck.auto_cue (DeckCommand::SetAutoCue)",
+            "all decks",
+        );
     }
     if let Some(on) = byte(body, 36).and_then(on_off)
         && b.s.master_tempo.iter().all(Option::is_none)
     {
         b.s.master_tempo = [Some(on); 4];
-        b.entry("Master tempo (key lock)", &src("master_tempo"), yes(on), MapStatus::EngineOnly, "deck.keylock (DeckCommand::SetKeylock)", "all decks");
+        b.entry(
+            "Master tempo (key lock)",
+            &src("master_tempo"),
+            yes(on),
+            MapStatus::EngineOnly,
+            "deck.keylock (DeckCommand::SetKeylock)",
+            "all decks",
+        );
     }
     if let Some(v) = byte(body, 37) {
-        let r = [TempoRange::Six, TempoRange::Ten, TempoRange::Sixteen, TempoRange::Wide].get(v.wrapping_sub(0x80) as usize).copied();
+        let r = [
+            TempoRange::Six,
+            TempoRange::Ten,
+            TempoRange::Sixteen,
+            TempoRange::Wide,
+        ]
+        .get(v.wrapping_sub(0x80) as usize)
+        .copied();
         if let (Some(r), true) = (r, b.s.tempo_range.iter().all(Option::is_none)) {
             b.s.tempo_range = [Some(r); 4];
-            b.entry("Tempo range", &src("tempo_range"), r.opendecks(), MapStatus::EngineOnly, "deck.tempo_range (DeckCommand::SetTempoRange)", "all decks");
+            b.entry(
+                "Tempo range",
+                &src("tempo_range"),
+                r.opendecks(),
+                MapStatus::EngineOnly,
+                "deck.tempo_range (DeckCommand::SetTempoRange)",
+                "all decks",
+            );
         }
     }
-    for (n, name) in [(9, "on_air_display"), (10, "lcd_brightness"), (15, "jog_ring_brightness"), (16, "jog_ring_indicator"), (17, "slip_flashing"), (21, "disc_slot_illumination"), (22, "eject_lock"), (24, "play_mode"), (33, "time_mode"), (34, "jog_mode"), (38, "phase_meter")] {
+    for (n, name) in [
+        (9, "on_air_display"),
+        (10, "lcd_brightness"),
+        (15, "jog_ring_brightness"),
+        (16, "jog_ring_indicator"),
+        (17, "slip_flashing"),
+        (21, "disc_slot_illumination"),
+        (22, "eject_lock"),
+        (24, "play_mode"),
+        (33, "time_mode"),
+        (34, "jog_mode"),
+        (38, "phase_meter"),
+    ] {
         if byte(body, n).is_some_and(|v| v >= 0x80) {
             b.r.ignored_keys.push(format!("{F}: {name}"));
         }
@@ -1266,20 +1554,43 @@ fn parse_mysetting(b: &mut Builder, body: &[u8]) {
 fn parse_mysetting2(b: &mut Builder, body: &[u8]) {
     const F: &str = "MYSETTING2.DAT";
     if let Some(v) = byte(body, 5)
-        && b.s.phrase_display.is_none() && (v == 0x80 || v == 0x81)
+        && b.s.phrase_display.is_none()
+        && (v == 0x80 || v == 0x81)
     {
         let on = v == 0x81;
         b.s.phrase_display = Some(on);
-        b.entry("Phrase display", &format!("{F}: waveform_divisions"), if on { "phrase" } else { "time scale" }, MapStatus::Mapped, &format!("view.phrases = {on}"), "");
+        b.entry(
+            "Phrase display",
+            &format!("{F}: waveform_divisions"),
+            if on { "phrase" } else { "time scale" },
+            MapStatus::Mapped,
+            &format!("view.phrases = {on}"),
+            "",
+        );
     }
     if let Some(v) = byte(body, 13) {
-        let beats = [0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0].get(v.wrapping_sub(0x80) as usize).copied();
+        let beats = [0.5, 1.0, 2.0, 4.0, 8.0, 16.0, 32.0, 64.0]
+            .get(v.wrapping_sub(0x80) as usize)
+            .copied();
         if let (Some(n), true) = (beats, b.s.beat_jump_beats.iter().all(Option::is_none)) {
             b.s.beat_jump_beats = [Some(n); 4];
-            b.entry("Beat jump size", &format!("{F}: beat_jump_beat_value"), format!("{n}"), MapStatus::EngineOnly, "deck.beat_jump (DeckCommand::SetBeatJumpSize)", "all decks");
+            b.entry(
+                "Beat jump size",
+                &format!("{F}: beat_jump_beat_value"),
+                format!("{n}"),
+                MapStatus::EngineOnly,
+                "deck.beat_jump (DeckCommand::SetBeatJumpSize)",
+                "all decks",
+            );
         }
     }
-    for (n, name) in [(1, "vinyl_speed_adjust"), (2, "jog_display_mode"), (3, "pad_button_brightness"), (4, "jog_lcd_brightness"), (11, "waveform")] {
+    for (n, name) in [
+        (1, "vinyl_speed_adjust"),
+        (2, "jog_display_mode"),
+        (3, "pad_button_brightness"),
+        (4, "jog_lcd_brightness"),
+        (11, "waveform"),
+    ] {
         if byte(body, n).is_some_and(|v| v >= 0x80) {
             b.r.ignored_keys.push(format!("{F}: {name}"));
         }
@@ -1351,7 +1662,17 @@ fn parse_djm(b: &mut Builder, body: &[u8]) {
             "OpenDecks has a cue/master mix knob, no mono split mode",
         );
     }
-    for (n, name) in [(17, "beat_fx_quantize"), (18, "mic_low_cut"), (19, "talk_over_mode"), (20, "talk_over_level"), (21, "midi_channel"), (22, "midi_button_type"), (23, "display_brightness"), (24, "indicator_brightness"), (25, "channel_fader_curve_long")] {
+    for (n, name) in [
+        (17, "beat_fx_quantize"),
+        (18, "mic_low_cut"),
+        (19, "talk_over_mode"),
+        (20, "talk_over_level"),
+        (21, "midi_channel"),
+        (22, "midi_button_type"),
+        (23, "display_brightness"),
+        (24, "indicator_brightness"),
+        (25, "channel_fader_curve_long"),
+    ] {
         if byte(body, n).is_some_and(|v| v >= 0x80) {
             b.r.ignored_keys.push(format!("{F}: {name}"));
         }
@@ -1370,14 +1691,34 @@ impl RekordboxSettings {
     pub fn preference_values(&self) -> Vec<(String, String)> {
         let mut out: Vec<(String, String)> = Vec::new();
         let mut put = |k: &str, v: String| out.push((k.to_string(), v));
-        if let Some(l) = self.language.as_deref().filter(|l| *l == "en" || *l == "de") {
+        if let Some(l) = self
+            .language
+            .as_deref()
+            .filter(|l| *l == "en" || *l == "de")
+        {
             put("view.language", l.into());
         }
         if let Some(k) = self.key_notation {
-            put("view.key_notation", if k == KeyDisplay::Classic { "musical" } else { "camelot" }.into());
+            put(
+                "view.key_notation",
+                if k == KeyDisplay::Classic {
+                    "musical"
+                } else {
+                    "camelot"
+                }
+                .into(),
+            );
         }
         if let Some(w) = self.waveform_color {
-            put("view.waveform", if w == WaveformColor::Blue { "blue" } else { "3band" }.into());
+            put(
+                "view.waveform",
+                if w == WaveformColor::Blue {
+                    "blue"
+                } else {
+                    "3band"
+                }
+                .into(),
+            );
         }
         if let Some(p) = self.phrase_display {
             put("view.phrases", p.to_string());
@@ -1426,7 +1767,15 @@ impl RekordboxSettings {
             }
         }
         if let Some(e) = self.eq_type {
-            put("mixer.eq_mode", if e == EqType::Eq { "classic" } else { "isolator" }.into());
+            put(
+                "mixer.eq_mode",
+                if e == EqType::Eq {
+                    "classic"
+                } else {
+                    "isolator"
+                }
+                .into(),
+            );
         }
         if let Some(c) = self.channel_fader_curve {
             let v = match c {
@@ -1560,7 +1909,10 @@ mod tests {
     }
 
     fn entry<'a>(r: &'a SettingsReport, setting: &str) -> &'a MappingEntry {
-        r.entries.iter().find(|e| e.setting == setting).unwrap_or_else(|| panic!("no entry {setting}"))
+        r.entries
+            .iter()
+            .find(|e| e.setting == setting)
+            .unwrap_or_else(|| panic!("no entry {setting}"))
     }
 
     #[test]
@@ -1572,22 +1924,43 @@ mod tests {
         assert_eq!(s.phrase_display_overview, Some(false));
         assert_eq!(s.bar_counter, Some(BarCounter::ToMemoryCue));
         assert_eq!(s.bar_counter_style, Some(0));
-        assert_eq!(s.time_display, [Some(TimeDisplay::Remaining), Some(TimeDisplay::Elapsed), None, None]);
+        assert_eq!(
+            s.time_display,
+            [
+                Some(TimeDisplay::Remaining),
+                Some(TimeDisplay::Elapsed),
+                None,
+                None
+            ]
+        );
         assert_eq!(s.waveform_zoom[0], Some(5));
-        assert_eq!(entry(&r, "Bar/beat counter").target, "view.bar_counter = to-memory-cue");
-        assert!(!r.ignored_keys.iter().any(|k| k.contains("TimeMode") || k.contains("WaveViewRatioDJ")));
+        assert_eq!(
+            entry(&r, "Bar/beat counter").target,
+            "view.bar_counter = to-memory-cue"
+        );
+        assert!(
+            !r.ignored_keys
+                .iter()
+                .any(|k| k.contains("TimeMode") || k.contains("WaveViewRatioDJ"))
+        );
         assert_eq!(s.quantize, Some(true));
         assert_eq!(s.sync_mode, Some(0));
         assert_eq!(s.auto_cue, [Some(true), Some(false), None, None]);
         assert_eq!(s.master_tempo[0], Some(true));
         assert_eq!(s.beat_jump_beats, [Some(16.0), Some(4.0), None, None]);
-        assert_eq!(s.tempo_range, [Some(TempoRange::Six), Some(TempoRange::Wide), None, None]);
+        assert_eq!(
+            s.tempo_range,
+            [Some(TempoRange::Six), Some(TempoRange::Wide), None, None]
+        );
         assert_eq!(s.load_lock, Some(false));
         assert_eq!(s.hot_cue_auto_load, Some(HotCueAutoLoad::Off));
         assert_eq!(s.hot_cue_color_type, Some(2));
         assert_eq!(s.eq_type, Some(EqType::Eq));
         assert_eq!(s.headphones_mono_split, Some(false));
-        assert_eq!(s.recording_folder, Some(PathBuf::from("/tmp/My & Recordings")));
+        assert_eq!(
+            s.recording_folder,
+            Some(PathBuf::from("/tmp/My & Recordings"))
+        );
         assert_eq!(s.recording_auto_split, Some(true));
         assert_eq!(s.analysis_bpm_range, Some((88, 175)));
         assert_eq!(s.analysis_key, Some(false));
@@ -1596,12 +1969,25 @@ mod tests {
         assert_eq!(entry(&r, "Key notation").status, MapStatus::Mapped);
         assert_eq!(entry(&r, "Sync mode").status, MapStatus::Unmapped);
         assert_eq!(entry(&r, "Tempo range").status, MapStatus::EngineOnly);
-        assert_eq!(entry(&r, "Load lock (no loading on a playing deck)").status, MapStatus::Unmapped);
+        assert_eq!(
+            entry(&r, "Load lock (no loading on a playing deck)").status,
+            MapStatus::Unmapped
+        );
         // Unknown names are listed by name only, never with their value.
-        assert!(r.ignored_keys.contains(&"rekordbox3.settings: SomeAccountToken".to_string()));
-        assert!(r.ignored_keys.contains(&"PlaySettings.xml: PlayStatus0".to_string()));
+        assert!(
+            r.ignored_keys
+                .contains(&"rekordbox3.settings: SomeAccountToken".to_string())
+        );
+        assert!(
+            r.ignored_keys
+                .contains(&"PlaySettings.xml: PlayStatus0".to_string())
+        );
         assert!(!format!("{r:?}").contains("secret-value"));
-        assert!(!r.ignored_keys.iter().any(|k| k.contains("Player1_Quantize") || k.contains("KeyStringSetting")));
+        assert!(
+            !r.ignored_keys
+                .iter()
+                .any(|k| k.contains("Player1_Quantize") || k.contains("KeyStringSetting"))
+        );
 
         let prefs = s.preference_values();
         let get = |k: &str| prefs.iter().find(|(a, _)| a == k).map(|(_, v)| v.as_str());
@@ -1621,11 +2007,16 @@ mod tests {
 
     #[test]
     fn rgb_and_alphanumeric() {
-        let xml = RB3.replace(r#"name="KeyStringSetting" val="1""#, r#"name="KeyStringSetting" val="2""#).replace(
-            r#"name="ColorType" val="1""#,
-            r#"name="ColorType" val="2""#,
-        );
-        let (s, r) = parse(&SettingsFiles { rekordbox3_settings: Some(xml), ..Default::default() });
+        let xml = RB3
+            .replace(
+                r#"name="KeyStringSetting" val="1""#,
+                r#"name="KeyStringSetting" val="2""#,
+            )
+            .replace(r#"name="ColorType" val="1""#, r#"name="ColorType" val="2""#);
+        let (s, r) = parse(&SettingsFiles {
+            rekordbox3_settings: Some(xml),
+            ..Default::default()
+        });
         assert_eq!(s.key_notation, Some(KeyDisplay::Alphanumeric));
         assert_eq!(s.waveform_color, Some(WaveformColor::Rgb));
         assert_eq!(entry(&r, "Waveform colour").target, "view.waveform = 3band");
@@ -1635,10 +2026,19 @@ mod tests {
 
     #[test]
     fn keyboard_shortcuts_translate() {
-        assert_eq!(translate_key("shift + command + cursor left").as_deref(), Some("Mod+Shift+Left"));
-        assert_eq!(translate_key("ctrl + shift + F").as_deref(), Some("Meta+Shift+F"));
+        assert_eq!(
+            translate_key("shift + command + cursor left").as_deref(),
+            Some("Mod+Shift+Left")
+        );
+        assert_eq!(
+            translate_key("ctrl + shift + F").as_deref(),
+            Some("Meta+Shift+F")
+        );
         assert_eq!(translate_key("option + 3").as_deref(), Some("Alt+3"));
-        assert_eq!(translate_key("command + return").as_deref(), Some("Mod+Return"));
+        assert_eq!(
+            translate_key("command + return").as_deref(),
+            Some("Mod+Return")
+        );
         assert_eq!(translate_key("spacebar").as_deref(), Some("Space"));
         assert_eq!(translate_key("shift + :").as_deref(), Some("Shift+:"));
         assert_eq!(translate_key("z").as_deref(), Some("Z"));
@@ -1674,7 +2074,10 @@ mod tests {
             language: Language::German,
             ..Default::default()
         };
-        let f = SettingsFiles { mysetting: Some(mysetting::to_bytes(&my)), ..Default::default() };
+        let f = SettingsFiles {
+            mysetting: Some(mysetting::to_bytes(&my)),
+            ..Default::default()
+        };
         let (s, r) = parse(&f);
         assert!(r.unmapped_files.is_empty(), "{:?}", r.unmapped_files);
         assert_eq!(s.quantize, Some(false));
@@ -1692,7 +2095,19 @@ mod tests {
         let mut my = vec![0u8; 40];
         my[..8].copy_from_slice(&[0x78, 0x56, 0x34, 0x12, 2, 0, 0, 0]);
         let set = |b: &mut Vec<u8>, n: usize, v: u8| b[n - 1] = v;
-        for (n, v) in [(11, 0x81), (12, 0x82), (13, 0x83), (25, 0x81), (26, 0x83), (27, 0x81), (30, 0x81), (35, 0x81), (36, 0x80), (37, 0x82), (9, 0x80)] {
+        for (n, v) in [
+            (11, 0x81),
+            (12, 0x82),
+            (13, 0x83),
+            (25, 0x81),
+            (26, 0x83),
+            (27, 0x81),
+            (30, 0x81),
+            (35, 0x81),
+            (36, 0x80),
+            (37, 0x82),
+            (9, 0x80),
+        ] {
             set(&mut my, n, v);
         }
         // MYSETTING2.DAT: phrase divisions, beat jump 32.
@@ -1731,8 +2146,14 @@ mod tests {
         assert_eq!(s.headphones_mono_split, Some(true));
         assert_eq!(entry(&r, "Language").status, MapStatus::Mapped);
         assert!(r.unmapped_files.iter().any(|(n, _)| n == "DEVSETTING.DAT"));
-        assert!(r.ignored_keys.contains(&"MYSETTING.DAT: on_air_display".to_string()));
-        assert!(r.ignored_keys.contains(&"DJMMYSETTING.DAT: beat_fx_quantize".to_string()));
+        assert!(
+            r.ignored_keys
+                .contains(&"MYSETTING.DAT: on_air_display".to_string())
+        );
+        assert!(
+            r.ignored_keys
+                .contains(&"DJMMYSETTING.DAT: beat_fx_quantize".to_string())
+        );
         let prefs = s.preference_values();
         assert!(prefs.contains(&("view.language".into(), "de".into())));
         assert!(prefs.contains(&("mixer.crossfader_curve".into(), "cut".into())));
@@ -1755,10 +2176,19 @@ mod tests {
 
     #[test]
     fn broken_my_settings_header_is_reported() {
-        let f = SettingsFiles { djmmysetting: Some(vec![1, 2, 3]), ..Default::default() };
+        let f = SettingsFiles {
+            djmmysetting: Some(vec![1, 2, 3]),
+            ..Default::default()
+        };
         let (s, r) = parse(&f);
         assert_eq!(s, RekordboxSettings::default());
-        assert_eq!(r.unmapped_files, vec![("DJMMYSETTING.DAT".to_string(), "unexpected header".to_string())]);
+        assert_eq!(
+            r.unmapped_files,
+            vec![(
+                "DJMMYSETTING.DAT".to_string(),
+                "unexpected header".to_string()
+            )]
+        );
     }
 
     #[test]
@@ -1767,14 +2197,23 @@ mod tests {
         std::fs::write(dir.path().join("rekordbox3.settings"), RB3).unwrap();
         std::fs::write(dir.path().join("PlaySettings.xml"), PLAY).unwrap();
         std::fs::create_dir(dir.path().join("KeyMappings")).unwrap();
-        std::fs::write(dir.path().join("KeyMappings/rekordbox_0000000000042.mappings"), KEYS).unwrap();
+        std::fs::write(
+            dir.path()
+                .join("KeyMappings/rekordbox_0000000000042.mappings"),
+            KEYS,
+        )
+        .unwrap();
         std::fs::create_dir(dir.path().join("PIONEER")).unwrap();
         std::fs::write(dir.path().join("PIONEER/DEVSETTING.DAT"), dat(&[0; 32])).unwrap();
         std::fs::write(dir.path().join("VideoSettings.xml"), "<PROPERTIES/>").unwrap();
         let (s, r) = read(Some(dir.path())).unwrap();
         assert_eq!(r.files.len(), 4);
         assert_eq!(s.keymap_name.as_deref(), Some("My Keys"));
-        assert!(r.unmapped_files.iter().any(|(n, _)| n == "VideoSettings.xml"));
+        assert!(
+            r.unmapped_files
+                .iter()
+                .any(|(n, _)| n == "VideoSettings.xml")
+        );
         assert!(r.unmapped_files.iter().any(|(n, _)| n == "DEVSETTING.DAT"));
         let empty = tempfile::tempdir().unwrap();
         assert!(read(Some(empty.path())).is_err());

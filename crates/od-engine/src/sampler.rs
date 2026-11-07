@@ -273,7 +273,9 @@ impl Sampler {
                 }
             }
             SamplerCommand::SetQuantize(q) => {
-                self.quantize = q.filter(|q| q.is_finite() && *q > 0.0).map(|q| q.clamp(1.0 / 16.0, 16.0));
+                self.quantize = q
+                    .filter(|q| q.is_finite() && *q > 0.0)
+                    .map(|q| q.clamp(1.0 / 16.0, 16.0));
                 if self.quantize.is_none() {
                     for s in &mut self.slots {
                         if s.pending {
@@ -312,7 +314,9 @@ impl Sampler {
     /// Frames from the block start until beat `b` (rounded up), if within
     /// reach.
     fn offset_of(b: f64, clock: &BeatClock) -> usize {
-        ((b - clock.beat) / clock.beats_per_frame - 1e-6).ceil().max(0.0) as usize
+        ((b - clock.beat) / clock.beats_per_frame - 1e-6)
+            .ceil()
+            .max(0.0) as usize
     }
 
     /// Mixes all slots into `out` (interleaved stereo, added), scaled by

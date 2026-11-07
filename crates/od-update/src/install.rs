@@ -71,12 +71,20 @@ pub fn strategy(kind: &InstallKind, has_asset: bool, probe: Probe) -> Strategy {
         return Strategy::OpenReleasePage;
     }
     match kind {
-        InstallKind::MacBundle { bundle } if probe.dir_writable => Strategy::SwapMacBundle { bundle: bundle.clone() },
+        InstallKind::MacBundle { bundle } if probe.dir_writable => Strategy::SwapMacBundle {
+            bundle: bundle.clone(),
+        },
         InstallKind::MacBundle { .. } => Strategy::OpenDmg,
-        InstallKind::AppImage { path } if probe.dir_writable => Strategy::SwapAppImage { path: path.clone() },
+        InstallKind::AppImage { path } if probe.dir_writable => {
+            Strategy::SwapAppImage { path: path.clone() }
+        }
         InstallKind::AppImage { .. } => Strategy::OpenReleasePage,
-        InstallKind::Deb if probe.pkexec && probe.apt_get => Strategy::InstallDeb { tool: DebTool::AptGet },
-        InstallKind::Deb if probe.pkexec && probe.dpkg => Strategy::InstallDeb { tool: DebTool::Dpkg },
+        InstallKind::Deb if probe.pkexec && probe.apt_get => Strategy::InstallDeb {
+            tool: DebTool::AptGet,
+        },
+        InstallKind::Deb if probe.pkexec && probe.dpkg => Strategy::InstallDeb {
+            tool: DebTool::Dpkg,
+        },
         InstallKind::Deb | InstallKind::Unknown => Strategy::OpenReleasePage,
     }
 }
@@ -91,7 +99,11 @@ pub fn translocated(bundle: &Path) -> bool {
 /// True when a file can be created in `dir`.
 pub fn dir_writable(dir: &Path) -> bool {
     let probe = dir.join(format!(".opendecks-write-test-{}", std::process::id()));
-    match std::fs::OpenOptions::new().write(true).create_new(true).open(&probe) {
+    match std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&probe)
+    {
         Ok(_) => {
             let _ = std::fs::remove_file(&probe);
             true
@@ -103,13 +115,18 @@ pub fn dir_writable(dir: &Path) -> bool {
 /// An executable on `$PATH`.
 pub fn on_path(name: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path).map(|d| d.join(name)).find(|p| p.is_file())
+    std::env::split_paths(&path)
+        .map(|d| d.join(name))
+        .find(|p| p.is_file())
 }
 
 /// Where the new version is staged before the swap: a hidden sibling of
 /// the installed bundle / AppImage, so the swap is a rename on one volume.
 pub fn staging_path(current: &Path, version: &str) -> PathBuf {
-    let name = current.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let name = current
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
     current.with_file_name(format!(".{name}.update-{version}"))
 }
 
@@ -178,9 +195,15 @@ impl Finish {
         let script = dir.join("update-helper.sh");
         std::fs::write(&script, HELPER_SCRIPT)?;
         let mut cmd = Command::new("/bin/sh");
-        cmd.arg(&script).arg(self.mode).arg(std::process::id().to_string()).arg(&self.current).arg(&self.new).args(&self.relaunch);
+        cmd.arg(&script)
+            .arg(self.mode)
+            .arg(std::process::id().to_string())
+            .arg(&self.current)
+            .arg(&self.new)
+            .args(&self.relaunch);
         detach(&mut cmd);
-        cmd.spawn().map_err(|e| Error::Install(format!("could not start the update helper: {e}")))?;
+        cmd.spawn()
+            .map_err(|e| Error::Install(format!("could not start the update helper: {e}")))?;
         Ok(())
     }
 }
@@ -188,25 +211,41 @@ impl Finish {
 /// No terminal, own process group: survives the app quitting.
 fn detach(cmd: &mut Command) {
     use std::os::unix::process::CommandExt;
-    cmd.stdin(Stdio::null()).stdout(Stdio::null()).stderr(Stdio::null()).process_group(0);
+    cmd.stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .process_group(0);
 }
 
 /// Opens a file or URL with the desktop (`open` / `xdg-open`).
 pub fn open(target: &std::ffi::OsStr) -> Result<(), Error> {
-    let opener = if cfg!(target_os = "macos") { "open" } else { "xdg-open" };
+    let opener = if cfg!(target_os = "macos") {
+        "open"
+    } else {
+        "xdg-open"
+    };
     let mut cmd = Command::new(opener);
     cmd.arg(target);
     detach(&mut cmd);
-    cmd.spawn().map(|_| ()).map_err(|e| Error::Install(format!("{opener}: {e}")))
+    cmd.spawn()
+        .map(|_| ())
+        .map_err(|e| Error::Install(format!("{opener}: {e}")))
 }
 
 fn run(cmd: &mut Command, what: &str) -> Result<String, Error> {
-    let out = cmd.stdin(Stdio::null()).output().map_err(|e| Error::Install(format!("{what}: {e}")))?;
+    let out = cmd
+        .stdin(Stdio::null())
+        .output()
+        .map_err(|e| Error::Install(format!("{what}: {e}")))?;
     if out.status.success() {
         Ok(String::from_utf8_lossy(&out.stdout).into_owned())
     } else {
         let err = String::from_utf8_lossy(&out.stderr);
-        Err(Error::Install(format!("{what} failed ({}): {}", out.status, err.trim())))
+        Err(Error::Install(format!(
+            "{what} failed ({}): {}",
+            out.status,
+            err.trim()
+        )))
     }
 }
 
@@ -216,7 +255,17 @@ pub fn stage_from_dmg(dmg: &Path, mount_dir: &Path, staging: &Path) -> Result<()
     let _ = std::fs::remove_dir_all(staging);
     std::fs::create_dir_all(mount_dir)?;
     run(
-        Command::new("hdiutil").args(["attach", "-nobrowse", "-readonly", "-noautoopen", "-noverify", "-mountpoint"]).arg(mount_dir).arg(dmg),
+        Command::new("hdiutil")
+            .args([
+                "attach",
+                "-nobrowse",
+                "-readonly",
+                "-noautoopen",
+                "-noverify",
+                "-mountpoint",
+            ])
+            .arg(mount_dir)
+            .arg(dmg),
         "hdiutil attach",
     )?;
     let result = (|| {
@@ -225,11 +274,26 @@ pub fn stage_from_dmg(dmg: &Path, mount_dir: &Path, staging: &Path) -> Result<()
             .find(|p| p.extension().is_some_and(|x| x == "app") && p.is_dir())
             .ok_or_else(|| Error::Install("the disk image holds no app".into()))?;
         run(Command::new("ditto").arg(&app).arg(staging), "ditto")?;
-        run(Command::new("codesign").args(["--verify", "--deep", "--strict"]).arg(staging), "codesign --verify")?;
+        run(
+            Command::new("codesign")
+                .args(["--verify", "--deep", "--strict"])
+                .arg(staging),
+            "codesign --verify",
+        )?;
         Ok(())
     })();
-    if run(Command::new("hdiutil").arg("detach").arg(mount_dir), "hdiutil detach").is_err() {
-        let _ = run(Command::new("hdiutil").args(["detach", "-force"]).arg(mount_dir), "hdiutil detach -force");
+    if run(
+        Command::new("hdiutil").arg("detach").arg(mount_dir),
+        "hdiutil detach",
+    )
+    .is_err()
+    {
+        let _ = run(
+            Command::new("hdiutil")
+                .args(["detach", "-force"])
+                .arg(mount_dir),
+            "hdiutil detach -force",
+        );
     }
     let _ = std::fs::remove_dir(mount_dir);
     if result.is_err() {
@@ -242,7 +306,12 @@ pub fn stage_from_dmg(dmg: &Path, mount_dir: &Path, staging: &Path) -> Result<()
 pub fn deb_command(tool: DebTool, deb: &Path) -> Vec<OsString> {
     let mut c: Vec<OsString> = vec!["pkexec".into()];
     match tool {
-        DebTool::AptGet => c.extend(["apt-get".into(), "install".into(), "-y".into(), "--allow-downgrades".into()]),
+        DebTool::AptGet => c.extend([
+            "apt-get".into(),
+            "install".into(),
+            "-y".into(),
+            "--allow-downgrades".into(),
+        ]),
         DebTool::Dpkg => c.extend(["dpkg".into(), "-i".into()]),
     }
     c.push(deb.as_os_str().to_owned());
@@ -257,7 +326,9 @@ pub fn install_deb(tool: DebTool, deb: &Path) -> Result<(), Error> {
     match run(&mut cmd, "pkexec") {
         Ok(_) => Ok(()),
         // pkexec: 126 = not authorised / dialog dismissed, 127 = no agent.
-        Err(Error::Install(m)) if m.contains("126") || m.contains("127") => Err(Error::Install("authentication was cancelled or no authentication agent is running".into())),
+        Err(Error::Install(m)) if m.contains("126") || m.contains("127") => Err(Error::Install(
+            "authentication was cancelled or no authentication agent is running".into(),
+        )),
         Err(e) => Err(e),
     }
 }
@@ -271,24 +342,59 @@ mod tests {
     }
 
     fn probe(dir_writable: bool, pkexec: bool, apt_get: bool, dpkg: bool) -> Probe {
-        Probe { dir_writable, pkexec, apt_get, dpkg }
+        Probe {
+            dir_writable,
+            pkexec,
+            apt_get,
+            dpkg,
+        }
     }
 
     #[test]
     fn strategy_matrix() {
-        let mac = InstallKind::MacBundle { bundle: p("/Applications/OpenDecks Session.app") };
-        let app = InstallKind::AppImage { path: p("/home/me/OpenDecks.AppImage") };
+        let mac = InstallKind::MacBundle {
+            bundle: p("/Applications/OpenDecks Session.app"),
+        };
+        let app = InstallKind::AppImage {
+            path: p("/home/me/OpenDecks.AppImage"),
+        };
         let all = probe(true, true, true, true);
         let none = Probe::default();
-        assert_eq!(strategy(&mac, true, all), Strategy::SwapMacBundle { bundle: p("/Applications/OpenDecks Session.app") });
+        assert_eq!(
+            strategy(&mac, true, all),
+            Strategy::SwapMacBundle {
+                bundle: p("/Applications/OpenDecks Session.app")
+            }
+        );
         assert_eq!(strategy(&mac, true, none), Strategy::OpenDmg);
-        assert_eq!(strategy(&app, true, all), Strategy::SwapAppImage { path: p("/home/me/OpenDecks.AppImage") });
+        assert_eq!(
+            strategy(&app, true, all),
+            Strategy::SwapAppImage {
+                path: p("/home/me/OpenDecks.AppImage")
+            }
+        );
         assert_eq!(strategy(&app, true, none), Strategy::OpenReleasePage);
-        assert_eq!(strategy(&InstallKind::Deb, true, all), Strategy::InstallDeb { tool: DebTool::AptGet });
-        assert_eq!(strategy(&InstallKind::Deb, true, probe(false, true, false, true)), Strategy::InstallDeb { tool: DebTool::Dpkg });
+        assert_eq!(
+            strategy(&InstallKind::Deb, true, all),
+            Strategy::InstallDeb {
+                tool: DebTool::AptGet
+            }
+        );
+        assert_eq!(
+            strategy(&InstallKind::Deb, true, probe(false, true, false, true)),
+            Strategy::InstallDeb {
+                tool: DebTool::Dpkg
+            }
+        );
         // No pkexec: the release page.
-        assert_eq!(strategy(&InstallKind::Deb, true, probe(true, false, true, true)), Strategy::OpenReleasePage);
-        assert_eq!(strategy(&InstallKind::Unknown, true, all), Strategy::OpenReleasePage);
+        assert_eq!(
+            strategy(&InstallKind::Deb, true, probe(true, false, true, true)),
+            Strategy::OpenReleasePage
+        );
+        assert_eq!(
+            strategy(&InstallKind::Unknown, true, all),
+            Strategy::OpenReleasePage
+        );
         // A release without our asset: the release page, whatever the install.
         for k in [&mac, &app, &InstallKind::Deb] {
             assert_eq!(strategy(k, false, all), Strategy::OpenReleasePage);
@@ -297,10 +403,16 @@ mod tests {
 
     #[test]
     fn translocated_bundles_are_not_replaced() {
-        assert!(translocated(&p("/private/var/folders/xy/T/AppTranslocation/1234/d/OpenDecks Session.app")));
-        assert!(translocated(&p("/Volumes/OpenDecks Session/OpenDecks Session.app")));
+        assert!(translocated(&p(
+            "/private/var/folders/xy/T/AppTranslocation/1234/d/OpenDecks Session.app"
+        )));
+        assert!(translocated(&p(
+            "/Volumes/OpenDecks Session/OpenDecks Session.app"
+        )));
         assert!(!translocated(&p("/Applications/OpenDecks Session.app")));
-        let k = InstallKind::MacBundle { bundle: p("/Volumes/OpenDecks Session/OpenDecks Session.app") };
+        let k = InstallKind::MacBundle {
+            bundle: p("/Volumes/OpenDecks Session/OpenDecks Session.app"),
+        };
         assert!(!Probe::of(&k).dir_writable);
     }
 
@@ -309,21 +421,48 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         assert!(dir_writable(d.path()));
         assert!(!dir_writable(&d.path().join("missing")));
-        assert_eq!(std::fs::read_dir(d.path()).unwrap().count(), 0, "probe file left behind");
+        assert_eq!(
+            std::fs::read_dir(d.path()).unwrap().count(),
+            0,
+            "probe file left behind"
+        );
     }
 
     #[test]
     fn staging_is_a_hidden_sibling() {
-        assert_eq!(staging_path(&p("/Applications/OpenDecks Session.app"), "0.2.0"), p("/Applications/.OpenDecks Session.app.update-0.2.0"));
-        assert_eq!(staging_path(&p("/home/me/A.AppImage"), "1.0.0"), p("/home/me/.A.AppImage.update-1.0.0"));
+        assert_eq!(
+            staging_path(&p("/Applications/OpenDecks Session.app"), "0.2.0"),
+            p("/Applications/.OpenDecks Session.app.update-0.2.0")
+        );
+        assert_eq!(
+            staging_path(&p("/home/me/A.AppImage"), "1.0.0"),
+            p("/home/me/.A.AppImage.update-1.0.0")
+        );
     }
 
     #[test]
     fn deb_commands() {
-        let c = deb_command(DebTool::AptGet, &p("/tmp/u/opendecks-session_0.2.0_amd64.deb"));
-        assert_eq!(c, ["pkexec", "apt-get", "install", "-y", "--allow-downgrades", "/tmp/u/opendecks-session_0.2.0_amd64.deb"].map(OsString::from));
+        let c = deb_command(
+            DebTool::AptGet,
+            &p("/tmp/u/opendecks-session_0.2.0_amd64.deb"),
+        );
+        assert_eq!(
+            c,
+            [
+                "pkexec",
+                "apt-get",
+                "install",
+                "-y",
+                "--allow-downgrades",
+                "/tmp/u/opendecks-session_0.2.0_amd64.deb"
+            ]
+            .map(OsString::from)
+        );
         let c = deb_command(DebTool::Dpkg, &p("/tmp/x.deb"));
-        assert_eq!(c, ["pkexec", "dpkg", "-i", "/tmp/x.deb"].map(OsString::from));
+        assert_eq!(
+            c,
+            ["pkexec", "dpkg", "-i", "/tmp/x.deb"].map(OsString::from)
+        );
     }
 
     /// Runs the helper synchronously against a process that already exited.
@@ -331,10 +470,23 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let script = dir.path().join("h.sh");
         std::fs::write(&script, HELPER_SCRIPT).unwrap();
-        let mut gone = Command::new("/bin/sh").arg("-c").arg("exit 0").spawn().unwrap();
+        let mut gone = Command::new("/bin/sh")
+            .arg("-c")
+            .arg("exit 0")
+            .spawn()
+            .unwrap();
         let pid = gone.id();
         gone.wait().unwrap();
-        let st = Command::new("/bin/sh").arg(&script).arg(mode).arg(pid.to_string()).arg(cur).arg(new).args(relaunch).stderr(Stdio::null()).status().unwrap();
+        let st = Command::new("/bin/sh")
+            .arg(&script)
+            .arg(mode)
+            .arg(pid.to_string())
+            .arg(cur)
+            .arg(new)
+            .args(relaunch)
+            .stderr(Stdio::null())
+            .status()
+            .unwrap();
         st.code().unwrap_or(-1)
     }
 
@@ -353,9 +505,31 @@ mod tests {
             r#"<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd"><plist version="1.0"><dict><key>CFBundleExecutable</key><string>opendecks</string><key>CFBundleIdentifier</key><string>org.opendecks.test</string><key>CFBundlePackageType</key><string>APPL</string><key>CFBundleShortVersionString</key><string>0.2.0</string></dict></plist>"#,
         )
         .unwrap();
-        assert!(Command::new("codesign").args(["--force", "--sign", "-"]).arg(&app).stderr(Stdio::null()).status().unwrap().success());
+        assert!(
+            Command::new("codesign")
+                .args(["--force", "--sign", "-"])
+                .arg(&app)
+                .stderr(Stdio::null())
+                .status()
+                .unwrap()
+                .success()
+        );
         let dmg = d.path().join("OpenDecks-Session-0.2.0-macos-arm64.dmg");
-        let made = Command::new("hdiutil").args(["create", "-quiet", "-fs", "HFS+", "-format", "UDZO", "-volname", "OpenDecks Session", "-srcfolder"]).arg(&src).arg(&dmg).status();
+        let made = Command::new("hdiutil")
+            .args([
+                "create",
+                "-quiet",
+                "-fs",
+                "HFS+",
+                "-format",
+                "UDZO",
+                "-volname",
+                "OpenDecks Session",
+                "-srcfolder",
+            ])
+            .arg(&src)
+            .arg(&dmg)
+            .status();
         if !made.is_ok_and(|s| s.success()) {
             eprintln!("hdiutil create unavailable here; skipping");
             return;
@@ -402,7 +576,10 @@ mod tests {
         let marker = d.path().join("relaunched");
         let code = helper("swap", &cur, &new, &["touch", marker.to_str().unwrap()]);
         assert_eq!(code, 0);
-        assert_eq!(std::fs::read_to_string(cur.join("Contents/MacOS/opendecks")).unwrap(), "new");
+        assert_eq!(
+            std::fs::read_to_string(cur.join("Contents/MacOS/opendecks")).unwrap(),
+            "new"
+        );
         assert!(!new.exists());
         assert!(!d.path().join("OpenDecks Session.app.old-update").exists());
         assert!(wait_for(&marker), "not relaunched");
@@ -413,9 +590,17 @@ mod tests {
         let d = tempfile::tempdir().unwrap();
         let cur = bundle(d.path(), "OpenDecks Session.app", "old");
         let marker = d.path().join("relaunched");
-        let code = helper("swap", &cur, &d.path().join("missing.app"), &["touch", marker.to_str().unwrap()]);
+        let code = helper(
+            "swap",
+            &cur,
+            &d.path().join("missing.app"),
+            &["touch", marker.to_str().unwrap()],
+        );
         assert_eq!(code, 1);
-        assert_eq!(std::fs::read_to_string(cur.join("Contents/MacOS/opendecks")).unwrap(), "old");
+        assert_eq!(
+            std::fs::read_to_string(cur.join("Contents/MacOS/opendecks")).unwrap(),
+            "old"
+        );
         // The old version is started again.
         assert!(wait_for(&marker));
     }
@@ -434,7 +619,10 @@ mod tests {
         std::os::unix::fs::PermissionsExt::set_mode(&mut perm, 0o755);
         std::fs::set_permissions(&locked, perm).unwrap();
         assert_eq!(code, 1);
-        assert_eq!(std::fs::read_to_string(cur.join("Contents/MacOS/opendecks")).unwrap(), "old");
+        assert_eq!(
+            std::fs::read_to_string(cur.join("Contents/MacOS/opendecks")).unwrap(),
+            "old"
+        );
         assert!(!d.path().join("A.app.old-update").exists());
     }
 
@@ -448,7 +636,9 @@ mod tests {
         assert_eq!(helper("swap", &cur, &new, &[]), 0);
         assert_eq!(std::fs::read_to_string(&cur).unwrap(), "new");
         assert!(!new.exists());
-        let mode = std::os::unix::fs::PermissionsExt::mode(&std::fs::metadata(&cur).unwrap().permissions());
+        let mode = std::os::unix::fs::PermissionsExt::mode(
+            &std::fs::metadata(&cur).unwrap().permissions(),
+        );
         assert_ne!(mode & 0o111, 0, "not executable");
     }
 
@@ -456,7 +646,15 @@ mod tests {
     fn helper_wait_mode_only_relaunches() {
         let d = tempfile::tempdir().unwrap();
         let marker = d.path().join("relaunched");
-        assert_eq!(helper("wait", Path::new(""), Path::new(""), &["touch", marker.to_str().unwrap()]), 0);
+        assert_eq!(
+            helper(
+                "wait",
+                Path::new(""),
+                Path::new(""),
+                &["touch", marker.to_str().unwrap()]
+            ),
+            0
+        );
         assert!(wait_for(&marker));
     }
 
@@ -470,9 +668,20 @@ mod tests {
         let script = d.path().join("h.sh");
         std::fs::write(&script, HELPER_SCRIPT).unwrap();
         let mut app = Command::new("sleep").arg("0.6").spawn().unwrap();
-        let mut h = Command::new("/bin/sh").arg(&script).arg("swap").arg(app.id().to_string()).arg(&cur).arg(&new).spawn().unwrap();
+        let mut h = Command::new("/bin/sh")
+            .arg(&script)
+            .arg("swap")
+            .arg(app.id().to_string())
+            .arg(&cur)
+            .arg(&new)
+            .spawn()
+            .unwrap();
         std::thread::sleep(std::time::Duration::from_millis(250));
-        assert_eq!(std::fs::read_to_string(&cur).unwrap(), "old", "swapped while the app still ran");
+        assert_eq!(
+            std::fs::read_to_string(&cur).unwrap(),
+            "old",
+            "swapped while the app still ran"
+        );
         app.wait().unwrap();
         assert!(h.wait().unwrap().success());
         assert_eq!(std::fs::read_to_string(&cur).unwrap(), "new");

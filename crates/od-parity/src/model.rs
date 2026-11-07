@@ -17,7 +17,12 @@ pub enum Status {
 }
 
 impl Status {
-    pub const ALL: [Status; 4] = [Status::Done, Status::Partial, Status::EngineOnly, Status::Missing];
+    pub const ALL: [Status; 4] = [
+        Status::Done,
+        Status::Partial,
+        Status::EngineOnly,
+        Status::Missing,
+    ];
 
     pub fn label(self) -> &'static str {
         match self {
@@ -200,7 +205,11 @@ pub struct View {
 impl View {
     /// Whether `label` is left out at size `size` (kiosk exemptions).
     pub fn omitted_at(&self, size: &str, label: &str) -> bool {
-        size == KIOSK_SIZE && self.kiosk_omit.iter().any(|k| k.omit.iter().any(|l| l == label))
+        size == KIOSK_SIZE
+            && self
+                .kiosk_omit
+                .iter()
+                .any(|k| k.omit.iter().any(|l| l == label))
     }
 }
 
@@ -212,13 +221,46 @@ pub const KIOSK_SIZE: &str = "kiosk";
 /// sync / master, record, settings, stick state). Matched against the part
 /// after the scope (`deck1.title` → `title`) and against whole labels.
 pub const KIOSK_NEVER_OMIT: &[&str] = &[
-    "number", "artwork", "title", "artist", "bpm", "key", "time-remaining", "time-elapsed", "overview", "beat-sync", "master",
-    "cue", "play", "load", "platter", "stem.vocal", "stem.inst", "stem.drums", "stem.bass",
+    "number",
+    "artwork",
+    "title",
+    "artist",
+    "bpm",
+    "key",
+    "time-remaining",
+    "time-elapsed",
+    "overview",
+    "beat-sync",
+    "master",
+    "cue",
+    "play",
+    "load",
+    "platter",
+    "stem.vocal",
+    "stem.inst",
+    "stem.drums",
+    "stem.bass",
 ];
 pub const KIOSK_NEVER_OMIT_LABELS: &[&str] = &[
-    "wave.lane1", "wave.lane2", "wave.lane3", "wave.lane4", "wave.playhead", "browser.rows", "browser.list-title", "browser.search",
-    "browser.target", "rec.toggle", "rec.time", "rec.meter", "topbar.settings", "topbar.status.midi", "topbar.clock",
-    "browser.tree.devices", "browser.tree.device-sync", "status.activity", "status.summary",
+    "wave.lane1",
+    "wave.lane2",
+    "wave.lane3",
+    "wave.lane4",
+    "wave.playhead",
+    "browser.rows",
+    "browser.list-title",
+    "browser.search",
+    "browser.target",
+    "rec.toggle",
+    "rec.time",
+    "rec.meter",
+    "topbar.settings",
+    "topbar.status.midi",
+    "topbar.clock",
+    "browser.tree.devices",
+    "browser.tree.device-sync",
+    "status.activity",
+    "status.summary",
 ];
 
 /// One group of kiosk exemptions of a view.

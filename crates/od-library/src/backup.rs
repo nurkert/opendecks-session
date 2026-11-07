@@ -32,8 +32,14 @@ impl Library {
     /// ones. Returns the backup path.
     pub fn backup_now(&self, reason: &str) -> Result<PathBuf> {
         let dir = self.backup_dir()?;
-        let stamp = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_millis();
-        let reason: String = reason.chars().filter(|c| c.is_ascii_alphanumeric() || *c == '-').collect();
+        let stamp = SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis();
+        let reason: String = reason
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric() || *c == '-')
+            .collect();
         let path = dir.join(format!("library-{stamp}-{reason}.sqlite"));
         self.backup_to(&path)?;
         rotate(&dir)?;
@@ -41,9 +47,9 @@ impl Library {
     }
 
     fn backup_dir(&self) -> Result<PathBuf> {
-        let p = self
-            .path()
-            .ok_or_else(|| LibraryError::Invalid("in-memory libraries have no backup directory".into()))?;
+        let p = self.path().ok_or_else(|| {
+            LibraryError::Invalid("in-memory libraries have no backup directory".into())
+        })?;
         Ok(p.parent().unwrap_or(Path::new(".")).join("backups"))
     }
 

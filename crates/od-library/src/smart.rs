@@ -46,7 +46,11 @@ pub enum Op {
 pub enum Rule {
     All(Vec<Rule>),
     Any(Vec<Rule>),
-    Cond { field: Field, op: Op, value: serde_json::Value },
+    Cond {
+        field: Field,
+        op: Op,
+        value: serde_json::Value,
+    },
 }
 
 enum FieldValue<'a> {
@@ -71,7 +75,9 @@ fn field_value(t: &TrackRecord, f: Field) -> FieldValue<'_> {
         Field::PlayCount => FieldValue::Number(Some(t.play_count as f64)),
         Field::Duration => FieldValue::Number(Some(t.duration)),
         Field::Color => FieldValue::Owned(t.tags.color.map(|c| c.to_hex()).unwrap_or_default()),
-        Field::Format => FieldValue::Owned(t.format.map(|f| f.as_str().to_string()).unwrap_or_default()),
+        Field::Format => {
+            FieldValue::Owned(t.format.map(|f| f.as_str().to_string()).unwrap_or_default())
+        }
     }
 }
 
@@ -81,7 +87,11 @@ fn days_ago(iso: &str) -> Option<f64> {
     let mut parts = date.split('-').map(|p| p.parse::<i64>().ok());
     let (y, m, d) = (parts.next()??, parts.next()??, parts.next()??);
     let then = days_from_civil(y, m, d);
-    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).ok()?.as_secs() as i64 / 86_400;
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?
+        .as_secs() as i64
+        / 86_400;
     Some((now - then) as f64)
 }
 
@@ -97,7 +107,8 @@ fn days_from_civil(y: i64, m: i64, d: i64) -> i64 {
 }
 
 fn as_number(v: &serde_json::Value) -> Option<f64> {
-    v.as_f64().or_else(|| v.as_str().and_then(|s| s.parse().ok()))
+    v.as_f64()
+        .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
 }
 
 impl Rule {
@@ -127,7 +138,10 @@ fn cond_matches(t: &TrackRecord, field: Field, op: Op, value: &serde_json::Value
                 Op::IsNot => as_number(value).is_none_or(|v| (n - v).abs() >= 1e-6),
                 Op::GreaterThan => as_number(value).is_some_and(|v| n > v),
                 Op::LessThan => as_number(value).is_some_and(|v| n < v),
-                Op::Between => match value.as_array().map(|a| a.iter().filter_map(as_number).collect::<Vec<_>>()) {
+                Op::Between => match value
+                    .as_array()
+                    .map(|a| a.iter().filter_map(as_number).collect::<Vec<_>>())
+                {
                     Some(r) if r.len() == 2 => n >= r[0].min(r[1]) && n <= r[0].max(r[1]),
                     _ => false,
                 },
@@ -138,7 +152,10 @@ fn cond_matches(t: &TrackRecord, field: Field, op: Op, value: &serde_json::Value
 }
 
 fn text_matches(s: &str, op: Op, value: &serde_json::Value) -> bool {
-    let v = value.as_str().map(str::to_lowercase).unwrap_or_else(|| value.to_string());
+    let v = value
+        .as_str()
+        .map(str::to_lowercase)
+        .unwrap_or_else(|| value.to_string());
     let s = s.to_lowercase();
     match op {
         Op::Contains => s.contains(&v),
@@ -163,17 +180,36 @@ mod tests {
         let _b = track(&mut lib, "Techno Two", Some(132.0), Some("8A"));
         let c = track(&mut lib, "House Three", Some(122.0), Some("9A"));
         let _d = track(&mut lib, "House Four", Some(123.0), Some("2B"));
-        let smart = lib.create_node(None, NodeKind::Smart, "Warm house").unwrap();
+        let smart = lib
+            .create_node(None, NodeKind::Smart, "Warm house")
+            .unwrap();
         lib.set_smart_rule(
             smart,
             Rule::All(vec![
-                Rule::Cond { field: Field::Title, op: Op::Contains, value: json!("house") },
-                Rule::Cond { field: Field::Bpm, op: Op::Between, value: json!([120, 126]) },
-                Rule::Cond { field: Field::Key, op: Op::HarmonicWith, value: json!("8A") },
+                Rule::Cond {
+                    field: Field::Title,
+                    op: Op::Contains,
+                    value: json!("house"),
+                },
+                Rule::Cond {
+                    field: Field::Bpm,
+                    op: Op::Between,
+                    value: json!([120, 126]),
+                },
+                Rule::Cond {
+                    field: Field::Key,
+                    op: Op::HarmonicWith,
+                    value: json!("8A"),
+                },
             ]),
         )
         .unwrap();
-        let mut ids: Vec<_> = lib.node_tracks(smart).unwrap().iter().map(|t| t.id).collect();
+        let mut ids: Vec<_> = lib
+            .node_tracks(smart)
+            .unwrap()
+            .iter()
+            .map(|t| t.id)
+            .collect();
         ids.sort();
         assert_eq!(ids, vec![a, c]);
     }

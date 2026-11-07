@@ -113,7 +113,8 @@ impl AuxInput {
             }
             chunk.commit_all();
         }
-        self.gain.set(if self.on { level_gain(self.level) } else { 0.0 });
+        self.gain
+            .set(if self.on { level_gain(self.level) } else { 0.0 });
         let mut peak = 0.0f32;
         for f in buf.as_chunks_mut::<2>().0 {
             let g = self.gain.next();
@@ -130,8 +131,17 @@ impl AuxInput {
             self.hold = (self.hold - block_s).max(0.0);
         }
         let engaged = self.on && self.talkover && self.hold > 0.0;
-        self.duck.set(if engaged { 10f32.powf(self.talkover_db / 20.0) } else { 1.0 });
-        for (m, s) in master.as_chunks_mut::<2>().0.iter_mut().zip(buf.chunks_exact(2)) {
+        self.duck.set(if engaged {
+            10f32.powf(self.talkover_db / 20.0)
+        } else {
+            1.0
+        });
+        for (m, s) in master
+            .as_chunks_mut::<2>()
+            .0
+            .iter_mut()
+            .zip(buf.chunks_exact(2))
+        {
             let d = self.duck.next();
             m[0] = m[0] * d + s[0];
             m[1] = m[1] * d + s[1];
@@ -157,4 +167,3 @@ impl AuxInput {
         }
     }
 }
-

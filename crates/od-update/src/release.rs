@@ -71,7 +71,11 @@ pub struct Policy {
 
 /// The newest release newer than `current` that the policy allows. Drafts,
 /// tags that are not semver and the skipped version are ignored.
-pub fn newest_update<'a>(releases: &'a [Release], current: &Version, policy: &Policy) -> Option<(&'a Release, Version)> {
+pub fn newest_update<'a>(
+    releases: &'a [Release],
+    current: &Version,
+    policy: &Policy,
+) -> Option<(&'a Release, Version)> {
     let skip = policy.skip.as_deref().and_then(parse_tag);
     releases
         .iter()
@@ -79,7 +83,10 @@ pub fn newest_update<'a>(releases: &'a [Release], current: &Version, policy: &Po
         .filter(|r| policy.include_prereleases || !r.is_prerelease())
         .filter_map(|r| r.version().map(|v| (r, v)))
         .filter(|(_, v)| is_newer(current, v))
-        .filter(|(_, v)| skip.as_ref().is_none_or(|s| precedence(s, v) != std::cmp::Ordering::Equal))
+        .filter(|(_, v)| {
+            skip.as_ref()
+                .is_none_or(|s| precedence(s, v) != std::cmp::Ordering::Equal)
+        })
         .max_by(|a, b| precedence(&a.1, &b.1))
 }
 
@@ -122,31 +129,71 @@ pub(crate) mod tests {
     #[test]
     fn prereleases_only_when_opted_in() {
         let r = parse_releases(FIXTURE).unwrap();
-        let p = Policy { include_prereleases: true, skip: None };
-        assert_eq!(newest_update(&r, &ver("0.0.1"), &p).unwrap().1, ver("0.3.0-beta.1"));
-        assert_eq!(newest_update(&r, &ver("0.2.0"), &p).unwrap().1, ver("0.3.0-beta.1"));
+        let p = Policy {
+            include_prereleases: true,
+            skip: None,
+        };
+        assert_eq!(
+            newest_update(&r, &ver("0.0.1"), &p).unwrap().1,
+            ver("0.3.0-beta.1")
+        );
+        assert_eq!(
+            newest_update(&r, &ver("0.2.0"), &p).unwrap().1,
+            ver("0.3.0-beta.1")
+        );
         // A GitHub pre-release flag alone also counts as pre-release.
         let flagged = r.iter().find(|x| x.tag_name == "v0.0.1").unwrap();
         assert!(flagged.is_prerelease());
-        assert!(newest_update(std::slice::from_ref(flagged), &ver("0.0.0"), &Policy::default()).is_none());
+        assert!(
+            newest_update(
+                std::slice::from_ref(flagged),
+                &ver("0.0.0"),
+                &Policy::default()
+            )
+            .is_none()
+        );
         assert!(newest_update(std::slice::from_ref(flagged), &ver("0.0.0"), &p).is_some());
     }
 
     #[test]
     fn skipped_version_is_not_offered_but_newer_ones_are() {
         let r = parse_releases(FIXTURE).unwrap();
-        let p = Policy { include_prereleases: false, skip: Some("0.2.0".into()) };
-        assert_eq!(newest_update(&r, &ver("0.0.1"), &p).unwrap().1, ver("0.1.0"));
-        let p = Policy { include_prereleases: true, skip: Some("v0.2.0".into()) };
-        assert_eq!(newest_update(&r, &ver("0.0.1"), &p).unwrap().1, ver("0.3.0-beta.1"));
+        let p = Policy {
+            include_prereleases: false,
+            skip: Some("0.2.0".into()),
+        };
+        assert_eq!(
+            newest_update(&r, &ver("0.0.1"), &p).unwrap().1,
+            ver("0.1.0")
+        );
+        let p = Policy {
+            include_prereleases: true,
+            skip: Some("v0.2.0".into()),
+        };
+        assert_eq!(
+            newest_update(&r, &ver("0.0.1"), &p).unwrap().1,
+            ver("0.3.0-beta.1")
+        );
     }
 
     #[test]
     fn drafts_and_odd_tags_are_ignored() {
         let r = parse_releases(FIXTURE).unwrap();
-        let p = Policy { include_prereleases: true, skip: None };
+        let p = Policy {
+            include_prereleases: true,
+            skip: None,
+        };
         assert!(newest_update(&r, &ver("0.0.1"), &p).is_some_and(|(r, _)| !r.draft));
-        let odd = Release { tag_name: "nightly".into(), name: None, draft: false, prerelease: false, html_url: String::new(), body: None, published_at: None, assets: vec![] };
+        let odd = Release {
+            tag_name: "nightly".into(),
+            name: None,
+            draft: false,
+            prerelease: false,
+            html_url: String::new(),
+            body: None,
+            published_at: None,
+            assets: vec![],
+        };
         assert!(newest_update(&[odd], &ver("0.0.1"), &p).is_none());
     }
 }

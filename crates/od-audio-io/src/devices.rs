@@ -195,12 +195,24 @@ mod tests {
 
     #[test]
     fn backend_names_round_trip() {
-        for b in [Backend::CoreAudio, Backend::Alsa, Backend::Jack, Backend::PipeWire] {
+        for b in [
+            Backend::CoreAudio,
+            Backend::Alsa,
+            Backend::Jack,
+            Backend::PipeWire,
+        ] {
             assert_eq!(Backend::from_host_name(b.host_name().unwrap()), Some(b));
         }
-        assert_eq!(Backend::from_host_name("alsa"), Some(Backend::Alsa), "case-insensitive");
+        assert_eq!(
+            Backend::from_host_name("alsa"),
+            Some(Backend::Alsa),
+            "case-insensitive"
+        );
         assert_eq!(Backend::from_host_name("WASAPI"), None);
-        assert!(host(Backend::Default).is_ok(), "the platform default host opens");
+        assert!(
+            host(Backend::Default).is_ok(),
+            "the platform default host opens"
+        );
     }
 
     /// Linux / Raspberry Pi: ALSA is always there (direct hardware access on
@@ -217,7 +229,11 @@ mod tests {
     #[cfg(all(target_os = "linux", feature = "jack"))]
     #[test]
     fn jack_host_compiled_in() {
-        assert!(cpal::ALL_HOSTS.iter().any(|h| h.name().eq_ignore_ascii_case("JACK")));
+        assert!(
+            cpal::ALL_HOSTS
+                .iter()
+                .any(|h| h.name().eq_ignore_ascii_case("JACK"))
+        );
         assert_eq!(Backend::from_host_name("JACK"), Some(Backend::Jack));
     }
 
@@ -225,7 +241,11 @@ mod tests {
     #[cfg(all(target_os = "linux", feature = "pipewire"))]
     #[test]
     fn pipewire_host_compiled_in() {
-        assert!(cpal::ALL_HOSTS.iter().any(|h| h.name().eq_ignore_ascii_case("PipeWire")));
+        assert!(
+            cpal::ALL_HOSTS
+                .iter()
+                .any(|h| h.name().eq_ignore_ascii_case("PipeWire"))
+        );
         assert_eq!(Backend::from_host_name("PipeWire"), Some(Backend::PipeWire));
     }
 
@@ -239,8 +259,14 @@ mod tests {
     #[test]
     fn unavailable_backend_is_an_error_not_a_panic() {
         #[cfg(target_os = "macos")]
-        assert!(matches!(host(Backend::Alsa), Err(AudioError::BackendUnavailable(Backend::Alsa))));
+        assert!(matches!(
+            host(Backend::Alsa),
+            Err(AudioError::BackendUnavailable(Backend::Alsa))
+        ));
         #[cfg(target_os = "linux")]
-        assert!(matches!(host(Backend::CoreAudio), Err(AudioError::BackendUnavailable(Backend::CoreAudio))));
+        assert!(matches!(
+            host(Backend::CoreAudio),
+            Err(AudioError::BackendUnavailable(Backend::CoreAudio))
+        ));
     }
 }

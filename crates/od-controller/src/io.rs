@@ -33,17 +33,36 @@ pub fn list_ports() -> Result<PortList, String> {
     let mi = MidiInput::new(CLIENT).map_err(|e| e.to_string())?;
     let mo = MidiOutput::new(CLIENT).map_err(|e| e.to_string())?;
     Ok(PortList {
-        inputs: mi.ports().iter().filter_map(|p| mi.port_name(p).ok()).collect(),
-        outputs: mo.ports().iter().filter_map(|p| mo.port_name(p).ok()).collect(),
+        inputs: mi
+            .ports()
+            .iter()
+            .filter_map(|p| mi.port_name(p).ok())
+            .collect(),
+        outputs: mo
+            .ports()
+            .iter()
+            .filter_map(|p| mo.port_name(p).ok())
+            .collect(),
     })
 }
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum ControllerEvent {
-    Connected { device: String, port: String, usb: Option<(u16, u16)> },
-    Disconnected { device: String, port: String },
+    Connected {
+        device: String,
+        port: String,
+        usb: Option<(u16, u16)>,
+    },
+    Disconnected {
+        device: String,
+        port: String,
+    },
     /// `timestamp_us` is the backend timestamp of the triggering message.
-    Action { device: String, action: ControlAction, timestamp_us: u64 },
+    Action {
+        device: String,
+        action: ControlAction,
+        timestamp_us: u64,
+    },
     Error(String),
 }
 
@@ -104,7 +123,14 @@ impl ControllerManager {
                 .spawn(move || run(mappings, config, ev_tx, fb_rx, monitor, learn, stop))
                 .expect("spawn controller thread")
         };
-        Self { events: ev_rx, feedback: fb_tx, monitor, learn, stop, thread: Some(thread) }
+        Self {
+            events: ev_rx,
+            feedback: fb_tx,
+            monitor,
+            learn,
+            stop,
+            thread: Some(thread),
+        }
     }
 
     pub fn events(&self) -> &Receiver<ControllerEvent> {
@@ -165,7 +191,9 @@ fn run(
             if let Some(l) = learn.lock().unwrap().as_mut() {
                 l.feed(&raw.bytes);
             }
-            let Some(c) = conns.get_mut(&raw.port) else { continue };
+            let Some(c) = conns.get_mut(&raw.port) else {
+                continue;
+            };
             match c.session.as_mut() {
                 Some(s) => {
                     let p = s.handle_midi(&raw.bytes);
@@ -186,15 +214,18 @@ fn run(
         while let Ok((dev, fb)) = feedback.try_recv() {
             for c in conns.values_mut() {
                 if dev.as_ref().is_none_or(|d| *d == c.device)
-                    && let Some(s) = c.session.as_mut() {
-                        s.feedback(&fb);
-                    }
+                    && let Some(s) = c.session.as_mut()
+                {
+                    s.feedback(&fb);
+                }
             }
         }
 
         // Output.
         for (port, c) in conns.iter_mut() {
-            let (Some(s), Some(out)) = (c.session.as_mut(), c.output.as_mut()) else { continue };
+            let (Some(s), Some(out)) = (c.session.as_mut(), c.output.as_mut()) else {
+                continue;
+            };
             for msg in s.poll_output(now) {
                 if let Err(e) = out.send(&msg) {
                     let _ = events.send(ControllerEvent::Error(format!("{port}: {e}")));
@@ -219,17 +250,26 @@ fn rescan(
     let ports = match list_ports() {
         Ok(p) => p,
         Err(e) => {
-            let _ = events.send(ControllerEvent::Error(format!("MIDI port scan failed: {e}")));
+            let _ = events.send(ControllerEvent::Error(format!(
+                "MIDI port scan failed: {e}"
+            )));
             return;
         }
     };
     // Unplugged ports.
-    let gone: Vec<String> = conns.keys().filter(|p| !ports.inputs.contains(p)).cloned().collect();
+    let gone: Vec<String> = conns
+        .keys()
+        .filter(|p| !ports.inputs.contains(p))
+        .cloned()
+        .collect();
     for p in gone {
         if let Some(c) = conns.remove(&p) {
             tracing::info!("controller port gone: {p}");
             if c.session.is_some() {
-                let _ = events.send(ControllerEvent::Disconnected { device: c.device, port: p });
+                let _ = events.send(ControllerEvent::Disconnected {
+                    device: c.device,
+                    port: p,
+                });
             }
         }
     }
@@ -280,7 +320,15 @@ fn rescan(
             }
             None => (None, None, String::new()),
         };
-        conns.insert(name.clone(), Connected { _input: input, output, session, device });
+        conns.insert(
+            name.clone(),
+            Connected {
+                _input: input,
+                output,
+                session,
+                device,
+            },
+        );
     }
 }
 
@@ -297,7 +345,11 @@ fn connect_input(name: &str, tx: Sender<RawIn>) -> Result<MidiInputConnection<()
         &port,
         "opendecks-in",
         move |stamp, bytes, _| {
-            let _ = tx.send(RawIn { port: port_name.clone(), stamp, bytes: bytes.to_vec() });
+            let _ = tx.send(RawIn {
+                port: port_name.clone(),
+                stamp,
+                bytes: bytes.to_vec(),
+            });
         },
         (),
     )
@@ -311,5 +363,6 @@ fn connect_output(name: &str) -> Result<MidiOutputConnection, String> {
         .into_iter()
         .find(|p| mo.port_name(p).ok().as_deref() == Some(name))
         .ok_or("port vanished")?;
-    mo.connect(&port, "opendecks-out").map_err(|e| e.to_string())
+    mo.connect(&port, "opendecks-out")
+        .map_err(|e| e.to_string())
 }

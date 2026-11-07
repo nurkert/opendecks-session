@@ -356,31 +356,24 @@ fn separate_stems() {
         ui.has("deck1.stem.vocal"),
         "VOCAL stays visible while separating"
     );
+    // The separator (ONNX model, tested in od-stems) finishes the job the
+    // way the worker does: the parts land in the stem cache and the worker
+    // reports them done. Here the mix stands in for the parts (vocals =
+    // the whole mix), so muting VOCAL silences the deck.
+    let id = ui.fx.tracks[0].0;
+    let track = ui.fx.lib().track(id).unwrap();
+    let audio = od_decode::decode(&track.path, od_decode::Layout::Stereo).unwrap();
+    let n = audio.samples.len();
+    let stems = od_stems::Stems { sample_rate: audio.sample_rate, vocals: audio.samples, drums: vec![0.0; n], bass: vec![0.0; n] };
+    ui.app.decks.borrow().stem_cache().store(&track.content_hash, &stems).unwrap();
+    crate::decks::stems_ready(&ui.app, id);
+    assert!(
+        ui.wait_until(30.0, |u| deck_views(u).into_iter().any(|d| d.deck == 1 && d.stems_available)),
+        "VOCAL becomes available once the parts are separated"
+    );
     ui.steps.set(0);
-    // With a model, VOCAL becomes available and mutes the vocals in one
-    // click. Headless runs never download the model.
-    let available = ui.wait_until(2.0, |u| {
-        deck_views(u)
-            .into_iter()
-            .any(|d| d.deck == 1 && d.stems_available)
-    });
-    let mut muted = false;
-    if available {
-        ui.click("deck1.stem.vocal");
-        muted = ui.wait_until(5.0, |u| {
-            deck_views(u)
-                .into_iter()
-                .any(|d| d.deck == 1 && d.mute_vocal)
-        });
-    }
-    record(FlowResult {
-        id: "separate-stems",
-        steps: if available { ui.steps.get() } else { 1 },
-        achieved: muted,
-        note: if available {
-            String::new()
-        } else {
-            "separation is queued on load and the strip shows SPLIT…; no model on this machine, so VOCAL stays dimmed".into()
-        },
-    });
+    ui.click("deck1.stem.vocal");
+    let muted = ui.wait_until(5.0, |u| deck_views(u).into_iter().any(|d| d.deck == 1 && d.mute_vocal));
+    assert!(muted, "one click on VOCAL mutes the vocals");
+    record(FlowResult { id: "separate-stems", steps: ui.steps.get(), achieved: muted, note: String::new() });
 }

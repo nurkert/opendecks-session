@@ -81,7 +81,9 @@ fn grid_editor_typed_bpm_and_tap_tempo() {
     ui.app.ui.invoke_row_clicked(0, false, false);
     ui.pump(200);
     let id = ui.app.state.borrow().player.current.unwrap_or(id);
-    ui.wait_until(30.0, |u| u.app.decks.borrow().loaded_id(crate::decks::PREVIEW_DECK) == Some(id));
+    ui.wait_until(30.0, |u| {
+        u.app.decks.borrow().loaded_id(crate::decks::PREVIEW_DECK) == Some(id)
+    });
     ui.click("player1.tab.grid");
     assert!(
         ui.has("player1.grid.bpm") && ui.has("player1.grid.tap"),

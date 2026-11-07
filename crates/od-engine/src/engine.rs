@@ -4,14 +4,16 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::beatfx::{BeatClock, FxUnit};
-use crate::command::{BeatFxCommand, Command, CrossfaderCurve, DeckCommand, FxTarget, MixerCommand};
+use crate::command::{
+    BeatFxCommand, Command, CrossfaderCurve, DeckCommand, FxTarget, MixerCommand,
+};
+use crate::config::MAX_DECKS;
 use crate::config::{BEAT_FX_SLOTS, BEAT_FX_UNITS, EngineConfig, MAX_SENDERS};
 use crate::deck::{Deck, SyncTarget};
 use crate::dsp::limiter::Limiter;
 use crate::dsp::meter::Meter;
 use crate::dsp::smooth::Smoothed;
 use crate::dsp::soft_clip;
-use crate::config::MAX_DECKS;
 use crate::mixer::{Channel, crossfader_gains, level_gain};
 use crate::rt::{Garbage, RtCtx};
 use crate::sampler::Sampler;
@@ -492,7 +494,10 @@ impl EngineProcessor {
                 }
             }
             Command::BeatFxSlot { unit, slot, cmd } => {
-                if unit < BEAT_FX_UNITS && (1..BEAT_FX_SLOTS).contains(&slot) && !matches!(cmd, BeatFxCommand::SetTarget(_)) {
+                if unit < BEAT_FX_UNITS
+                    && (1..BEAT_FX_SLOTS).contains(&slot)
+                    && !matches!(cmd, BeatFxCommand::SetTarget(_))
+                {
                     self.beat_fx[unit * BEAT_FX_SLOTS + slot].apply(cmd);
                 }
             }
@@ -622,7 +627,9 @@ impl EngineProcessor {
         }
         // Stem FX: the split-off part goes through its unit(s), then back in.
         for i in 0..self.decks.len() {
-            let Some(part) = self.decks[i].part_output(n) else { continue };
+            let Some(part) = self.decks[i].part_output(n) else {
+                continue;
+            };
             for (k, unit) in self.beat_fx.iter_mut().enumerate() {
                 let live = k % BEAT_FX_SLOTS == 0 || self.beat_fx_multi[k / BEAT_FX_SLOTS];
                 if live && matches!(unit.target(), FxTarget::Part(c, _) if c == i) {

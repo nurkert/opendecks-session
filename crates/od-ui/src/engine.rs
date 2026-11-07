@@ -239,15 +239,73 @@ thread_local! {
     /// Window height not available to the content (an in-window menu bar),
     /// learnt while the content fits.
     static CHROME: std::cell::Cell<f32> = const { std::cell::Cell::new(0.0) };
+    /// Open bottom panels of Perform, longest open first.
+    static PANEL_ORDER: std::cell::RefCell<Vec<&'static str>> = const { std::cell::RefCell::new(Vec::new()) };
+}
+
+/// The bottom panels of Perform that are open, in a fixed order.
+fn open_bottom_panels(app: &App) -> Vec<&'static str> {
+    let ui = &app.ui;
+    [("sampler", ui.get_sampler_panel()), ("fx", ui.get_fx_panel()), ("mpl", ui.get_mpl_panel())]
+        .into_iter()
+        .filter(|(_, on)| *on)
+        .map(|(p, _)| p)
+        .collect()
+}
+
+/// Keeps `PANEL_ORDER` in step with the open panels: closed ones leave, newly
+/// opened ones join at the end.
+fn track_panel_order(app: &App) {
+    let open = open_bottom_panels(app);
+    PANEL_ORDER.with(|o| {
+        let mut o = o.borrow_mut();
+        o.retain(|p| open.contains(p));
+        for p in open {
+            if !o.contains(&p) {
+                o.push(p);
+            }
+        }
+    });
+}
+
+/// Closes the bottom panel that has been open longest (never the last one
+/// left) and says so in the status band. False when there is none to close.
+fn close_oldest_panel(app: &App) -> bool {
+    let Some(oldest) = PANEL_ORDER.with(|o| {
+        let o = o.borrow();
+        (o.len() > 1).then(|| o[0])
+    }) else {
+        return false;
+    };
+    let name = match oldest {
+        "sampler" => {
+            sampler::toggle_panel(app);
+            "Sampler"
+        }
+        "fx" => {
+            fx::toggle_panel(app);
+            "Beat FX"
+        }
+        _ => {
+            crate::shell::toggle_panel(app, "mpl");
+            "Mix Point Link"
+        }
+    };
+    app.status(format!("{name} closed: not enough room"));
+    track_panel_order(app);
+    true
 }
 
 /// Perform too short for decks, waveforms and the open bottom panels: steps
 /// `perform-crowd` up (compact decks and mixer, then no waveform zone) one
 /// frame at a time while the content's smallest height exceeds the window,
-/// so the status band stays inside. Starts again from the full layout when
-/// the window, the layout or a panel changes.
+/// so the status band stays inside. When even that is not enough, the bottom
+/// panels take turns: the one open longest closes (with a status hint) until
+/// the rest fits. Starts again from the full layout when the window, the
+/// layout or a panel changes.
 fn perform_crowd(app: &App) {
     let ui = &app.ui;
+    track_panel_order(app);
     let size = ui.window().size();
     let lighting = ui.global::<crate::Lighting>().get_panel();
     let layout = ui.global::<crate::PerformLayout>();
@@ -292,6 +350,8 @@ fn perform_crowd(app: &App) {
         }
     } else if crowd < 2 && overflow > 0.5 {
         ui.set_perform_crowd(crowd + 1);
+    } else if crowd == 2 && overflow > 0.5 {
+        close_oldest_panel(app);
     }
 }
 

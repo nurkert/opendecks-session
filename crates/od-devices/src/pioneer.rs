@@ -36,14 +36,23 @@ pub struct StickPlayerSettings {
 
 impl Default for StickPlayerSettings {
     fn default() -> Self {
-        Self { quantize: true, auto_cue: true, master_tempo: false, tempo_range: "ten".into(), jog_vinyl: true, language: "en".into() }
+        Self {
+            quantize: true,
+            auto_cue: true,
+            master_tempo: false,
+            tempo_range: "ten".into(),
+            jog_vinyl: true,
+            language: "en".into(),
+        }
     }
 }
 
 /// The stored preferences (or the defaults) as `MYSETTING.DAT` values.
 pub fn player_settings(meta: Option<&str>) -> od_format_pioneer::mysetting::PlayerSettings {
     use od_format_pioneer::mysetting::{Language, PlayerSettings, TempoRange};
-    let s: StickPlayerSettings = meta.and_then(|j| serde_json::from_str(j).ok()).unwrap_or_default();
+    let s: StickPlayerSettings = meta
+        .and_then(|j| serde_json::from_str(j).ok())
+        .unwrap_or_default();
     PlayerSettings {
         quantize: s.quantize,
         auto_cue: s.auto_cue,
@@ -55,7 +64,11 @@ pub fn player_settings(meta: Option<&str>) -> od_format_pioneer::mysetting::Play
             _ => TempoRange::Ten,
         },
         jog_vinyl: s.jog_vinyl,
-        language: if s.language.starts_with("de") { Language::German } else { Language::English },
+        language: if s.language.starts_with("de") {
+            Language::German
+        } else {
+            Language::English
+        },
         ..PlayerSettings::default()
     }
 }
@@ -64,7 +77,11 @@ pub fn player_settings(meta: Option<&str>) -> od_format_pioneer::mysetting::Play
 #[derive(Clone, Debug, PartialEq)]
 pub enum Proposal {
     /// A player changed the cues of a track.
-    Cues { track: TrackId, stick: Vec<Cue>, library: Vec<Cue> },
+    Cues {
+        track: TrackId,
+        stick: Vec<Cue>,
+        library: Vec<Cue>,
+    },
     /// A player wrote a history playlist.
     History { name: String, tracks: Vec<TrackId> },
 }
@@ -93,11 +110,17 @@ impl PioneerState {
     }
 
     fn load(root: &Path) -> Self {
-        std::fs::read(Self::file(root)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+        std::fs::read(Self::file(root))
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or_default()
     }
 
     fn save(&self, root: &Path) -> std::io::Result<()> {
-        od_format_native::write_atomic(&Self::file(root), &serde_json::to_vec(self).map_err(std::io::Error::other)?)
+        od_format_native::write_atomic(
+            &Self::file(root),
+            &serde_json::to_vec(self).map_err(std::io::Error::other)?,
+        )
     }
 }
 
@@ -110,11 +133,15 @@ fn stick_file(root: &Path, p: &str) -> PathBuf {
 }
 
 fn ext_path(dat: &str) -> String {
-    dat.strip_suffix(".DAT").map(|s| format!("{s}.EXT")).unwrap_or_else(|| dat.to_string())
+    dat.strip_suffix(".DAT")
+        .map(|s| format!("{s}.EXT"))
+        .unwrap_or_else(|| dat.to_string())
 }
 
 fn ex2_path(dat: &str) -> String {
-    dat.strip_suffix(".DAT").map(|s| format!("{s}.2EX")).unwrap_or_else(|| dat.to_string())
+    dat.strip_suffix(".DAT")
+        .map(|s| format!("{s}.2EX"))
+        .unwrap_or_else(|| dat.to_string())
 }
 
 fn cue_key(c: &Cue) -> (u8, i64, Option<i64>) {
@@ -123,7 +150,11 @@ fn cue_key(c: &Cue) -> (u8, i64, Option<i64>) {
         CueKind::Memory => 255,
     };
     // Millisecond precision, as stored by players.
-    (slot, (c.start * 1000.0).round() as i64, c.loop_end.map(|e| (e * 1000.0).round() as i64))
+    (
+        slot,
+        (c.start * 1000.0).round() as i64,
+        c.loop_end.map(|e| (e * 1000.0).round() as i64),
+    )
 }
 
 fn same_cues(a: &[Cue], b: &[Cue]) -> bool {
@@ -174,7 +205,10 @@ impl PioneerWriter {
                     let key = format!("{}:{:?}", h.name, h.track_ids);
                     if state.seen_history.insert(key) {
                         let tracks = h.track_ids.iter().map(|&id| TrackId(id as i64)).collect();
-                        self.proposals.push(Proposal::History { name: h.name.clone(), tracks });
+                        self.proposals.push(Proposal::History {
+                            name: h.name.clone(),
+                            tracks,
+                        });
                     }
                     history.push(h);
                 }
@@ -185,14 +219,22 @@ impl PioneerWriter {
                 continue;
             }
             let ext = stick_file(ctx.root, &ext_path(&written.dat));
-            let Ok(bytes) = std::fs::read(&ext) else { continue };
+            let Ok(bytes) = std::fs::read(&ext) else {
+                continue;
+            };
             if hash(&bytes) == written.ext_hash {
                 continue;
             }
-            let stick_cues = AnlzFile::parse(&bytes).map(|f| f.cues()).unwrap_or_default();
+            let stick_cues = AnlzFile::parse(&bytes)
+                .map(|f| f.cues())
+                .unwrap_or_default();
             let library = lib.cues(*id).map_err(|e| e.to_string())?;
             if !same_cues(&stick_cues, &library) {
-                self.proposals.push(Proposal::Cues { track: *id, stick: stick_cues, library });
+                self.proposals.push(Proposal::Cues {
+                    track: *id,
+                    stick: stick_cues,
+                    library,
+                });
             }
         }
         for p in &self.proposals {
@@ -232,16 +274,29 @@ impl PioneerWriter {
                     phrase_mood: analysis.phrase_mood,
                     is_mp3_vbr_index: None,
                 });
-                for (path, bytes) in [(dat.clone(), &set.dat), (ext_path(&dat), &set.ext), (ex2_path(&dat), &set.ex2)] {
-                    od_format_native::write_atomic(&stick_file(ctx.root, &path), bytes).map_err(|e| e.to_string())?;
+                for (path, bytes) in [
+                    (dat.clone(), &set.dat),
+                    (ext_path(&dat), &set.ext),
+                    (ex2_path(&dat), &set.ex2),
+                ] {
+                    od_format_native::write_atomic(&stick_file(ctx.root, &path), bytes)
+                        .map_err(|e| e.to_string())?;
                 }
-                new_state_tracks
-                    .insert(id, WrittenTrack { dat: dat.clone(), ext_hash: hash(&set.ext), dat_hash: hash(&set.dat) });
+                new_state_tracks.insert(
+                    id,
+                    WrittenTrack {
+                        dat: dat.clone(),
+                        ext_hash: hash(&set.ext),
+                        dat_hash: hash(&set.dat),
+                    },
+                );
             } else if let Some(p) = previous {
                 new_state_tracks.insert(id, p.clone());
             }
             let r = &t.record;
-            let Some(format) = r.format.filter(|f| f.pioneer_playable()) else { continue };
+            let Some(format) = r.format.filter(|f| f.pioneer_playable()) else {
+                continue;
+            };
             export_tracks.push(ExportTrack {
                 id: id.0 as u32,
                 device_path: t.stick_path.clone(),
@@ -252,7 +307,12 @@ impl PioneerWriter {
                 bits_per_sample: r.bits_per_sample.unwrap_or(16) as u16,
                 file_size: r.file_size,
                 format,
-                bpm: lib.beatgrid(id).ok().flatten().and_then(|g| g.first_bpm()).or(r.bpm),
+                bpm: lib
+                    .beatgrid(id)
+                    .ok()
+                    .flatten()
+                    .and_then(|g| g.first_bpm())
+                    .or(r.bpm),
                 key: r.key,
                 artwork_path: None,
                 anlz_path: dat,
@@ -278,7 +338,10 @@ impl PioneerWriter {
             node_ids.insert(n.id.0, id);
             playlists.push(ExportPlaylist {
                 id,
-                parent_id: n.parent.and_then(|p| node_ids.get(&p.0).copied()).unwrap_or(0),
+                parent_id: n
+                    .parent
+                    .and_then(|p| node_ids.get(&p.0).copied())
+                    .unwrap_or(0),
                 name: n.name.clone(),
                 is_folder: n.kind == NodeKind::Folder,
                 sort_order: n.sort_order.max(0) as u32,
@@ -289,12 +352,27 @@ impl PioneerWriter {
                     .collect(),
             });
         }
-        let today = lib.now().map_err(|e| e.to_string())?.get(..10).unwrap_or_default().to_string();
-        let db = ExportDatabase { tracks: export_tracks, playlists, history, export_date: today };
-        od_format_native::write_atomic(&stick_file(ctx.root, PDB_PATH), &db.to_pdb_bytes()).map_err(|e| e.to_string())?;
+        let today = lib
+            .now()
+            .map_err(|e| e.to_string())?
+            .get(..10)
+            .unwrap_or_default()
+            .to_string();
+        let db = ExportDatabase {
+            tracks: export_tracks,
+            playlists,
+            history,
+            export_date: today,
+        };
+        od_format_native::write_atomic(&stick_file(ctx.root, PDB_PATH), &db.to_pdb_bytes())
+            .map_err(|e| e.to_string())?;
         // 4. Player preferences (`MYSETTING.DAT`) from the library's settings.
         let my = player_settings(lib.meta(MYSETTING_META).ok().flatten().as_deref());
-        od_format_native::write_atomic(&stick_file(ctx.root, MYSETTING_PATH), &od_format_pioneer::mysetting::to_bytes(&my)).map_err(|e| e.to_string())?;
+        od_format_native::write_atomic(
+            &stick_file(ctx.root, MYSETTING_PATH),
+            &od_format_pioneer::mysetting::to_bytes(&my),
+        )
+        .map_err(|e| e.to_string())?;
 
         state.tracks = new_state_tracks;
         state.save(ctx.root).map_err(|e| e.to_string())
@@ -317,7 +395,14 @@ impl FormatWriter for PioneerWriter {
 
 /// Converts stick cues for storing in the library after the user accepted.
 pub fn accepted_cues(stick: &[Cue]) -> Vec<Cue> {
-    stick.iter().cloned().map(|c| Cue { source: DataSource::Manual, ..c }).collect()
+    stick
+        .iter()
+        .cloned()
+        .map(|c| Cue {
+            source: DataSource::Manual,
+            ..c
+        })
+        .collect()
 }
 
 #[cfg(test)]
@@ -328,7 +413,13 @@ mod tests {
     use od_library::{DeviceFormats, Library, NewTrack};
     use std::sync::atomic::AtomicBool;
 
-    fn setup() -> (tempfile::TempDir, Library, PathBuf, TrackId, od_core::DeviceId) {
+    fn setup() -> (
+        tempfile::TempDir,
+        Library,
+        PathBuf,
+        TrackId,
+        od_core::DeviceId,
+    ) {
         let dir = tempfile::tempdir().unwrap();
         let stick = dir.path().join("stick");
         std::fs::create_dir_all(&stick).unwrap();
@@ -346,24 +437,42 @@ mod tests {
                 channels: 2,
                 bit_rate: Some(320),
                 bits_per_sample: None,
-                tags: TrackTags { title: "Night Drive".into(), artist: "Someone".into(), ..Default::default() },
+                tags: TrackTags {
+                    title: "Night Drive".into(),
+                    artist: "Someone".into(),
+                    ..Default::default()
+                },
                 artwork: None,
             })
             .unwrap();
-        lib.set_beatgrid(id, Beatgrid::constant(124.0, 0.05, 1, 240.0)).unwrap();
+        lib.set_beatgrid(id, Beatgrid::constant(124.0, 0.05, 1, 240.0))
+            .unwrap();
         lib.set_cues(id, vec![Cue::hot(0, 16.0)]).unwrap();
         let pl = lib.create_node(None, NodeKind::Playlist, "Gig").unwrap();
         lib.add_to_node(pl, &[id], None).unwrap();
-        let dev = lib.register_device("u", "S", DeviceFormats::default()).unwrap();
+        let dev = lib
+            .register_device("u", "S", DeviceFormats::default())
+            .unwrap();
         lib.set_device_nodes(dev, &[pl]).unwrap();
         (dir, lib, stick, id, dev)
     }
 
     fn sync(lib: &mut Library, dev: od_core::DeviceId, stick: &Path) -> Vec<Proposal> {
-        let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![Box::new(NativeWriter { stems: None }), Box::new(PioneerWriter::default())];
-        sync_device(lib, dev, stick, &mut writers, &SyncOptions::default(), &AtomicBool::new(false), |_| {})
-            .unwrap()
-            .proposals
+        let mut writers: Vec<Box<dyn FormatWriter + Send>> = vec![
+            Box::new(NativeWriter { stems: None }),
+            Box::new(PioneerWriter::default()),
+        ];
+        sync_device(
+            lib,
+            dev,
+            stick,
+            &mut writers,
+            &SyncOptions::default(),
+            &AtomicBool::new(false),
+            |_| {},
+        )
+        .unwrap()
+        .proposals
     }
 
     /// Sync writes `MYSETTING.DAT` from the library's player settings.
@@ -372,14 +481,27 @@ mod tests {
         let (_dir, mut lib, stick, _id, dev) = setup();
         sync(&mut lib, dev, &stick);
         let b = std::fs::read(stick.join(MYSETTING_PATH)).unwrap();
-        assert_eq!(b, od_format_pioneer::mysetting::to_bytes(&player_settings(None)), "defaults without stored settings");
-        let s = StickPlayerSettings { quantize: false, tempo_range: "wide".into(), language: "de".into(), ..Default::default() };
-        lib.set_meta(MYSETTING_META, &serde_json::to_string(&s).unwrap()).unwrap();
+        assert_eq!(
+            b,
+            od_format_pioneer::mysetting::to_bytes(&player_settings(None)),
+            "defaults without stored settings"
+        );
+        let s = StickPlayerSettings {
+            quantize: false,
+            tempo_range: "wide".into(),
+            language: "de".into(),
+            ..Default::default()
+        };
+        lib.set_meta(MYSETTING_META, &serde_json::to_string(&s).unwrap())
+            .unwrap();
         sync(&mut lib, dev, &stick);
         let b = std::fs::read(stick.join(MYSETTING_PATH)).unwrap();
         // Data bytes are 1-based from offset 104: quantize 11, language 13, tempo range 37.
         assert_eq!((b[104 + 10], b[104 + 12], b[104 + 36]), (0x80, 0x83, 0x83));
-        assert_eq!(u16::from_le_bytes([b[144], b[145]]), od_format_pioneer::mysetting::crc16_xmodem(&b[..144]));
+        assert_eq!(
+            u16::from_le_bytes([b[144], b[145]]),
+            od_format_pioneer::mysetting::crc16_xmodem(&b[..144])
+        );
     }
 
     #[test]
@@ -398,7 +520,8 @@ mod tests {
         assert_eq!(AnlzFile::parse(&ext).unwrap().cues().len(), 1);
 
         // Library cue edit: rewritten on the next sync.
-        lib.set_cues(id, vec![Cue::hot(0, 20.0), Cue::hot(1, 40.0)]).unwrap();
+        lib.set_cues(id, vec![Cue::hot(0, 20.0), Cue::hot(1, 40.0)])
+            .unwrap();
         assert!(sync(&mut lib, dev, &stick).is_empty());
         let ext_bytes = std::fs::read(dat.with_extension("EXT")).unwrap();
         assert_eq!(AnlzFile::parse(&ext_bytes).unwrap().cues().len(), 2);
@@ -417,15 +540,23 @@ mod tests {
         std::fs::write(dat.with_extension("EXT"), &player.ext).unwrap();
         lib.set_cues(id, vec![Cue::hot(0, 21.0)]).unwrap();
         let proposals = sync(&mut lib, dev, &stick);
-        assert!(matches!(&proposals[..], [Proposal::Cues { stick, .. }] if stick.len() == 1 && stick[0].kind == CueKind::Hot(2)), "{proposals:?}");
+        assert!(
+            matches!(&proposals[..], [Proposal::Cues { stick, .. }] if stick.len() == 1 && stick[0].kind == CueKind::Hot(2)),
+            "{proposals:?}"
+        );
         // The player's file was kept.
-        assert_eq!(std::fs::read(dat.with_extension("EXT")).unwrap(), player.ext);
+        assert_eq!(
+            std::fs::read(dat.with_extension("EXT")).unwrap(),
+            player.ext
+        );
 
         // The user keeps the library version: release and resync.
         PioneerWriter::release(&stick, id).unwrap();
         lib.set_cues(id, vec![Cue::hot(0, 22.0)]).unwrap();
         assert!(sync(&mut lib, dev, &stick).is_empty());
-        let cues = AnlzFile::parse(&std::fs::read(dat.with_extension("EXT")).unwrap()).unwrap().cues();
+        let cues = AnlzFile::parse(&std::fs::read(dat.with_extension("EXT")).unwrap())
+            .unwrap()
+            .cues();
         assert!((cues[0].start - 22.0).abs() < 0.002);
     }
 

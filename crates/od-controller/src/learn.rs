@@ -115,7 +115,13 @@ impl LearnSession {
         // Single CC: the one with the most messages.
         let (addr, values) = self.seen.iter().max_by_key(|(_, v)| v.len())?;
         let (mode, encoding) = classify_cc(values);
-        Some(LearnedInput { addr: *addr, lsb: None, mode, encoding, samples: values.len() })
+        Some(LearnedInput {
+            addr: *addr,
+            lsb: None,
+            mode,
+            encoding,
+            samples: values.len(),
+        })
     }
 }
 
@@ -127,7 +133,10 @@ fn classify_cc(values: &[u8]) -> (InputMode, Option<RelEncoding>) {
         if values.iter().all(|v| (54..=74).contains(v) && *v != 64) {
             return (InputMode::Relative, Some(RelEncoding::Offset64));
         }
-        if values.iter().all(|v| (1..=10).contains(v) || (118..=127).contains(v)) {
+        if values
+            .iter()
+            .all(|v| (1..=10).contains(v) || (118..=127).contains(v))
+        {
             return (InputMode::Relative, Some(RelEncoding::TwosComplement));
         }
     }
@@ -178,6 +187,9 @@ mod tests {
         for v in [1u8, 1, 127, 2] {
             l.feed(&[0xB6, 0x40, v]);
         }
-        assert_eq!(l.suggest().unwrap().encoding, Some(RelEncoding::TwosComplement));
+        assert_eq!(
+            l.suggest().unwrap().encoding,
+            Some(RelEncoding::TwosComplement)
+        );
     }
 }

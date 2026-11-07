@@ -1,18 +1,20 @@
 //! Mapping tests driven by synthetic MIDI byte streams (SPEC §14).
 
+use od_controller::MidiAddr;
 use od_controller::action::*;
 use od_controller::feedback::*;
 use od_controller::mapping::Mapping;
 use od_controller::monitor::{Direction, MidiMonitor};
 use od_controller::session::ControllerSession;
-use od_controller::MidiAddr;
 use od_core::CueColor;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 fn load(name: &str) -> Arc<Mapping> {
-    let p = od_controller::bundled_mappings_dir().join("pioneer").join(name);
+    let p = od_controller::bundled_mappings_dir()
+        .join("pioneer")
+        .join(name);
     Arc::new(Mapping::load(&p).unwrap_or_else(|e| panic!("{name}: {e}")))
 }
 
@@ -93,10 +95,21 @@ fn every_deck_has_core_controls() {
         let mut s = ControllerSession::new(load(name));
         for d in 1..=decks {
             let ch = d - 1;
-            let a = feed(&mut s, &[[0x90 | ch, 0x0B, 0x7F], [0x90 | ch, 0x0C, 0x7F], [0x90 | ch, 0x58, 0x7F]]);
+            let a = feed(
+                &mut s,
+                &[
+                    [0x90 | ch, 0x0B, 0x7F],
+                    [0x90 | ch, 0x0C, 0x7F],
+                    [0x90 | ch, 0x58, 0x7F],
+                ],
+            );
             assert_eq!(
                 a,
-                vec![deck(d, DeckAction::PlayPause), deck(d, DeckAction::CuePress), deck(d, DeckAction::Sync)],
+                vec![
+                    deck(d, DeckAction::PlayPause),
+                    deck(d, DeckAction::CuePress),
+                    deck(d, DeckAction::Sync)
+                ],
                 "{name} deck {d}"
             );
         }
@@ -108,13 +121,19 @@ fn every_deck_has_core_controls() {
 #[test]
 fn buttons_fire_on_press_only() {
     let mut s = flx4();
-    assert_eq!(feed(&mut s, &[[0x91, 0x0B, 0x7F]]), vec![deck(2, DeckAction::PlayPause)]);
+    assert_eq!(
+        feed(&mut s, &[[0x91, 0x0B, 0x7F]]),
+        vec![deck(2, DeckAction::PlayPause)]
+    );
     assert_eq!(feed(&mut s, &[[0x91, 0x0B, 0x00]]), vec![]);
     assert_eq!(feed(&mut s, &[[0x81, 0x0B, 0x40]]), vec![]);
     // Cue is momentary.
     assert_eq!(
         feed(&mut s, &[[0x90, 0x0C, 0x7F], [0x90, 0x0C, 0x00]]),
-        vec![deck(1, DeckAction::CuePress), deck(1, DeckAction::CueRelease)]
+        vec![
+            deck(1, DeckAction::CuePress),
+            deck(1, DeckAction::CueRelease)
+        ]
     );
 }
 
@@ -206,9 +225,15 @@ fn software_shift_layer() {
             deck(1, DeckAction::Shift(true)),
             deck(1, DeckAction::Reverse),
             deck(2, DeckAction::PlayPause),
-            ControlAction::Browse(BrowseAction::Rotate { delta: -1, shifted: true }),
+            ControlAction::Browse(BrowseAction::Rotate {
+                delta: -1,
+                shifted: true
+            }),
             deck(1, DeckAction::Shift(false)),
-            ControlAction::Browse(BrowseAction::Rotate { delta: 2, shifted: false }),
+            ControlAction::Browse(BrowseAction::Rotate {
+                delta: 2,
+                shifted: false
+            }),
         ]
     );
 }
@@ -218,11 +243,23 @@ fn fourteen_bit_fader_needs_msb_and_lsb() {
     let mut s = flx4();
     assert_eq!(feed(&mut s, &[[0xB1, 0x13, 0x40]]), vec![]); // MSB alone: nothing yet
     let a = feed(&mut s, &[[0xB1, 0x33, 0x00]]);
-    let ControlAction::Mixer { channel: 2, action: MixerAction::Fader(v) } = a[0] else { panic!("{a:?}") };
+    let ControlAction::Mixer {
+        channel: 2,
+        action: MixerAction::Fader(v),
+    } = a[0]
+    else {
+        panic!("{a:?}")
+    };
     assert!((v - 8192.0 / 16383.0).abs() < 1e-6);
     // Full scale.
     let a = feed(&mut s, &[[0xB1, 0x13, 0x7F], [0xB1, 0x33, 0x7F]]);
-    assert_eq!(a, vec![ControlAction::Mixer { channel: 2, action: MixerAction::Fader(1.0) }]);
+    assert_eq!(
+        a,
+        vec![ControlAction::Mixer {
+            channel: 2,
+            action: MixerAction::Fader(1.0)
+        }]
+    );
     // Crossfader on the global channel.
     let a = feed(&mut s, &[[0xB6, 0x1F, 0x00], [0xB6, 0x3F, 0x00]]);
     assert_eq!(a, vec![ControlAction::Crossfader(0.0)]);
@@ -260,12 +297,42 @@ fn jog_relative_values() {
         a,
         vec![
             deck(1, DeckAction::JogTouch(true)),
-            deck(1, DeckAction::JogTurn { ticks: 3, mode: JogMode::Scratch }),
-            deck(1, DeckAction::JogTurn { ticks: -3, mode: JogMode::Scratch }),
+            deck(
+                1,
+                DeckAction::JogTurn {
+                    ticks: 3,
+                    mode: JogMode::Scratch
+                }
+            ),
+            deck(
+                1,
+                DeckAction::JogTurn {
+                    ticks: -3,
+                    mode: JogMode::Scratch
+                }
+            ),
             deck(1, DeckAction::JogTouch(false)),
-            deck(2, DeckAction::JogTurn { ticks: -2, mode: JogMode::Bend }),
-            deck(2, DeckAction::JogTurn { ticks: 1, mode: JogMode::Bend }),
-            deck(1, DeckAction::JogTurn { ticks: 16, mode: JogMode::Search }),
+            deck(
+                2,
+                DeckAction::JogTurn {
+                    ticks: -2,
+                    mode: JogMode::Bend
+                }
+            ),
+            deck(
+                2,
+                DeckAction::JogTurn {
+                    ticks: 1,
+                    mode: JogMode::Bend
+                }
+            ),
+            deck(
+                1,
+                DeckAction::JogTurn {
+                    ticks: 16,
+                    mode: JogMode::Search
+                }
+            ),
         ]
     );
 }
@@ -288,10 +355,26 @@ fn pads_per_mode() {
     assert_eq!(
         a,
         vec![
-            deck(2, DeckAction::HotCue { slot: 2, pressed: true }),
-            deck(2, DeckAction::HotCue { slot: 2, pressed: false }),
+            deck(
+                2,
+                DeckAction::HotCue {
+                    slot: 2,
+                    pressed: true
+                }
+            ),
+            deck(
+                2,
+                DeckAction::HotCue {
+                    slot: 2,
+                    pressed: false
+                }
+            ),
             deck(1, DeckAction::BeatJump { beats: 4.0 }),
-            ControlAction::Sampler(SamplerAction::Pad { slot: 1, pressed: true, velocity: 100 }),
+            ControlAction::Sampler(SamplerAction::Pad {
+                slot: 1,
+                pressed: true,
+                velocity: 100
+            }),
             ControlAction::Sampler(SamplerAction::Stop { slot: 1 }),
             deck(1, DeckAction::AutoLoop { beats: 4.0 }),
             deck(1, DeckAction::PadMode(PadMode::BeatJump)),
@@ -302,12 +385,26 @@ fn pads_per_mode() {
 #[test]
 fn browser_and_load() {
     let mut s = flx4();
-    let a = feed(&mut s, &[[0xB6, 0x40, 0x01], [0xB6, 0x40, 0x7E], [0x96, 0x47, 0x7F], [0x96, 0x41, 0x7F]]);
+    let a = feed(
+        &mut s,
+        &[
+            [0xB6, 0x40, 0x01],
+            [0xB6, 0x40, 0x7E],
+            [0x96, 0x47, 0x7F],
+            [0x96, 0x41, 0x7F],
+        ],
+    );
     assert_eq!(
         a,
         vec![
-            ControlAction::Browse(BrowseAction::Rotate { delta: 1, shifted: false }),
-            ControlAction::Browse(BrowseAction::Rotate { delta: -2, shifted: false }),
+            ControlAction::Browse(BrowseAction::Rotate {
+                delta: 1,
+                shifted: false
+            }),
+            ControlAction::Browse(BrowseAction::Rotate {
+                delta: -2,
+                shifted: false
+            }),
             deck(2, DeckAction::Load),
             ControlAction::Browse(BrowseAction::Press { shifted: false }),
         ]
@@ -339,9 +436,18 @@ fn flx10_deck_3_and_4_layers() {
             deck(3, DeckAction::DeckSelect),
             deck(3, DeckAction::PlayPause),
             deck(4, DeckAction::DeckSelect),
-            deck(4, DeckAction::HotCue { slot: 2, pressed: true }),
+            deck(
+                4,
+                DeckAction::HotCue {
+                    slot: 2,
+                    pressed: true
+                }
+            ),
             deck(4, DeckAction::HotCueDelete { slot: 5 }),
-            ControlAction::Mixer { channel: 3, action: MixerAction::EqHigh(2048.0 / 16383.0) },
+            ControlAction::Mixer {
+                channel: 3,
+                action: MixerAction::EqHigh(2048.0 / 16383.0)
+            },
             deck(3, DeckAction::Load),
             deck(1, DeckAction::DeckSelect),
         ]
@@ -353,14 +459,31 @@ fn flx10_deck_3_and_4_layers() {
 #[test]
 fn flx10_colour_fx_and_beat_fx() {
     let mut s = flx10();
-    let a = feed(&mut s, &[[0x96, 0x03, 0x7F], [0x94, 0x24, 0x7F], [0x94, 0x14, 0x7F], [0x94, 0x11, 0x7F]]);
+    let a = feed(
+        &mut s,
+        &[
+            [0x96, 0x03, 0x7F],
+            [0x94, 0x24, 0x7F],
+            [0x94, 0x14, 0x7F],
+            [0x94, 0x11, 0x7F],
+        ],
+    );
     assert_eq!(
         a,
         vec![
             ControlAction::ColorFx(ColorFxAction::Select("noise".into())),
-            ControlAction::BeatFx { unit: 1, action: BeatFxAction::Select("reverb".into()) },
-            ControlAction::BeatFx { unit: 1, action: BeatFxAction::Assign(0) },
-            ControlAction::BeatFx { unit: 1, action: BeatFxAction::Assign(2) },
+            ControlAction::BeatFx {
+                unit: 1,
+                action: BeatFxAction::Select("reverb".into())
+            },
+            ControlAction::BeatFx {
+                unit: 1,
+                action: BeatFxAction::Assign(0)
+            },
+            ControlAction::BeatFx {
+                unit: 1,
+                action: BeatFxAction::Assign(2)
+            },
         ]
     );
 }
@@ -379,7 +502,10 @@ fn ignored_controls_produce_ignored() {
 #[test]
 fn soft_takeover_on_knob() {
     let mut s = flx4();
-    s.feedback(&ControlFeedback::Parameter { target: ParamTarget::EqHigh { channel: 1 }, value: 0.5 });
+    s.feedback(&ControlFeedback::Parameter {
+        target: ParamTarget::EqHigh { channel: 1 },
+        value: 0.5,
+    });
     let p = s.handle_midi(&[0xB0, 0x07, 0x0C]);
     assert!(p.actions.is_empty());
     let p = s.handle_midi(&[0xB0, 0x27, 0x00]); // 0.09: far away → held
@@ -391,8 +517,14 @@ fn soft_takeover_on_knob() {
     assert_eq!(a.len(), 1);
     assert!(s.is_caught(ParamTarget::EqHigh { channel: 1 }));
     // Crossfader has takeover disabled in the mapping.
-    s.feedback(&ControlFeedback::Parameter { target: ParamTarget::Crossfader, value: 0.5 });
-    assert_eq!(feed(&mut s, &[[0xB6, 0x1F, 0x00], [0xB6, 0x3F, 0x00]]).len(), 1);
+    s.feedback(&ControlFeedback::Parameter {
+        target: ParamTarget::Crossfader,
+        value: 0.5,
+    });
+    assert_eq!(
+        feed(&mut s, &[[0xB6, 0x1F, 0x00], [0xB6, 0x3F, 0x00]]).len(),
+        1
+    );
 }
 
 #[test]
@@ -403,7 +535,10 @@ fn flx10_tempo_pickup_after_layer_switch() {
     assert_eq!(a.len(), 1);
     // Engine says deck 3 runs at 0 %; switching the left side to deck 3 makes
     // the same physical fader address deck 3.
-    s.feedback(&ControlFeedback::Parameter { target: ParamTarget::Tempo { deck: 3 }, value: 0.0 });
+    s.feedback(&ControlFeedback::Parameter {
+        target: ParamTarget::Tempo { deck: 3 },
+        value: 0.0,
+    });
     feed(&mut s, &[[0x92, 0x72, 0x7F]]);
     let a = feed(&mut s, &[[0xB2, 0x00, 0x11], [0xB2, 0x20, 0x00]]);
     assert!(a.is_empty(), "far from engine value must not jump: {a:?}");
@@ -464,7 +599,10 @@ fn software_deck_layers_redirect_inputs_and_outputs() {
     let t0 = Instant::now();
     s.connect_messages();
     s.poll_output(t0);
-    assert_eq!(feed(&mut s, &[[0x90, 0x01, 0x7F]]), vec![deck(1, DeckAction::PlayPause)]);
+    assert_eq!(
+        feed(&mut s, &[[0x90, 0x01, 0x7F]]),
+        vec![deck(1, DeckAction::PlayPause)]
+    );
 
     // Deck 3 plays while hidden: nothing is sent.
     s.feedback(&ControlFeedback::deck_led(3, DeckElement::Play, true));
@@ -472,14 +610,26 @@ fn software_deck_layers_redirect_inputs_and_outputs() {
 
     feed(&mut s, &[[0x90, 0x30, 0x7F]]);
     assert_eq!(s.active_deck(1), Some(3));
-    assert_eq!(feed(&mut s, &[[0x90, 0x01, 0x7F]]), vec![deck(3, DeckAction::PlayPause)]);
+    assert_eq!(
+        feed(&mut s, &[[0x90, 0x01, 0x7F]]),
+        vec![deck(3, DeckAction::PlayPause)]
+    );
     // Switching shows deck 3's state.
-    assert_eq!(s.poll_output(t0 + Duration::from_millis(20)), vec![vec![0x90, 0x01, 0x7F]]);
+    assert_eq!(
+        s.poll_output(t0 + Duration::from_millis(20)),
+        vec![vec![0x90, 0x01, 0x7F]]
+    );
     // And back to deck 1 (off).
     feed(&mut s, &[[0x90, 0x31, 0x7F]]);
-    assert_eq!(s.poll_output(t0 + Duration::from_millis(30)), vec![vec![0x90, 0x01, 0x00]]);
+    assert_eq!(
+        s.poll_output(t0 + Duration::from_millis(30)),
+        vec![vec![0x90, 0x01, 0x00]]
+    );
     // Right side untouched.
-    assert_eq!(feed(&mut s, &[[0x91, 0x01, 0x7F]]), vec![deck(2, DeckAction::PlayPause)]);
+    assert_eq!(
+        feed(&mut s, &[[0x91, 0x01, 0x7F]]),
+        vec![deck(2, DeckAction::PlayPause)]
+    );
 }
 
 #[test]
@@ -487,12 +637,18 @@ fn software_layer_switch_requires_pickup() {
     let m = Arc::new(Mapping::from_toml_str(SOFT_LAYERS).unwrap());
     let mut s = ControllerSession::new(m);
     assert_eq!(feed(&mut s, &[[0xB0, 0x05, 0x7F]]).len(), 1); // trim ch1 = 1.0
-    s.feedback(&ControlFeedback::Parameter { target: ParamTarget::Trim { channel: 3 }, value: 0.2 });
+    s.feedback(&ControlFeedback::Parameter {
+        target: ParamTarget::Trim { channel: 3 },
+        value: 0.2,
+    });
     feed(&mut s, &[[0x90, 0x30, 0x7F]]);
     assert!(feed(&mut s, &[[0xB0, 0x05, 0x7E]]).is_empty());
     assert_eq!(
         feed(&mut s, &[[0xB0, 0x05, 0x1A]]),
-        vec![ControlAction::Mixer { channel: 3, action: MixerAction::Trim(26.0 / 127.0) }]
+        vec![ControlAction::Mixer {
+            channel: 3,
+            action: MixerAction::Trim(26.0 / 127.0)
+        }]
     );
 }
 
@@ -530,7 +686,14 @@ fn feedback_is_diffed() {
     s.feedback(&ControlFeedback::deck_led(2, DeckElement::LoopActive, true));
     let mut out = s.poll_output(t(6));
     out.sort();
-    assert_eq!(out, vec![vec![0x91, 0x4D, 0x7F], vec![0x91, 0x50, 0x7F], vec![0x9F, 0x05, 0x7F]]);
+    assert_eq!(
+        out,
+        vec![
+            vec![0x91, 0x4D, 0x7F],
+            vec![0x91, 0x50, 0x7F],
+            vec![0x9F, 0x05, 0x7F]
+        ]
+    );
     // ResendAll repeats current state.
     s.feedback(&ControlFeedback::ResendAll);
     assert_eq!(s.poll_output(t(7)).len(), addrs.len());
@@ -546,7 +709,10 @@ fn meters_are_rate_limited() {
     s.feedback(&ControlFeedback::channel_vu(1, 0.5));
     assert_eq!(s.poll_output(t(100)), vec![vec![0xB0, 0x02, 64]]);
     s.feedback(&ControlFeedback::channel_vu(1, 0.8));
-    assert!(s.poll_output(t(110)).is_empty(), "within 33 ms of last meter message");
+    assert!(
+        s.poll_output(t(110)).is_empty(),
+        "within 33 ms of last meter message"
+    );
     s.feedback(&ControlFeedback::channel_vu(1, 1.0));
     assert!(s.poll_output(t(120)).is_empty());
     // After the interval only the latest value goes out.
@@ -565,7 +731,10 @@ fn software_blink() {
     s.poll_output(t0);
     let t = |ms| t0 + Duration::from_millis(ms);
     s.feedback(&ControlFeedback::led_state(
-        FeedbackTarget::Deck { deck: 1, element: DeckElement::Sync },
+        FeedbackTarget::Deck {
+            deck: 1,
+            element: DeckElement::Sync,
+        },
         LedState::Blink,
     ));
     assert_eq!(leds(s.poll_output(t(10))), vec![vec![0x90, 0x58, 0x7F]]);
@@ -580,15 +749,32 @@ fn flx10_pad_colours_use_palette() {
     let t0 = Instant::now();
     s.connect_messages();
     let first = s.poll_output(t0);
-    assert_eq!(first.len(), s.mapping().options().max_messages_per_poll, "budget applies");
+    assert_eq!(
+        first.len(),
+        s.mapping().options().max_messages_per_poll,
+        "budget applies"
+    );
     drain(&mut s, t0);
-    s.feedback(&ControlFeedback::pad_color(3, PadMode::HotCue, 2, Some(CueColor::rgb(10, 240, 20))));
-    s.feedback(&ControlFeedback::pad_color(4, PadMode::HotCue, 0, Some(CueColor::rgb(250, 0, 5))));
+    s.feedback(&ControlFeedback::pad_color(
+        3,
+        PadMode::HotCue,
+        2,
+        Some(CueColor::rgb(10, 240, 20)),
+    ));
+    s.feedback(&ControlFeedback::pad_color(
+        4,
+        PadMode::HotCue,
+        0,
+        Some(CueColor::rgb(250, 0, 5)),
+    ));
     let mut out = s.poll_output(t0 + Duration::from_millis(5));
     out.sort();
     assert_eq!(out, vec![vec![0x9B, 0x02, 0x14], vec![0x9D, 0x00, 0x01]]);
     s.feedback(&ControlFeedback::pad_color(3, PadMode::HotCue, 2, None));
-    assert_eq!(s.poll_output(t0 + Duration::from_millis(6)), vec![vec![0x9B, 0x02, 0x00]]);
+    assert_eq!(
+        s.poll_output(t0 + Duration::from_millis(6)),
+        vec![vec![0x9B, 0x02, 0x00]]
+    );
 }
 
 #[test]
@@ -615,7 +801,10 @@ fn monitor_shows_decoded_hits() {
     let evs: Vec<_> = rx.try_iter().collect();
     assert_eq!(evs.len(), 3);
     let text = evs[0].to_string();
-    assert!(text.contains("PlayPause") && text.contains("Play/Pause (deck 3)"), "{text}");
+    assert!(
+        text.contains("PlayPause") && text.contains("Play/Pause (deck 3)"),
+        "{text}"
+    );
     assert!(evs[1].to_string().contains("(unmapped)"));
     assert!(evs[2].to_string().contains("[unverified]"));
     assert_eq!(mon.snapshot().len(), 2); // bounded log

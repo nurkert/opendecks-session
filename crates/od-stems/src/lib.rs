@@ -129,7 +129,9 @@ pub enum Error {
     Model(String),
     #[error("cancelled")]
     Cancelled,
-    #[error("stem separation is not available on this platform; stems separated on another computer still play")]
+    #[error(
+        "stem separation is not available on this platform; stems separated on another computer still play"
+    )]
     Unsupported,
 }
 
@@ -157,8 +159,14 @@ pub fn load_mix(
     auto_gain_db: f32,
 ) -> Result<(Arc<TrackData>, MixShape), Error> {
     let audio = od_decode::decode(path, od_decode::Layout::Stereo)?;
-    let shape = MixShape { sample_rate: audio.sample_rate, frames: audio.frames() };
-    Ok((TrackData::new_with_stems(id, audio, engine_rate, beatgrid, cues, auto_gain_db, None), shape))
+    let shape = MixShape {
+        sample_rate: audio.sample_rate,
+        frames: audio.frames(),
+    };
+    Ok((
+        TrackData::new_with_stems(id, audio, engine_rate, beatgrid, cues, auto_gain_db, None),
+        shape,
+    ))
 }
 
 /// Rate and length of a decoded mix ([`load_mix`]).
@@ -170,7 +178,12 @@ pub struct MixShape {
 
 /// The second step of a load: `track` with the cached stems of `hash`
 /// attached, if the cache has stems matching the mix.
-pub fn attach_cached_stems(cache: &StemCache, track: &TrackData, hash: &ContentHash, shape: MixShape) -> Option<Arc<TrackData>> {
+pub fn attach_cached_stems(
+    cache: &StemCache,
+    track: &TrackData,
+    hash: &ContentHash,
+    shape: MixShape,
+) -> Option<Arc<TrackData>> {
     let stems = match cache.load(hash) {
         Ok(s) => s?,
         Err(e) => {
@@ -178,7 +191,8 @@ pub fn attach_cached_stems(cache: &StemCache, track: &TrackData, hash: &ContentH
             return None;
         }
     };
-    let ok = stems.sample_rate == shape.sample_rate && (stems.vocals.len() as i64 - shape.frames as i64 * 2).abs() <= 2 * 64;
+    let ok = stems.sample_rate == shape.sample_rate
+        && (stems.vocals.len() as i64 - shape.frames as i64 * 2).abs() <= 2 * 64;
     if !ok {
         tracing::warn!("stem cache does not match the audio; ignored");
         return None;
@@ -209,7 +223,10 @@ pub fn load_track_data(
         let ok = s.sample_rate == audio.sample_rate
             && (s.vocals.len() as i64 - audio.frames() as i64 * 2).abs() <= 2 * 64;
         if !ok {
-            tracing::warn!("stem cache of {} does not match the audio; ignored", path.display());
+            tracing::warn!(
+                "stem cache of {} does not match the audio; ignored",
+                path.display()
+            );
         }
         ok
     });

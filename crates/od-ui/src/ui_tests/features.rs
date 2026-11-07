@@ -335,8 +335,12 @@ fn deck_header_readouts() {
     perform(&ui);
     let (id, title) = ui.fx.tracks[0].clone();
     ui.double_click_el(&row(&ui, &title));
-    assert!(ui.wait_until(30.0, |u| deck_title(u, 1) == title
-        && super::flows::deck_views(u).first().is_some_and(|d| d.loaded)));
+    assert!(ui.wait_until(30.0, |u| {
+        deck_title(u, 1) == title
+            && super::flows::deck_views(u)
+                .first()
+                .is_some_and(|d| d.loaded)
+    }));
     assert_eq!(ui.value("deck1.artist"), "Test Artist");
     assert!(
         ui.value("deck1.time-remaining").contains(':'),

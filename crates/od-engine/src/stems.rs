@@ -93,7 +93,11 @@ impl StemData {
             let d = s.spawn(move || rs(&input.drums, from, to));
             let b = s.spawn(move || rs(&input.bass, from, to));
             let v = rs(&input.vocals, from, to);
-            [v, d.join().expect("resampler thread"), b.join().expect("resampler thread")]
+            [
+                v,
+                d.join().expect("resampler thread"),
+                b.join().expect("resampler thread"),
+            ]
         });
         let frames = parts.iter().map(|p| p.len() / 2).max().unwrap_or(0);
         let mut scale = [0f32; 3];
@@ -107,7 +111,11 @@ impl StemData {
                 data[f * 6 + s * 2 + 1] = (pair[1] * inv).round().clamp(-32767.0, 32767.0) as i16;
             }
         }
-        Self { frames, scale, data }
+        Self {
+            frames,
+            scale,
+            data,
+        }
     }
 
     pub fn frames(&self) -> usize {
@@ -186,7 +194,11 @@ impl StemData {
     #[inline(always)]
     fn weighted(&self, i: usize, c: &[f32; 4]) -> (f32, f32) {
         let f = &self.data[i * 6..i * 6 + 6];
-        let (a, b, d) = (c[1] * self.scale[0], c[2] * self.scale[1], c[3] * self.scale[2]);
+        let (a, b, d) = (
+            c[1] * self.scale[0],
+            c[2] * self.scale[1],
+            c[3] * self.scale[2],
+        );
         (
             a * f[0] as f32 + b * f[2] as f32 + d * f[4] as f32,
             a * f[1] as f32 + b * f[3] as f32 + d * f[5] as f32,
@@ -221,7 +233,11 @@ impl StemRamp {
     pub fn tick(&mut self, target: &[f32; 4]) {
         for k in 0..4 {
             let d = target[k] - self.level[k];
-            self.level[k] = if d.abs() <= self.step { target[k] } else { self.level[k] + self.step.copysign(d) };
+            self.level[k] = if d.abs() <= self.step {
+                target[k]
+            } else {
+                self.level[k] + self.step.copysign(d)
+            };
         }
     }
 

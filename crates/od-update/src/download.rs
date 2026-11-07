@@ -50,13 +50,28 @@ pub fn download_verified(
     let got = sha256_file(&part)?;
     if got != sha256 {
         let _ = std::fs::remove_file(&part);
-        return Err(Error::Checksum { file: dest.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default(), expected: sha256.to_string(), got });
+        return Err(Error::Checksum {
+            file: dest
+                .file_name()
+                .map(|n| n.to_string_lossy().into_owned())
+                .unwrap_or_default(),
+            expected: sha256.to_string(),
+            got,
+        });
     }
     std::fs::rename(&part, dest)?;
     Ok(())
 }
 
-fn fetch(http: &dyn Http, url: &str, part: &Path, have: u64, size: Option<u64>, progress: &mut dyn FnMut(u64, Option<u64>), cancel: &AtomicBool) -> Result<(), Error> {
+fn fetch(
+    http: &dyn Http,
+    url: &str,
+    part: &Path,
+    have: u64,
+    size: Option<u64>,
+    progress: &mut dyn FnMut(u64, Option<u64>),
+    cancel: &AtomicBool,
+) -> Result<(), Error> {
     let resp = http.get(url, (have > 0).then_some(have))?;
     let (append, mut done) = match resp.status {
         206 if have > 0 => (true, have),
@@ -69,7 +84,12 @@ fn fetch(http: &dyn Http, url: &str, part: &Path, have: u64, size: Option<u64>, 
         s => return Err(Error::Status(s, url.to_string())),
     };
     let total = size.or(resp.content_length.map(|n| n + done));
-    let file = std::fs::OpenOptions::new().create(true).write(true).append(append).truncate(!append).open(part)?;
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .write(true)
+        .append(append)
+        .truncate(!append)
+        .open(part)?;
     let mut file = std::io::BufWriter::new(file);
     let mut body = resp.body;
     let mut buf = vec![0u8; 1 << 16];
@@ -96,7 +116,9 @@ fn fetch(http: &dyn Http, url: &str, part: &Path, have: u64, size: Option<u64>, 
     }
     file.into_inner().map_err(|e| e.into_error())?.sync_all()?;
     if let Some(t) = total.filter(|t| done < *t) {
-        return Err(Error::Network(format!("connection ended after {done} of {t} bytes")));
+        return Err(Error::Network(format!(
+            "connection ended after {done} of {t} bytes"
+        )));
     }
     Ok(())
 }
@@ -120,14 +142,35 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join("a.dmg");
         let mut seen = Vec::new();
-        download_verified(&http, URL, &dest, Some(data.len() as u64), &sha256_bytes(&data), &mut |d, t| seen.push((d, t)), &AtomicBool::new(false)).unwrap();
+        download_verified(
+            &http,
+            URL,
+            &dest,
+            Some(data.len() as u64),
+            &sha256_bytes(&data),
+            &mut |d, t| seen.push((d, t)),
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert_eq!(std::fs::read(&dest).unwrap(), data);
         assert!(!part_path(&dest).exists());
-        assert_eq!(seen.last().unwrap(), &(data.len() as u64, Some(data.len() as u64)));
+        assert_eq!(
+            seen.last().unwrap(),
+            &(data.len() as u64, Some(data.len() as u64))
+        );
         assert!(seen.windows(2).all(|w| w[0].0 <= w[1].0));
         // A second call finds the verified file and makes no request.
         let before = http.requests.lock().unwrap().len();
-        download_verified(&http, URL, &dest, None, &sha256_bytes(&data), &mut |_, _| {}, &AtomicBool::new(false)).unwrap();
+        download_verified(
+            &http,
+            URL,
+            &dest,
+            None,
+            &sha256_bytes(&data),
+            &mut |_, _| {},
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert_eq!(http.requests.lock().unwrap().len(), before);
     }
 
@@ -140,14 +183,35 @@ mod tests {
         let dest = dir.path().join("a.dmg");
         let sum = sha256_bytes(&data);
         let size = Some(data.len() as u64);
-        let e = download_verified(&http, URL, &dest, size, &sum, &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
+        let e = download_verified(
+            &http,
+            URL,
+            &dest,
+            size,
+            &sum,
+            &mut |_, _| {},
+            &AtomicBool::new(false),
+        )
+        .unwrap_err();
         assert!(matches!(e, Error::Network(_)), "{e}");
         assert_eq!(std::fs::metadata(part_path(&dest)).unwrap().len(), 100_000);
         assert!(!dest.exists());
-        download_verified(&http, URL, &dest, size, &sum, &mut |_, _| {}, &AtomicBool::new(false)).unwrap();
+        download_verified(
+            &http,
+            URL,
+            &dest,
+            size,
+            &sum,
+            &mut |_, _| {},
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert_eq!(std::fs::read(&dest).unwrap(), data);
         let reqs = http.requests.lock().unwrap().clone();
-        assert_eq!(reqs, vec![(URL.to_string(), None), (URL.to_string(), Some(100_000))]);
+        assert_eq!(
+            reqs,
+            vec![(URL.to_string(), None), (URL.to_string(), Some(100_000))]
+        );
     }
 
     #[test]
@@ -158,7 +222,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join("a.dmg");
         std::fs::write(part_path(&dest), &data[..5000]).unwrap();
-        download_verified(&http, URL, &dest, Some(data.len() as u64), &sha256_bytes(&data), &mut |_, _| {}, &AtomicBool::new(false)).unwrap();
+        download_verified(
+            &http,
+            URL,
+            &dest,
+            Some(data.len() as u64),
+            &sha256_bytes(&data),
+            &mut |_, _| {},
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert_eq!(std::fs::read(&dest).unwrap(), data);
     }
 
@@ -169,7 +242,16 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join("a.dmg");
         std::fs::write(part_path(&dest), &data).unwrap();
-        download_verified(&http, URL, &dest, Some(data.len() as u64), &sha256_bytes(&data), &mut |_, _| {}, &AtomicBool::new(false)).unwrap();
+        download_verified(
+            &http,
+            URL,
+            &dest,
+            Some(data.len() as u64),
+            &sha256_bytes(&data),
+            &mut |_, _| {},
+            &AtomicBool::new(false),
+        )
+        .unwrap();
         assert!(http.requests.lock().unwrap().is_empty());
         assert_eq!(std::fs::read(&dest).unwrap(), data);
     }
@@ -180,7 +262,16 @@ mod tests {
         let http = MockHttp::default().with(URL, data.clone());
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join("a.dmg");
-        let e = download_verified(&http, URL, &dest, None, &sha256_bytes(b"other"), &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
+        let e = download_verified(
+            &http,
+            URL,
+            &dest,
+            None,
+            &sha256_bytes(b"other"),
+            &mut |_, _| {},
+            &AtomicBool::new(false),
+        )
+        .unwrap_err();
         assert!(matches!(e, Error::Checksum { .. }), "{e}");
         assert!(!dest.exists() && !part_path(&dest).exists());
     }
@@ -191,7 +282,16 @@ mod tests {
         let http = MockHttp::default().with(URL, data.clone());
         let dir = tempfile::tempdir().unwrap();
         let dest = dir.path().join("a.dmg");
-        let e = download_verified(&http, URL, &dest, None, &sha256_bytes(&data), &mut |_, _| {}, &AtomicBool::new(true)).unwrap_err();
+        let e = download_verified(
+            &http,
+            URL,
+            &dest,
+            None,
+            &sha256_bytes(&data),
+            &mut |_, _| {},
+            &AtomicBool::new(true),
+        )
+        .unwrap_err();
         assert!(matches!(e, Error::Cancelled));
         assert!(part_path(&dest).exists() && !dest.exists());
     }
@@ -200,7 +300,16 @@ mod tests {
     fn http_errors_are_reported() {
         let http = MockHttp::default();
         let dir = tempfile::tempdir().unwrap();
-        let e = download_verified(&http, URL, &dir.path().join("x"), None, "00", &mut |_, _| {}, &AtomicBool::new(false)).unwrap_err();
+        let e = download_verified(
+            &http,
+            URL,
+            &dir.path().join("x"),
+            None,
+            "00",
+            &mut |_, _| {},
+            &AtomicBool::new(false),
+        )
+        .unwrap_err();
         assert!(matches!(e, Error::Status(404, _)));
     }
 }

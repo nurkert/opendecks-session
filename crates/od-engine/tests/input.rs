@@ -48,8 +48,16 @@ fn mono_input_reaches_master_and_cue_at_its_level() {
         out = rig.render(1);
     }
     // Mono duplicated to both sides at unity gain.
-    assert!(out.iter().all(|&v| (v - 0.5).abs() < 1e-6), "{:?}", &out[..4]);
-    assert!(rig.phones[..BLOCK * 2].iter().all(|&v| (v - 0.5).abs() < 1e-3));
+    assert!(
+        out.iter().all(|&v| (v - 0.5).abs() < 1e-6),
+        "{:?}",
+        &out[..4]
+    );
+    assert!(
+        rig.phones[..BLOCK * 2]
+            .iter()
+            .all(|&v| (v - 0.5).abs() < 1e-3)
+    );
     assert!(rig.state().input.meter.peak > 0.4);
 }
 
@@ -76,7 +84,10 @@ fn talkover_ducks_the_music_while_the_mic_is_live() {
         tx.push(0.0).unwrap();
     }
     let quiet = rms(&rig.render(20));
-    assert!((quiet - music).abs() / music < 0.05, "no ducking without voice: {quiet} vs {music}");
+    assert!(
+        (quiet - music).abs() / music < 0.05,
+        "no ducking without voice: {quiet} vs {music}"
+    );
     assert!(!rig.state().input.ducking);
 
     // Voice: an alternating ±0.1 signal (cancels in the RMS of the sum

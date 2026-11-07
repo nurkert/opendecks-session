@@ -13,7 +13,10 @@ pub(crate) fn pdb_path(root: &Path) -> PathBuf {
 /// Maps a stick-relative path (`/Contents/…`) to the mounted file system.
 pub(crate) fn on_stick(root: &Path, device_path: &str) -> PathBuf {
     let mut p = root.to_path_buf();
-    for part in device_path.split(['/', '\\']).filter(|s| !s.is_empty() && *s != "." && *s != "..") {
+    for part in device_path
+        .split(['/', '\\'])
+        .filter(|s| !s.is_empty() && *s != "." && *s != "..")
+    {
         p.push(part);
     }
     p
@@ -40,9 +43,16 @@ pub(crate) fn read(root: &Path) -> Result<SrcLibrary> {
             bpm: t.bpm.filter(|b| *b > 0.0),
             key: t.key,
             db_cues: None,
-            anlz: if t.anlz_path.is_empty() { Vec::new() } else { anlz_family(on_stick(root, &t.anlz_path)) },
+            anlz: if t.anlz_path.is_empty() {
+                Vec::new()
+            } else {
+                anlz_family(on_stick(root, &t.anlz_path))
+            },
             artwork: t.artwork_path.as_deref().map(|p| on_stick(root, p)),
-            smart: SmartFields { play_count: t.play_count as i64, ..Default::default() },
+            smart: SmartFields {
+                play_count: t.play_count as i64,
+                ..Default::default()
+            },
         });
     }
     for p in db.playlists {

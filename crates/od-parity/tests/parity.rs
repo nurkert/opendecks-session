@@ -45,6 +45,10 @@ fn feature_set_complete() {
     let text = check::render(&report, strict);
     println!("{text}");
     if strict {
-        assert_eq!(report.gap_count(), 0, "parity gaps remain (OD_PARITY_STRICT=1)");
+        assert_eq!(
+            report.gap_count(),
+            0,
+            "parity gaps remain (OD_PARITY_STRICT=1)"
+        );
     }
 }

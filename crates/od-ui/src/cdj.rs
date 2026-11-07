@@ -332,7 +332,17 @@ fn deck(app: &App, d: i32, cmd: DeckCommand) {
 /// Beat of the bar at each deck's playhead (index deck - 1), as the
 /// beat-position indicator shows it: 1..4, 0 for a deck without beatgrid.
 pub(crate) fn beats_in_bar(state: &EngineState) -> Vec<i32> {
-    state.decks.iter().map(|d| if d.track.is_some() { d.beat_in_bar as i32 } else { 0 }).collect()
+    state
+        .decks
+        .iter()
+        .map(|d| {
+            if d.track.is_some() {
+                d.beat_in_bar as i32
+            } else {
+                0
+            }
+        })
+        .collect()
 }
 
 /// Per engine frame while CDJ mode is on: advances the checklist and the
@@ -443,7 +453,10 @@ mod tests {
     #[test]
     fn beat_position_follows_the_grid() {
         let mut s = EngineState::default();
-        s.decks[0] = DeckState { beat_in_bar: 3, ..loaded(1) };
+        s.decks[0] = DeckState {
+            beat_in_bar: 3,
+            ..loaded(1)
+        };
         // Deck 2 empty; a stale beat without a track shows nothing.
         s.decks[1].beat_in_bar = 2;
         let b = beats_in_bar(&s);

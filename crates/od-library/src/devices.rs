@@ -18,7 +18,10 @@ pub struct DeviceFormats {
 
 impl Default for DeviceFormats {
     fn default() -> Self {
-        Self { pioneer: true, opendecks: true }
+        Self {
+            pioneer: true,
+            opendecks: true,
+        }
     }
 }
 
@@ -73,7 +76,12 @@ const DEVICE_COLUMNS: &str = "id, volume_uuid, name, formats, synced_seq, last_s
 impl Library {
     /// Registers a device. Returns the existing device if the volume is
     /// already known.
-    pub fn register_device(&mut self, volume_uuid: &str, name: &str, formats: DeviceFormats) -> Result<DeviceId> {
+    pub fn register_device(
+        &mut self,
+        volume_uuid: &str,
+        name: &str,
+        formats: DeviceFormats,
+    ) -> Result<DeviceId> {
         if let Some(d) = self.device_by_uuid(volume_uuid)? {
             return Ok(d.id);
         }
@@ -85,13 +93,21 @@ impl Library {
     }
 
     pub fn devices(&self) -> Result<Vec<Device>> {
-        let mut stmt = self.conn.prepare(&format!("SELECT {DEVICE_COLUMNS} FROM device ORDER BY name, id"))?;
-        Ok(stmt.query_map([], device_from_row)?.collect::<rusqlite::Result<_>>()?)
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT {DEVICE_COLUMNS} FROM device ORDER BY name, id"
+        ))?;
+        Ok(stmt
+            .query_map([], device_from_row)?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     pub fn device(&self, id: DeviceId) -> Result<Device> {
         self.conn
-            .query_row(&format!("SELECT {DEVICE_COLUMNS} FROM device WHERE id = ?1"), [id.0], device_from_row)
+            .query_row(
+                &format!("SELECT {DEVICE_COLUMNS} FROM device WHERE id = ?1"),
+                [id.0],
+                device_from_row,
+            )
             .optional()?
             .ok_or_else(|| LibraryError::NotFound(format!("device {id}")))
     }
@@ -99,11 +115,20 @@ impl Library {
     pub fn device_by_uuid(&self, uuid: &str) -> Result<Option<Device>> {
         Ok(self
             .conn
-            .query_row(&format!("SELECT {DEVICE_COLUMNS} FROM device WHERE volume_uuid = ?1"), [uuid], device_from_row)
+            .query_row(
+                &format!("SELECT {DEVICE_COLUMNS} FROM device WHERE volume_uuid = ?1"),
+                [uuid],
+                device_from_row,
+            )
             .optional()?)
     }
 
-    pub fn update_device(&mut self, id: DeviceId, name: &str, formats: DeviceFormats) -> Result<()> {
+    pub fn update_device(
+        &mut self,
+        id: DeviceId,
+        name: &str,
+        formats: DeviceFormats,
+    ) -> Result<()> {
         self.conn.execute(
             "UPDATE device SET name = ?2, formats = ?3, synced_seq = 0 WHERE id = ?1",
             params![id.0, name, serde_json::to_string(&formats)?],
@@ -112,14 +137,19 @@ impl Library {
     }
 
     pub fn forget_device(&mut self, id: DeviceId) -> Result<()> {
-        self.conn.execute("DELETE FROM device WHERE id = ?1", [id.0])?;
+        self.conn
+            .execute("DELETE FROM device WHERE id = ?1", [id.0])?;
         Ok(())
     }
 
     /// Nodes assigned to the device (top-level selections).
     pub fn device_nodes(&self, id: DeviceId) -> Result<Vec<NodeId>> {
-        let mut stmt = self.conn.prepare("SELECT node_id FROM device_node WHERE device_id = ?1 ORDER BY node_id")?;
-        Ok(stmt.query_map([id.0], |r| Ok(NodeId(r.get(0)?)))?.collect::<rusqlite::Result<_>>()?)
+        let mut stmt = self
+            .conn
+            .prepare("SELECT node_id FROM device_node WHERE device_id = ?1 ORDER BY node_id")?;
+        Ok(stmt
+            .query_map([id.0], |r| Ok(NodeId(r.get(0)?)))?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     /// Replaces the device's assigned nodes. Forces a playlist rewrite.
@@ -169,8 +199,13 @@ impl Library {
         let head = self.change_seq()?;
         let nodes = self.device_node_closure(id)?;
         let tracks: HashSet<TrackId> = self.device_tracks(id)?.into_iter().map(|t| t.id).collect();
-        let has_smart = nodes.iter().any(|n| self.node(*n).is_ok_and(|n| n.kind == NodeKind::Smart));
-        let mut pending = PendingChanges { head, ..Default::default() };
+        let has_smart = nodes
+            .iter()
+            .any(|n| self.node(*n).is_ok_and(|n| n.kind == NodeKind::Smart));
+        let mut pending = PendingChanges {
+            head,
+            ..Default::default()
+        };
         if device.synced_seq == 0 {
             // Never synced: everything is pending.
             pending.playlists = true;
@@ -182,7 +217,11 @@ impl Library {
             "SELECT kind, track_id, node_id FROM change WHERE seq > ?1 AND seq <= ?2 ORDER BY seq",
         )?;
         let rows = stmt.query_map(params![device.synced_seq, head], |r| {
-            Ok((r.get::<_, String>(0)?, r.get::<_, Option<i64>>(1)?, r.get::<_, Option<i64>>(2)?))
+            Ok((
+                r.get::<_, String>(0)?,
+                r.get::<_, Option<i64>>(1)?,
+                r.get::<_, Option<i64>>(2)?,
+            ))
         })?;
         for row in rows {
             let (kind, track, node) = row?;
@@ -202,7 +241,10 @@ impl Library {
             };
             if relevant {
                 pending.count += 1;
-                if node.is_some() || track.is_none() || !tracks.contains(&TrackId(track.unwrap_or(0))) {
+                if node.is_some()
+                    || track.is_none()
+                    || !tracks.contains(&TrackId(track.unwrap_or(0)))
+                {
                     pending.playlists = true;
                 }
             }
@@ -220,13 +262,17 @@ impl Library {
     }
 
     pub fn mark_device_error(&mut self, id: DeviceId, error: &str) -> Result<()> {
-        self.conn.execute("UPDATE device SET last_error = ?2 WHERE id = ?1", params![id.0, error])?;
+        self.conn.execute(
+            "UPDATE device SET last_error = ?2 WHERE id = ?1",
+            params![id.0, error],
+        )?;
         Ok(())
     }
 
     /// Forces a full rewrite on the next sync.
     pub fn reset_device_sync(&mut self, id: DeviceId) -> Result<()> {
-        self.conn.execute("UPDATE device SET synced_seq = 0 WHERE id = ?1", [id.0])?;
+        self.conn
+            .execute("UPDATE device SET synced_seq = 0 WHERE id = ?1", [id.0])?;
         Ok(())
     }
 }
@@ -245,8 +291,14 @@ mod tests {
         let other = track(&mut lib, "Other", None, None);
         let pl = lib.create_node(None, NodeKind::Playlist, "Gig").unwrap();
         lib.add_to_node(pl, &[a, b], None).unwrap();
-        let dev = lib.register_device("UUID-1", "Red stick", DeviceFormats::default()).unwrap();
-        assert_eq!(lib.register_device("UUID-1", "x", DeviceFormats::default()).unwrap(), dev);
+        let dev = lib
+            .register_device("UUID-1", "Red stick", DeviceFormats::default())
+            .unwrap();
+        assert_eq!(
+            lib.register_device("UUID-1", "x", DeviceFormats::default())
+                .unwrap(),
+            dev
+        );
         lib.set_device_nodes(dev, &[pl]).unwrap();
 
         let p = lib.pending_changes(dev).unwrap();
@@ -280,7 +332,9 @@ mod tests {
         let f = lib.create_node(None, NodeKind::Folder, "F").unwrap();
         let pl = lib.create_node(Some(f), NodeKind::Playlist, "P").unwrap();
         lib.add_to_node(pl, &[a, a], None).unwrap();
-        let dev = lib.register_device("U", "S", DeviceFormats::default()).unwrap();
+        let dev = lib
+            .register_device("U", "S", DeviceFormats::default())
+            .unwrap();
         lib.set_device_nodes(dev, &[f]).unwrap();
         assert_eq!(lib.device_tracks(dev).unwrap().len(), 1);
         assert!(lib.device_node_closure(dev).unwrap().contains(&pl));

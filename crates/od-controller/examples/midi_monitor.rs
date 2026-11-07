@@ -17,7 +17,7 @@
 //!
 //! Use it on real hardware to confirm entries marked `verify = true`.
 
-use od_controller::io::{list_ports, ControllerEvent, ControllerManager, ManagerConfig};
+use od_controller::io::{ControllerEvent, ControllerManager, ManagerConfig, list_ports};
 use od_controller::{ControlFeedback, DeckElement, Mapping};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -35,7 +35,9 @@ fn main() {
             "--learn" => learn = args.next(),
             "--leds" => leds = true,
             "-h" | "--help" => {
-                println!("usage: midi_monitor [--mapping FILE] [--mapped-only] [--learn ACTION] [--leds]");
+                println!(
+                    "usage: midi_monitor [--mapping FILE] [--mapped-only] [--learn ACTION] [--leds]"
+                );
                 return;
             }
             other => eprintln!("ignoring unknown argument {other}"),
@@ -72,7 +74,10 @@ fn main() {
         Err(e) => eprintln!("cannot list MIDI ports: {e}"),
     }
     for d in od_controller::usb::list_usb_devices() {
-        if mappings.iter().any(|m| m.matches_usb(d.vendor_id, d.product_id)) {
+        if mappings
+            .iter()
+            .any(|m| m.matches_usb(d.vendor_id, d.product_id))
+        {
             println!(
                 "USB {:04X}:{:04X} {} matches a mapping",
                 d.vendor_id,
@@ -85,7 +90,10 @@ fn main() {
     let decks: Vec<u8> = mappings.iter().map(|m| m.device().decks).collect();
     let mgr = ControllerManager::start(
         mappings,
-        ManagerConfig { monitor_unmapped_ports: !mapped_only, ..Default::default() },
+        ManagerConfig {
+            monitor_unmapped_ports: !mapped_only,
+            ..Default::default()
+        },
     );
     let monitor = mgr.monitor().subscribe();
     if learn.is_some() {
@@ -99,19 +107,21 @@ fn main() {
     loop {
         crossbeam_select(&mgr, &monitor);
         if let Some(action) = &learn
-            && started.elapsed() > Duration::from_secs(5) {
-                match mgr.finish_learn().and_then(|l| l.suggest()) {
-                    Some(s) => println!("\nsuggested entry:\n{}", s.to_toml(action, action)),
-                    None => println!("\nno MIDI received during learn"),
-                }
-                learn = None;
+            && started.elapsed() > Duration::from_secs(5)
+        {
+            match mgr.finish_learn().and_then(|l| l.suggest()) {
+                Some(s) => println!("\nsuggested entry:\n{}", s.to_toml(action, action)),
+                None => println!("\nno MIDI received during learn"),
             }
+            learn = None;
+        }
         if leds && last_led.elapsed() > Duration::from_millis(400) {
             last_led = Instant::now();
             led_step += 1;
             let max_decks = decks.iter().copied().max().unwrap_or(2);
             for deck in 1..=max_decks {
-                let el = [DeckElement::Play, DeckElement::Cue, DeckElement::Sync][(led_step % 3) as usize];
+                let el = [DeckElement::Play, DeckElement::Cue, DeckElement::Sync]
+                    [(led_step % 3) as usize];
                 for e in [DeckElement::Play, DeckElement::Cue, DeckElement::Sync] {
                     mgr.send_feedback(None, ControlFeedback::deck_led(deck, e, e == el));
                 }

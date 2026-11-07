@@ -39,20 +39,41 @@ pub enum Event {
     Status(Vec<DeviceStatus>),
     /// Mounted removable volumes that are not registered.
     UnregisteredVolumes(Vec<Volume>),
-    SyncFinished { device: DeviceId, report: SyncReport },
-    SyncFailed { device: DeviceId, error: String },
-    Ejected { device: DeviceId },
-    EjectFailed { device: DeviceId, error: String },
-    Registered { device: DeviceId },
+    SyncFinished {
+        device: DeviceId,
+        report: SyncReport,
+    },
+    SyncFailed {
+        device: DeviceId,
+        error: String,
+    },
+    Ejected {
+        device: DeviceId,
+    },
+    EjectFailed {
+        device: DeviceId,
+        error: String,
+    },
+    Registered {
+        device: DeviceId,
+    },
     /// Changes made on the stick by players (cues, history) to review.
-    Proposals { device: DeviceId, proposals: Vec<crate::pioneer::Proposal> },
+    Proposals {
+        device: DeviceId,
+        proposals: Vec<crate::pioneer::Proposal>,
+    },
 }
 
 #[derive(Clone, Debug)]
 pub enum Command {
     /// Registers the volume at `mount_point` as a device with the given
     /// content and syncs it.
-    Register { mount_point: PathBuf, name: String, formats: DeviceFormats, nodes: Vec<NodeId> },
+    Register {
+        mount_point: PathBuf,
+        name: String,
+        formats: DeviceFormats,
+        nodes: Vec<NodeId>,
+    },
     SyncNow(DeviceId),
     /// Rewrites everything on the stick.
     Rebuild(DeviceId),
@@ -64,7 +85,8 @@ pub enum Command {
 }
 
 /// Produces the format writers for a device's enabled formats.
-pub type WriterFactory = Arc<dyn Fn(&DeviceFormats) -> Vec<Box<dyn FormatWriter + Send>> + Send + Sync>;
+pub type WriterFactory =
+    Arc<dyn Fn(&DeviceFormats) -> Vec<Box<dyn FormatWriter + Send>> + Send + Sync>;
 
 #[derive(Clone)]
 pub struct ManagerConfig {
@@ -127,7 +149,12 @@ impl DeviceManager {
             .name("od-devices".into())
             .spawn(move || worker.run(cmd_rx))
             .map_err(od_library::LibraryError::Io)?;
-        Ok(Self { commands: cmd_tx, events: ev_rx, cancel, thread: Some(thread) })
+        Ok(Self {
+            commands: cmd_tx,
+            events: ev_rx,
+            cancel,
+            thread: Some(thread),
+        })
     }
 
     pub fn send(&self, cmd: Command) {
@@ -204,11 +231,16 @@ impl Worker {
     /// Registered devices joined with mounted volumes.
     fn connected(&self) -> (Vec<(Device, Option<Volume>)>, Vec<Volume>) {
         let devices = self.library.devices().unwrap_or_default();
-        let mut joined: Vec<(Device, Option<Volume>)> = devices.into_iter().map(|d| (d, None)).collect();
+        let mut joined: Vec<(Device, Option<Volume>)> =
+            devices.into_iter().map(|d| (d, None)).collect();
         let mut unregistered = Vec::new();
         for v in volumes::list() {
             let marker = od_format_native::read_marker(&v.mount_point).ok().flatten();
-            match marker.and_then(|m| joined.iter_mut().find(|(d, _)| d.volume_uuid == m.device_uuid)) {
+            match marker.and_then(|m| {
+                joined
+                    .iter_mut()
+                    .find(|(d, _)| d.volume_uuid == m.device_uuid)
+            }) {
                 Some(slot) => slot.1 = Some(v),
                 None => unregistered.push(v),
             }
@@ -247,7 +279,11 @@ impl Worker {
                 // Errors are cleared when the stick is unplugged.
                 self.errors.remove(&device.id);
             }
-            statuses.push(DeviceStatus { device, volume, state });
+            statuses.push(DeviceStatus {
+                device,
+                volume,
+                state,
+            });
         }
         if statuses != self.last_status {
             self.last_status = statuses.clone();
@@ -263,7 +299,11 @@ impl Worker {
     }
 
     fn volume_of(&self, id: DeviceId) -> Option<Volume> {
-        self.connected().0.into_iter().find(|(d, _)| d.id == id).and_then(|(_, v)| v)
+        self.connected()
+            .0
+            .into_iter()
+            .find(|(d, _)| d.id == id)
+            .and_then(|(_, v)| v)
     }
 
     fn set_state(&mut self, id: DeviceId, state: DeviceState) {
@@ -274,8 +314,12 @@ impl Worker {
     }
 
     fn sync(&mut self, id: DeviceId, full: bool) {
-        let Some(volume) = self.volume_of(id) else { return };
-        let Ok(device) = self.library.device(id) else { return };
+        let Some(volume) = self.volume_of(id) else {
+            return;
+        };
+        let Ok(device) = self.library.device(id) else {
+            return;
+        };
         self.cancel.store(false, Ordering::Relaxed);
         let mut writers = (self.config.writers)(&device.formats);
         let events = self.events.clone();
@@ -290,7 +334,9 @@ impl Worker {
             &self.cancel,
             |p| {
                 // Rate-limit progress events to ~10 per second.
-                if last_emit.elapsed() < Duration::from_millis(100) && matches!(p, Progress::Copying { .. }) {
+                if last_emit.elapsed() < Duration::from_millis(100)
+                    && matches!(p, Progress::Copying { .. })
+                {
                     return;
                 }
                 last_emit = Instant::now();
@@ -305,7 +351,10 @@ impl Worker {
                 self.errors.remove(&id);
                 tracing::info!(device = %id, copied = report.copied, updated = report.updated, "sync finished");
                 if !report.proposals.is_empty() {
-                    self.emit(Event::Proposals { device: id, proposals: report.proposals.clone() });
+                    self.emit(Event::Proposals {
+                        device: id,
+                        proposals: report.proposals.clone(),
+                    });
                 }
                 self.emit(Event::SyncFinished { device: id, report });
                 self.set_state(id, DeviceState::InSync);
@@ -317,7 +366,10 @@ impl Worker {
                 if !matches!(e, crate::SyncError::Cancelled) {
                     self.errors.insert(id, msg.clone());
                 }
-                self.emit(Event::SyncFailed { device: id, error: msg.clone() });
+                self.emit(Event::SyncFailed {
+                    device: id,
+                    error: msg.clone(),
+                });
                 self.set_state(id, DeviceState::Error(msg));
             }
         }
@@ -327,9 +379,16 @@ impl Worker {
 
     fn handle(&mut self, cmd: Command) {
         match cmd {
-            Command::Register { mount_point, name, formats, nodes } => {
+            Command::Register {
+                mount_point,
+                name,
+                formats,
+                nodes,
+            } => {
                 let existing = od_format_native::read_marker(&mount_point).ok().flatten();
-                let uuid = existing.map(|m| m.device_uuid).unwrap_or_else(|| new_device_uuid(&mount_point));
+                let uuid = existing
+                    .map(|m| m.device_uuid)
+                    .unwrap_or_else(|| new_device_uuid(&mount_point));
                 let marker = od_format_native::DeviceMarker {
                     format_version: od_format_native::FORMAT_VERSION,
                     device_uuid: uuid.clone(),
@@ -338,8 +397,17 @@ impl Worker {
                 };
                 let result = od_format_native::write_marker(&mount_point, &marker)
                     .map_err(|e| e.to_string())
-                    .and_then(|_| self.library.register_device(&uuid, &name, formats).map_err(|e| e.to_string()))
-                    .and_then(|id| self.library.set_device_nodes(id, &nodes).map(|_| id).map_err(|e| e.to_string()));
+                    .and_then(|_| {
+                        self.library
+                            .register_device(&uuid, &name, formats)
+                            .map_err(|e| e.to_string())
+                    })
+                    .and_then(|id| {
+                        self.library
+                            .set_device_nodes(id, &nodes)
+                            .map(|_| id)
+                            .map_err(|e| e.to_string())
+                    });
                 match result {
                     Ok(id) => {
                         self.emit(Event::Registered { device: id });
@@ -366,7 +434,10 @@ impl Worker {
                         self.last_status.clear();
                         self.poll();
                     }
-                    Err(e) => self.emit(Event::EjectFailed { device: id, error: e.to_string() }),
+                    Err(e) => self.emit(Event::EjectFailed {
+                        device: id,
+                        error: e.to_string(),
+                    }),
                 },
                 None => self.emit(Event::Ejected { device: id }),
             },
@@ -414,7 +485,10 @@ mod tests {
                 channels: 2,
                 bit_rate: None,
                 bits_per_sample: None,
-                tags: TrackTags { title: "A".into(), ..Default::default() },
+                tags: TrackTags {
+                    title: "A".into(),
+                    ..Default::default()
+                },
                 artwork: None,
             })
             .unwrap();
@@ -447,7 +521,9 @@ mod tests {
 
         // Edit a cue in the app's own connection; the manager picks it up.
         lib.set_cues(a, vec![Cue::hot(1, 4.0)]).unwrap();
-        wait_for(&|e| matches!(e, Event::SyncFinished { report, .. } if report.updated == 1 && report.copied == 0));
+        wait_for(
+            &|e| matches!(e, Event::SyncFinished { report, .. } if report.updated == 1 && report.copied == 0),
+        );
         let s = od_format_native::Stick::open(&stick).unwrap().unwrap();
         assert_eq!(s.library.cues(a).unwrap()[0].start, 4.0);
     }

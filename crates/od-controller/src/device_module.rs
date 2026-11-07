@@ -17,12 +17,22 @@ pub trait DeviceModule: Send {
 
     /// Raw input hook. Return `true` to consume the message (the mapping
     /// will not see it). Actions pushed to `out` are emitted.
-    fn on_raw(&mut self, _ctx: &ModuleContext, _bytes: &[u8], _out: &mut Vec<ControlAction>) -> bool {
+    fn on_raw(
+        &mut self,
+        _ctx: &ModuleContext,
+        _bytes: &[u8],
+        _out: &mut Vec<ControlAction>,
+    ) -> bool {
         false
     }
 
     /// Action hook: push the (possibly transformed) action(s) to `out`.
-    fn on_action(&mut self, _ctx: &ModuleContext, action: ControlAction, out: &mut Vec<ControlAction>) {
+    fn on_action(
+        &mut self,
+        _ctx: &ModuleContext,
+        action: ControlAction,
+        out: &mut Vec<ControlAction>,
+    ) {
         out.push(action);
     }
 }
@@ -53,7 +63,12 @@ pub struct PioneerDdj {
 
 impl Default for PioneerDdj {
     fn default() -> Self {
-        Self { tempo_detent: 0.004, search_gain: 8, bend_gain: 1.0, bend_remainder: 0.0 }
+        Self {
+            tempo_detent: 0.004,
+            search_gain: 8,
+            bend_gain: 1.0,
+            bend_remainder: 0.0,
+        }
     }
 }
 
@@ -62,13 +77,27 @@ impl DeviceModule for PioneerDdj {
         "pioneer-ddj"
     }
 
-    fn on_action(&mut self, _ctx: &ModuleContext, action: ControlAction, out: &mut Vec<ControlAction>) {
+    fn on_action(
+        &mut self,
+        _ctx: &ModuleContext,
+        action: ControlAction,
+        out: &mut Vec<ControlAction>,
+    ) {
         match action {
-            ControlAction::Deck { deck, action: DeckAction::Tempo(v) } => {
+            ControlAction::Deck {
+                deck,
+                action: DeckAction::Tempo(v),
+            } => {
                 let v = if v.abs() < self.tempo_detent { 0.0 } else { v };
-                out.push(ControlAction::Deck { deck, action: DeckAction::Tempo(v) });
+                out.push(ControlAction::Deck {
+                    deck,
+                    action: DeckAction::Tempo(v),
+                });
             }
-            ControlAction::Deck { deck, action: DeckAction::JogTurn { ticks, mode } } => {
+            ControlAction::Deck {
+                deck,
+                action: DeckAction::JogTurn { ticks, mode },
+            } => {
                 let ticks = match mode {
                     JogMode::Search => ticks * self.search_gain,
                     JogMode::Bend => {
@@ -80,7 +109,10 @@ impl DeviceModule for PioneerDdj {
                     JogMode::Scratch => ticks,
                 };
                 if ticks != 0 {
-                    out.push(ControlAction::Deck { deck, action: DeckAction::JogTurn { ticks, mode } });
+                    out.push(ControlAction::Deck {
+                        deck,
+                        action: DeckAction::JogTurn { ticks, mode },
+                    });
                 }
             }
             a => out.push(a),

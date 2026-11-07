@@ -13,22 +13,40 @@ use std::path::Path;
 
 /// Top-level label scopes: one per region kind of the layout.
 pub const SCOPES: &[(&str, &str)] = &[
-    ("app", "window-level things: mode switch confirmation, dialogs"),
-    ("topbar", "top bar: mode, layout, panel toggles, settings, master meter/volume, clock"),
+    (
+        "app",
+        "window-level things: mode switch confirmation, dialogs",
+    ),
+    (
+        "topbar",
+        "top bar: mode, layout, panel toggles, settings, master meter/volume, clock",
+    ),
     ("wave", "enlarged waveform zone: lanes, zoom column"),
-    ("deck", "Perform deck N (deck1…deck4): header, overview, stem strip, controls"),
-    ("player", "Prepare player N (player1, player2): transport, waveform block, toolbar, cue list"),
+    (
+        "deck",
+        "Perform deck N (deck1…deck4): header, overview, stem strip, controls",
+    ),
+    (
+        "player",
+        "Prepare player N (player1, player2): transport, waveform block, toolbar, cue list",
+    ),
     ("mixer", "mixer: channels (mixer.ch1.*), master"),
     ("global", "global bar: headphones, crossfader and assign"),
     ("rec", "recording section / recording bar"),
     ("fx", "FX panel: Beat FX units, CFX row, stem targets"),
     ("mpl", "Mix Point Link panel"),
     ("sampler", "sampler panel: slots, bank, sequencer"),
-    ("browser", "browser: toolbar, source rail, tree, list title row, header, rows, panel strip"),
+    (
+        "browser",
+        "browser: toolbar, source rail, tree, list title row, header, rows, panel strip",
+    ),
     ("info", "Info panel (right of the list)"),
     ("subbrowser", "sub-browser (second tree + list)"),
     ("status", "status band"),
-    ("lighting", "LIGHTING view: rig, outputs, stage preview, show controls"),
+    (
+        "lighting",
+        "LIGHTING view: rig, outputs, stage preview, show controls",
+    ),
     ("prefs", "Preferences window"),
     ("menu", "menus (menu bar and View menu entries)"),
     ("ctx", "context menus (ctx.row.*, ctx.header.*)"),
@@ -68,7 +86,8 @@ pub fn is_valid_label(label: &str) -> bool {
     }
     let last = parts.len() - 1;
     parts.iter().enumerate().skip(1).all(|(i, p)| {
-        is_kebab(p) || (i == last && p.len() == 1 && ('A'..='H').contains(&p.chars().next().unwrap()))
+        is_kebab(p)
+            || (i == last && p.len() == 1 && ('A'..='H').contains(&p.chars().next().unwrap()))
     })
 }
 
@@ -79,7 +98,9 @@ pub fn labels_in_ui_sources(root: &Path) -> BTreeSet<String> {
     let mut out = BTreeSet::new();
     let mut stack = vec![root.join("crates/od-ui")];
     while let Some(dir) = stack.pop() {
-        let Ok(entries) = std::fs::read_dir(&dir) else { continue };
+        let Ok(entries) = std::fs::read_dir(&dir) else {
+            continue;
+        };
         for entry in entries.flatten() {
             let path = entry.path();
             if path.is_dir() {
@@ -89,12 +110,16 @@ pub fn labels_in_ui_sources(root: &Path) -> BTreeSet<String> {
             if !path.extension().is_some_and(|e| e == "slint" || e == "rs") {
                 continue;
             }
-            let Ok(text) = std::fs::read_to_string(&path) else { continue };
+            let Ok(text) = std::fs::read_to_string(&path) else {
+                continue;
+            };
             let mut rest = text.as_str();
             while let Some(pos) = rest.find("accessible-label") {
                 rest = &rest[pos + "accessible-label".len()..];
                 let after = rest.trim_start();
-                let Some(after) = after.strip_prefix(':') else { continue };
+                let Some(after) = after.strip_prefix(':') else {
+                    continue;
+                };
                 let after = after.trim_start();
                 if let Some(body) = after.strip_prefix('"') {
                     if let Some(end) = body.find('"') {

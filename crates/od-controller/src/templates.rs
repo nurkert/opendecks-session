@@ -9,7 +9,10 @@ use toml::{Table, Value};
 /// Interpreted value of an input after decoding the MIDI message.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum InputValue {
-    Button { pressed: bool, velocity: u8 },
+    Button {
+        pressed: bool,
+        velocity: u8,
+    },
     /// Normalised absolute position 0..=1.
     Absolute(f32),
     /// Signed relative movement in hardware ticks.
@@ -73,7 +76,9 @@ pub struct ActionTemplate {
 
 impl fmt::Debug for ActionTemplate {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("ActionTemplate").field("name", &self.name).finish()
+        f.debug_struct("ActionTemplate")
+            .field("name", &self.name)
+            .finish()
     }
 }
 
@@ -93,7 +98,10 @@ struct Args<'a> {
 
 impl Args<'_> {
     fn err(&self, msg: impl Into<String>) -> MappingError {
-        MappingError::Action { action: self.name.to_string(), msg: msg.into() }
+        MappingError::Action {
+            action: self.name.to_string(),
+            msg: msg.into(),
+        }
     }
     fn f32(&self, key: &str) -> Result<f32, MappingError> {
         match self.t.get(key) {
@@ -111,7 +119,11 @@ impl Args<'_> {
         }
     }
     fn u8_or(&self, key: &str, d: u8) -> Result<u8, MappingError> {
-        if self.t.contains_key(key) { self.u8(key) } else { Ok(d) }
+        if self.t.contains_key(key) {
+            self.u8(key)
+        } else {
+            Ok(d)
+        }
     }
     fn str(&self, key: &str) -> Result<String, MappingError> {
         match self.t.get(key) {
@@ -132,29 +144,98 @@ impl Args<'_> {
 /// All action names understood in mapping files.
 pub const ACTION_NAMES: &[&str] = &[
     "ignore",
-    "deck.play_pause", "deck.cue", "deck.jump_to_start", "deck.sync", "deck.sync_off",
-    "deck.master", "deck.keylock", "deck.key_sync", "deck.key_reset", "deck.tempo",
-    "deck.tempo_range", "deck.tempo_reset", "deck.tap_bpm", "deck.quantize", "deck.jog_touch",
-    "deck.jog_turn", "deck.hot_cue", "deck.hot_cue_delete", "deck.memory_cue_set",
-    "deck.memory_cue_delete", "deck.memory_cue_prev", "deck.memory_cue_next", "deck.loop_in",
-    "deck.loop_out", "deck.auto_loop", "deck.loop_roll", "deck.loop_halve", "deck.loop_double",
-    "deck.reloop_exit", "deck.beat_jump", "deck.search", "deck.slip", "deck.vinyl",
-    "deck.shift", "deck.pad_mode", "deck.pad", "deck.load", "deck.censor", "deck.reverse",
-    "deck.needle_search", "deck.select", "deck.stem_level", "deck.stem_mute",
-    "mixer.trim", "mixer.eq_high", "mixer.eq_mid", "mixer.eq_low", "mixer.color_fx",
-    "mixer.fader", "mixer.cue", "mixer.crossfader_assign",
-    "crossfader", "master_level", "booth_level", "headphone_mix", "headphone_level",
+    "deck.play_pause",
+    "deck.cue",
+    "deck.jump_to_start",
+    "deck.sync",
+    "deck.sync_off",
+    "deck.master",
+    "deck.keylock",
+    "deck.key_sync",
+    "deck.key_reset",
+    "deck.tempo",
+    "deck.tempo_range",
+    "deck.tempo_reset",
+    "deck.tap_bpm",
+    "deck.quantize",
+    "deck.jog_touch",
+    "deck.jog_turn",
+    "deck.hot_cue",
+    "deck.hot_cue_delete",
+    "deck.memory_cue_set",
+    "deck.memory_cue_delete",
+    "deck.memory_cue_prev",
+    "deck.memory_cue_next",
+    "deck.loop_in",
+    "deck.loop_out",
+    "deck.auto_loop",
+    "deck.loop_roll",
+    "deck.loop_halve",
+    "deck.loop_double",
+    "deck.reloop_exit",
+    "deck.beat_jump",
+    "deck.search",
+    "deck.slip",
+    "deck.vinyl",
+    "deck.shift",
+    "deck.pad_mode",
+    "deck.pad",
+    "deck.load",
+    "deck.censor",
+    "deck.reverse",
+    "deck.needle_search",
+    "deck.select",
+    "deck.stem_level",
+    "deck.stem_mute",
+    "mixer.trim",
+    "mixer.eq_high",
+    "mixer.eq_mid",
+    "mixer.eq_low",
+    "mixer.color_fx",
+    "mixer.fader",
+    "mixer.cue",
+    "mixer.crossfader_assign",
+    "crossfader",
+    "master_level",
+    "booth_level",
+    "headphone_mix",
+    "headphone_level",
     "master_cue",
-    "beat_fx.toggle", "beat_fx.release", "beat_fx.level", "beat_fx.beat_down",
-    "beat_fx.beat_up", "beat_fx.auto_beat", "beat_fx.tap", "beat_fx.select_next",
-    "beat_fx.select_prev", "beat_fx.select", "beat_fx.assign",
-    "color_fx.select", "color_fx.next", "color_fx.toggle",
-    "browse.rotate", "browse.press", "browse.back", "browse.view_toggle", "browse.related",
-    "sampler.pad", "sampler.stop", "sampler.bank_next", "sampler.bank_prev", "sampler.volume",
+    "beat_fx.toggle",
+    "beat_fx.release",
+    "beat_fx.level",
+    "beat_fx.beat_down",
+    "beat_fx.beat_up",
+    "beat_fx.auto_beat",
+    "beat_fx.tap",
+    "beat_fx.select_next",
+    "beat_fx.select_prev",
+    "beat_fx.select",
+    "beat_fx.assign",
+    "color_fx.select",
+    "color_fx.next",
+    "color_fx.toggle",
+    "browse.rotate",
+    "browse.press",
+    "browse.back",
+    "browse.view_toggle",
+    "browse.related",
+    "sampler.pad",
+    "sampler.stop",
+    "sampler.bank_next",
+    "sampler.bank_prev",
+    "sampler.volume",
     "sampler.cue",
     "recording.toggle",
-    "lighting.look", "lighting.strobe", "lighting.flash", "lighting.fog", "lighting.blackout",
-    "lighting.master", "lighting.cue_go", "lighting.cue_back", "lighting.mode",
+    "lighting.look",
+    "lighting.strobe",
+    "lighting.flash",
+    "lighting.fog",
+    "lighting.blackout",
+    "lighting.master",
+    "lighting.cue_go",
+    "lighting.cue_back",
+    "lighting.mode",
 ];
 
 fn on_press(f: impl Fn(Option<u8>) -> ControlAction + Send + Sync + 'static) -> Producer {
@@ -162,20 +243,34 @@ fn on_press(f: impl Fn(Option<u8>) -> ControlAction + Send + Sync + 'static) -> 
 }
 
 fn deck_press(a: DeckAction) -> Producer {
-    on_press(move |d| ControlAction::Deck { deck: d.unwrap_or(0), action: a.clone() })
+    on_press(move |d| ControlAction::Deck {
+        deck: d.unwrap_or(0),
+        action: a.clone(),
+    })
 }
 
 fn deck_with(f: impl Fn(InputValue) -> Option<DeckAction> + Send + Sync + 'static) -> Producer {
-    Box::new(move |d, v| f(v).map(|action| ControlAction::Deck { deck: d.unwrap_or(0), action }))
+    Box::new(move |d, v| {
+        f(v).map(|action| ControlAction::Deck {
+            deck: d.unwrap_or(0),
+            action,
+        })
+    })
 }
 
 fn mixer_abs(f: fn(f32) -> MixerAction) -> Producer {
-    Box::new(move |d, v| Some(ControlAction::Mixer { channel: d.unwrap_or(0), action: f(v.unit()) }))
+    Box::new(move |d, v| {
+        Some(ControlAction::Mixer {
+            channel: d.unwrap_or(0),
+            action: f(v.unit()),
+        })
+    })
 }
 
 fn stem_arg(a: &Args) -> Result<StemPart, MappingError> {
     let s = a.str("stem")?;
-    StemPart::parse(&s).ok_or_else(|| a.err(format!("unknown stem `{s}` (vocals, drums, bass, inst)")))
+    StemPart::parse(&s)
+        .ok_or_else(|| a.err(format!("unknown stem `{s}` (vocals, drums, bass, inst)")))
 }
 
 fn bipolar(u: f32) -> f32 {
@@ -194,7 +289,13 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         "deck.play_pause" => (Button, deck_press(DeckAction::PlayPause)),
         "deck.cue" => (
             Button,
-            deck_with(|v| Some(if v.pressed() { DeckAction::CuePress } else { DeckAction::CueRelease })),
+            deck_with(|v| {
+                Some(if v.pressed() {
+                    DeckAction::CuePress
+                } else {
+                    DeckAction::CueRelease
+                })
+            }),
         ),
         "deck.jump_to_start" => (Button, deck_press(DeckAction::JumpToStart)),
         "deck.sync" => (Button, deck_press(DeckAction::Sync)),
@@ -203,12 +304,18 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         "deck.keylock" => (Button, deck_press(DeckAction::KeyLock)),
         "deck.key_sync" => (Button, deck_press(DeckAction::KeySync)),
         "deck.key_reset" => (Button, deck_press(DeckAction::KeyReset)),
-        "deck.tempo" => (Absolute, deck_with(|v| Some(DeckAction::Tempo(bipolar(v.unit()))))),
+        "deck.tempo" => (
+            Absolute,
+            deck_with(|v| Some(DeckAction::Tempo(bipolar(v.unit())))),
+        ),
         "deck.tempo_range" => (Button, deck_press(DeckAction::TempoRange)),
         "deck.tempo_reset" => (Button, deck_press(DeckAction::TempoReset)),
         "deck.tap_bpm" => (Button, deck_press(DeckAction::TapBpm)),
         "deck.quantize" => (Button, deck_press(DeckAction::Quantize)),
-        "deck.jog_touch" => (Button, deck_with(|v| Some(DeckAction::JogTouch(v.pressed())))),
+        "deck.jog_touch" => (
+            Button,
+            deck_with(|v| Some(DeckAction::JogTouch(v.pressed()))),
+        ),
         "deck.jog_turn" => {
             let mode = match a.str("mode")?.as_str() {
                 "scratch" => JogMode::Scratch,
@@ -226,7 +333,15 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         }
         "deck.hot_cue" => {
             let slot = a.u8("slot")?;
-            (Button, deck_with(move |v| Some(DeckAction::HotCue { slot, pressed: v.pressed() })))
+            (
+                Button,
+                deck_with(move |v| {
+                    Some(DeckAction::HotCue {
+                        slot,
+                        pressed: v.pressed(),
+                    })
+                }),
+            )
         }
         "deck.hot_cue_delete" => {
             let slot = a.u8("slot")?;
@@ -244,7 +359,15 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         }
         "deck.loop_roll" => {
             let beats = a.f32("beats")?;
-            (Button, deck_with(move |v| Some(DeckAction::LoopRoll { beats, pressed: v.pressed() })))
+            (
+                Button,
+                deck_with(move |v| {
+                    Some(DeckAction::LoopRoll {
+                        beats,
+                        pressed: v.pressed(),
+                    })
+                }),
+            )
         }
         "deck.loop_halve" => (Button, deck_press(DeckAction::LoopHalve)),
         "deck.loop_double" => (Button, deck_press(DeckAction::LoopDouble)),
@@ -255,7 +378,15 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         }
         "deck.search" => {
             let forward = a.bool_or("forward", true)?;
-            (Button, deck_with(move |v| Some(DeckAction::Search { forward, pressed: v.pressed() })))
+            (
+                Button,
+                deck_with(move |v| {
+                    Some(DeckAction::Search {
+                        forward,
+                        pressed: v.pressed(),
+                    })
+                }),
+            )
         }
         "deck.slip" => (Button, deck_press(DeckAction::Slip)),
         "deck.vinyl" => (Button, deck_press(DeckAction::VinylMode)),
@@ -265,7 +396,8 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         }
         "deck.pad_mode" => {
             let m = a.str("mode")?;
-            let mode = PadMode::parse(&m).ok_or_else(|| a.err(format!("unknown pad mode `{m}`")))?;
+            let mode =
+                PadMode::parse(&m).ok_or_else(|| a.err(format!("unknown pad mode `{m}`")))?;
             (Button, deck_press(DeckAction::PadMode(mode)))
         }
         "deck.pad" => {
@@ -273,21 +405,34 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
             (
                 Button,
                 deck_with(move |v| {
-                    Some(DeckAction::Pad { index, pressed: v.pressed(), velocity: v.velocity() })
+                    Some(DeckAction::Pad {
+                        index,
+                        pressed: v.pressed(),
+                        velocity: v.velocity(),
+                    })
                 }),
             )
         }
         "deck.load" => (Button, deck_press(DeckAction::Load)),
         "deck.censor" => (Button, deck_with(|v| Some(DeckAction::Censor(v.pressed())))),
         "deck.reverse" => (Button, deck_press(DeckAction::Reverse)),
-        "deck.needle_search" => (Absolute, deck_with(|v| Some(DeckAction::NeedleSearch(v.unit())))),
+        "deck.needle_search" => (
+            Absolute,
+            deck_with(|v| Some(DeckAction::NeedleSearch(v.unit()))),
+        ),
         "deck.select" => {
             // With `deck = n` the input selects that deck (software layers);
             // otherwise it reports the deck it is bound to (hardware layers).
             if args.contains_key("deck") {
                 let target = a.u8("deck")?;
                 needs_deck = false;
-                (Button, on_press(move |_| ControlAction::Deck { deck: target, action: DeckAction::DeckSelect }))
+                (
+                    Button,
+                    on_press(move |_| ControlAction::Deck {
+                        deck: target,
+                        action: DeckAction::DeckSelect,
+                    }),
+                )
             } else {
                 (Button, deck_press(DeckAction::DeckSelect))
             }
@@ -296,7 +441,15 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         // Part isolator knob: centre and above = full level, fully left = muted.
         "deck.stem_level" => {
             let stem = stem_arg(&a)?;
-            (Absolute, deck_with(move |v| Some(DeckAction::StemLevel { stem, level: (v.unit() * 2.0).min(1.0) })))
+            (
+                Absolute,
+                deck_with(move |v| {
+                    Some(DeckAction::StemLevel {
+                        stem,
+                        level: (v.unit() * 2.0).min(1.0),
+                    })
+                }),
+            )
         }
         "deck.stem_mute" => {
             let stem = stem_arg(&a)?;
@@ -311,7 +464,10 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         "mixer.fader" => (Absolute, mixer_abs(MixerAction::Fader)),
         "mixer.cue" => (
             Button,
-            on_press(|d| ControlAction::Mixer { channel: d.unwrap_or(0), action: MixerAction::CueToggle }),
+            on_press(|d| ControlAction::Mixer {
+                channel: d.unwrap_or(0),
+                action: MixerAction::CueToggle,
+            }),
         ),
         "mixer.crossfader_assign" => {
             let side = match a.str("side")?.as_str() {
@@ -328,13 +484,26 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
                 }),
             )
         }
-        "crossfader" => (Absolute, Box::new(|_, v| Some(ControlAction::Crossfader(v.unit())))),
-        "master_level" => (Absolute, Box::new(|_, v| Some(ControlAction::MasterLevel(v.unit())))),
-        "booth_level" => (Absolute, Box::new(|_, v| Some(ControlAction::BoothLevel(v.unit())))),
-        "headphone_mix" => (Absolute, Box::new(|_, v| Some(ControlAction::HeadphoneMix(v.unit())))),
-        "headphone_level" => {
-            (Absolute, Box::new(|_, v| Some(ControlAction::HeadphoneLevel(v.unit()))))
-        }
+        "crossfader" => (
+            Absolute,
+            Box::new(|_, v| Some(ControlAction::Crossfader(v.unit()))),
+        ),
+        "master_level" => (
+            Absolute,
+            Box::new(|_, v| Some(ControlAction::MasterLevel(v.unit()))),
+        ),
+        "booth_level" => (
+            Absolute,
+            Box::new(|_, v| Some(ControlAction::BoothLevel(v.unit()))),
+        ),
+        "headphone_mix" => (
+            Absolute,
+            Box::new(|_, v| Some(ControlAction::HeadphoneMix(v.unit()))),
+        ),
+        "headphone_level" => (
+            Absolute,
+            Box::new(|_, v| Some(ControlAction::HeadphoneLevel(v.unit()))),
+        ),
         "master_cue" => (Button, on_press(|_| ControlAction::MasterCue)),
 
         n if n.starts_with("beat_fx.") => {
@@ -344,11 +513,14 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
                 "beat_fx.toggle" => (Button, on_press(move |_| fx(BeatFxAction::Toggle))),
                 "beat_fx.release" => (
                     Button,
-                    Box::new(move |_, v: InputValue| Some(fx(BeatFxAction::Release(v.pressed())))) as Producer,
+                    Box::new(move |_, v: InputValue| Some(fx(BeatFxAction::Release(v.pressed()))))
+                        as Producer,
                 ),
-                "beat_fx.level" => {
-                    (Absolute, Box::new(move |_, v: InputValue| Some(fx(BeatFxAction::Level(v.unit())))) as Producer)
-                }
+                "beat_fx.level" => (
+                    Absolute,
+                    Box::new(move |_, v: InputValue| Some(fx(BeatFxAction::Level(v.unit()))))
+                        as Producer,
+                ),
                 "beat_fx.beat_down" => (Button, on_press(move |_| fx(BeatFxAction::BeatDown))),
                 "beat_fx.beat_up" => (Button, on_press(move |_| fx(BeatFxAction::BeatUp))),
                 "beat_fx.auto_beat" => (Button, on_press(move |_| fx(BeatFxAction::AutoBeat))),
@@ -357,7 +529,10 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
                 "beat_fx.select_prev" => (Button, on_press(move |_| fx(BeatFxAction::SelectPrev))),
                 "beat_fx.select" => {
                     let e = a.str("effect")?;
-                    (Button, on_press(move |_| fx(BeatFxAction::Select(e.clone()))))
+                    (
+                        Button,
+                        on_press(move |_| fx(BeatFxAction::Select(e.clone()))),
+                    )
                 }
                 "beat_fx.assign" => {
                     let ch = a.u8("channel")?;
@@ -368,10 +543,19 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         }
         "color_fx.select" => {
             let e = a.str("effect")?;
-            (Button, on_press(move |_| ControlAction::ColorFx(ColorFxAction::Select(e.clone()))))
+            (
+                Button,
+                on_press(move |_| ControlAction::ColorFx(ColorFxAction::Select(e.clone()))),
+            )
         }
-        "color_fx.next" => (Button, on_press(|_| ControlAction::ColorFx(ColorFxAction::Next))),
-        "color_fx.toggle" => (Button, on_press(|_| ControlAction::ColorFx(ColorFxAction::Toggle))),
+        "color_fx.next" => (
+            Button,
+            on_press(|_| ControlAction::ColorFx(ColorFxAction::Next)),
+        ),
+        "color_fx.toggle" => (
+            Button,
+            on_press(|_| ControlAction::ColorFx(ColorFxAction::Toggle)),
+        ),
 
         "browse.rotate" => {
             let shifted = a.bool_or("shifted", false)?;
@@ -379,18 +563,32 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
                 Relative,
                 Box::new(move |_, v| {
                     let delta = v.ticks();
-                    (delta != 0)
-                        .then_some(ControlAction::Browse(BrowseAction::Rotate { delta, shifted }))
+                    (delta != 0).then_some(ControlAction::Browse(BrowseAction::Rotate {
+                        delta,
+                        shifted,
+                    }))
                 }),
             )
         }
         "browse.press" => {
             let shifted = a.bool_or("shifted", false)?;
-            (Button, on_press(move |_| ControlAction::Browse(BrowseAction::Press { shifted })))
+            (
+                Button,
+                on_press(move |_| ControlAction::Browse(BrowseAction::Press { shifted })),
+            )
         }
-        "browse.back" => (Button, on_press(|_| ControlAction::Browse(BrowseAction::Back))),
-        "browse.view_toggle" => (Button, on_press(|_| ControlAction::Browse(BrowseAction::ViewToggle))),
-        "browse.related" => (Button, on_press(|_| ControlAction::Browse(BrowseAction::Related))),
+        "browse.back" => (
+            Button,
+            on_press(|_| ControlAction::Browse(BrowseAction::Back)),
+        ),
+        "browse.view_toggle" => (
+            Button,
+            on_press(|_| ControlAction::Browse(BrowseAction::ViewToggle)),
+        ),
+        "browse.related" => (
+            Button,
+            on_press(|_| ControlAction::Browse(BrowseAction::Related)),
+        ),
 
         "sampler.pad" => {
             let slot = a.u8("slot")?;
@@ -407,40 +605,85 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         }
         "sampler.stop" => {
             let slot = a.u8("slot")?;
-            (Button, on_press(move |_| ControlAction::Sampler(SamplerAction::Stop { slot })))
+            (
+                Button,
+                on_press(move |_| ControlAction::Sampler(SamplerAction::Stop { slot })),
+            )
         }
-        "sampler.bank_next" => (Button, on_press(|_| ControlAction::Sampler(SamplerAction::BankNext))),
-        "sampler.bank_prev" => (Button, on_press(|_| ControlAction::Sampler(SamplerAction::BankPrev))),
+        "sampler.bank_next" => (
+            Button,
+            on_press(|_| ControlAction::Sampler(SamplerAction::BankNext)),
+        ),
+        "sampler.bank_prev" => (
+            Button,
+            on_press(|_| ControlAction::Sampler(SamplerAction::BankPrev)),
+        ),
         "sampler.volume" => (
             Absolute,
             Box::new(|_, v| Some(ControlAction::Sampler(SamplerAction::Volume(v.unit())))),
         ),
-        "sampler.cue" => (Button, on_press(|_| ControlAction::Sampler(SamplerAction::CueToggle))),
+        "sampler.cue" => (
+            Button,
+            on_press(|_| ControlAction::Sampler(SamplerAction::CueToggle)),
+        ),
         "recording.toggle" => (Button, on_press(|_| ControlAction::RecordingToggle)),
         "lighting.look" => {
             let look = a.u8("look")?.min(5);
-            (Button, on_press(move |_| ControlAction::Lighting(LightingAction::Look(look))))
+            (
+                Button,
+                on_press(move |_| ControlAction::Lighting(LightingAction::Look(look))),
+            )
         }
-        "lighting.strobe" => (Button, Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Strobe(v.pressed()))))),
-        "lighting.flash" => (Button, Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Flash(v.pressed()))))),
-        "lighting.fog" => (Button, Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Fog(v.pressed()))))),
-        "lighting.blackout" => (Button, on_press(|_| ControlAction::Lighting(LightingAction::BlackoutToggle))),
-        "lighting.master" => (Absolute, Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Master(v.unit()))))),
-        "lighting.cue_go" => (Button, on_press(|_| ControlAction::Lighting(LightingAction::CueGo))),
-        "lighting.cue_back" => (Button, on_press(|_| ControlAction::Lighting(LightingAction::CueBack))),
+        "lighting.strobe" => (
+            Button,
+            Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Strobe(v.pressed())))),
+        ),
+        "lighting.flash" => (
+            Button,
+            Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Flash(v.pressed())))),
+        ),
+        "lighting.fog" => (
+            Button,
+            Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Fog(v.pressed())))),
+        ),
+        "lighting.blackout" => (
+            Button,
+            on_press(|_| ControlAction::Lighting(LightingAction::BlackoutToggle)),
+        ),
+        "lighting.master" => (
+            Absolute,
+            Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Master(v.unit())))),
+        ),
+        "lighting.cue_go" => (
+            Button,
+            on_press(|_| ControlAction::Lighting(LightingAction::CueGo)),
+        ),
+        "lighting.cue_back" => (
+            Button,
+            on_press(|_| ControlAction::Lighting(LightingAction::CueBack)),
+        ),
         "lighting.mode" => {
             let m = a.str("mode")?;
             if !["auto", "easy", "pro"].contains(&m.as_str()) {
                 return Err(a.err(format!("unknown lighting mode `{m}` (auto, easy, pro)")));
             }
-            (Button, on_press(move |_| ControlAction::Lighting(LightingAction::Mode(m.clone()))))
+            (
+                Button,
+                on_press(move |_| ControlAction::Lighting(LightingAction::Mode(m.clone()))),
+            )
         }
         _ => return Err(MappingError::UnknownAction(name.to_string())),
     };
     if name == "ignore" {
         needs_deck = false;
     }
-    Ok(ActionTemplate { name: name.to_string(), natural, needs_deck, is_shift, produce })
+    Ok(ActionTemplate {
+        name: name.to_string(),
+        natural,
+        needs_deck,
+        is_shift,
+        produce,
+    })
 }
 
 #[cfg(test)]
@@ -474,11 +717,44 @@ mod tests {
     #[test]
     fn cue_press_and_release() {
         let t = parse_action("deck.cue", &Table::new()).unwrap();
-        let p = t.produce(Some(2), InputValue::Button { pressed: true, velocity: 127 });
-        assert_eq!(p, Some(ControlAction::Deck { deck: 2, action: DeckAction::CuePress }));
-        let r = t.produce(Some(2), InputValue::Button { pressed: false, velocity: 0 });
-        assert_eq!(r, Some(ControlAction::Deck { deck: 2, action: DeckAction::CueRelease }));
-        assert_eq!(t.produce(None, InputValue::Button { pressed: true, velocity: 1 }), None);
+        let p = t.produce(
+            Some(2),
+            InputValue::Button {
+                pressed: true,
+                velocity: 127,
+            },
+        );
+        assert_eq!(
+            p,
+            Some(ControlAction::Deck {
+                deck: 2,
+                action: DeckAction::CuePress
+            })
+        );
+        let r = t.produce(
+            Some(2),
+            InputValue::Button {
+                pressed: false,
+                velocity: 0,
+            },
+        );
+        assert_eq!(
+            r,
+            Some(ControlAction::Deck {
+                deck: 2,
+                action: DeckAction::CueRelease
+            })
+        );
+        assert_eq!(
+            t.produce(
+                None,
+                InputValue::Button {
+                    pressed: true,
+                    velocity: 1
+                }
+            ),
+            None
+        );
     }
 
     #[test]
@@ -486,9 +762,27 @@ mod tests {
         let mut look = Table::new();
         look.insert("look".into(), Value::Integer(3));
         let t = parse_action("lighting.look", &look).unwrap();
-        assert_eq!(t.produce(None, InputValue::Button { pressed: true, velocity: 127 }), Some(ControlAction::Lighting(LightingAction::Look(3))));
+        assert_eq!(
+            t.produce(
+                None,
+                InputValue::Button {
+                    pressed: true,
+                    velocity: 127
+                }
+            ),
+            Some(ControlAction::Lighting(LightingAction::Look(3)))
+        );
         let t = parse_action("lighting.strobe", &Table::new()).unwrap();
-        assert_eq!(t.produce(None, InputValue::Button { pressed: false, velocity: 0 }), Some(ControlAction::Lighting(LightingAction::Strobe(false))));
+        assert_eq!(
+            t.produce(
+                None,
+                InputValue::Button {
+                    pressed: false,
+                    velocity: 0
+                }
+            ),
+            Some(ControlAction::Lighting(LightingAction::Strobe(false)))
+        );
         let mut bad = Table::new();
         bad.insert("mode".into(), Value::String("disco".into()));
         assert!(parse_action("lighting.mode", &bad).is_err());

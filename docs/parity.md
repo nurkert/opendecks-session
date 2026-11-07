@@ -261,10 +261,10 @@ headers and tree items.
 
 ## Becoming the CI gate
 
-Today CI runs `parity check` in a non-blocking job (`parity` in
-`.github/workflows/ci.yml`) and uploads the report as the
-`parity-report` artifact and the job summary; the always-enforced tests run
-in the normal test job. When the gap count reaches zero:
+Since 2026-11-07 the gap count is zero and the parity check is the CI gate:
+`OD_PARITY_STRICT=1` is set for every CI job and the `parity` job runs
+`parity check --strict` (it still uploads the report as the
+`parity-report` artifact and the job summary). The steps that got there:
 
 1. Set `OD_PARITY_STRICT: "1"` in the `env` of the test job (makes
    `feature_set_complete` fail on any gap) and remove `continue-on-error`

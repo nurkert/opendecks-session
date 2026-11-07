@@ -11,7 +11,9 @@ use crate::command::{
     BeatFxKind, ColorFxKind, CrossfaderCurve, FxTarget, JogMode, PadFxPreset, ReleaseFxKind,
     SampleMode, TempoRange, XfAssign,
 };
-use crate::config::{BEAT_FX_SLOTS, BEAT_FX_UNITS, HOT_CUE_BANKS, HOT_CUES, MAX_DECKS, SAMPLER_TOTAL};
+use crate::config::{
+    BEAT_FX_SLOTS, BEAT_FX_UNITS, HOT_CUE_BANKS, HOT_CUES, MAX_DECKS, SAMPLER_TOTAL,
+};
 use crate::dsp::meter::MeterReading;
 use crate::track::HotCue;
 

@@ -19,6 +19,7 @@
 //!   browsing, source rail, layouts, panel toggles, batch separation)
 //! - [`editing`]: phrase display and editing, edit mode, sub-browser
 
+mod alignment;
 mod browser;
 mod editing;
 mod features;
@@ -30,4 +31,3 @@ mod remote;
 mod session;
 mod stage;
 mod views;
-mod alignment;

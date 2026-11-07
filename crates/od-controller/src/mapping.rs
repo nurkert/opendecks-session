@@ -5,7 +5,7 @@
 use crate::action::{CrossfaderSide, PadMode};
 use crate::feedback::{DeckElement, FeedbackTarget, MixerElement};
 use crate::midi::{MidiAddr, MsgKind};
-use crate::templates::{parse_action, ActionTemplate, Natural};
+use crate::templates::{ActionTemplate, Natural, parse_action};
 use od_core::CueColor;
 use serde::Deserialize;
 use std::collections::{BTreeMap, HashMap};
@@ -20,7 +20,10 @@ pub const SCHEMA_VERSION: u32 = 1;
 #[derive(Debug, Error)]
 pub enum MappingError {
     #[error("cannot read {path}: {source}")]
-    Io { path: PathBuf, source: std::io::Error },
+    Io {
+        path: PathBuf,
+        source: std::io::Error,
+    },
     #[error("TOML error: {0}")]
     Toml(#[from] toml::de::Error),
     #[error("unsupported schema version {0} (expected {SCHEMA_VERSION})")]
@@ -381,8 +384,10 @@ impl Mapping {
     }
 
     pub fn load(path: &Path) -> Result<Self, MappingError> {
-        let s = std::fs::read_to_string(path)
-            .map_err(|source| MappingError::Io { path: path.to_path_buf(), source })?;
+        let s = std::fs::read_to_string(path).map_err(|source| MappingError::Io {
+            path: path.to_path_buf(),
+            source,
+        })?;
         Self::from_toml_str(&s)
     }
 
@@ -391,7 +396,9 @@ impl Mapping {
         let mut out = Vec::new();
         let mut stack = vec![dir.to_path_buf()];
         while let Some(d) = stack.pop() {
-            let Ok(rd) = std::fs::read_dir(&d) else { continue };
+            let Ok(rd) = std::fs::read_dir(&d) else {
+                continue;
+            };
             let mut entries: Vec<_> = rd.flatten().map(|e| e.path()).collect();
             entries.sort();
             for p in entries {
@@ -416,17 +423,28 @@ impl Mapping {
 
     /// Input bindings listening on `addr` (MSB or LSB of 14-bit pairs included).
     pub fn inputs_at(&self, addr: MidiAddr) -> &[usize] {
-        self.input_index.get(&addr).map(Vec::as_slice).unwrap_or(&[])
+        self.input_index
+            .get(&addr)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     pub fn outputs_for(&self, target: &FeedbackTarget) -> &[usize] {
-        self.output_index.get(target).map(Vec::as_slice).unwrap_or(&[])
+        self.output_index
+            .get(target)
+            .map(Vec::as_slice)
+            .unwrap_or(&[])
     }
 
     /// Does a MIDI port name match this mapping?
     pub fn matches_port(&self, port_name: &str) -> bool {
         let p = port_name.to_lowercase();
-        self.file.device.matching.port_names.iter().any(|n| p.contains(&n.to_lowercase()))
+        self.file
+            .device
+            .matching
+            .port_names
+            .iter()
+            .any(|n| p.contains(&n.to_lowercase()))
     }
 
     /// Does a USB VID/PID pair match this mapping (if it declares one)?
@@ -464,12 +482,12 @@ impl Mapping {
                 let v = entries
                     .iter()
                     .map(|e| {
-                        CueColor::from_hex(&e.color).map(|c| (c, e.value)).ok_or_else(|| {
-                            MappingError::Entry {
+                        CueColor::from_hex(&e.color)
+                            .map(|c| (c, e.value))
+                            .ok_or_else(|| MappingError::Entry {
                                 entry: format!("palette {name}"),
                                 msg: format!("bad colour `{}`", e.color),
-                            }
-                        })
+                            })
                     })
                     .collect::<Result<Vec<_>, _>>()?;
                 Ok((name.clone(), Arc::new(v)))
@@ -477,19 +495,29 @@ impl Mapping {
             .collect::<Result<_, MappingError>>()?;
 
         if let Some(l) = &file.layers
-            && l.sides.iter().any(|s| s.is_empty()) {
-                return Err(MappingError::Entry {
-                    entry: "layers".into(),
-                    msg: "every side needs at least one deck".into(),
-                });
-            }
-        let software_layers =
-            file.layers.as_ref().filter(|l| l.mode == LayerMode::Software).cloned();
+            && l.sides.iter().any(|s| s.is_empty())
+        {
+            return Err(MappingError::Entry {
+                entry: "layers".into(),
+                msg: "every side needs at least one deck".into(),
+            });
+        }
+        let software_layers = file
+            .layers
+            .as_ref()
+            .filter(|l| l.mode == LayerMode::Software)
+            .cloned();
 
         let mut inputs = Vec::new();
         for (n, spec) in file.inputs.iter().enumerate() {
-            let entry = spec.name.clone().unwrap_or_else(|| format!("input #{n} ({})", spec.action));
-            let err = |msg: String| MappingError::Entry { entry: entry.clone(), msg };
+            let entry = spec
+                .name
+                .clone()
+                .unwrap_or_else(|| format!("input #{n} ({})", spec.action));
+            let err = |msg: String| MappingError::Entry {
+                entry: entry.clone(),
+                msg,
+            };
             let (kind, base) = match (spec.note, spec.cc) {
                 (Some(n), None) => (MsgKind::Note, n),
                 (None, Some(c)) => (MsgKind::Cc, c),
@@ -506,7 +534,11 @@ impl Mapping {
                         .checked_add(rep * spec.step)
                         .filter(|n| *n < 0x80)
                         .ok_or_else(|| err("MIDI number out of range".into()))?;
-                    let addr = MidiAddr { kind, channel, number };
+                    let addr = MidiAddr {
+                        kind,
+                        channel,
+                        number,
+                    };
                     let mode = spec.mode.unwrap_or(if spec.lsb.is_some() {
                         InputMode::Absolute14
                     } else {
@@ -521,7 +553,10 @@ impl Mapping {
                             if kind != MsgKind::Cc {
                                 return Err(err("absolute14 requires `cc`".into()));
                             }
-                            let l = spec.lsb.map(|l| l + rep * spec.step).unwrap_or(number + 0x20);
+                            let l = spec
+                                .lsb
+                                .map(|l| l + rep * spec.step)
+                                .unwrap_or(number + 0x20);
                             Some(MidiAddr::cc(channel, l))
                         }
                         _ => None,
@@ -559,7 +594,10 @@ impl Mapping {
         let mut outputs = Vec::new();
         for (n, spec) in file.outputs.iter().enumerate() {
             let entry = format!("output #{n} ({})", spec.target);
-            let err = |msg: String| MappingError::Entry { entry: entry.clone(), msg };
+            let err = |msg: String| MappingError::Entry {
+                entry: entry.clone(),
+                msg,
+            };
             let (kind, base) = match (spec.note, spec.cc) {
                 (Some(n), None) => (MsgKind::Note, n),
                 (None, Some(c)) => (MsgKind::Cc, c),
@@ -567,7 +605,10 @@ impl Mapping {
             };
             let palette = match &spec.palette {
                 Some(p) => Some(
-                    palettes.get(p).cloned().ok_or_else(|| err(format!("unknown palette `{p}`")))?,
+                    palettes
+                        .get(p)
+                        .cloned()
+                        .ok_or_else(|| err(format!("unknown palette `{p}`")))?,
                 ),
                 None => None,
             };
@@ -578,13 +619,18 @@ impl Mapping {
                         .checked_add(rep * spec.step)
                         .filter(|n| *n < 0x80)
                         .ok_or_else(|| err("MIDI number out of range".into()))?;
-                    let addr = MidiAddr { kind, channel, number };
+                    let addr = MidiAddr {
+                        kind,
+                        channel,
+                        number,
+                    };
                     // With software layers a slot shows any deck of its side.
                     let decks: Vec<DeckVariant> = match (slot, &software_layers) {
                         (Some(s), Some(l)) => {
-                            let side = l.sides.get(s as usize - 1).ok_or_else(|| {
-                                err(format!("slot {s} has no side in [layers]"))
-                            })?;
+                            let side = l
+                                .sides
+                                .get(s as usize - 1)
+                                .ok_or_else(|| err(format!("slot {s} has no side in [layers]")))?;
                             side.iter().map(|d| (Some(*d), Some((s, *d)))).collect()
                         }
                         _ => vec![(slot, None)],
@@ -597,8 +643,14 @@ impl Mapping {
                             target,
                             FeedbackTarget::MasterVuLeft
                                 | FeedbackTarget::MasterVuRight
-                                | FeedbackTarget::Mixer { element: MixerElement::Vu, .. }
-                                | FeedbackTarget::Deck { element: DeckElement::JogIndicator, .. }
+                                | FeedbackTarget::Mixer {
+                                    element: MixerElement::Vu,
+                                    ..
+                                }
+                                | FeedbackTarget::Deck {
+                                    element: DeckElement::JogIndicator,
+                                    ..
+                                }
                         ) {
                             OutputMode::Level
                         } else {
@@ -640,7 +692,13 @@ impl Mapping {
         for (i, b) in outputs.iter().enumerate() {
             output_index.entry(b.target.clone()).or_default().push(i);
         }
-        Ok(Mapping { file, inputs, outputs, input_index, output_index })
+        Ok(Mapping {
+            file,
+            inputs,
+            outputs,
+            input_index,
+            output_index,
+        })
     }
 }
 
@@ -657,14 +715,21 @@ fn expand_channels(
         ChannelRef::Fixed(c) if *c < 16 => Ok(vec![(deck, *c)]),
         ChannelRef::Fixed(c) => Err(format!("channel {c} out of range 0..15")),
         ChannelRef::Set(name) => {
-            let set = file.channels.get(name).ok_or_else(|| format!("unknown channel set `{name}`"))?;
+            let set = file
+                .channels
+                .get(name)
+                .ok_or_else(|| format!("unknown channel set `{name}`"))?;
             if deck.is_some() {
                 return Err("`deck` cannot be combined with a channel set".into());
             }
             set.iter()
                 .enumerate()
                 .map(|(i, c)| {
-                    if *c < 16 { Ok((Some(i as u8 + 1), *c)) } else { Err(format!("channel {c} out of range")) }
+                    if *c < 16 {
+                        Ok((Some(i as u8 + 1), *c))
+                    } else {
+                        Err(format!("channel {c} out of range"))
+                    }
                 })
                 .collect()
         }
@@ -690,11 +755,18 @@ fn repeat_args(args: &Table, rep: u8, index_arg: &Option<String>, base: i64) -> 
 }
 
 fn targ_err(name: &str, msg: &str) -> MappingError {
-    MappingError::Action { action: name.to_string(), msg: msg.to_string() }
+    MappingError::Action {
+        action: name.to_string(),
+        msg: msg.to_string(),
+    }
 }
 
 /// Parses an output target name.
-pub fn parse_target(name: &str, deck: Option<u8>, args: &Table) -> Result<FeedbackTarget, MappingError> {
+pub fn parse_target(
+    name: &str,
+    deck: Option<u8>,
+    args: &Table,
+) -> Result<FeedbackTarget, MappingError> {
     let s = |k: &str| match args.get(k) {
         Some(Value::String(s)) => Ok(s.clone()),
         _ => Err(targ_err(name, &format!("missing string argument `{k}`"))),
@@ -708,7 +780,8 @@ pub fn parse_target(name: &str, deck: Option<u8>, args: &Table) -> Result<Feedba
         PadMode::parse(&m).ok_or_else(|| targ_err(name, &format!("unknown pad mode `{m}`")))
     };
     if let Some(el) = name.strip_prefix("deck.") {
-        let deck = deck.ok_or_else(|| targ_err(name, "deck target needs a channel set or `deck`"))?;
+        let deck =
+            deck.ok_or_else(|| targ_err(name, "deck target needs a channel set or `deck`"))?;
         let element = match el {
             "play" => DeckElement::Play,
             "cue" => DeckElement::Cue,
@@ -732,13 +805,17 @@ pub fn parse_target(name: &str, deck: Option<u8>, args: &Table) -> Result<Feedba
             "jog_indicator" => DeckElement::JogIndicator,
             "selected" => DeckElement::Selected,
             "pad_mode" => DeckElement::PadMode(pad_mode()?),
-            "pad" => DeckElement::Pad { mode: pad_mode()?, index: u("index")? },
+            "pad" => DeckElement::Pad {
+                mode: pad_mode()?,
+                index: u("index")?,
+            },
             _ => return Err(MappingError::UnknownTarget(name.into())),
         };
         return Ok(FeedbackTarget::Deck { deck, element });
     }
     if let Some(el) = name.strip_prefix("mixer.") {
-        let channel = deck.ok_or_else(|| targ_err(name, "mixer target needs a channel set or `deck`"))?;
+        let channel =
+            deck.ok_or_else(|| targ_err(name, "mixer target needs a channel set or `deck`"))?;
         let element = match el {
             "cue" => MixerElement::Cue,
             "vu" => MixerElement::Vu,
@@ -756,8 +833,12 @@ pub fn parse_target(name: &str, deck: Option<u8>, args: &Table) -> Result<Feedba
         "master.vu_left" => FeedbackTarget::MasterVuLeft,
         "master.vu_right" => FeedbackTarget::MasterVuRight,
         "master_cue" => FeedbackTarget::MasterCue,
-        "beat_fx.on" => FeedbackTarget::BeatFxOn { unit: u("unit").unwrap_or(1) },
-        "beat_fx.release" => FeedbackTarget::BeatFxRelease { unit: u("unit").unwrap_or(1) },
+        "beat_fx.on" => FeedbackTarget::BeatFxOn {
+            unit: u("unit").unwrap_or(1),
+        },
+        "beat_fx.release" => FeedbackTarget::BeatFxRelease {
+            unit: u("unit").unwrap_or(1),
+        },
         "color_fx" => FeedbackTarget::ColorFx(s("effect")?),
         "sampler.cue" => FeedbackTarget::SamplerCue,
         "recording" => FeedbackTarget::Recording,

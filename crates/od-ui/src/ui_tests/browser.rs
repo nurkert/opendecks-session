@@ -420,22 +420,45 @@ fn drag_tree_node_into_folder() {
 fn preview_and_artwork_columns() {
     let fx = Fixture::new();
     let mut png = Vec::new();
-    image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(64, 64, image::Rgba([200, 40, 40, 255])))
-        .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
-        .unwrap();
+    image::DynamicImage::ImageRgba8(image::RgbaImage::from_pixel(
+        64,
+        64,
+        image::Rgba([200, 40, 40, 255]),
+    ))
+    .write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png)
+    .unwrap();
     let covered = fx.tracks[1].0;
-    assert!(fx.lib().set_artwork_if_missing(covered, &png, "image/png").unwrap());
+    assert!(
+        fx.lib()
+            .set_artwork_if_missing(covered, &png, "image/png")
+            .unwrap()
+    );
     let ui = Ui::start(fx, (1440, 900), false);
-    assert!(ui.has("browser.header.artwork"), "ARTWORK column shown by default");
+    assert!(
+        ui.has("browser.header.artwork"),
+        "ARTWORK column shown by default"
+    );
     let shown = |u: &Ui| {
         u.app.ui.get_tracks().iter().all(|r| {
-            r.analysed && r.preview.size().width > 0 && (r.artwork.size().width > 0) == (r.id as i64 == covered.0)
+            r.analysed
+                && r.preview.size().width > 0
+                && (r.artwork.size().width > 0) == (r.id as i64 == covered.0)
         })
     };
     assert!(
         ui.wait_until(60.0, shown),
         "rows: {:?}",
-        ui.app.ui.get_tracks().iter().map(|r| (r.title.to_string(), r.analysed, r.preview.size(), r.artwork.size())).collect::<Vec<_>>()
+        ui.app
+            .ui
+            .get_tracks()
+            .iter()
+            .map(|r| (
+                r.title.to_string(),
+                r.analysed,
+                r.preview.size(),
+                r.artwork.size()
+            ))
+            .collect::<Vec<_>>()
     );
 }
 

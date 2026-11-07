@@ -3,7 +3,9 @@
 //! import one from it. Tracks, tags, key, beatgrid (TEMPO), hot / memory
 //! cues and loops (POSITION_MARK), playlists and folders.
 
-use od_core::{Beat, Beatgrid, Cue, CueColor, CueKind, KeyNotation, MusicalKey, TrackId, TrackTags};
+use od_core::{
+    Beat, Beatgrid, Cue, CueColor, CueKind, KeyNotation, MusicalKey, TrackId, TrackTags,
+};
 use od_library::{Library, NewTrack, NodeId, NodeKind};
 use quick_xml::events::{BytesDecl, BytesEnd, BytesStart, Event};
 use quick_xml::{Reader, Writer};
@@ -48,7 +50,9 @@ pub fn location(path: &Path) -> String {
     let mut out = String::from("file://localhost");
     for b in path.to_string_lossy().bytes() {
         match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'-' | b'_' | b'.' | b'~' => out.push(b as char),
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'/' | b'-' | b'_' | b'.' | b'~' => {
+                out.push(b as char)
+            }
             _ => out.push_str(&format!("%{b:02X}")),
         }
     }
@@ -56,13 +60,19 @@ pub fn location(path: &Path) -> String {
 }
 
 pub fn path_from_location(loc: &str) -> PathBuf {
-    let rest = loc.strip_prefix("file://localhost").or_else(|| loc.strip_prefix("file://")).unwrap_or(loc);
+    let rest = loc
+        .strip_prefix("file://localhost")
+        .or_else(|| loc.strip_prefix("file://"))
+        .unwrap_or(loc);
     let bytes = rest.as_bytes();
     let mut out = Vec::with_capacity(bytes.len());
     let mut i = 0;
     while i < bytes.len() {
         if bytes[i] == b'%' && i + 2 < bytes.len() {
-            if let Some(v) = std::str::from_utf8(&bytes[i + 1..i + 3]).ok().and_then(|h| u8::from_str_radix(h, 16).ok()) {
+            if let Some(v) = std::str::from_utf8(&bytes[i + 1..i + 3])
+                .ok()
+                .and_then(|h| u8::from_str_radix(h, 16).ok())
+            {
                 out.push(v);
                 i += 3;
                 continue;
@@ -88,9 +98,16 @@ fn tempo_markers(grid: &Beatgrid) -> Vec<&Beat> {
 /// Writes the whole library as rekordbox XML.
 pub fn export_xml(lib: &Library, path: &Path) -> Result<usize> {
     let tracks = lib.tracks(od_library::SortKey::DateAdded, false)?;
-    let mut w = Writer::new_with_indent(std::io::BufWriter::new(std::fs::File::create(path)?), b' ', 2);
+    let mut w = Writer::new_with_indent(
+        std::io::BufWriter::new(std::fs::File::create(path)?),
+        b' ',
+        2,
+    );
     let ev = |w: &mut Writer<_>, e: Event| w.write_event(e).map_err(xml_err);
-    ev(&mut w, Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)))?;
+    ev(
+        &mut w,
+        Event::Decl(BytesDecl::new("1.0", Some("UTF-8"), None)),
+    )?;
     let mut root = BytesStart::new("DJ_PLAYLISTS");
     root.push_attribute(("Version", "1.0.0"));
     ev(&mut w, Event::Start(root))?;
@@ -115,18 +132,32 @@ pub fn export_xml(lib: &Library, path: &Path) -> Result<usize> {
             ("Size", t.file_size.to_string()),
             ("TotalTime", (t.duration.round() as i64).to_string()),
             ("TrackNumber", t.tags.track_number.unwrap_or(0).to_string()),
-            ("Year", t.tags.year.map(|y| y.to_string()).unwrap_or_default()),
+            (
+                "Year",
+                t.tags.year.map(|y| y.to_string()).unwrap_or_default(),
+            ),
             ("AverageBpm", t.bpm.map(n).unwrap_or_else(|| "0.00".into())),
-            ("DateAdded", t.date_added.get(..10).unwrap_or("").to_string()),
+            (
+                "DateAdded",
+                t.date_added.get(..10).unwrap_or("").to_string(),
+            ),
             // The library stores kbit/s, as the XML does.
-            ("BitRate", t.bit_rate.map(|b| b.to_string()).unwrap_or_default()),
+            (
+                "BitRate",
+                t.bit_rate.map(|b| b.to_string()).unwrap_or_default(),
+            ),
             ("SampleRate", t.sample_rate.to_string()),
             ("Comments", t.tags.comment.clone()),
             ("PlayCount", t.play_count.to_string()),
             ("Rating", rating_to_xml(t.tags.rating).to_string()),
             ("Location", location(&t.path)),
             ("Remixer", t.tags.remixer.clone()),
-            ("Tonality", t.key.map(|k| k.format(KeyNotation::Musical)).unwrap_or_default()),
+            (
+                "Tonality",
+                t.key
+                    .map(|k| k.format(KeyNotation::Musical))
+                    .unwrap_or_default(),
+            ),
             ("Label", t.tags.label.clone()),
         ];
         for (k, v) in &attrs {
@@ -174,7 +205,12 @@ pub fn export_xml(lib: &Library, path: &Path) -> Result<usize> {
     Ok(tracks.len())
 }
 
-fn write_nodes<W: Write>(lib: &Library, w: &mut Writer<W>, parent: Option<NodeId>, name: &str) -> Result<()> {
+fn write_nodes<W: Write>(
+    lib: &Library,
+    w: &mut Writer<W>,
+    parent: Option<NodeId>,
+    name: &str,
+) -> Result<()> {
     let children = lib.children(parent)?;
     let mut f = BytesStart::new("NODE");
     f.push_attribute(("Type", "0"));
@@ -198,11 +234,13 @@ fn write_nodes<W: Write>(lib: &Library, w: &mut Writer<W>, parent: Option<NodeId
                     e.push_attribute(("Key", t.id.0.to_string().as_str()));
                     w.write_event(Event::Empty(e)).map_err(xml_err)?;
                 }
-                w.write_event(Event::End(BytesEnd::new("NODE"))).map_err(xml_err)?;
+                w.write_event(Event::End(BytesEnd::new("NODE")))
+                    .map_err(xml_err)?;
             }
         }
     }
-    w.write_event(Event::End(BytesEnd::new("NODE"))).map_err(xml_err)?;
+    w.write_event(Event::End(BytesEnd::new("NODE")))
+        .map_err(xml_err)?;
     Ok(())
 }
 
@@ -254,16 +292,26 @@ pub fn import_xml(lib: &mut Library, path: &Path) -> Result<XmlImportReport> {
                 let name = e.name();
                 match name.as_ref() {
                     b"TRACK" if !in_playlists => {
-                        tracks.push(XmlTrack { attrs: attrs_of(e)?, ..Default::default() });
+                        tracks.push(XmlTrack {
+                            attrs: attrs_of(e)?,
+                            ..Default::default()
+                        });
                         in_track = !empty;
                     }
                     b"TEMPO" if in_track => tracks.last_mut().unwrap().tempos.push(attrs_of(e)?),
-                    b"POSITION_MARK" if in_track => tracks.last_mut().unwrap().marks.push(attrs_of(e)?),
+                    b"POSITION_MARK" if in_track => {
+                        tracks.last_mut().unwrap().marks.push(attrs_of(e)?)
+                    }
                     b"PLAYLISTS" => in_playlists = true,
                     b"NODE" if in_playlists => {
                         let a = attrs_of(e)?;
                         let folder = a.get("Type").map(String::as_str) == Some("0");
-                        nodes.push((depth, a.get("Name").cloned().unwrap_or_default(), folder, Vec::new()));
+                        nodes.push((
+                            depth,
+                            a.get("Name").cloned().unwrap_or_default(),
+                            folder,
+                            Vec::new(),
+                        ));
                         if !empty {
                             depth += 1;
                         }
@@ -365,12 +413,23 @@ fn grid_from_tempos(tempos: &[HashMap<String, String>], duration: f64) -> Option
     let num = |m: &HashMap<String, String>, k: &str| m.get(k).and_then(|v| v.parse::<f64>().ok());
     let marks: Vec<(f64, f64, u8)> = tempos
         .iter()
-        .filter_map(|m| Some((num(m, "Inizio")?, num(m, "Bpm")?, num(m, "Battito").unwrap_or(1.0) as u8)))
+        .filter_map(|m| {
+            Some((
+                num(m, "Inizio")?,
+                num(m, "Bpm")?,
+                num(m, "Battito").unwrap_or(1.0) as u8,
+            ))
+        })
         .filter(|(_, bpm, _)| *bpm > 0.0)
         .collect();
     let (first_t, first_bpm, first_pos) = *marks.first()?;
     if marks.len() == 1 || duration <= 0.0 {
-        return Some(Beatgrid::constant(first_bpm, first_t, first_pos.clamp(1, 4), duration.max(first_t + 1.0)));
+        return Some(Beatgrid::constant(
+            first_bpm,
+            first_t,
+            first_pos.clamp(1, 4),
+            duration.max(first_t + 1.0),
+        ));
     }
     // Variable tempo: beats from each marker to the next.
     let mut beats = Vec::new();
@@ -378,18 +437,29 @@ fn grid_from_tempos(tempos: &[HashMap<String, String>], duration: f64) -> Option
         let end = marks.get(i + 1).map(|m| m.0).unwrap_or(duration);
         let (mut t, mut p) = (t0, pos.clamp(1, 4));
         while t < end - 1e-6 {
-            beats.push(Beat { time: t, bpm, bar_position: p });
+            beats.push(Beat {
+                time: t,
+                bpm,
+                bar_position: p,
+            });
             t += 60.0 / bpm;
             p = p % 4 + 1;
         }
     }
-    Some(Beatgrid { beats, locked: false })
+    Some(Beatgrid {
+        beats,
+        locked: false,
+    })
 }
 
 fn cue_from_mark(m: &HashMap<String, String>) -> Option<Cue> {
     let num: i32 = m.get("Num")?.parse().ok()?;
     let start: f64 = m.get("Start")?.parse().ok()?;
-    let kind = if num >= 0 { CueKind::Hot(num as u8) } else { CueKind::Memory };
+    let kind = if num >= 0 {
+        CueKind::Hot(num as u8)
+    } else {
+        CueKind::Memory
+    };
     let mut c = Cue::hot(0, start);
     c.kind = kind;
     c.label = m.get("Name").cloned().unwrap_or_default();
@@ -423,7 +493,13 @@ mod tests {
         let audio = dir.path().join("Summa.mp3");
         std::fs::write(&audio, b"not really audio, but a file").unwrap();
         let mut src = Library::open(&dir.path().join("a.sqlite")).unwrap();
-        let tags = TrackTags { title: "Summa".into(), artist: "Frink".into(), comment: "opener".into(), rating: 4, ..Default::default() };
+        let tags = TrackTags {
+            title: "Summa".into(),
+            artist: "Frink".into(),
+            comment: "opener".into(),
+            rating: 4,
+            ..Default::default()
+        };
         let id = src
             .add_track(&NewTrack {
                 content_hash: od_decode::content_hash(&audio).unwrap(),
@@ -440,16 +516,23 @@ mod tests {
             })
             .unwrap();
         src.set_key(id, MusicalKey::parse("8A")).unwrap();
-        src.set_beatgrid(id, Beatgrid::constant(123.0, 0.25, 1, 120.0)).unwrap();
+        src.set_beatgrid(id, Beatgrid::constant(123.0, 0.25, 1, 120.0))
+            .unwrap();
         let mut a = Cue::hot(0, 16.0);
         a.label = "Drop".into();
-        a.color = Some(CueColor { r: 240, g: 30, b: 30 });
+        a.color = Some(CueColor {
+            r: 240,
+            g: 30,
+            b: 30,
+        });
         let mut lp = Cue::hot(0, 32.0);
         lp.kind = CueKind::Memory;
         lp.loop_end = Some(40.0);
         src.set_cues(id, vec![a, lp]).unwrap();
         let folder = src.create_node(None, NodeKind::Folder, "Gigs").unwrap();
-        let pl = src.create_node(Some(folder), NodeKind::Playlist, "Friday").unwrap();
+        let pl = src
+            .create_node(Some(folder), NodeKind::Playlist, "Friday")
+            .unwrap();
         src.add_to_node(pl, &[id], None).unwrap();
 
         let xml = dir.path().join("lib.xml");
@@ -459,15 +542,41 @@ mod tests {
         let r = import_xml(&mut dst, &xml).unwrap();
         assert_eq!((r.tracks, r.playlists, r.cues), (1, 1, 2));
         let t = &dst.tracks(od_library::SortKey::DateAdded, false).unwrap()[0];
-        assert_eq!((t.tags.title.as_str(), t.tags.comment.as_str(), t.tags.rating), ("Summa", "opener", 4));
+        assert_eq!(
+            (
+                t.tags.title.as_str(),
+                t.tags.comment.as_str(),
+                t.tags.rating
+            ),
+            ("Summa", "opener", 4)
+        );
         assert_eq!(t.key, MusicalKey::parse("8A"));
         let (g, _) = dst.beatgrid_with_source(t.id).unwrap().unwrap();
         assert!((g.first_bpm().unwrap() - 123.0).abs() < 1e-6);
         let cues = dst.cues(t.id).unwrap();
         let hot = cues.iter().find(|c| c.kind == CueKind::Hot(0)).unwrap();
-        assert_eq!((hot.start, hot.label.as_str(), hot.color), (16.0, "Drop", Some(CueColor { r: 240, g: 30, b: 30 })));
-        assert!(cues.iter().any(|c| c.kind == CueKind::Memory && c.loop_end == Some(40.0)));
-        let gigs = dst.children(None).unwrap().into_iter().find(|n| n.name == "XML import").unwrap();
+        assert_eq!(
+            (hot.start, hot.label.as_str(), hot.color),
+            (
+                16.0,
+                "Drop",
+                Some(CueColor {
+                    r: 240,
+                    g: 30,
+                    b: 30
+                })
+            )
+        );
+        assert!(
+            cues.iter()
+                .any(|c| c.kind == CueKind::Memory && c.loop_end == Some(40.0))
+        );
+        let gigs = dst
+            .children(None)
+            .unwrap()
+            .into_iter()
+            .find(|n| n.name == "XML import")
+            .unwrap();
         let sub = dst.children(Some(gigs.id)).unwrap();
         assert_eq!(sub[0].name, "Gigs");
         let lists = dst.children(Some(sub[0].id)).unwrap();

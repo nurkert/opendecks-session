@@ -31,7 +31,10 @@ impl PlacementMap {
     }
 
     pub fn load(root: &Path) -> Self {
-        std::fs::read(Self::file(root)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+        std::fs::read(Self::file(root))
+            .ok()
+            .and_then(|b| serde_json::from_slice(&b).ok())
+            .unwrap_or_default()
     }
 
     pub fn save(&self, root: &Path) -> std::io::Result<()> {
@@ -40,13 +43,24 @@ impl PlacementMap {
     }
 
     pub fn taken_paths(&self) -> HashSet<String> {
-        self.tracks.values().map(|p| p.path.to_lowercase()).collect()
+        self.tracks
+            .values()
+            .map(|p| p.path.to_lowercase())
+            .collect()
     }
 }
 
 fn component(s: &str, fallback: &str) -> String {
     let s = od_library::relocate::sanitize(if s.trim().is_empty() { fallback } else { s });
-    if s.chars().count() > MAX_COMPONENT { s.chars().take(MAX_COMPONENT).collect::<String>().trim().to_string() } else { s }
+    if s.chars().count() > MAX_COMPONENT {
+        s.chars()
+            .take(MAX_COMPONENT)
+            .collect::<String>()
+            .trim()
+            .to_string()
+    } else {
+        s
+    }
 }
 
 /// Stick path for a track: `/Contents/<Artist>/<Album>/<file name>`, made
@@ -54,9 +68,19 @@ fn component(s: &str, fallback: &str) -> String {
 pub fn contents_path(t: &TrackRecord, taken: &HashSet<String>) -> String {
     let artist = component(&t.tags.artist, "Unknown Artist");
     let album = component(&t.tags.album, "Unknown Album");
-    let file = t.path.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_else(|| format!("{}", t.id));
-    let stem = Path::new(&file).file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
-    let ext = Path::new(&file).extension().map(|s| format!(".{}", s.to_string_lossy())).unwrap_or_default();
+    let file = t
+        .path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_else(|| format!("{}", t.id));
+    let stem = Path::new(&file)
+        .file_stem()
+        .map(|s| s.to_string_lossy().into_owned())
+        .unwrap_or_default();
+    let ext = Path::new(&file)
+        .extension()
+        .map(|s| format!(".{}", s.to_string_lossy()))
+        .unwrap_or_default();
     let stem = component(&stem, "track");
     let mut candidate = format!("/Contents/{artist}/{album}/{stem}{ext}");
     let mut n = 2;
@@ -84,7 +108,11 @@ mod tests {
             channels: 2,
             bit_rate: None,
             bits_per_sample: None,
-            tags: TrackTags { artist: artist.into(), album: album.into(), ..Default::default() },
+            tags: TrackTags {
+                artist: artist.into(),
+                album: album.into(),
+                ..Default::default()
+            },
             date_added: String::new(),
             play_count: 0,
             last_played: None,
@@ -102,14 +130,24 @@ mod tests {
         let p = contents_path(&t, &taken);
         assert_eq!(p, "/Contents/AC_DC/Unknown Album/Track_ One.mp3");
         taken.insert(p.to_lowercase());
-        assert_eq!(contents_path(&t, &taken), "/Contents/AC_DC/Unknown Album/Track_ One (2).mp3");
+        assert_eq!(
+            contents_path(&t, &taken),
+            "/Contents/AC_DC/Unknown Album/Track_ One (2).mp3"
+        );
     }
 
     #[test]
     fn map_roundtrip() {
         let root = tempfile::tempdir().unwrap();
         let mut m = PlacementMap::default();
-        m.tracks.insert(TrackId(1), Placement { path: "/Contents/a.mp3".into(), hash: ContentHash("h".into()), size: 3 });
+        m.tracks.insert(
+            TrackId(1),
+            Placement {
+                path: "/Contents/a.mp3".into(),
+                hash: ContentHash("h".into()),
+                size: 3,
+            },
+        );
         m.save(root.path()).unwrap();
         assert_eq!(PlacementMap::load(root.path()), m);
     }

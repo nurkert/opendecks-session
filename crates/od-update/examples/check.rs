@@ -20,7 +20,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     // Pretend to be an installed bundle / AppImage / .deb (asset choice only).
     if let Some(i) = args.iter().position(|a| a == "--pretend") {
-        let p = std::path::PathBuf::from(args.get(i + 1).ok_or("--pretend needs a path or \"deb\"")?);
+        let p =
+            std::path::PathBuf::from(args.get(i + 1).ok_or("--pretend needs a path or \"deb\"")?);
         u.target.kind = match p.extension().and_then(|e| e.to_str()) {
             Some("app") => od_update::InstallKind::MacBundle { bundle: p },
             Some("AppImage") => od_update::InstallKind::AppImage { path: p },
@@ -28,18 +29,30 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         };
         u.target.probe = od_update::Probe::of(&u.target.kind);
     }
-    let policy = Policy { include_prereleases: args.iter().any(|a| a == "--pre"), skip: None };
-    println!("running {} as {:?}, probe {:?}", u.current, u.target.kind, u.target.probe);
+    let policy = Policy {
+        include_prereleases: args.iter().any(|a| a == "--pre"),
+        skip: None,
+    };
+    println!(
+        "running {} as {:?}, probe {:?}",
+        u.current, u.target.kind, u.target.probe
+    );
     let Some(up) = u.check(&policy)? else {
         println!("up to date");
         return Ok(());
     };
-    println!("update {} ({}), strategy {:?}", up.version, up.page_url, up.strategy);
+    println!(
+        "update {} ({}), strategy {:?}",
+        up.version, up.page_url, up.strategy
+    );
     println!("asset {:?}", up.asset.as_ref().map(|a| &a.name));
     // Download, verify and stage next to a (pretend) bundle / AppImage in a
     // writable folder; prints the helper call instead of running it.
     if args.iter().any(|a| a == "--stage") {
-        if !matches!(up.strategy, od_update::Strategy::SwapMacBundle { .. } | od_update::Strategy::SwapAppImage { .. }) {
+        if !matches!(
+            up.strategy,
+            od_update::Strategy::SwapMacBundle { .. } | od_update::Strategy::SwapAppImage { .. }
+        ) {
             return Err("--stage needs --pretend with a writable .app or .AppImage path".into());
         }
         let r = u.prepare(&up, &mut |_, _| {}, &AtomicBool::new(false))?;
@@ -48,8 +61,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     if args.iter().any(|a| a == "--verify") {
         let a = up.asset.as_ref().ok_or("no asset for this install")?;
-        let sums = od_update::http::get_text(&*u.http, &up.sums.as_ref().ok_or("no SHA256SUMS.txt")?.browser_download_url, 1 << 20)?;
-        let expected = od_update::checksum::parse_sums(&sums).remove(&a.name).ok_or("asset not in SHA256SUMS.txt")?;
+        let sums = od_update::http::get_text(
+            &*u.http,
+            &up.sums
+                .as_ref()
+                .ok_or("no SHA256SUMS.txt")?
+                .browser_download_url,
+            1 << 20,
+        )?;
+        let expected = od_update::checksum::parse_sums(&sums)
+            .remove(&a.name)
+            .ok_or("asset not in SHA256SUMS.txt")?;
         let dest = cache.join(&a.name);
         let mut last = 0;
         od_update::download::download_verified(

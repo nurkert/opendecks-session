@@ -9,7 +9,9 @@ use od_engine::*;
 const BEAT: usize = 24_000;
 
 fn rms(sig: &[f32], ch: usize, from: usize, len: usize) -> f32 {
-    let s: f32 = (from..from + len).map(|i| sig[i * 2 + ch] * sig[i * 2 + ch]).sum();
+    let s: f32 = (from..from + len)
+        .map(|i| sig[i * 2 + ch] * sig[i * 2 + ch])
+        .sum();
     (s / len as f32).sqrt()
 }
 
@@ -49,12 +51,18 @@ fn echo_repeats_at_the_beat_offset() {
     let second = rms(&out, 0, 4 * BEAT, 2400);
     assert!(first > 0.3 * dry, "first repeat {first} vs dry {dry}");
     assert!(half < 1e-4, "nothing half a beat later: {half}");
-    assert!(second > 0.1 * dry && second < first, "decaying repeats {second}");
+    assert!(
+        second > 0.1 * dry && second < first,
+        "decaying repeats {second}"
+    );
     // Onset of the first repeat within 2 frames of one beat later.
     let onset = (3 * BEAT - 100..3 * BEAT + 100)
         .find(|&i| out[i * 2].abs() > 0.01)
         .unwrap();
-    assert!((onset as i64 - (3 * BEAT) as i64).abs() <= 2, "onset {onset}");
+    assert!(
+        (onset as i64 - (3 * BEAT) as i64).abs() <= 2,
+        "onset {onset}"
+    );
 }
 
 #[test]
@@ -131,7 +139,10 @@ fn vinyl_brake_slows_to_a_stop_in_n_beats() {
     let f1 = estimate_freq(&out[2 * 24_000..2 * 36_000]);
     assert!((f0 - 1000.0 * 0.83).abs() < 60.0, "early {f0}");
     assert!((f1 - 1000.0 * 0.375).abs() < 60.0, "late {f1}");
-    assert!(rms(&out, 0, 2 * BEAT, BEAT / 2) < 1e-4, "stopped after 2 beats");
+    assert!(
+        rms(&out, 0, 2 * BEAT, BEAT / 2) < 1e-4,
+        "stopped after 2 beats"
+    );
     fx(&mut rig, 0, BeatFxCommand::SetOn(false));
     let out = rig.render(40);
     assert!(rms(&out, 0, 2000, 3000) > 0.3, "dry returns");
@@ -147,7 +158,10 @@ fn vinyl_brake_slows_to_a_stop_in_n_beats() {
     let out = render_frames(&mut rig, 2 * BEAT);
     assert!(rms(&out, 0, 0, 4000) > 0.2);
     assert!(rms(&out, 0, BEAT, BEAT / 2) < 1e-4, "stopped after 1 beat");
-    assert_eq!(rig.state().beat_fx[0].release, Some(ReleaseFxKind::VinylBrake));
+    assert_eq!(
+        rig.state().beat_fx[0].release,
+        Some(ReleaseFxKind::VinylBrake)
+    );
     fx(&mut rig, 0, rel(false));
     let out = rig.render(40);
     assert!(rms(&out, 0, 2000, 3000) > 0.3, "dry returns");
@@ -168,7 +182,10 @@ fn backspin_and_echo_out_release() {
     );
     let out = render_frames(&mut rig, 2 * BEAT);
     assert!(rms(&out, 0, 2000, 4000) > 0.1, "spinning back");
-    assert!(rms(&out, 0, BEAT + 1000, BEAT / 2) < 1e-4, "stopped after 1 beat");
+    assert!(
+        rms(&out, 0, BEAT + 1000, BEAT / 2) < 1e-4,
+        "stopped after 1 beat"
+    );
 
     // Echo out: input cut, last beat echoed with decaying repeats.
     let mut rig = Rig::new(2);
@@ -208,7 +225,10 @@ fn pitch_fx_shifts_an_octave() {
 }
 
 fn max_abs_diff(a: &[f32], b: &[f32]) -> f32 {
-    a.iter().zip(b).map(|(x, y)| (x - y).abs()).fold(0.0, f32::max)
+    a.iter()
+        .zip(b)
+        .map(|(x, y)| (x - y).abs())
+        .fold(0.0, f32::max)
 }
 
 #[test]
@@ -222,8 +242,14 @@ fn every_beat_fx_runs_and_returns_to_dry() {
         fx(&mut wet, 0, BeatFxCommand::SetOn(true));
         let a = dry.render(300);
         let b = wet.render(300);
-        assert!(b.iter().all(|v| v.is_finite() && v.abs() < 4.0), "{kind:?} bounded");
-        assert!(max_abs_diff(&a[BLOCK * 100..], &b[BLOCK * 100..]) > 0.01, "{kind:?} audible");
+        assert!(
+            b.iter().all(|v| v.is_finite() && v.abs() < 4.0),
+            "{kind:?} bounded"
+        );
+        assert!(
+            max_abs_diff(&a[BLOCK * 100..], &b[BLOCK * 100..]) > 0.01,
+            "{kind:?} audible"
+        );
         assert!(wet.state().beat_fx[0].on);
         fx(&mut wet, 0, BeatFxCommand::SetOn(false));
         let mut waited = 0;
@@ -268,7 +294,11 @@ fn beat_fx_toggles_are_click_free() {
         let mut all = Vec::new();
         for i in 0..8 {
             fx(&mut rig, 0, BeatFxCommand::SetOn(i % 2 == 0));
-            fx(&mut rig, 0, BeatFxCommand::SetLevel(0.4 + 0.6 * (i % 3) as f32 / 2.0));
+            fx(
+                &mut rig,
+                0,
+                BeatFxCommand::SetLevel(0.4 + 0.6 * (i % 3) as f32 / 2.0),
+            );
             all.extend(rig.render(37));
         }
         // A 100 Hz sine at 0.5 moves at most 0.0066 per frame.
@@ -292,7 +322,11 @@ fn beat_fx_follows_the_channel_bpm_and_tap() {
     rig.render(10);
     let st = rig.state();
     assert_eq!(st.master_deck, Some(0));
-    assert!((st.beat_fx[0].bpm - 100.0).abs() < 1e-3, "channel bpm {}", st.beat_fx[0].bpm);
+    assert!(
+        (st.beat_fx[0].bpm - 100.0).abs() < 1e-3,
+        "channel bpm {}",
+        st.beat_fx[0].bpm
+    );
     assert!((st.beat_fx[1].bpm - 120.0).abs() < 1e-3, "master bpm");
     fx(&mut rig, 1, BeatFxCommand::SetTapBpm(Some(90.0)));
     rig.render(2);
@@ -360,7 +394,10 @@ fn every_colour_fx_runs_and_returns_to_dry() {
             color(&mut wet, 0, ChannelCommand::SetColorFxAmount(amount));
             let a = dry.render(200);
             let b = wet.render(200);
-            assert!(b.iter().all(|v| v.is_finite() && v.abs() < 4.0), "{kind:?} bounded");
+            assert!(
+                b.iter().all(|v| v.is_finite() && v.abs() < 4.0),
+                "{kind:?} bounded"
+            );
             assert!(
                 max_abs_diff(&a[BLOCK * 50..], &b[BLOCK * 50..]) > 0.01,
                 "{kind:?} {amount} audible"
@@ -380,7 +417,11 @@ fn dub_echo_tail_rings_after_the_knob_returns() {
     let mut rig = Rig::new(2);
     rig.deck(0, DeckCommand::Load(burst_track(1, 10.0, 2 * BEAT)));
     rig.deck(0, DeckCommand::Play);
-    color(&mut rig, 0, ChannelCommand::SetColorFx(ColorFxKind::DubEcho));
+    color(
+        &mut rig,
+        0,
+        ChannelCommand::SetColorFx(ColorFxKind::DubEcho),
+    );
     color(&mut rig, 0, ChannelCommand::SetColorFxAmount(0.8));
     render_frames(&mut rig, 2 * BEAT + 3000);
     color(&mut rig, 0, ChannelCommand::SetColorFxAmount(0.0));
@@ -408,7 +449,10 @@ fn colour_pitch_and_sweep_gate() {
 
     // Sweep left: 1/16 gate on the beat grid.
     let mut rig = Rig::new(2);
-    rig.deck(0, DeckCommand::Load(sine_track(1, 20.0, 2000.0, 0.5, 120.0)));
+    rig.deck(
+        0,
+        DeckCommand::Load(sine_track(1, 20.0, 2000.0, 0.5, 120.0)),
+    );
     color(&mut rig, 0, ChannelCommand::SetColorFx(ColorFxKind::Sweep));
     color(&mut rig, 0, ChannelCommand::SetColorFxAmount(-1.0));
     rig.deck(0, DeckCommand::Play);
@@ -454,11 +498,17 @@ fn pad_fx_momentary_and_release_presets() {
     };
     rig.send(Command::PadFx(0, PadFxCommand::Press(brake)));
     let out = render_frames(&mut rig, BEAT);
-    assert!(rms(&out, 0, BEAT / 2 + 500, BEAT / 4) < 1e-4, "braked to silence");
+    assert!(
+        rms(&out, 0, BEAT / 2 + 500, BEAT / 4) < 1e-4,
+        "braked to silence"
+    );
     rig.send(Command::PadFx(0, PadFxCommand::Release));
     rig.render(10);
     let out = render_frames(&mut rig, BEAT / 4);
-    assert!((rms(&out, 0, 0, BEAT / 4) - 0.3535).abs() < 0.01, "dry again");
+    assert!(
+        (rms(&out, 0, 0, BEAT / 4) - 0.3535).abs() < 0.01,
+        "dry again"
+    );
 }
 
 // ----- mixer outputs ---------------------------------------------------
@@ -483,7 +533,10 @@ fn booth_output_and_master_cue() {
     rig.send(Command::Mixer(MixerCommand::SetMasterCue(true)));
     rig.render(20);
     let diff = max_abs_diff(&rig.phones[..BLOCK * 2], &rig.master[..BLOCK * 2]);
-    assert!(rms(&rig.master, 0, 0, BLOCK) > 0.1 && diff < 1e-6, "master in phones: {diff}");
+    assert!(
+        rms(&rig.master, 0, 0, BLOCK) > 0.1 && diff < 1e-6,
+        "master in phones: {diff}"
+    );
     let st = rig.state();
     assert!(st.master_cue && (st.booth_level - 0.5).abs() < 1e-6);
 }
@@ -497,7 +550,13 @@ fn multi_mode_chains_three_slots() {
         rig.deck(0, DeckCommand::Load(burst_track(1, 10.0, 2 * BEAT)));
         rig.deck(0, DeckCommand::Play);
         // Slot 0 stays off; slot 1 is an echo on.
-        let slot = |rig: &mut Rig, cmd| rig.send(Command::BeatFxSlot { unit: 0, slot: 1, cmd });
+        let slot = |rig: &mut Rig, cmd| {
+            rig.send(Command::BeatFxSlot {
+                unit: 0,
+                slot: 1,
+                cmd,
+            })
+        };
         slot(&mut rig, BeatFxCommand::SetKind(BeatFxKind::Echo));
         slot(&mut rig, BeatFxCommand::SetBeats(1.0));
         slot(&mut rig, BeatFxCommand::SetLevel(1.0));
@@ -514,5 +573,9 @@ fn multi_mode_chains_three_slots() {
     assert!(on > 0.05, "slot 1 echoes in multi mode: {on}");
     assert!(st.beat_fx_multi[0]);
     assert!(st.beat_fx_slots[0][0].on && st.beat_fx_slots[0][0].kind == BeatFxKind::Echo);
-    assert_eq!(st.beat_fx_slots[0][0].target, FxTarget::Channel(0), "slots follow the unit's target");
+    assert_eq!(
+        st.beat_fx_slots[0][0].target,
+        FxTarget::Channel(0),
+        "slots follow the unit's target"
+    );
 }

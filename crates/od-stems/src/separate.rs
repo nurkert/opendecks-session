@@ -31,7 +31,10 @@ pub struct SeparatorOptions {
 
 impl Default for SeparatorOptions {
     fn default() -> Self {
-        Self { threads: 0, overlap: OVERLAP }
+        Self {
+            threads: 0,
+            overlap: OVERLAP,
+        }
     }
 }
 
@@ -59,7 +62,10 @@ impl Separator {
             .with_intra_threads(threads)
             .map_err(ort::Error::from)?
             .commit_from_file(model_path)?;
-        Ok(Self { session, overlap: opts.overlap.clamp(0.0, 0.5) })
+        Ok(Self {
+            session,
+            overlap: opts.overlap.clamp(0.0, 0.5),
+        })
     }
 
     /// Loads the model from the default location (see [`crate::model_path`]);
@@ -105,7 +111,10 @@ impl Separator {
         // Segment starts: every `stride`, the last one aligned to the end so
         // no segment is mostly zero padding (the model normalises each
         // segment; near-silent padded segments produced loud artefacts).
-        let mut starts: Vec<usize> = (0..).map(|k| k * stride).take_while(|s| s + SEGMENT < total).collect();
+        let mut starts: Vec<usize> = (0..)
+            .map(|k| k * stride)
+            .take_while(|s| s + SEGMENT < total)
+            .collect();
         starts.push(total.saturating_sub(SEGMENT));
         if starts.len() > 1 && starts[starts.len() - 1] <= starts[starts.len() - 2] {
             starts.pop();
@@ -178,14 +187,24 @@ impl Separator {
         }
         progress(1.0);
         let [vocals, drums, bass] = parts;
-        Ok(Stems { sample_rate: rate, vocals, drums, bass })
+        Ok(Stems {
+            sample_rate: rate,
+            vocals,
+            drums,
+            bass,
+        })
     }
 }
 
 fn to_stereo(audio: &DecodedAudio) -> std::borrow::Cow<'_, [f32]> {
     match audio.channels {
         2 => (&audio.samples[..]).into(),
-        1 => audio.samples.iter().flat_map(|&v| [v, v]).collect::<Vec<_>>().into(),
+        1 => audio
+            .samples
+            .iter()
+            .flat_map(|&v| [v, v])
+            .collect::<Vec<_>>()
+            .into(),
         n if n > 2 => audio
             .samples
             .chunks_exact(n as usize)
@@ -199,7 +218,11 @@ fn to_stereo(audio: &DecodedAudio) -> std::borrow::Cow<'_, [f32]> {
 /// One-shot convenience: loads the default model and separates `path`.
 /// Prefer a long-lived [`Separator`] (or the [`crate::StemWorker`]) for
 /// several tracks.
-pub fn separate(path: &Path, progress: &mut dyn FnMut(f32), cancel: &AtomicBool) -> Result<Stems, Error> {
+pub fn separate(
+    path: &Path,
+    progress: &mut dyn FnMut(f32),
+    cancel: &AtomicBool,
+) -> Result<Stems, Error> {
     let _ = MODEL;
     Separator::load_default()?.separate_file(path, progress, cancel)
 }

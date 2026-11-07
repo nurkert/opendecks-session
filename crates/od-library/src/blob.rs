@@ -27,7 +27,10 @@ pub fn decode_grid(bytes: &[u8], locked: bool) -> Beatgrid {
 }
 
 pub fn encode_waveform(w: &Waveform) -> Vec<u8> {
-    w.columns.iter().flat_map(|c| [c.low, c.mid, c.high, c.peak]).collect()
+    w.columns
+        .iter()
+        .flat_map(|c| [c.low, c.mid, c.high, c.peak])
+        .collect()
 }
 
 pub fn decode_waveform(bytes: &[u8], rate: f64) -> Waveform {
@@ -35,7 +38,12 @@ pub fn decode_waveform(bytes: &[u8], rate: f64) -> Waveform {
         columns_per_second: rate,
         columns: bytes
             .chunks_exact(4)
-            .map(|c| WaveformColumn { low: c[0], mid: c[1], high: c[2], peak: c[3] })
+            .map(|c| WaveformColumn {
+                low: c[0],
+                mid: c[1],
+                high: c[2],
+                peak: c[3],
+            })
             .collect(),
     }
 }
@@ -45,7 +53,10 @@ pub fn encode_f32s(v: &[f32]) -> Vec<u8> {
 }
 
 pub fn decode_f32s(bytes: &[u8]) -> Vec<f32> {
-    bytes.chunks_exact(4).map(|c| f32::from_le_bytes(c.try_into().unwrap())).collect()
+    bytes
+        .chunks_exact(4)
+        .map(|c| f32::from_le_bytes(c.try_into().unwrap()))
+        .collect()
 }
 
 #[cfg(test)]
@@ -58,7 +69,15 @@ mod tests {
         assert_eq!(decode_grid(&encode_grid(&g), false), g);
         let w = Waveform {
             columns_per_second: 150.0,
-            columns: vec![WaveformColumn { low: 1, mid: 2, high: 3, peak: 4 }; 3],
+            columns: vec![
+                WaveformColumn {
+                    low: 1,
+                    mid: 2,
+                    high: 3,
+                    peak: 4
+                };
+                3
+            ],
         };
         assert_eq!(decode_waveform(&encode_waveform(&w), 150.0), w);
         assert_eq!(decode_f32s(&encode_f32s(&[0.5, 1.0])), vec![0.5, 1.0]);

@@ -92,10 +92,20 @@ pub(crate) fn load_anlz(paths: &[PathBuf]) -> AnlzData {
         })
         .collect();
     let mut out = AnlzData {
-        grid: files.iter().find_map(|f| f.beatgrid()).filter(|g| !g.is_empty()),
-        phrases: files.iter().find_map(|f| f.phrases()).filter(|(p, _)| !p.is_empty()),
+        grid: files
+            .iter()
+            .find_map(|f| f.beatgrid())
+            .filter(|g| !g.is_empty()),
+        phrases: files
+            .iter()
+            .find_map(|f| f.phrases())
+            .filter(|(p, _)| !p.is_empty()),
         // The later files carry the more detailed waveforms (PWV7 > PWV5 > PWV3).
-        waveform: files.iter().rev().find_map(|f| f.waveform()).filter(|w| !w.columns.is_empty()),
+        waveform: files
+            .iter()
+            .rev()
+            .find_map(|f| f.waveform())
+            .filter(|w| !w.columns.is_empty()),
         cues: Vec::new(),
     };
     // `.EXT` cue lists (PCO2, with colours and comments) win over `.DAT`.

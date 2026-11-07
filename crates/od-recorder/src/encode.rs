@@ -28,16 +28,28 @@ pub fn wav_to_flac(wav: &Path, flac: &Path) -> Result<()> {
 
     let mut reader = hound::WavReader::open(wav)?;
     let spec = reader.spec();
-    let (channels, bits, rate) = (spec.channels as usize, spec.bits_per_sample as usize, spec.sample_rate as usize);
-    let config = flacenc::config::Encoder::default().into_verified().map_err(|(_, e)| other(e))?;
+    let (channels, bits, rate) = (
+        spec.channels as usize,
+        spec.bits_per_sample as usize,
+        spec.sample_rate as usize,
+    );
+    let config = flacenc::config::Encoder::default()
+        .into_verified()
+        .map_err(|(_, e)| other(e))?;
     let block = config.block_size;
     let mut stream = Stream::new(rate, channels, bits).map_err(other)?;
-    stream.stream_info_mut().set_block_sizes(block, block).map_err(other)?;
+    stream
+        .stream_info_mut()
+        .set_block_sizes(block, block)
+        .map_err(other)?;
     let header_len = flac_header(&stream)?.len();
 
     let mut out = BufWriter::new(File::create(flac)?);
     out.write_all(&vec![0u8; header_len])?;
-    let mut buf = (FrameBuf::with_size(channels, block).map_err(other)?, Context::new(bits, channels));
+    let mut buf = (
+        FrameBuf::with_size(channels, block).map_err(other)?,
+        Context::new(bits, channels),
+    );
     let mut samples = reader.samples::<i32>();
     let mut chunk: Vec<i32> = Vec::with_capacity(block * channels);
     // Frame numbers count from 0 (the context's counter is already advanced
@@ -56,7 +68,9 @@ pub fn wav_to_flac(wav: &Path, flac: &Path) -> Result<()> {
             buf.0 = FrameBuf::with_size(channels, chunk.len() / channels).map_err(other)?;
         }
         buf.fill_interleaved(&chunk).map_err(other)?;
-        let frame = flacenc::encode_fixed_size_frame(&config, &buf.0, frame_number, stream.stream_info()).map_err(other)?;
+        let frame =
+            flacenc::encode_fixed_size_frame(&config, &buf.0, frame_number, stream.stream_info())
+                .map_err(other)?;
         frame_number += 1;
         stream.stream_info_mut().update_frame_info(&frame);
         let mut sink = flacenc::bitsink::ByteSink::new();
@@ -67,10 +81,15 @@ pub fn wav_to_flac(wav: &Path, flac: &Path) -> Result<()> {
     // last block (FLAC format spec), otherwise decoders read the frame
     // numbers as sample numbers.
     if frame_number > 1 {
-        stream.stream_info_mut().set_block_sizes(block, block).map_err(other)?;
+        stream
+            .stream_info_mut()
+            .set_block_sizes(block, block)
+            .map_err(other)?;
     }
     stream.stream_info_mut().set_md5_digest(&buf.1.md5_digest());
-    stream.stream_info_mut().set_total_samples(buf.1.total_samples());
+    stream
+        .stream_info_mut()
+        .set_total_samples(buf.1.total_samples());
     // Rewrite the header with the final sizes, sample count and MD5.
     let header = flac_header(&stream)?;
     debug_assert_eq!(header.len(), header_len);
@@ -106,8 +125,11 @@ pub fn wav_to_mp3(wav: &Path, mp3: &Path) -> Result<()> {
             break;
         }
         bytes.clear();
-        bytes.reserve(mp3lame_encoder::max_required_buffer_size(pcm.len() / spec.channels as usize));
-        enc.encode_to_vec(InterleavedPcm(pcm.as_slice()), &mut bytes).map_err(other)?;
+        bytes.reserve(mp3lame_encoder::max_required_buffer_size(
+            pcm.len() / spec.channels as usize,
+        ));
+        enc.encode_to_vec(InterleavedPcm(pcm.as_slice()), &mut bytes)
+            .map_err(other)?;
         out.write_all(&bytes)?;
     }
     bytes.clear();
@@ -139,7 +161,13 @@ pub enum AutoAction {
 
 impl SilenceDetector {
     pub fn new(threshold_db: f32, start_after: f32, stop_after: f32) -> Self {
-        Self { threshold_db, start_after, stop_after, loud: 0.0, quiet: 0.0 }
+        Self {
+            threshold_db,
+            start_after,
+            stop_after,
+            loud: 0.0,
+            quiet: 0.0,
+        }
     }
 
     /// Feeds `dt` seconds at `level_db`; `recording` says whether a

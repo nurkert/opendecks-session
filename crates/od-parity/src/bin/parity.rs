@@ -51,7 +51,8 @@ fn main() -> ExitCode {
     };
     match cmd.as_str() {
         "check" => {
-            let strict = flag("--strict") || std::env::var("OD_PARITY_STRICT").is_ok_and(|v| v == "1");
+            let strict =
+                flag("--strict") || std::env::var("OD_PARITY_STRICT").is_ok_and(|v| v == "1");
             let report = inputs.report();
             let text = check::render(&report, strict);
             print!("{text}");
@@ -80,7 +81,9 @@ fn main() -> ExitCode {
                     println!("{MATRIX} is up to date");
                     ExitCode::SUCCESS
                 } else {
-                    eprintln!("{MATRIX} is out of date; run `cargo run -p od-parity --bin parity -- matrix`");
+                    eprintln!(
+                        "{MATRIX} is out of date; run `cargo run -p od-parity --bin parity -- matrix`"
+                    );
                     ExitCode::FAILURE
                 }
             } else if let Err(e) = std::fs::write(&path, text) {

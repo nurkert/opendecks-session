@@ -188,7 +188,11 @@ enum StemsCmd {
 }
 
 fn main() -> anyhow::Result<()> {
-    tracing_subscriber::fmt().with_env_filter(tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into())).init();
+    tracing_subscriber::fmt()
+        .with_env_filter(
+            tracing_subscriber::EnvFilter::try_from_default_env().unwrap_or_else(|_| "warn".into()),
+        )
+        .init();
     let cli = Cli::parse();
     if let Cmd::Stems(StemsArgs { cmd: Some(c), .. }) = &cli.command {
         return stems_cmd(c);
@@ -197,7 +201,9 @@ fn main() -> anyhow::Result<()> {
         return rekordbox_settings_cmd(a);
     }
     if let Cmd::Lighting { rig, cmd } = &cli.command {
-        let path = rig.clone().unwrap_or_else(|| od_library::data_dir().join("lighting.json"));
+        let path = rig
+            .clone()
+            .unwrap_or_else(|| od_library::data_dir().join("lighting.json"));
         return lighting_cmd(&path, cmd);
     }
     let path = cli.library.unwrap_or_else(Library::default_path);
@@ -239,14 +245,27 @@ fn main() -> anyhow::Result<()> {
             println!("{added} tracks added ({} in library)", lib.track_count()?);
         }
         Cmd::Analyze { all, lite } => {
-            let version = if all { u32::MAX } else { od_analysis::ANALYSIS_VERSION };
+            let version = if all {
+                u32::MAX
+            } else {
+                od_analysis::ANALYSIS_VERSION
+            };
             let todo = lib.tracks_needing_analysis(version)?;
-            let opts = od_analysis::AnalysisOptions { lite, ..Default::default() };
-            let paths: Vec<_> = todo.iter().filter_map(|id| lib.track(*id).ok().map(|t| (*id, t.path))).collect();
+            let opts = od_analysis::AnalysisOptions {
+                lite,
+                ..Default::default()
+            };
+            let paths: Vec<_> = todo
+                .iter()
+                .filter_map(|id| lib.track(*id).ok().map(|t| (*id, t.path)))
+                .collect();
             let started = std::time::Instant::now();
             let results: Vec<_> = {
                 use rayon::prelude::*;
-                paths.par_iter().map(|(id, p)| (*id, od_analysis::analyze_file(p, &opts))).collect()
+                paths
+                    .par_iter()
+                    .map(|(id, p)| (*id, od_analysis::analyze_file(p, &opts)))
+                    .collect()
             };
             for (id, r) in results {
                 match r {
@@ -254,7 +273,11 @@ fn main() -> anyhow::Result<()> {
                     Err(e) => eprintln!("track {id}: {e}"),
                 }
             }
-            println!("analysed {} tracks in {:.1} s", paths.len(), started.elapsed().as_secs_f64());
+            println!(
+                "analysed {} tracks in {:.1} s",
+                paths.len(),
+                started.elapsed().as_secs_f64()
+            );
         }
         Cmd::List { search } => {
             let tracks = match search {
@@ -279,7 +302,10 @@ fn main() -> anyhow::Result<()> {
         }
         Cmd::XmlImport { file } => {
             let r = od_import_rekordbox::xml::import_xml(&mut lib, &file)?;
-            println!("imported {} tracks, {} cues, {} playlists", r.tracks, r.cues, r.playlists);
+            println!(
+                "imported {} tracks, {} cues, {} playlists",
+                r.tracks, r.cues, r.playlists
+            );
             for m in &r.missing {
                 println!("missing file: {}", m.display());
             }
@@ -290,7 +316,11 @@ fn main() -> anyhow::Result<()> {
         }
         Cmd::Restore { file, dir } => {
             let restored = Library::import_archive(&file, &dir)?;
-            println!("restored {} tracks into {}", restored.track_count()?, dir.display());
+            println!(
+                "restored {} tracks into {}",
+                restored.track_count()?,
+                dir.display()
+            );
         }
         Cmd::Lighting { .. } => unreachable!("handled before the library opens"),
         Cmd::Duplicates => {
@@ -300,17 +330,38 @@ fn main() -> anyhow::Result<()> {
                     .tracks
                     .iter()
                     .filter_map(|id| lib.track(*id).ok())
-                    .map(|t| format!("#{} {} – {} ({})", t.id.0, t.tags.artist, t.tags.title, t.path.display()))
+                    .map(|t| {
+                        format!(
+                            "#{} {} – {} ({})",
+                            t.id.0,
+                            t.tags.artist,
+                            t.tags.title,
+                            t.path.display()
+                        )
+                    })
                     .collect();
                 println!("{:?}:\n  {}", g.kind, names.join("\n  "));
             }
             println!("{} duplicate group(s)", groups.len());
         }
         Cmd::Tree => {
-            fn walk(lib: &Library, parent: Option<od_library::NodeId>, depth: usize) -> anyhow::Result<()> {
+            fn walk(
+                lib: &Library,
+                parent: Option<od_library::NodeId>,
+                depth: usize,
+            ) -> anyhow::Result<()> {
                 for n in lib.children(parent)? {
-                    let count = if n.kind == NodeKind::Folder { String::new() } else { format!(" ({})", lib.node_tracks(n.id)?.len()) };
-                    println!("{}{} [{}]{count}", "  ".repeat(depth), n.name, n.kind.as_str());
+                    let count = if n.kind == NodeKind::Folder {
+                        String::new()
+                    } else {
+                        format!(" ({})", lib.node_tracks(n.id)?.len())
+                    };
+                    println!(
+                        "{}{} [{}]{count}",
+                        "  ".repeat(depth),
+                        n.name,
+                        n.kind.as_str()
+                    );
                     walk(lib, Some(n.id), depth + 1)?;
                 }
                 Ok(())
@@ -322,38 +373,69 @@ fn main() -> anyhow::Result<()> {
                 Some(q) => lib.search(&q, 10_000)?,
                 None => lib.tracks(od_library::SortKey::Bpm, false)?,
             };
-            let id = lib.create_node(None, if set { NodeKind::Set } else { NodeKind::Playlist }, &name)?;
+            let id = lib.create_node(
+                None,
+                if set {
+                    NodeKind::Set
+                } else {
+                    NodeKind::Playlist
+                },
+                &name,
+            )?;
             lib.add_to_node(id, &tracks.iter().map(|t| t.id).collect::<Vec<_>>(), None)?;
             println!("created {} with {} tracks", name, tracks.len());
         }
-        Cmd::Register { mount, name, playlists } => {
+        Cmd::Register {
+            mount,
+            name,
+            playlists,
+        } => {
             let all = lib.all_nodes()?;
             let mut nodes = Vec::new();
             for p in &playlists {
-                let n = all.iter().find(|n| &n.name == p).with_context(|| format!("no playlist named {p}"))?;
+                let n = all
+                    .iter()
+                    .find(|n| &n.name == p)
+                    .with_context(|| format!("no playlist named {p}"))?;
                 nodes.push(n.id);
             }
             let marker = match od_format_native::read_marker(&mount)? {
                 Some(m) => m,
                 None => {
-                    let uuid = od_core::ContentHash(format!("{:x}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH)?.as_nanos())).0;
+                    let uuid = od_core::ContentHash(format!(
+                        "{:x}",
+                        std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)?
+                            .as_nanos()
+                    ))
+                    .0;
                     let m = od_format_native::DeviceMarker {
                         format_version: od_format_native::FORMAT_VERSION,
                         device_uuid: uuid,
-                        name: name.clone().unwrap_or_else(|| mount.file_name().map(|n| n.to_string_lossy().into_owned()).unwrap_or_default()),
+                        name: name.clone().unwrap_or_else(|| {
+                            mount
+                                .file_name()
+                                .map(|n| n.to_string_lossy().into_owned())
+                                .unwrap_or_default()
+                        }),
                         created_by: "od-cli".into(),
                     };
                     od_format_native::write_marker(&mount, &m)?;
                     m
                 }
             };
-            let id = lib.register_device(&marker.device_uuid, &marker.name, DeviceFormats::default())?;
+            let id =
+                lib.register_device(&marker.device_uuid, &marker.name, DeviceFormats::default())?;
             lib.set_device_nodes(id, &nodes)?;
             println!("registered {} as device {id}", marker.name);
         }
         Cmd::Sync { mount, full } => {
-            let Some(marker) = od_format_native::read_marker(&mount)? else { bail!("{} is not a registered stick", mount.display()) };
-            let Some(device) = lib.device_by_uuid(&marker.device_uuid)? else { bail!("stick not registered in this library") };
+            let Some(marker) = od_format_native::read_marker(&mount)? else {
+                bail!("{} is not a registered stick", mount.display())
+            };
+            let Some(device) = lib.device_by_uuid(&marker.device_uuid)? else {
+                bail!("stick not registered in this library")
+            };
             let mut writers: Vec<Box<dyn FormatWriter + Send>> = Vec::new();
             if device.formats.opendecks {
                 writers.push(Box::new(NativeWriter::default()));
@@ -388,7 +470,11 @@ fn main() -> anyhow::Result<()> {
             let pdb = mount.join("PIONEER/rekordbox/export.pdb");
             if pdb.exists() {
                 let db = od_format_pioneer::pdb::ExportDatabase::parse(&std::fs::read(&pdb)?)?;
-                println!("export.pdb: {} tracks, {} playlists", db.tracks.len(), db.playlists.len());
+                println!(
+                    "export.pdb: {} tracks, {} playlists",
+                    db.tracks.len(),
+                    db.playlists.len()
+                );
                 let mut cues = 0;
                 for t in &db.tracks {
                     let dat = mount.join(t.anlz_path.trim_start_matches('/'));
@@ -406,7 +492,11 @@ fn main() -> anyhow::Result<()> {
                 println!("ANLZ: all files parse, {cues} cues");
             }
             if let Some(stick) = od_format_native::Stick::open(&mount)? {
-                println!("OpenDecks: {} tracks, {} lists", stick.library.track_count()?, stick.library.all_nodes()?.len());
+                println!(
+                    "OpenDecks: {} tracks, {} lists",
+                    stick.library.track_count()?,
+                    stick.library.all_nodes()?.len()
+                );
             }
         }
         Cmd::Backup => println!("{}", lib.backup_now("cli")?.display()),
@@ -418,9 +508,15 @@ fn main() -> anyhow::Result<()> {
             } else if a.tracks.is_empty() {
                 bail!("give track ids or --all (see `od-cli stems --help`)");
             } else {
-                a.tracks.iter().map(|id| lib.track(od_core::TrackId(*id))).collect::<Result<Vec<_>, _>>()?
+                a.tracks
+                    .iter()
+                    .map(|id| lib.track(od_core::TrackId(*id)))
+                    .collect::<Result<Vec<_>, _>>()?
             };
-            let todo: Vec<_> = records.into_iter().filter(|t| !t.missing && (a.force || !cache.exists(&t.content_hash))).collect();
+            let todo: Vec<_> = records
+                .into_iter()
+                .filter(|t| !t.missing && (a.force || !cache.exists(&t.content_hash)))
+                .collect();
             if todo.is_empty() {
                 println!("all stems cached in {}", cache.dir().display());
                 return Ok(());
@@ -431,20 +527,38 @@ fn main() -> anyhow::Result<()> {
             let (mut ok, mut audio_s, started) = (0, 0.0, std::time::Instant::now());
             for (n, t) in todo.iter().enumerate() {
                 let t0 = std::time::Instant::now();
-                let label = format!("[{}/{}] {} — {}", n + 1, todo.len(), t.tags.artist, t.tags.title);
-                let r = sep.separate_file(&t.path, &mut |f| eprint!("\r{label}: {:3.0} %", f * 100.0), &cancel);
+                let label = format!(
+                    "[{}/{}] {} — {}",
+                    n + 1,
+                    todo.len(),
+                    t.tags.artist,
+                    t.tags.title
+                );
+                let r = sep.separate_file(
+                    &t.path,
+                    &mut |f| eprint!("\r{label}: {:3.0} %", f * 100.0),
+                    &cancel,
+                );
                 eprintln!();
                 match r.and_then(|s| cache.store(&t.content_hash, &s)) {
                     Ok(p) => {
                         ok += 1;
                         audio_s += t.duration;
-                        println!("{label}: {:.1} s → {}", t0.elapsed().as_secs_f64(), p.display());
+                        println!(
+                            "{label}: {:.1} s → {}",
+                            t0.elapsed().as_secs_f64(),
+                            p.display()
+                        );
                     }
                     Err(e) => eprintln!("{label}: {e}"),
                 }
             }
             let secs = started.elapsed().as_secs_f64();
-            println!("separated {ok}/{} tracks in {secs:.1} s ({:.2}× real time)", todo.len(), secs / audio_s.max(1e-9));
+            println!(
+                "separated {ok}/{} tracks in {secs:.1} s ({:.2}× real time)",
+                todo.len(),
+                secs / audio_s.max(1e-9)
+            );
         }
     }
     Ok(())
@@ -455,7 +569,12 @@ fn fetch_model_cli() -> anyhow::Result<PathBuf> {
         return Ok(od_stems::model_path());
     }
     let m = od_stems::MODEL;
-    eprintln!("downloading {} ({} MB, {}) …", m.file_name, m.size / 1_000_000, m.license);
+    eprintln!(
+        "downloading {} ({} MB, {}) …",
+        m.file_name,
+        m.size / 1_000_000,
+        m.license
+    );
     let mut last = 0;
     let p = od_stems::fetch_model(
         &mut |done, total| {
@@ -477,10 +596,19 @@ fn stems_cmd(cmd: &StemsCmd) -> anyhow::Result<()> {
             let p = fetch_model_cli()?;
             println!("{}", p.display());
         }
-        StemsCmd::File { path, store, section, overlap, threads } => {
+        StemsCmd::File {
+            path,
+            store,
+            section,
+            overlap,
+            threads,
+        } => {
             fetch_model_cli()?;
             let t0 = std::time::Instant::now();
-            let mut opts = od_stems::SeparatorOptions { threads: *threads, ..Default::default() };
+            let mut opts = od_stems::SeparatorOptions {
+                threads: *threads,
+                ..Default::default()
+            };
             if let Some(o) = overlap {
                 opts.overlap = *o;
             }
@@ -491,19 +619,42 @@ fn stems_cmd(cmd: &StemsCmd) -> anyhow::Result<()> {
             let decode_s = t1.elapsed().as_secs_f64();
             let dur = audio.frames() as f64 / audio.sample_rate as f64;
             let t2 = std::time::Instant::now();
-            let stems = sep.separate(&audio, &mut |f| eprint!("\rseparating {:3.0} %", f * 100.0), &AtomicBool::new(false))?;
+            let stems = sep.separate(
+                &audio,
+                &mut |f| eprint!("\rseparating {:3.0} %", f * 100.0),
+                &AtomicBool::new(false),
+            )?;
             let sep_s = t2.elapsed().as_secs_f64();
             eprintln!();
-            println!("{}: {:.1} s audio at {} Hz", path.display(), dur, audio.sample_rate);
-            println!("model load {load_s:.2} s, decode {decode_s:.2} s, separation {sep_s:.1} s = {:.3}× real time", sep_s / dur);
+            println!(
+                "{}: {:.1} s audio at {} Hz",
+                path.display(),
+                dur,
+                audio.sample_rate
+            );
+            println!(
+                "model load {load_s:.2} s, decode {decode_s:.2} s, separation {sep_s:.1} s = {:.3}× real time",
+                sep_s / dur
+            );
             // Energy per section (dBFS RMS): mix, vocals, drums, bass, inst.
             let sr = audio.sample_rate as f64;
             let n = (section * sr) as usize * 2;
-            let db = |x: &[f32]| 10.0 * ((x.iter().map(|v| (*v as f64).powi(2)).sum::<f64>() / x.len().max(1) as f64) + 1e-12).log10();
-            println!("{:>7}  {:>6}  {:>6}  {:>6}  {:>6}  {:>6}", "t [s]", "mix", "vocals", "drums", "bass", "inst");
+            let db = |x: &[f32]| {
+                10.0 * ((x.iter().map(|v| (*v as f64).powi(2)).sum::<f64>()
+                    / x.len().max(1) as f64)
+                    + 1e-12)
+                    .log10()
+            };
+            println!(
+                "{:>7}  {:>6}  {:>6}  {:>6}  {:>6}  {:>6}",
+                "t [s]", "mix", "vocals", "drums", "bass", "inst"
+            );
             for (k, m) in audio.samples.chunks(n).enumerate() {
                 let r = k * n..k * n + m.len();
-                let inst: Vec<f32> = r.clone().map(|i| m[i - k * n] - stems.vocals[i] - stems.drums[i] - stems.bass[i]).collect();
+                let inst: Vec<f32> = r
+                    .clone()
+                    .map(|i| m[i - k * n] - stems.vocals[i] - stems.drums[i] - stems.bass[i])
+                    .collect();
                 println!(
                     "{:>7.0}  {:>6.1}  {:>6.1}  {:>6.1}  {:>6.1}  {:>6.1}",
                     k as f64 * section,
@@ -518,10 +669,24 @@ fn stems_cmd(cmd: &StemsCmd) -> anyhow::Result<()> {
                 let hash = od_decode::content_hash(path)?;
                 let t3 = std::time::Instant::now();
                 let p = od_stems::StemCache::open_default().store(&hash, &stems)?;
-                println!("cached in {:.2} s: {} ({:.1} MB)", t3.elapsed().as_secs_f64(), p.display(), std::fs::metadata(&p)?.len() as f64 / 1e6);
+                println!(
+                    "cached in {:.2} s: {} ({:.1} MB)",
+                    t3.elapsed().as_secs_f64(),
+                    p.display(),
+                    std::fs::metadata(&p)?.len() as f64 / 1e6
+                );
                 let cache = od_stems::StemCache::open_default();
                 let t4 = std::time::Instant::now();
-                let track = od_stems::load_track_data(&cache, od_core::TrackId(0), path, Some(&hash), 48_000, Default::default(), &[], 0.0)?;
+                let track = od_stems::load_track_data(
+                    &cache,
+                    od_core::TrackId(0),
+                    path,
+                    Some(&hash),
+                    48_000,
+                    Default::default(),
+                    &[],
+                    0.0,
+                )?;
                 let s = track.stems.as_ref().context("stems not attached")?;
                 println!(
                     "deck load with stems (decode + cache + resample to 48 kHz): {:.2} s; memory: mix {:.0} MB + stems {:.0} MB",
@@ -544,13 +709,37 @@ fn rekordbox_settings_cmd(a: &RekordboxSettingsArgs) -> anyhow::Result<()> {
     for f in &r.files {
         println!("  {}", f.display());
     }
-    let w = r.entries.iter().map(|e| e.setting.chars().count()).max().unwrap_or(0);
-    let wv = r.entries.iter().map(|e| e.value.chars().count()).max().unwrap_or(0).min(40);
-    for status in [MapStatus::Mapped, MapStatus::EngineOnly, MapStatus::Unmapped] {
+    let w = r
+        .entries
+        .iter()
+        .map(|e| e.setting.chars().count())
+        .max()
+        .unwrap_or(0);
+    let wv = r
+        .entries
+        .iter()
+        .map(|e| e.value.chars().count())
+        .max()
+        .unwrap_or(0)
+        .min(40);
+    for status in [
+        MapStatus::Mapped,
+        MapStatus::EngineOnly,
+        MapStatus::Unmapped,
+    ] {
         println!("\n{} ({}):", status, r.count(status));
         for e in r.entries.iter().filter(|e| e.status == status) {
-            let what = if e.target.is_empty() { e.note.clone() } else if e.note.is_empty() { e.target.clone() } else { format!("{}  [{}]", e.target, e.note) };
-            println!("  {:w$}  {:wv$}  -> {}   ({})", e.setting, e.value, what, e.source);
+            let what = if e.target.is_empty() {
+                e.note.clone()
+            } else if e.note.is_empty() {
+                e.target.clone()
+            } else {
+                format!("{}  [{}]", e.target, e.note)
+            };
+            println!(
+                "  {:w$}  {:wv$}  -> {}   ({})",
+                e.setting, e.value, what, e.source
+            );
         }
     }
     if !r.unmapped_files.is_empty() {
@@ -559,7 +748,11 @@ fn rekordbox_settings_cmd(a: &RekordboxSettingsArgs) -> anyhow::Result<()> {
             println!("  {f}: {why}");
         }
     }
-    let unmatched: Vec<_> = s.shortcuts.iter().filter(|k| k.target.is_none() || k.binding.is_none()).collect();
+    let unmatched: Vec<_> = s
+        .shortcuts
+        .iter()
+        .filter(|k| k.target.is_none() || k.binding.is_none())
+        .collect();
     println!(
         "\nKeyboard: {} ({} shortcuts, {} translated, {} without an OpenDecks command)",
         s.keymap_name.as_deref().unwrap_or("none"),
@@ -574,7 +767,10 @@ fn rekordbox_settings_cmd(a: &RekordboxSettingsArgs) -> anyhow::Result<()> {
                 (None, _) => "(no OpenDecks command)".into(),
                 (Some(_), None) => "(key not translatable)".into(),
             };
-            println!("  {:5} {:45} {:28} -> {to}", k.command_id, k.description, k.key);
+            println!(
+                "  {:5} {:45} {:28} -> {to}",
+                k.command_id, k.description, k.key
+            );
         }
     } else {
         for k in &unmatched {
@@ -585,14 +781,18 @@ fn rekordbox_settings_cmd(a: &RekordboxSettingsArgs) -> anyhow::Result<()> {
     for (k, v) in s.preference_values() {
         println!("  {k} = {v}");
     }
-    println!("\n{} other preference names ignored (window, account, video, lighting, streaming …)", r.ignored_keys.len());
+    println!(
+        "\n{} other preference names ignored (window, account, video, lighting, streaming …)",
+        r.ignored_keys.len()
+    );
     if a.verbose {
         for k in &r.ignored_keys {
             println!("  {k}");
         }
     }
     if let Some(out) = &a.keymap_out {
-        std::fs::write(out, s.keymap_toml()).with_context(|| format!("writing {}", out.display()))?;
+        std::fs::write(out, s.keymap_toml())
+            .with_context(|| format!("writing {}", out.display()))?;
         println!("\nKeymap written to {}", out.display());
     }
     Ok(())
@@ -628,11 +828,20 @@ fn lighting_cmd(path: &std::path::Path, cmd: &LightCmd) -> anyhow::Result<()> {
                 println!("  output U{} → {o:?}", u + 1);
             }
         }
-        LightCmd::Add { name, fixture, mode, group, universe, address, invert_pan } => {
+        LightCmd::Add {
+            name,
+            fixture,
+            mode,
+            group,
+            universe,
+            address,
+            invert_pan,
+        } => {
             let def = match FixtureDef::builtin(fixture) {
                 Some(d) => d,
                 None => {
-                    let json = std::fs::read_to_string(fixture).with_context(|| format!("reading {fixture}"))?;
+                    let json = std::fs::read_to_string(fixture)
+                        .with_context(|| format!("reading {fixture}"))?;
                     let maker = std::path::Path::new(fixture)
                         .parent()
                         .and_then(|p| p.file_name())
@@ -644,7 +853,10 @@ fn lighting_cmd(path: &std::path::Path, cmd: &LightCmd) -> anyhow::Result<()> {
             let len = def.channels.len() as u16;
             let address = match address {
                 Some(a) => *a,
-                None => rig.patch.next_free(*universe, len).context("universe is full")?,
+                None => rig
+                    .patch
+                    .next_free(*universe, len)
+                    .context("universe is full")?,
             };
             rig.patch.add(Patched {
                 name: name.clone(),
@@ -665,9 +877,17 @@ fn lighting_cmd(path: &std::path::Path, cmd: &LightCmd) -> anyhow::Result<()> {
             }
             save(&rig)?;
         }
-        LightCmd::Output { universe, artnet, sacn, enttec } => {
+        LightCmd::Output {
+            universe,
+            artnet,
+            sacn,
+            enttec,
+        } => {
             let kind = match (artnet, sacn, enttec) {
-                (Some(a), None, None) => OutputKind::ArtNet { target: *a, universe: *universe },
+                (Some(a), None, None) => OutputKind::ArtNet {
+                    target: *a,
+                    universe: *universe,
+                },
                 (None, Some(u), None) => OutputKind::Sacn { universe: *u },
                 (None, None, Some(d)) => OutputKind::EnttecPro { device: d.clone() },
                 _ => bail!("give exactly one of --artnet, --sacn, --enttec"),
@@ -708,7 +928,8 @@ fn lighting_cmd(path: &std::path::Path, cmd: &LightCmd) -> anyhow::Result<()> {
                     last = Some(phrase);
                 }
                 lighting.tick(&[deck], 1.0 / fps as f32);
-                let due = started + std::time::Duration::from_secs_f64((frame + 1) as f64 / fps as f64);
+                let due =
+                    started + std::time::Duration::from_secs_f64((frame + 1) as f64 / fps as f64);
                 std::thread::sleep(due.saturating_duration_since(std::time::Instant::now()));
             }
         }

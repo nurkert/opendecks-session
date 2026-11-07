@@ -9,8 +9,8 @@
 use crate::tools::{ToolDef, ToolResult, def, out};
 use od_library::Library;
 use od_lighting::{
-    Attr, Effect, FixtureDef, GroupSettings, LightCue, LiveCommand, Mode, OutputKind, Program, RigConfig, TrackCue,
-    Wave, rig,
+    Attr, Effect, FixtureDef, GroupSettings, LightCue, LiveCommand, Mode, OutputKind, Program,
+    RigConfig, TrackCue, Wave, rig,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -19,35 +19,77 @@ use std::path::PathBuf;
 
 pub fn tools() -> Vec<ToolDef> {
     vec![
-        def("lighting_overview", "Lighting overview",
+        def(
+            "lighting_overview",
+            "Lighting overview",
             "The DMX rig of the running show: on/off, outputs per universe, mode (auto follows the music, easy = one look, pro = per-group looks and a cue stack), master, blackout, the patched fixtures (address, group, role), the per-group looks, the cue stack and the lighting cues stored with tracks (by bar). Also lists the fixture types, programs, colours and effects the other lighting tools accept.",
-            true, false, overview),
-        def("lighting_patch", "Patch fixtures",
+            true,
+            false,
+            overview,
+        ),
+        def(
+            "lighting_patch",
+            "Patch fixtures",
             "Add, change or remove a fixture. add: a built-in type (see lighting_overview) at the next free DMX address unless universe/address are given; the group defaults to the type's role (Wash, Movers, Bars, Effects). update/remove: the fixture by its index or name. The app picks the change up at once.",
-            false, false, patch),
-        def("lighting_settings", "Lighting settings",
+            false,
+            false,
+            patch,
+        ),
+        def(
+            "lighting_settings",
+            "Lighting settings",
             "Switch lighting on or off and set the mode (auto, easy, pro), master level 0–1, blackout, and the easy-mode program and colour (\"#RRGGBB\", or null to follow the track's key).",
-            false, false, settings),
-        def("lighting_group", "Group look",
+            false,
+            false,
+            settings,
+        ),
+        def(
+            "lighting_group",
+            "Group look",
             "Set the look of a fixture group used in pro mode: program, colour \"#RRGGBB\", intensity 0–1, pan / tilt 0–1 (movers), speed 0.25–4 and an effect (attribute dimmer/pan/tilt, wave sine/saw/square/random, length in beats, depth and spread 0–1). Omitted fields stay; null clears a field back to the automatic choice; clear=true resets the whole group.",
-            false, false, group),
-        def("lighting_output", "DMX output",
+            false,
+            false,
+            group,
+        ),
+        def(
+            "lighting_output",
+            "DMX output",
             "Send a universe (1-based) to an output: artnet (target IP, default broadcast), sacn (universe number, default 1), enttec (serial device of a USB-DMX Pro interface), or none to remove it.",
-            false, false, output),
-        def("lighting_cue", "Cue stack",
+            false,
+            false,
+            output,
+        ),
+        def(
+            "lighting_cue",
+            "Cue stack",
             "Edit the pro-mode cue stack: add a cue (name, fade in beats, looks per group), update or remove one by index, or move one to another position. Track cues that point at moved or removed cues are kept in step.",
-            false, false, cue),
-        def("lighting_track_cues", "Track lighting cues",
+            false,
+            false,
+            cue,
+        ),
+        def(
+            "lighting_track_cues",
+            "Track lighting cues",
             "The lighting cues stored with a library track: each fires a cue of the stack (by index or name) when the playing track reaches a bar (1-based) or beat (0-based). Replaces the track's list; an empty list removes them.",
-            false, false, track_cues),
-        def("lighting_live", "Live lighting",
+            false,
+            false,
+            track_cues,
+        ),
+        def(
+            "lighting_live",
+            "Live lighting",
             "Act on the running show now: cue_go / cue_back through the stack, cue (fire one by index), flash, strobe and fog (on true / false), blackout (on true / false) and tap (one tap of the tap tempo). Needs the app to be running.",
-            false, false, live),
+            false,
+            false,
+            live,
+        ),
     ]
 }
 
 fn rig_file(lib: &Library) -> Result<PathBuf, String> {
-    lib.path().map(rig::rig_path).ok_or_else(|| "the library has no file, so it has no lighting rig".into())
+    lib.path()
+        .map(rig::rig_path)
+        .ok_or_else(|| "the library has no file, so it has no lighting rig".into())
 }
 
 fn load(lib: &Library) -> Result<(PathBuf, RigConfig), String> {
@@ -57,7 +99,9 @@ fn load(lib: &Library) -> Result<(PathBuf, RigConfig), String> {
 }
 
 fn store(path: &PathBuf, config: &RigConfig) -> Result<(), String> {
-    config.save(path).map_err(|e| format!("writing {}: {e}", path.display()))
+    config
+        .save(path)
+        .map_err(|e| format!("writing {}: {e}", path.display()))
 }
 
 fn hex(c: [f32; 3]) -> String {
@@ -67,19 +111,36 @@ fn hex(c: [f32; 3]) -> String {
 
 fn parse_hex(s: &str) -> Result<[f32; 3], String> {
     let h = s.trim().trim_start_matches('#');
-    let v = u32::from_str_radix(h, 16).ok().filter(|_| h.len() == 6).ok_or_else(|| format!("not a colour: {s} (use #RRGGBB)"))?;
-    Ok([((v >> 16) & 255) as f32 / 255.0, ((v >> 8) & 255) as f32 / 255.0, (v & 255) as f32 / 255.0])
+    let v = u32::from_str_radix(h, 16)
+        .ok()
+        .filter(|_| h.len() == 6)
+        .ok_or_else(|| format!("not a colour: {s} (use #RRGGBB)"))?;
+    Ok([
+        ((v >> 16) & 255) as f32 / 255.0,
+        ((v >> 8) & 255) as f32 / 255.0,
+        (v & 255) as f32 / 255.0,
+    ])
 }
 
 /// A serde enum from a lower-case name ("pulse" → `Program::Pulse`).
 fn named<T: serde::de::DeserializeOwned>(what: &str, s: &str) -> Result<T, String> {
     let mut c = s.trim().chars();
-    let cap: String = c.next().map(|f| f.to_uppercase().chain(c.flat_map(char::to_lowercase)).collect()).unwrap_or_default();
+    let cap: String = c
+        .next()
+        .map(|f| {
+            f.to_uppercase()
+                .chain(c.flat_map(char::to_lowercase))
+                .collect()
+        })
+        .unwrap_or_default();
     serde_json::from_value(json!(cap)).map_err(|_| format!("unknown {what}: {s}"))
 }
 
 fn lower(v: impl serde::Serialize) -> String {
-    serde_json::to_value(v).ok().and_then(|v| v.as_str().map(str::to_lowercase)).unwrap_or_default()
+    serde_json::to_value(v)
+        .ok()
+        .and_then(|v| v.as_str().map(str::to_lowercase))
+        .unwrap_or_default()
 }
 
 fn group_json(g: &GroupSettings) -> Value {
@@ -98,7 +159,9 @@ fn group_json(g: &GroupSettings) -> Value {
 
 fn output_json(k: &OutputKind) -> Value {
     match k {
-        OutputKind::ArtNet { target, .. } => json!({"kind": "artnet", "target": target.to_string()}),
+        OutputKind::ArtNet { target, .. } => {
+            json!({"kind": "artnet", "target": target.to_string()})
+        }
         OutputKind::Sacn { universe } => json!({"kind": "sacn", "target": universe.to_string()}),
         OutputKind::EnttecPro { device } => json!({"kind": "enttec", "target": device}),
     }
@@ -152,7 +215,10 @@ fn overview(lib: &mut Library, _: NoArgs) -> ToolResult {
         .map(|(track, list)| {
             let mut list = list.clone();
             list.sort_by_key(|c| c.beat);
-            let title = lib.track(od_core::TrackId(*track)).map(|t| t.tags.title).unwrap_or_default();
+            let title = lib
+                .track(od_core::TrackId(*track))
+                .map(|t| t.tags.title)
+                .unwrap_or_default();
             json!({
                 "track_id": track, "title": title,
                 "cues": list.iter().map(|c| json!({
@@ -232,10 +298,16 @@ pub struct PatchArgs {
 fn find_fixture(c: &RigConfig, which: &Option<Value>) -> Result<usize, String> {
     let which = which.as_ref().ok_or("give the fixture by index or name")?;
     if let Some(i) = which.as_u64() {
-        return (i < c.patch.fixtures.len() as u64).then_some(i as usize).ok_or_else(|| format!("no fixture {i}"));
+        return (i < c.patch.fixtures.len() as u64)
+            .then_some(i as usize)
+            .ok_or_else(|| format!("no fixture {i}"));
     }
     let name = which.as_str().unwrap_or_default();
-    c.patch.fixtures.iter().position(|f| f.name.eq_ignore_ascii_case(name)).ok_or_else(|| format!("no fixture named {name}"))
+    c.patch
+        .fixtures
+        .iter()
+        .position(|f| f.name.eq_ignore_ascii_case(name))
+        .ok_or_else(|| format!("no fixture named {name}"))
 }
 
 fn patch(lib: &mut Library, a: PatchArgs) -> ToolResult {
@@ -243,9 +315,17 @@ fn patch(lib: &mut Library, a: PatchArgs) -> ToolResult {
     let summary = match a.action.as_str() {
         "add" => {
             let kind = a.kind.as_deref().ok_or("add needs a type")?;
-            let ti = FixtureDef::BUILTIN.iter().position(|k| k.eq_ignore_ascii_case(kind)).ok_or_else(|| format!("unknown fixture type {kind}"))?;
-            let i = od_lighting::add_fixture(&mut c.patch, ti, a.name.as_deref().unwrap_or(""), a.group.as_deref().unwrap_or(""))
-                .map_err(|e| e.to_string())?;
+            let ti = FixtureDef::BUILTIN
+                .iter()
+                .position(|k| k.eq_ignore_ascii_case(kind))
+                .ok_or_else(|| format!("unknown fixture type {kind}"))?;
+            let i = od_lighting::add_fixture(
+                &mut c.patch,
+                ti,
+                a.name.as_deref().unwrap_or(""),
+                a.group.as_deref().unwrap_or(""),
+            )
+            .map_err(|e| e.to_string())?;
             if a.universe.is_some() || a.address.is_some() || a.invert_pan.is_some() {
                 let mut f = c.patch.fixtures.remove(i);
                 if let Some(u) = a.universe {
@@ -259,8 +339,21 @@ fn patch(lib: &mut Library, a: PatchArgs) -> ToolResult {
                 }
                 c.patch.add(f).map_err(|e| e.to_string())?;
             }
-            let f = c.patch.fixtures.iter().rev().find(|f| a.name.as_deref().is_none_or(|n| n.trim().is_empty() || f.name == n.trim()));
-            f.map(|f| format!("Patched {} at U{}.{} in {}", f.name, f.universe + 1, f.address, f.group)).unwrap_or_else(|| "Patched".into())
+            let f = c.patch.fixtures.iter().rev().find(|f| {
+                a.name
+                    .as_deref()
+                    .is_none_or(|n| n.trim().is_empty() || f.name == n.trim())
+            });
+            f.map(|f| {
+                format!(
+                    "Patched {} at U{}.{} in {}",
+                    f.name,
+                    f.universe + 1,
+                    f.address,
+                    f.group
+                )
+            })
+            .unwrap_or_else(|| "Patched".into())
         }
         "update" => {
             let i = find_fixture(&c, &a.fixture)?;
@@ -280,7 +373,13 @@ fn patch(lib: &mut Library, a: PatchArgs) -> ToolResult {
             if let Some(p) = a.invert_pan {
                 f.invert_pan = p;
             }
-            let label = format!("Updated {} (U{}.{}, {})", f.name, f.universe + 1, f.address, f.group);
+            let label = format!(
+                "Updated {} (U{}.{}, {})",
+                f.name,
+                f.universe + 1,
+                f.address,
+                f.group
+            );
             let backup = f.clone();
             match c.patch.add(f) {
                 // Keep the fixture's place in the patch.
@@ -303,7 +402,10 @@ fn patch(lib: &mut Library, a: PatchArgs) -> ToolResult {
         other => return Err(format!("unknown action {other} (add, update, remove)")),
     };
     store(&path, &c)?;
-    out(summary, json!({"fixtures": c.patch.fixtures.len(), "groups": c.patch.groups()}))
+    out(
+        summary,
+        json!({"fixtures": c.patch.fixtures.len(), "groups": c.patch.groups()}),
+    )
 }
 
 // ---------------------------------------------------------------- settings
@@ -353,9 +455,22 @@ fn settings(lib: &mut Library, a: SettingsArgs) -> ToolResult {
         Some(v) => return Err(format!("easy_color: use \"#RRGGBB\" or null, not {v}")),
         None => {}
     }
-    let summary = format!("Lighting {}, {} mode, master {:.0} %{}", if c.enabled { "on" } else { "off" }, lower(c.settings.mode), c.settings.master * 100.0, if c.settings.blackout { ", blackout" } else { "" });
+    let summary = format!(
+        "Lighting {}, {} mode, master {:.0} %{}",
+        if c.enabled { "on" } else { "off" },
+        lower(c.settings.mode),
+        c.settings.master * 100.0,
+        if c.settings.blackout {
+            ", blackout"
+        } else {
+            ""
+        }
+    );
     store(&path, &c)?;
-    out(summary, json!({"enabled": c.enabled, "mode": lower(c.settings.mode), "master": c.settings.master, "blackout": c.settings.blackout}))
+    out(
+        summary,
+        json!({"enabled": c.enabled, "mode": lower(c.settings.mode), "master": c.settings.master, "blackout": c.settings.blackout}),
+    )
 }
 
 // ---------------------------------------------------------------- group looks
@@ -400,7 +515,10 @@ pub struct LookArg {
 fn num(what: &str, v: &Value, lo: f32, hi: f32) -> Result<Option<f32>, String> {
     match v {
         Value::Null => Ok(None),
-        v => v.as_f64().map(|x| Some((x as f32).clamp(lo, hi))).ok_or_else(|| format!("{what}: a number, or null")),
+        v => v
+            .as_f64()
+            .map(|x| Some((x as f32).clamp(lo, hi)))
+            .ok_or_else(|| format!("{what}: a number, or null")),
     }
 }
 
@@ -435,10 +553,17 @@ fn apply_look(g: &mut GroupSettings, l: &LookArg) -> Result<(), String> {
         g.effect = match v {
             Value::Null => None,
             v => {
-                let e: EffectArg = serde_json::from_value(v.clone()).map_err(|e| format!("effect: {e}"))?;
+                let e: EffectArg =
+                    serde_json::from_value(v.clone()).map_err(|e| format!("effect: {e}"))?;
                 Some(Effect {
-                    attr: named::<Attr>("effect attribute", if e.attr.is_empty() { "dimmer" } else { &e.attr })?,
-                    wave: named::<Wave>("effect wave", if e.wave.is_empty() { "sine" } else { &e.wave })?,
+                    attr: named::<Attr>(
+                        "effect attribute",
+                        if e.attr.is_empty() { "dimmer" } else { &e.attr },
+                    )?,
+                    wave: named::<Wave>(
+                        "effect wave",
+                        if e.wave.is_empty() { "sine" } else { &e.wave },
+                    )?,
                     beats: if e.beats > 0.0 { e.beats } else { 1.0 },
                     depth: if e.depth > 0.0 { e.depth.min(1.0) } else { 1.0 },
                     spread: e.spread.clamp(0.0, 1.0),
@@ -462,13 +587,25 @@ pub struct GroupArgs {
 
 fn group(lib: &mut Library, a: GroupArgs) -> ToolResult {
     let (path, mut c) = load(lib)?;
-    let name = c.patch.groups().into_iter().find(|g| g.eq_ignore_ascii_case(a.group.trim())).ok_or_else(|| format!("no group {}", a.group))?;
-    let mut g = if a.clear { GroupSettings::default() } else { c.settings.groups.get(&name).cloned().unwrap_or_default() };
+    let name = c
+        .patch
+        .groups()
+        .into_iter()
+        .find(|g| g.eq_ignore_ascii_case(a.group.trim()))
+        .ok_or_else(|| format!("no group {}", a.group))?;
+    let mut g = if a.clear {
+        GroupSettings::default()
+    } else {
+        c.settings.groups.get(&name).cloned().unwrap_or_default()
+    };
     apply_look(&mut g, &a.look)?;
     let data = group_json(&g);
     c.settings.groups.insert(name.clone(), g);
     store(&path, &c)?;
-    out(format!("Look of {name} set (used in pro mode)"), json!({"group": name, "look": data}))
+    out(
+        format!("Look of {name} set (used in pro mode)"),
+        json!({"group": name, "look": data}),
+    )
 }
 
 // ---------------------------------------------------------------- outputs
@@ -495,10 +632,18 @@ fn output(lib: &mut Library, a: OutputArgs) -> ToolResult {
         let text = output_json(&kind);
         c.outputs.push((u, kind));
         c.outputs.sort_by_key(|(x, _)| *x);
-        format!("Universe {} → {} {}", u + 1, text["kind"].as_str().unwrap_or(""), text["target"].as_str().unwrap_or(""))
+        format!(
+            "Universe {} → {} {}",
+            u + 1,
+            text["kind"].as_str().unwrap_or(""),
+            text["target"].as_str().unwrap_or("")
+        )
     };
     store(&path, &c)?;
-    out(summary, json!({"outputs": c.outputs.iter().map(|(u, k)| { let mut o = output_json(k); o["universe"] = json!(u + 1); o }).collect::<Vec<_>>()}))
+    out(
+        summary,
+        json!({"outputs": c.outputs.iter().map(|(u, k)| { let mut o = output_json(k); o["universe"] = json!(u + 1); o }).collect::<Vec<_>>()}),
+    )
 }
 
 // ---------------------------------------------------------------- cue stack
@@ -526,13 +671,26 @@ pub struct CueArgs {
 fn cue(lib: &mut Library, a: CueArgs) -> ToolResult {
     let (path, mut c) = load(lib)?;
     let patched = c.patch.groups();
-    let group_name = |g: &str| patched.iter().find(|p| p.eq_ignore_ascii_case(g.trim())).cloned().ok_or_else(|| format!("no group {g}"));
+    let group_name = |g: &str| {
+        patched
+            .iter()
+            .find(|p| p.eq_ignore_ascii_case(g.trim()))
+            .cloned()
+            .ok_or_else(|| format!("no group {g}"))
+    };
     let n = c.settings.cues.len();
-    let index = |i: Option<usize>| i.filter(|&i| i < n).ok_or_else(|| format!("give a cue index below {n}"));
+    let index = |i: Option<usize>| {
+        i.filter(|&i| i < n)
+            .ok_or_else(|| format!("give a cue index below {n}"))
+    };
     let summary = match a.action.as_str() {
         "add" | "update" => {
             let mut q = if a.action == "add" {
-                LightCue { name: format!("Cue {}", n + 1), groups: Default::default(), fade_beats: 0.0 }
+                LightCue {
+                    name: format!("Cue {}", n + 1),
+                    groups: Default::default(),
+                    fade_beats: 0.0,
+                }
             } else {
                 c.settings.cues[index(a.index)?].clone()
             };
@@ -548,7 +706,15 @@ fn cue(lib: &mut Library, a: CueArgs) -> ToolResult {
                 apply_look(&mut s, &look)?;
                 q.groups.insert(g, s);
             }
-            let label = format!("{} cue {}", if a.action == "add" { "Added" } else { "Updated" }, q.name);
+            let label = format!(
+                "{} cue {}",
+                if a.action == "add" {
+                    "Added"
+                } else {
+                    "Updated"
+                },
+                q.name
+            );
             match a.index.filter(|_| a.action == "update") {
                 Some(i) => c.settings.cues[i] = q,
                 None => c.settings.cues.push(q),
@@ -569,7 +735,9 @@ fn cue(lib: &mut Library, a: CueArgs) -> ToolResult {
         }
         "move" => {
             let from = index(a.index)?;
-            let to = a.to.filter(|&t| t < n).ok_or_else(|| format!("give `to` below {n}"))?;
+            let to =
+                a.to.filter(|&t| t < n)
+                    .ok_or_else(|| format!("give `to` below {n}"))?;
             let q = c.settings.cues.remove(from);
             let label = format!("Moved cue {} to {}", q.name, to);
             c.settings.cues.insert(to, q);
@@ -592,10 +760,17 @@ fn cue(lib: &mut Library, a: CueArgs) -> ToolResult {
             }
             label
         }
-        other => return Err(format!("unknown action {other} (add, update, remove, move)")),
+        other => {
+            return Err(format!(
+                "unknown action {other} (add, update, remove, move)"
+            ));
+        }
     };
     store(&path, &c)?;
-    out(summary, json!({"cues": c.settings.cues.iter().enumerate().map(|(i, q)| json!({"index": i, "name": q.name})).collect::<Vec<_>>()}))
+    out(
+        summary,
+        json!({"cues": c.settings.cues.iter().enumerate().map(|(i, q)| json!({"index": i, "name": q.name})).collect::<Vec<_>>()}),
+    )
 }
 
 // ---------------------------------------------------------------- track cues
@@ -619,7 +794,11 @@ pub struct TrackCuesArgs {
 }
 
 fn track_cues(lib: &mut Library, a: TrackCuesArgs) -> ToolResult {
-    let title = lib.track(od_core::TrackId(a.track_id)).map_err(|_| format!("no track {}", a.track_id))?.tags.title;
+    let title = lib
+        .track(od_core::TrackId(a.track_id))
+        .map_err(|_| format!("no track {}", a.track_id))?
+        .tags
+        .title;
     let (path, mut c) = load(lib)?;
     let mut list = Vec::new();
     for t in &a.cues {
@@ -629,8 +808,15 @@ fn track_cues(lib: &mut Library, a: TrackCuesArgs) -> ToolResult {
             (None, None) => return Err("each cue needs a bar or a beat".into()),
         };
         let cue = match &t.cue {
-            Value::Number(n) => n.as_u64().map(|i| i as usize).filter(|&i| i < c.settings.cues.len()),
-            Value::String(name) => c.settings.cues.iter().position(|q| q.name.eq_ignore_ascii_case(name.trim())),
+            Value::Number(n) => n
+                .as_u64()
+                .map(|i| i as usize)
+                .filter(|&i| i < c.settings.cues.len()),
+            Value::String(name) => c
+                .settings
+                .cues
+                .iter()
+                .position(|q| q.name.eq_ignore_ascii_case(name.trim())),
             _ => None,
         }
         .ok_or_else(|| format!("no cue {} in the stack", t.cue))?;
@@ -644,7 +830,10 @@ fn track_cues(lib: &mut Library, a: TrackCuesArgs) -> ToolResult {
         c.settings.track_cues.insert(a.track_id, list);
     }
     store(&path, &c)?;
-    out(format!("{n} lighting cues on {title}"), json!({"track_id": a.track_id, "cues": n}))
+    out(
+        format!("{n} lighting cues on {title}"),
+        json!({"track_id": a.track_id, "cues": n}),
+    )
 }
 
 // ---------------------------------------------------------------- live
@@ -667,7 +856,9 @@ fn live(lib: &mut Library, a: LiveArgs) -> ToolResult {
     let cmd = match a.action.as_str() {
         "cue_go" => LiveCommand::CueGo,
         "cue_back" => LiveCommand::CueBack,
-        "cue" => LiveCommand::Cue { index: a.index.ok_or("cue needs an index")? },
+        "cue" => LiveCommand::Cue {
+            index: a.index.ok_or("cue needs an index")?,
+        },
         "flash" => LiveCommand::Flash { on },
         "strobe" => LiveCommand::Strobe { on },
         "fog" => LiveCommand::Fog { on },
@@ -676,5 +867,8 @@ fn live(lib: &mut Library, a: LiveArgs) -> ToolResult {
         other => return Err(format!("unknown action {other}")),
     };
     rig::send(&path, &cmd).map_err(|e| format!("sending to the app: {e}"))?;
-    out(format!("Sent {} to the running show", a.action), serde_json::to_value(&cmd).unwrap_or_default())
+    out(
+        format!("Sent {} to the running show", a.action),
+        serde_json::to_value(&cmd).unwrap_or_default(),
+    )
 }

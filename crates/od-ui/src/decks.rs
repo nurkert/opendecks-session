@@ -190,7 +190,14 @@ impl Prepared {
     fn failed(deck: usize, track: TrackId) -> Self {
         Self {
             deck,
-            data: od_engine::TrackData::new(track, od_decode::DecodedAudio::default(), 48_000, Beatgrid::default(), &[], 0.0),
+            data: od_engine::TrackData::new(
+                track,
+                od_decode::DecodedAudio::default(),
+                48_000,
+                Beatgrid::default(),
+                &[],
+                0.0,
+            ),
             vocals: Vec::new(),
             play_from: None,
             swap: None,
@@ -514,22 +521,54 @@ fn prepare_in_background(
         if swap.is_none() {
             // A fresh load: the mix first (playable at once), the cached
             // parts follow and swap in without a gap.
-            let (mix, shape) = match od_stems::load_mix(track, &src.path, rate, grid, &src.cues, src.gain) {
-                Ok(m) => m,
-                Err(e) => {
-                    tracing::warn!(error = %e, "track load failed");
-                    let _ = tx.send(Prepared::failed(deck, track));
-                    return;
-                }
-            };
+            let (mix, shape) =
+                match od_stems::load_mix(track, &src.path, rate, grid, &src.cues, src.gain) {
+                    Ok(m) => m,
+                    Err(e) => {
+                        tracing::warn!(error = %e, "track load failed");
+                        let _ = tx.send(Prepared::failed(deck, track));
+                        return;
+                    }
+                };
             let stems_follow = cache.exists(&src.hash);
-            let _ = tx.send(Prepared { deck, data: mix.clone(), vocals: Vec::new(), play_from, swap: None, stems_follow, failed: None });
-            if let Some(full) = stems_follow.then(|| od_stems::attach_cached_stems(&cache, &mix, &src.hash, shape)).flatten() {
-                let vocals = full.stems.as_ref().map(|s| s.vocal_regions(rate)).unwrap_or_default();
-                let _ = tx.send(Prepared { deck, data: full, vocals, play_from: None, swap: Some(Swap::CachedStems), stems_follow: false, failed: None });
+            let _ = tx.send(Prepared {
+                deck,
+                data: mix.clone(),
+                vocals: Vec::new(),
+                play_from,
+                swap: None,
+                stems_follow,
+                failed: None,
+            });
+            if let Some(full) = stems_follow
+                .then(|| od_stems::attach_cached_stems(&cache, &mix, &src.hash, shape))
+                .flatten()
+            {
+                let vocals = full
+                    .stems
+                    .as_ref()
+                    .map(|s| s.vocal_regions(rate))
+                    .unwrap_or_default();
+                let _ = tx.send(Prepared {
+                    deck,
+                    data: full,
+                    vocals,
+                    play_from: None,
+                    swap: Some(Swap::CachedStems),
+                    stems_follow: false,
+                    failed: None,
+                });
             } else if stems_follow {
                 // The cache did not fit after all: separate again.
-                let _ = tx.send(Prepared { deck, data: mix, vocals: Vec::new(), play_from: None, swap: Some(Swap::NoStems), stems_follow: false, failed: None });
+                let _ = tx.send(Prepared {
+                    deck,
+                    data: mix,
+                    vocals: Vec::new(),
+                    play_from: None,
+                    swap: Some(Swap::NoStems),
+                    stems_follow: false,
+                    failed: None,
+                });
             }
             return;
         }
@@ -581,7 +620,9 @@ pub(crate) fn receive_prepared(app: &App) {
         }
         if pr.swap == Some(Swap::NoStems) {
             if deck != PREVIEW_DECK && app.decks.borrow().loaded_id(deck) == Some(pr.data.id) {
-                let source = app.decks.borrow().loaded[deck].as_ref().map(|m| (m.id, m.source.clone()));
+                let source = app.decks.borrow().loaded[deck]
+                    .as_ref()
+                    .map(|m| (m.id, m.source.clone()));
                 if let Some((id, source)) = source {
                     request_stems(app, id, &source);
                 }
@@ -782,6 +823,12 @@ impl Decks {
     pub(crate) fn stems_requested(&self) -> bool {
         self.stem_worker.is_some()
     }
+
+    /// Where separated parts are kept (tests write finished parts here).
+    #[cfg(test)]
+    pub(crate) fn stem_cache(&self) -> od_stems::StemCache {
+        self.stem_cache.clone()
+    }
 }
 
 /// Queues stem separation of a loaded track (desktop profile only).
@@ -842,33 +889,7 @@ pub(crate) fn poll_stems(app: &App) {
                 app.decks.borrow_mut().stem_progress.insert(track, fraction);
             }
             StemEvent::Done { track, .. } | StemEvent::AlreadyCached { track, .. } => {
-                let rate = app.engine.borrow().sample_rate();
-                let (tx, cache, decks) = {
-                    let mut d = app.decks.borrow_mut();
-                    d.stem_progress.remove(&track);
-                    let decks: Vec<(usize, TrackSource, Beatgrid)> = (0..DECKS)
-                        .filter_map(|i| {
-                            d.loaded[i]
-                                .as_ref()
-                                .filter(|l| l.id == track)
-                                .map(|l| (i, l.source.clone(), l.grid.clone()))
-                        })
-                        .collect();
-                    (d.prepared_tx.clone(), d.stem_cache.clone(), decks)
-                };
-                for (deck, src, grid) in decks {
-                    prepare_in_background(
-                        cache.clone(),
-                        tx.clone(),
-                        deck,
-                        track,
-                        src,
-                        rate,
-                        grid,
-                        None,
-                        Some(Swap::Stems),
-                    );
-                }
+                stems_ready(app, track)
             }
             StemEvent::Failed { track, error } => {
                 app.decks.borrow_mut().stem_progress.remove(&track);
@@ -878,6 +899,38 @@ pub(crate) fn poll_stems(app: &App) {
                 app.decks.borrow_mut().stem_progress.remove(&track);
             }
         }
+    }
+}
+
+/// The parts of `track` are in the cache: decks holding it swap them in.
+#[cfg(feature = "separation")]
+pub(crate) fn stems_ready(app: &App, track: TrackId) {
+    let rate = app.engine.borrow().sample_rate();
+    let (tx, cache, decks) = {
+        let mut d = app.decks.borrow_mut();
+        d.stem_progress.remove(&track);
+        let decks: Vec<(usize, TrackSource, Beatgrid)> = (0..DECKS)
+            .filter_map(|i| {
+                d.loaded[i]
+                    .as_ref()
+                    .filter(|l| l.id == track)
+                    .map(|l| (i, l.source.clone(), l.grid.clone()))
+            })
+            .collect();
+        (d.prepared_tx.clone(), d.stem_cache.clone(), decks)
+    };
+    for (deck, src, grid) in decks {
+        prepare_in_background(
+            cache.clone(),
+            tx.clone(),
+            deck,
+            track,
+            src,
+            rate,
+            grid,
+            None,
+            Some(Swap::Stems),
+        );
     }
 }
 

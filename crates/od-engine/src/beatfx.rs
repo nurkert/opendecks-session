@@ -7,7 +7,9 @@
 
 use std::f32::consts::{PI, TAU};
 
-use crate::command::{BeatFxCommand, BeatFxKind, FxTarget, PadFxCommand, PadFxEffect, ReleaseFxKind};
+use crate::command::{
+    BeatFxCommand, BeatFxKind, FxTarget, PadFxCommand, PadFxEffect, ReleaseFxKind,
+};
 use crate::dsp::delay::DelayLine;
 use crate::dsp::pitchshift::PitchShifter;
 use crate::dsp::reverb::Reverb;
@@ -398,7 +400,11 @@ impl FxUnit {
         }
         let cap = self.delay.capacity() as f32;
         let target_len = (self.beats * beat_frames).clamp(16.0, cap);
-        let glide_s = if self.kind == BeatFxKind::Spiral { 0.35 } else { 0.03 };
+        let glide_s = if self.kind == BeatFxKind::Spiral {
+            0.35
+        } else {
+            0.03
+        };
         let glide = 1.0 - (-1.0 / (self.sr * glide_s)).exp();
         if self.delay_len <= 0.0 {
             self.delay_len = target_len;
@@ -455,7 +461,11 @@ impl FxUnit {
             self.release = None;
             self.tape.mode = None;
         }
-        if !self.on && self.mix.current() == 0.0 && self.kind == BeatFxKind::VinylBrake && self.release.is_none() {
+        if !self.on
+            && self.mix.current() == 0.0
+            && self.kind == BeatFxKind::VinylBrake
+            && self.release.is_none()
+        {
             self.tape.mode = None;
         }
         // Tail detection: silent for longer than the delay time.
@@ -481,7 +491,11 @@ impl FxUnit {
         match self.kind {
             BeatFxKind::Echo | BeatFxKind::Delay => {
                 let wet = self.delay.read(d);
-                let fb = if self.kind == BeatFxKind::Echo { 0.55 } else { 0.0 };
+                let fb = if self.kind == BeatFxKind::Echo {
+                    0.55
+                } else {
+                    0.0
+                };
                 let mut w = [0.0; 2];
                 for ch in 0..2 {
                     // Gentle damping in the feedback path.
@@ -489,7 +503,8 @@ impl FxUnit {
                     w[ch] = self.fb_filter[ch];
                 }
                 // Input gated by `m` so tails ring out after switching off.
-                self.delay.push([x[0] * m + w[0] * fb, x[1] * m + w[1] * fb]);
+                self.delay
+                    .push([x[0] * m + w[0] * fb, x[1] * m + w[1] * fb]);
                 ([x[0] + w[0], x[1] + w[1]], w)
             }
             BeatFxKind::PingPong => {
@@ -523,7 +538,8 @@ impl FxUnit {
                 let wet = self.delay.read(d);
                 let ratio = 2f32.powf(self.param_s);
                 let shifted = self.shifter.process(wet, ratio);
-                self.delay.push([x[0] * m + shifted[0] * 0.7, x[1] * m + shifted[1] * 0.7]);
+                self.delay
+                    .push([x[0] * m + shifted[0] * 0.7, x[1] * m + shifted[1] * 0.7]);
                 ([x[0] + wet[0], x[1] + wet[1]], wet)
             }
             BeatFxKind::Flanger => {

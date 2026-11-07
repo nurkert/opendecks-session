@@ -43,7 +43,10 @@ fn fold(s: &str) -> String {
 pub fn group_duplicates(tracks: &[TrackRecord]) -> Vec<DuplicateGroup> {
     let mut by_hash: BTreeMap<&str, Vec<&TrackRecord>> = BTreeMap::new();
     for t in tracks {
-        by_hash.entry(t.content_hash.0.as_str()).or_default().push(t);
+        by_hash
+            .entry(t.content_hash.0.as_str())
+            .or_default()
+            .push(t);
     }
     let mut out = Vec::new();
     let mut in_file_group = std::collections::HashSet::new();
@@ -51,11 +54,21 @@ pub fn group_duplicates(tracks: &[TrackRecord]) -> Vec<DuplicateGroup> {
         let mut ids: Vec<TrackId> = group.iter().map(|t| t.id).collect();
         ids.sort();
         in_file_group.extend(ids.iter().copied());
-        out.push(DuplicateGroup { kind: DuplicateKind::SameFile, tracks: ids });
+        out.push(DuplicateGroup {
+            kind: DuplicateKind::SameFile,
+            tracks: ids,
+        });
     }
     let mut by_name: BTreeMap<String, Vec<&TrackRecord>> = BTreeMap::new();
     for t in tracks.iter().filter(|t| !t.tags.title.trim().is_empty()) {
-        by_name.entry(format!("{}\u{0}{}", fold(&t.tags.artist), fold(&t.tags.title))).or_default().push(t);
+        by_name
+            .entry(format!(
+                "{}\u{0}{}",
+                fold(&t.tags.artist),
+                fold(&t.tags.title)
+            ))
+            .or_default()
+            .push(t);
     }
     for mut group in by_name.into_values().filter(|g| g.len() > 1) {
         group.sort_by(|a, b| a.duration.total_cmp(&b.duration));
@@ -66,12 +79,18 @@ pub fn group_duplicates(tracks: &[TrackRecord]) -> Vec<DuplicateGroup> {
             ids.sort();
             // Skip runs that are entirely one same-file group already.
             if ids.len() > 1 && !ids.iter().all(|i| in_file_group.contains(i)) {
-                out.push(DuplicateGroup { kind: DuplicateKind::SameRelease, tracks: ids });
+                out.push(DuplicateGroup {
+                    kind: DuplicateKind::SameRelease,
+                    tracks: ids,
+                });
             }
             run.clear();
         };
         for t in group {
-            if run.last().is_some_and(|l: &&TrackRecord| t.duration - l.duration > 2.0) {
+            if run
+                .last()
+                .is_some_and(|l: &&TrackRecord| t.duration - l.duration > 2.0)
+            {
                 flush(&mut run);
             }
             run.push(t);
@@ -84,7 +103,9 @@ pub fn group_duplicates(tracks: &[TrackRecord]) -> Vec<DuplicateGroup> {
 impl Library {
     /// Duplicate groups in the whole collection.
     pub fn find_duplicates(&self) -> Result<Vec<DuplicateGroup>> {
-        Ok(group_duplicates(&self.tracks(crate::SortKey::DateAdded, false)?))
+        Ok(group_duplicates(
+            &self.tracks(crate::SortKey::DateAdded, false)?,
+        ))
     }
 }
 
@@ -98,7 +119,11 @@ mod tests {
             id: TrackId(id),
             content_hash: ContentHash(hash.into()),
             duration,
-            tags: TrackTags { artist: artist.into(), title: title.into(), ..Default::default() },
+            tags: TrackTags {
+                artist: artist.into(),
+                title: title.into(),
+                ..Default::default()
+            },
             ..TrackRecord::test_default()
         }
     }
@@ -115,7 +140,19 @@ mod tests {
         ];
         let g = group_duplicates(&tracks);
         assert_eq!(g.len(), 2, "{g:?}");
-        assert_eq!(g[0], DuplicateGroup { kind: DuplicateKind::SameFile, tracks: vec![TrackId(1), TrackId(2)] });
-        assert_eq!(g[1], DuplicateGroup { kind: DuplicateKind::SameRelease, tracks: vec![TrackId(3), TrackId(4)] });
+        assert_eq!(
+            g[0],
+            DuplicateGroup {
+                kind: DuplicateKind::SameFile,
+                tracks: vec![TrackId(1), TrackId(2)]
+            }
+        );
+        assert_eq!(
+            g[1],
+            DuplicateGroup {
+                kind: DuplicateKind::SameRelease,
+                tracks: vec![TrackId(3), TrackId(4)]
+            }
+        );
     }
 }

@@ -152,8 +152,20 @@ fn process_never_allocates() {
 
     let mut script: Vec<Vec<Command>> = vec![
         vec![
-            Command::Deck(0, DeckCommand::SetStemLevel { stem: Stem::Vocals, level: 0.0 }),
-            Command::Deck(2, DeckCommand::SetStemLevel { stem: Stem::Inst, level: 0.3 }),
+            Command::Deck(
+                0,
+                DeckCommand::SetStemLevel {
+                    stem: Stem::Vocals,
+                    level: 0.0,
+                },
+            ),
+            Command::Deck(
+                2,
+                DeckCommand::SetStemLevel {
+                    stem: Stem::Inst,
+                    level: 0.3,
+                },
+            ),
         ],
         vec![
             Command::Deck(2, DeckCommand::SwapTrackData(swap_same)),
@@ -165,14 +177,36 @@ fn process_never_allocates() {
             Command::Input(InputCommand::SetCue(true)),
         ],
         vec![Command::Input(InputCommand::Detach)],
-        vec![Command::BeatFx(1, BeatFxCommand::SetTarget(FxTarget::Part(0, Stem::Vocals)))],
-        vec![Command::BeatFx(1, BeatFxCommand::SetTarget(FxTarget::Master))],
+        vec![Command::BeatFx(
+            1,
+            BeatFxCommand::SetTarget(FxTarget::Part(0, Stem::Vocals)),
+        )],
+        vec![Command::BeatFx(
+            1,
+            BeatFxCommand::SetTarget(FxTarget::Master),
+        )],
         vec![
             Command::SetBeatFxMulti(0, true),
-            Command::BeatFxSlot { unit: 0, slot: 1, cmd: BeatFxCommand::SetKind(BeatFxKind::Flanger) },
-            Command::BeatFxSlot { unit: 0, slot: 1, cmd: BeatFxCommand::SetOn(true) },
-            Command::BeatFxSlot { unit: 0, slot: 2, cmd: BeatFxCommand::SetKind(BeatFxKind::Reverb) },
-            Command::BeatFxSlot { unit: 0, slot: 2, cmd: BeatFxCommand::SetOn(true) },
+            Command::BeatFxSlot {
+                unit: 0,
+                slot: 1,
+                cmd: BeatFxCommand::SetKind(BeatFxKind::Flanger),
+            },
+            Command::BeatFxSlot {
+                unit: 0,
+                slot: 1,
+                cmd: BeatFxCommand::SetOn(true),
+            },
+            Command::BeatFxSlot {
+                unit: 0,
+                slot: 2,
+                cmd: BeatFxCommand::SetKind(BeatFxKind::Reverb),
+            },
+            Command::BeatFxSlot {
+                unit: 0,
+                slot: 2,
+                cmd: BeatFxCommand::SetOn(true),
+            },
         ],
         vec![Command::Deck(0, DeckCommand::AutoLoop { beats: 1.0 / 8.0 })],
         vec![
@@ -243,26 +277,70 @@ fn process_never_allocates() {
         vec![
             Command::Deck(3, DeckCommand::SetHotCueBank(2)),
             Command::Deck(3, DeckCommand::SetHotCue { slot: 4 }),
-            Command::Deck(3, DeckCommand::Keyboard { slot: 4, semitones: -5.0, pressed: true }),
+            Command::Deck(
+                3,
+                DeckCommand::Keyboard {
+                    slot: 4,
+                    semitones: -5.0,
+                    pressed: true,
+                },
+            ),
         ],
         vec![
-            Command::Deck(3, DeckCommand::Keyboard { slot: 4, semitones: -5.0, pressed: false }),
+            Command::Deck(
+                3,
+                DeckCommand::Keyboard {
+                    slot: 4,
+                    semitones: -5.0,
+                    pressed: false,
+                },
+            ),
             Command::Deck(0, DeckCommand::Censor(true)),
             Command::Deck(1, DeckCommand::CensorFor { beats: 0.5 }),
         ],
         vec![
             Command::Deck(0, DeckCommand::Censor(false)),
             Command::Deck(2, DeckCommand::Search(-4.0)),
-            Command::Deck(1, DeckCommand::Slicer(SlicerCommand::Enable { beats: 4.0, loop_mode: false })),
+            Command::Deck(
+                1,
+                DeckCommand::Slicer(SlicerCommand::Enable {
+                    beats: 4.0,
+                    loop_mode: false,
+                }),
+            ),
         ],
         vec![Command::Deck(2, DeckCommand::Search(0.0))],
-        vec![Command::Deck(1, DeckCommand::Slicer(SlicerCommand::Pad { slice: 5, pressed: true }))],
+        vec![Command::Deck(
+            1,
+            DeckCommand::Slicer(SlicerCommand::Pad {
+                slice: 5,
+                pressed: true,
+            }),
+        )],
         vec![
-            Command::Deck(1, DeckCommand::Slicer(SlicerCommand::Pad { slice: 5, pressed: false })),
-            Command::Deck(1, DeckCommand::Slicer(SlicerCommand::Enable { beats: 8.0, loop_mode: true })),
+            Command::Deck(
+                1,
+                DeckCommand::Slicer(SlicerCommand::Pad {
+                    slice: 5,
+                    pressed: false,
+                }),
+            ),
+            Command::Deck(
+                1,
+                DeckCommand::Slicer(SlicerCommand::Enable {
+                    beats: 8.0,
+                    loop_mode: true,
+                }),
+            ),
         ],
         vec![
-            Command::Deck(1, DeckCommand::Slicer(SlicerCommand::Pad { slice: 1, pressed: true })),
+            Command::Deck(
+                1,
+                DeckCommand::Slicer(SlicerCommand::Pad {
+                    slice: 1,
+                    pressed: true,
+                }),
+            ),
             Command::Deck(1, DeckCommand::Slicer(SlicerCommand::Disable)),
             Command::Deck(0, DeckCommand::SetActiveLoop(Some((2.0, 2.25)))),
             Command::Deck(0, DeckCommand::Seek { seconds: 1.99 }),
@@ -277,18 +355,34 @@ fn process_never_allocates() {
         ],
         // Sampler: quantise, gate, sync, sequencer.
         vec![
-            Command::Sampler(SamplerCommand::Load { slot: 37, sample: sample2 }),
+            Command::Sampler(SamplerCommand::Load {
+                slot: 37,
+                sample: sample2,
+            }),
             Command::Sampler(SamplerCommand::SetQuantize(Some(0.25))),
-            Command::Sampler(SamplerCommand::SetMode { slot: 37, mode: SampleMode::Gate }),
-            Command::Sampler(SamplerCommand::SetBpm { slot: 37, bpm: Some(97.0) }),
+            Command::Sampler(SamplerCommand::SetMode {
+                slot: 37,
+                mode: SampleMode::Gate,
+            }),
+            Command::Sampler(SamplerCommand::SetBpm {
+                slot: 37,
+                bpm: Some(97.0),
+            }),
             Command::Sampler(SamplerCommand::SetSync { slot: 37, on: true }),
             Command::Sampler(SamplerCommand::Trigger { slot: 37 }),
             Command::Sampler(SamplerCommand::SetGain { slot: 0, gain: 0.5 }),
         ],
         vec![
             Command::Sampler(SamplerCommand::Release { slot: 37 }),
-            Command::Sampler(SamplerCommand::SeqStep { slot: 37, step: 3, on: true }),
-            Command::Sampler(SamplerCommand::SeqPattern { slot: 0, mask: 0x1111 }),
+            Command::Sampler(SamplerCommand::SeqStep {
+                slot: 37,
+                step: 3,
+                on: true,
+            }),
+            Command::Sampler(SamplerCommand::SeqPattern {
+                slot: 0,
+                mask: 0x1111,
+            }),
             Command::Sampler(SamplerCommand::SeqPlay(true)),
             Command::Sampler(SamplerCommand::SeqRecord(true)),
         ],
@@ -313,18 +407,41 @@ fn process_never_allocates() {
             Command::Channel(3, ChannelCommand::SetColorFx(ColorFxKind::Sweep)),
         ],
         // Pad FX and release FX.
-        vec![Command::PadFx(0, PadFxCommand::Press(pad(PadFxEffect::Beat(BeatFxKind::Helix))))],
-        vec![Command::PadFx(0, PadFxCommand::Press(pad(PadFxEffect::Release(ReleaseFxKind::EchoOut))))],
+        vec![Command::PadFx(
+            0,
+            PadFxCommand::Press(pad(PadFxEffect::Beat(BeatFxKind::Helix))),
+        )],
+        vec![Command::PadFx(
+            0,
+            PadFxCommand::Press(pad(PadFxEffect::Release(ReleaseFxKind::EchoOut))),
+        )],
         vec![
             Command::PadFx(0, PadFxCommand::Release),
-            Command::PadFx(2, PadFxCommand::Press(pad(PadFxEffect::Beat(BeatFxKind::SlipRoll)))),
+            Command::PadFx(
+                2,
+                PadFxCommand::Press(pad(PadFxEffect::Beat(BeatFxKind::SlipRoll))),
+            ),
         ],
         vec![
             Command::PadFx(2, PadFxCommand::Release),
-            Command::BeatFx(1, BeatFxCommand::Release { kind: ReleaseFxKind::Backspin, beats: 1.0, on: true }),
+            Command::BeatFx(
+                1,
+                BeatFxCommand::Release {
+                    kind: ReleaseFxKind::Backspin,
+                    beats: 1.0,
+                    on: true,
+                },
+            ),
         ],
         vec![
-            Command::BeatFx(1, BeatFxCommand::Release { kind: ReleaseFxKind::Backspin, beats: 1.0, on: false }),
+            Command::BeatFx(
+                1,
+                BeatFxCommand::Release {
+                    kind: ReleaseFxKind::Backspin,
+                    beats: 1.0,
+                    on: false,
+                },
+            ),
             Command::BeatFx(1, BeatFxCommand::SetTapBpm(Some(133.0))),
         ],
     ];

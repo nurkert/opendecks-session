@@ -25,16 +25,36 @@ pub struct StemJob {
 #[derive(Clone, Debug, PartialEq)]
 pub enum StemEvent {
     /// The model is being downloaded (first use); bytes done / total.
-    ModelDownload { done: u64, total: u64 },
-    Started { track: TrackId },
+    ModelDownload {
+        done: u64,
+        total: u64,
+    },
+    Started {
+        track: TrackId,
+    },
     /// 0..=1 for the running job.
-    Progress { track: TrackId, fraction: f32 },
+    Progress {
+        track: TrackId,
+        fraction: f32,
+    },
     /// Stems are in the cache: reload the track (or load it) to use them.
-    Done { track: TrackId, hash: ContentHash, seconds: f64 },
+    Done {
+        track: TrackId,
+        hash: ContentHash,
+        seconds: f64,
+    },
     /// Already cached; nothing done.
-    AlreadyCached { track: TrackId, hash: ContentHash },
-    Failed { track: TrackId, error: String },
-    Cancelled { track: TrackId },
+    AlreadyCached {
+        track: TrackId,
+        hash: ContentHash,
+    },
+    Failed {
+        track: TrackId,
+        error: String,
+    },
+    Cancelled {
+        track: TrackId,
+    },
 }
 
 /// Options of the worker.
@@ -47,7 +67,10 @@ pub struct StemWorkerOptions {
 
 impl Default for StemWorkerOptions {
     fn default() -> Self {
-        Self { fetch_model: true, separator: SeparatorOptions::default() }
+        Self {
+            fetch_model: true,
+            separator: SeparatorOptions::default(),
+        }
     }
 }
 
@@ -89,7 +112,11 @@ impl StemWorker {
             .name("od-stems".into())
             .spawn(move || run(s, cache, opts, tx))
             .expect("spawn stem worker");
-        Self { shared, events: rx, thread: Some(thread) }
+        Self {
+            shared,
+            events: rx,
+            thread: Some(thread),
+        }
     }
 
     /// Queues a track (ignored if it is already queued or running).
@@ -136,7 +163,13 @@ impl StemWorker {
 
     /// Queued (not yet running) tracks in order.
     pub fn queued(&self) -> Vec<TrackId> {
-        self.shared.queue.lock().jobs.iter().map(|j| j.track).collect()
+        self.shared
+            .queue
+            .lock()
+            .jobs
+            .iter()
+            .map(|j| j.track)
+            .collect()
     }
 
     pub fn is_idle(&self) -> bool {
@@ -187,12 +220,22 @@ fn run(shared: Arc<Shared>, cache: StemCache, opts: StemWorkerOptions, tx: Sende
         let track = job.track;
         let result = process(&shared, &cache, &opts, &mut separator, &job, &tx);
         let ev = match result {
-            Ok(Some(seconds)) => StemEvent::Done { track, hash: job.hash.clone(), seconds },
-            Ok(None) => StemEvent::AlreadyCached { track, hash: job.hash.clone() },
+            Ok(Some(seconds)) => StemEvent::Done {
+                track,
+                hash: job.hash.clone(),
+                seconds,
+            },
+            Ok(None) => StemEvent::AlreadyCached {
+                track,
+                hash: job.hash.clone(),
+            },
             Err(crate::Error::Cancelled) => StemEvent::Cancelled { track },
             Err(e) => {
                 tracing::warn!("stem separation of track {track} failed: {e}");
-                StemEvent::Failed { track, error: e.to_string() }
+                StemEvent::Failed {
+                    track,
+                    error: e.to_string(),
+                }
             }
         };
         shared.queue.lock().current = None;
@@ -217,9 +260,12 @@ fn process(
             if !opts.fetch_model {
                 return Err(crate::Error::ModelMissing(crate::model_path()));
             }
-            crate::fetch_model(&mut |done, total| {
-                let _ = tx.send(StemEvent::ModelDownload { done, total });
-            }, cancel)?;
+            crate::fetch_model(
+                &mut |done, total| {
+                    let _ = tx.send(StemEvent::ModelDownload { done, total });
+                },
+                cancel,
+            )?;
         }
         *separator = Some(Separator::new(&crate::model_path(), &opts.separator)?);
     }
@@ -232,7 +278,10 @@ fn process(
         &mut |f| {
             if f - last >= 0.01 || f >= 1.0 {
                 last = f;
-                let _ = tx.send(StemEvent::Progress { track: job.track, fraction: f });
+                let _ = tx.send(StemEvent::Progress {
+                    track: job.track,
+                    fraction: f,
+                });
             }
         },
         cancel,

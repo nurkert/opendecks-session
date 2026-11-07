@@ -172,7 +172,9 @@ pub(crate) fn refresh(app: &App) {
     let ids: Vec<String> = if st.config.kiosk && st.explorer.open.is_none() {
         KIOSK_COLUMNS.iter().map(|s| s.to_string()).collect()
     } else {
-        ids.into_iter().filter(|c| !(st.config.kiosk && c == "artwork")).collect()
+        ids.into_iter()
+            .filter(|c| !(st.config.kiosk && c == "artwork"))
+            .collect()
     };
     let b = &st.browser;
     let kiosk = st.config.kiosk;

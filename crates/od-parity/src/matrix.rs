@@ -95,7 +95,11 @@ pub fn summary_line(file: &FeaturesFile) -> String {
     let in_scope: usize = c.by_status.values().sum();
     let get = |s| c.by_status.get(&s).copied().unwrap_or(0);
     let done = get(Status::Done);
-    let pct = if in_scope == 0 { 0.0 } else { 100.0 * done as f64 / in_scope as f64 };
+    let pct = if in_scope == 0 {
+        0.0
+    } else {
+        100.0 * done as f64 / in_scope as f64
+    };
     format!(
         "**Summary:** {} features; {} in scope: {} DONE ({:.0} %), {} PARTIAL, {} ENGINE-ONLY, {} MISSING; \
          {} deferred to a later milestone; {} out of scope (SPEC §1).",
@@ -122,12 +126,18 @@ pub fn render(file: &FeaturesFile) -> String {
     }
     let _ = writeln!(s, "## Legend\n");
     let _ = writeln!(s, "| Status | Meaning |\n|---|---|");
-    let _ = writeln!(s, "| DONE | Works end to end, including UI and/or controller |");
+    let _ = writeln!(
+        s,
+        "| DONE | Works end to end, including UI and/or controller |"
+    );
     let _ = writeln!(
         s,
         "| ENGINE-ONLY | Backend (engine, library, format) exists; no UI and no controller path |"
     );
-    let _ = writeln!(s, "| PARTIAL | Usable, but an expected part is missing (noted) |");
+    let _ = writeln!(
+        s,
+        "| PARTIAL | Usable, but an expected part is missing (noted) |"
+    );
     let _ = writeln!(s, "| MISSING | Nothing in the code |");
     let _ = writeln!(
         s,
@@ -159,14 +169,31 @@ pub fn render(file: &FeaturesFile) -> String {
                 let reason = format!(
                     "SPEC §1: {}{}",
                     f.exclusion.as_deref().unwrap_or("?"),
-                    if f.note.trim().is_empty() { String::new() } else { format!("; {}", f.note.trim()) }
+                    if f.note.trim().is_empty() {
+                        String::new()
+                    } else {
+                        format!("; {}", f.note.trim())
+                    }
                 );
-                let _ = writeln!(s, "| {} | {} | {} |", cell(&f.name), status_cell(f, file), cell(&reason));
+                let _ = writeln!(
+                    s,
+                    "| {} | {} | {} |",
+                    cell(&f.name),
+                    status_cell(f, file),
+                    cell(&reason)
+                );
             }
         } else {
-            let _ = writeln!(s, "| Feature | Status | Evidence / note | Tests | Prio |\n|---|---|---|---|---|");
+            let _ = writeln!(
+                s,
+                "| Feature | Status | Evidence / note | Tests | Prio |\n|---|---|---|---|---|"
+            );
             for f in rows {
-                let tests = if f.tests.is_empty() { "—".to_owned() } else { f.tests.len().to_string() };
+                let tests = if f.tests.is_empty() {
+                    "—".to_owned()
+                } else {
+                    f.tests.len().to_string()
+                };
                 let _ = writeln!(
                     s,
                     "| {} | {} | {} | {} | {} |",
@@ -183,9 +210,18 @@ pub fn render(file: &FeaturesFile) -> String {
     let _ = writeln!(s, "\n---\n\n## Counts\n");
     let _ = writeln!(s, "| Status | Rows |\n|---|---|");
     for st in Status::ALL {
-        let _ = writeln!(s, "| {} | {} |", st, c.by_status.get(&st).copied().unwrap_or(0));
+        let _ = writeln!(
+            s,
+            "| {} | {} |",
+            st,
+            c.by_status.get(&st).copied().unwrap_or(0)
+        );
     }
-    let _ = writeln!(s, "| deferred (in scope, later milestone) | {} |", c.deferred);
+    let _ = writeln!(
+        s,
+        "| deferred (in scope, later milestone) | {} |",
+        c.deferred
+    );
     let _ = writeln!(s, "| OUT-OF-SCOPE | {} |", c.out);
     let _ = writeln!(s, "| **Total** | **{}** |", c.total);
     if !file.meta.appendix.trim().is_empty() {

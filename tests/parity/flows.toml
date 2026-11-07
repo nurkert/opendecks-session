@@ -111,4 +111,4 @@ target_steps = 1
 opendecks_path = ["click VOCAL in the deck's stem strip (separation started on load; the strip shows SEPARATING until ready)"]
 labels = ["deck1.stem.vocal"]
 ui_test = "od-ui::ui_tests::flows::separate_stems"
-note = "Start: track loaded on deck 1, never separated, model present."
+note = "Start: track loaded on deck 1, never separated, model present. In the UI test the worker's result is written to the stem cache by the test (the ONNX separator itself is tested in od-stems), so the flow is measured without the model download."

@@ -20,7 +20,11 @@ pub const TRACK_COLORS: [(&str, CueColor); 8] = [
 
 /// Colour as its name when it is one of the named colours, else `#rrggbb`.
 pub fn color_name(c: CueColor) -> String {
-    TRACK_COLORS.iter().find(|(_, p)| *p == c).map(|(n, _)| n.to_string()).unwrap_or_else(|| c.to_hex())
+    TRACK_COLORS
+        .iter()
+        .find(|(_, p)| *p == c)
+        .map(|(n, _)| n.to_string())
+        .unwrap_or_else(|| c.to_hex())
 }
 
 /// Parses a colour name or `#rrggbb`; `none`/empty clears.
@@ -44,11 +48,16 @@ pub fn round(v: f64, places: i32) -> f64 {
 
 pub fn mmss(secs: f64) -> String {
     let s = secs.max(0.0).round() as u64;
-    if s >= 3600 { format!("{}:{:02}:{:02}", s / 3600, s / 60 % 60, s % 60) } else { format!("{}:{:02}", s / 60, s % 60) }
+    if s >= 3600 {
+        format!("{}:{:02}:{:02}", s / 3600, s / 60 % 60, s % 60)
+    } else {
+        format!("{}:{:02}", s / 60, s % 60)
+    }
 }
 
 pub fn key_text(k: Option<MusicalKey>) -> Value {
-    k.map(|k| Value::String(k.to_string())).unwrap_or(Value::Null)
+    k.map(|k| Value::String(k.to_string()))
+        .unwrap_or(Value::Null)
 }
 
 fn put(m: &mut Map<String, Value>, k: &str, v: impl Into<Value>) {
@@ -62,7 +71,11 @@ fn put_str(m: &mut Map<String, Value>, k: &str, v: &str) {
 }
 
 pub fn my_tags_json(tags: &[MyTag]) -> Value {
-    Value::Array(tags.iter().map(|t| Value::String(format!("{}: {}", t.category, t.value))).collect())
+    Value::Array(
+        tags.iter()
+            .map(|t| Value::String(format!("{}: {}", t.category, t.value)))
+            .collect(),
+    )
 }
 
 /// One line of a track list: id, title, artist, bpm, key, genre, rating,
@@ -123,11 +136,26 @@ pub fn track_full(lib: &Library, t: &TrackRecord) -> od_library::Result<Value> {
         put(&mut m, "year", y);
     }
     put(&mut m, "rating", tg.rating);
-    put(&mut m, "color", tg.color.map(color_name).map(Value::String).unwrap_or(Value::Null));
+    put(
+        &mut m,
+        "color",
+        tg.color
+            .map(color_name)
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
     put(&mut m, "my_tag", my_tags_json(&lib.my_tags(t.id)?));
-    put(&mut m, "bpm", t.bpm.map(|b| json!(round(b, 2))).unwrap_or(Value::Null));
+    put(
+        &mut m,
+        "bpm",
+        t.bpm.map(|b| json!(round(b, 2))).unwrap_or(Value::Null),
+    );
     if let Some(g) = lib.beatgrid_with_source(t.id)? {
-        put(&mut m, "grid", json!({"source": g.1.as_str(), "locked": g.0.locked, "variable_tempo": g.0.beats.windows(2).any(|w| (w[0].bpm - w[1].bpm).abs() > 0.05)}));
+        put(
+            &mut m,
+            "grid",
+            json!({"source": g.1.as_str(), "locked": g.0.locked, "variable_tempo": g.0.beats.windows(2).any(|w| (w[0].bpm - w[1].bpm).abs() > 0.05)}),
+        );
     }
     match lib.key_with_source(t.id)? {
         Some((k, src)) => put(
@@ -180,7 +208,11 @@ pub fn track_full(lib: &Library, t: &TrackRecord) -> od_library::Result<Value> {
                 })
             })
             .collect();
-        put(&mut m, "phrase_mood", serde_json::to_value(a.phrase_mood).unwrap_or(Value::Null));
+        put(
+            &mut m,
+            "phrase_mood",
+            serde_json::to_value(a.phrase_mood).unwrap_or(Value::Null),
+        );
         put(&mut m, "phrases", phrases);
     }
     let cues: Vec<Value> = lib
@@ -189,7 +221,14 @@ pub fn track_full(lib: &Library, t: &TrackRecord) -> od_library::Result<Value> {
         .map(|c| {
             let mut cm = Map::new();
             match c.kind {
-                CueKind::Hot(_) => put(&mut cm, "hot", c.kind.hot_slot_letter().map(String::from).unwrap_or_default()),
+                CueKind::Hot(_) => put(
+                    &mut cm,
+                    "hot",
+                    c.kind
+                        .hot_slot_letter()
+                        .map(String::from)
+                        .unwrap_or_default(),
+                ),
                 CueKind::Memory => put(&mut cm, "memory", true),
             }
             put(&mut cm, "at", mmss(c.start));
@@ -206,7 +245,14 @@ pub fn track_full(lib: &Library, t: &TrackRecord) -> od_library::Result<Value> {
         .collect();
     put(&mut m, "cues", cues);
     put(&mut m, "play_count", t.play_count);
-    put(&mut m, "last_played", t.last_played.clone().map(Value::String).unwrap_or(Value::Null));
+    put(
+        &mut m,
+        "last_played",
+        t.last_played
+            .clone()
+            .map(Value::String)
+            .unwrap_or(Value::Null),
+    );
     put(&mut m, "date_added", t.date_added.as_str());
     put(&mut m, "format", t.format.map(|f| f.as_str()).unwrap_or(""));
     if let Some(b) = t.bit_rate {
@@ -242,7 +288,11 @@ pub fn node_brief(lib: &Library, n: &Node) -> od_library::Result<Value> {
 }
 
 /// The node tree below `parent` (root for `None`).
-pub fn node_tree(lib: &Library, parent: Option<od_library::NodeId>, depth: usize) -> od_library::Result<Vec<Value>> {
+pub fn node_tree(
+    lib: &Library,
+    parent: Option<od_library::NodeId>,
+    depth: usize,
+) -> od_library::Result<Vec<Value>> {
     let mut out = Vec::new();
     for n in lib.children(parent)? {
         let mut v = node_brief(lib, &n)?;

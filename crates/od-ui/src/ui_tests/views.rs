@@ -121,6 +121,8 @@ pub(crate) fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String>
             for u in 0..2 {
                 crate::fx::toggle_multi(&ui.app, u);
             }
+            // The engine reports multi mode a few frames later (real time).
+            ui.wait_until(10.0, |u| u.has("fx.unit1.slot2.type") && u.has("fx.unit2.slot2.type"));
         }
         "panel.sampler" => {
             perform(2);

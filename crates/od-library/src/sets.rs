@@ -98,18 +98,38 @@ impl Library {
                 (!e.is_empty()).then(|| e.iter().sum::<f32>() / e.len() as f32)
             };
             let duration = t.duration;
-            points.push(FlowPoint { bpm: t.bpm, key: t.key, energy, start_offset: offset, track: t });
+            points.push(FlowPoint {
+                bpm: t.bpm,
+                key: t.key,
+                energy,
+                start_offset: offset,
+                track: t,
+            });
             offset += duration;
         }
-        let transitions = points.windows(2).map(|w| transition(&w[0], &w[1])).collect();
-        Ok(SetFlow { points, transitions, total_duration: offset })
+        let transitions = points
+            .windows(2)
+            .map(|w| transition(&w[0], &w[1]))
+            .collect();
+        Ok(SetFlow {
+            points,
+            transitions,
+            total_duration: offset,
+        })
     }
 
     /// Library tracks that fit after `track` (tempo within `max_pct` and
     /// harmonically compatible), best matches first.
-    pub fn suggest_next(&self, track: od_core::TrackId, max_pct: f64, limit: usize) -> Result<Vec<TrackRecord>> {
+    pub fn suggest_next(
+        &self,
+        track: od_core::TrackId,
+        max_pct: f64,
+        limit: usize,
+    ) -> Result<Vec<TrackRecord>> {
         let current = self.track(track)?;
-        let (Some(bpm), Some(key)) = (current.bpm, current.key) else { return Ok(vec![]) };
+        let (Some(bpm), Some(key)) = (current.bpm, current.key) else {
+            return Ok(vec![]);
+        };
         let mut scored: Vec<(f64, TrackRecord)> = self
             .tracks(crate::SortKey::DateAdded, true)?
             .into_iter()

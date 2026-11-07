@@ -93,7 +93,11 @@ pub fn crc16_xmodem(bytes: &[u8]) -> u16 {
     for b in bytes {
         crc ^= (*b as u16) << 8;
         for _ in 0..8 {
-            crc = if crc & 0x8000 != 0 { (crc << 1) ^ 0x1021 } else { crc << 1 };
+            crc = if crc & 0x8000 != 0 {
+                (crc << 1) ^ 0x1021
+            } else {
+                crc << 1
+            };
         }
     }
     crc
@@ -108,10 +112,13 @@ pub fn data_block(s: &PlayerSettings) -> [u8; LEN_DATA as usize] {
     set(10, 0x83); // LCD brightness 3
     set(11, on_off(s.quantize));
     set(12, 0x88); // auto cue level: memory
-    set(13, match s.language {
-        Language::English => 0x81,
-        Language::German => 0x83,
-    });
+    set(
+        13,
+        match s.language {
+            Language::English => 0x81,
+            Language::German => 0x83,
+        },
+    );
     set(15, 0x82); // jog ring brightness: bright
     set(16, 0x81); // jog ring indicator: on
     set(17, on_off(s.slip_flashing));
@@ -172,7 +179,11 @@ mod tests {
         assert_eq!(&b[100..104], &40u32.to_le_bytes());
         assert_eq!(&b[104..112], &PREFIX);
         let crc = u16::from_le_bytes([b[144], b[145]]);
-        assert_eq!(crc, crc16_xmodem(&b[..144]), "checksum over header and data");
+        assert_eq!(
+            crc,
+            crc16_xmodem(&b[..144]),
+            "checksum over header and data"
+        );
         assert_eq!(&b[146..148], &[0, 0]);
     }
 
@@ -191,12 +202,20 @@ mod tests {
         let d = data_block(&s);
         let byte = |n: usize| d[n - 1];
         assert_eq!((byte(11), byte(13), byte(17)), (0x80, 0x83, 0x80));
-        assert_eq!((byte(33), byte(34), byte(35), byte(36), byte(37)), (0x80, 0x80, 0x80, 0x81, 0x82));
+        assert_eq!(
+            (byte(33), byte(34), byte(35), byte(36), byte(37)),
+            (0x80, 0x80, 0x80, 0x81, 0x82)
+        );
         let d = data_block(&PlayerSettings::default());
         let byte = |n: usize| d[n - 1];
-        assert_eq!((byte(11), byte(35), byte(36), byte(37)), (0x81, 0x81, 0x80, 0x81));
+        assert_eq!(
+            (byte(11), byte(35), byte(36), byte(37)),
+            (0x81, 0x81, 0x80, 0x81)
+        );
         // Every documented setting byte is an enum value (>= 0x80).
-        for n in [9, 10, 11, 12, 13, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 30, 33, 34, 35, 36, 37, 38] {
+        for n in [
+            9, 10, 11, 12, 13, 15, 16, 17, 21, 22, 23, 24, 25, 26, 27, 30, 33, 34, 35, 36, 37, 38,
+        ] {
             assert!(byte(n) >= 0x80, "byte {n}");
         }
     }

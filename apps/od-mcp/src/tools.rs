@@ -5,12 +5,17 @@
 //! one undo step labelled "MCP: …" in the app's edit history, and change-log
 //! rows so that USB sticks holding the touched lists are synced as usual.
 
-use crate::view::{self, color_name, mmss, node_brief, node_tree, parse_color, round, track_full, track_summary};
+use crate::view::{
+    self, color_name, mmss, node_brief, node_tree, parse_color, round, track_full, track_summary,
+};
 use od_core::{MusicalKey, TrackId};
 use od_library::journal::EntityState;
 use od_library::sets::{Fit, bpm_change_pct};
 use od_library::smart::{Field, Op, Rule};
-use od_library::{Entry, Library, LibraryError, MyTag, NodeId, NodeKind, SetMeta, SortKey, Subtree, TrackRecord, smart_text};
+use od_library::{
+    Entry, Library, LibraryError, MyTag, NodeId, NodeKind, SetMeta, SortKey, Subtree, TrackRecord,
+    smart_text,
+};
 use rmcp::model::{JsonObject, ToolAnnotations};
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -28,7 +33,10 @@ pub struct ToolOut {
 pub type ToolResult = Result<ToolOut, String>;
 
 pub(crate) fn out(summary: impl Into<String>, data: Value) -> ToolResult {
-    Ok(ToolOut { data, summary: summary.into() })
+    Ok(ToolOut {
+        data,
+        summary: summary.into(),
+    })
 }
 
 fn lib_err(e: LibraryError) -> String {
@@ -57,13 +65,15 @@ impl ToolDef {
     }
 
     pub fn to_tool(&self) -> rmcp::model::Tool {
-        rmcp::model::Tool::new(self.name, self.description, self.schema.clone()).with_title(self.title).annotate(
-            ToolAnnotations::new()
-                .read_only(self.read_only)
-                .destructive(self.destructive)
-                .idempotent(self.read_only)
-                .open_world(false),
-        )
+        rmcp::model::Tool::new(self.name, self.description, self.schema.clone())
+            .with_title(self.title)
+            .annotate(
+                ToolAnnotations::new()
+                    .read_only(self.read_only)
+                    .destructive(self.destructive)
+                    .idempotent(self.read_only)
+                    .open_world(false),
+            )
     }
 }
 
@@ -84,7 +94,8 @@ pub(crate) fn def<P: DeserializeOwned + JsonSchema + 'static>(
         destructive,
         run: Box::new(move |lib, args| {
             let args = if args.is_null() { json!({}) } else { args };
-            let p: P = serde_json::from_value(args).map_err(|e| format!("invalid arguments: {e}"))?;
+            let p: P =
+                serde_json::from_value(args).map_err(|e| format!("invalid arguments: {e}"))?;
             f(lib, p)
         }),
     }
@@ -155,16 +166,23 @@ pub fn all() -> Vec<ToolDef> {
 // ---------------------------------------------------------------- helpers
 
 fn parse_key(s: &str) -> Result<MusicalKey, String> {
-    MusicalKey::parse(s).ok_or_else(|| format!("cannot read key \"{s}\" (use Camelot 8A, Open Key 1m or musical Am / F#)"))
+    MusicalKey::parse(s).ok_or_else(|| {
+        format!("cannot read key \"{s}\" (use Camelot 8A, Open Key 1m or musical Am / F#)")
+    })
 }
 
 fn node_of(lib: &Library, id: i64) -> Result<od_library::Node, String> {
-    lib.node(NodeId(id)).map_err(|_| format!("no playlist, set or folder with id {id}"))
+    lib.node(NodeId(id))
+        .map_err(|_| format!("no playlist, set or folder with id {id}"))
 }
 
 fn check_tracks(lib: &Library, ids: &[i64]) -> od_library::Result<Vec<TrackId>> {
     ids.iter()
-        .map(|&i| lib.track(TrackId(i)).map(|t| t.id).map_err(|_| LibraryError::Invalid(format!("no track with id {i}"))))
+        .map(|&i| {
+            lib.track(TrackId(i))
+                .map(|t| t.id)
+                .map_err(|_| LibraryError::Invalid(format!("no track with id {i}")))
+        })
         .collect()
 }
 
@@ -172,7 +190,11 @@ fn require_list(n: &od_library::Node) -> od_library::Result<()> {
     if n.kind.has_entries() {
         Ok(())
     } else {
-        Err(LibraryError::Invalid(format!("\"{}\" is a {}; only playlists and sets hold tracks", n.name, n.kind.as_str())))
+        Err(LibraryError::Invalid(format!(
+            "\"{}\" is a {}; only playlists and sets hold tracks",
+            n.name,
+            n.kind.as_str()
+        )))
     }
 }
 
@@ -184,7 +206,10 @@ struct Extras {
 
 impl Extras {
     fn load(lib: &Library) -> Result<Self, String> {
-        Ok(Self { energy: lib.energy_means().map_err(lib_err)?, my_tags: lib.all_my_tags().map_err(lib_err)? })
+        Ok(Self {
+            energy: lib.energy_means().map_err(lib_err)?,
+            my_tags: lib.all_my_tags().map_err(lib_err)?,
+        })
     }
 
     fn summary(&self, t: &TrackRecord) -> Value {
@@ -229,7 +254,13 @@ fn library_overview(lib: &mut Library, _: NoArgs) -> ToolResult {
     let (mut analysed, mut missing, mut unplayed, mut total) = (0, 0, 0, 0.0);
     for t in &tracks {
         let g = t.tags.genre.trim();
-        *genres.entry(if g.is_empty() { "(none)".into() } else { g.to_string() }).or_default() += 1;
+        *genres
+            .entry(if g.is_empty() {
+                "(none)".into()
+            } else {
+                g.to_string()
+            })
+            .or_default() += 1;
         if let Some(b) = t.bpm {
             *bpm.entry((b / 5.0).floor() as i64 * 5).or_default() += 1;
         }
@@ -271,7 +302,13 @@ fn library_overview(lib: &mut Library, _: NoArgs) -> ToolResult {
         "notes": "genres: [name, count] top 40; bpm_buckets: [range, count]; ratings: count per 0..5 stars; energy is the mean analysed energy 0..1",
     });
     out(
-        format!("{} tracks ({analysed} analysed, {:.1} h), {} genres, {} lists", tracks.len(), total / 3600.0, data["genres"].as_array().map_or(0, Vec::len), lib.all_nodes().map_err(lib_err)?.len()),
+        format!(
+            "{} tracks ({analysed} analysed, {:.1} h), {} genres, {} lists",
+            tracks.len(),
+            total / 3600.0,
+            data["genres"].as_array().map_or(0, Vec::len),
+            lib.all_nodes().map_err(lib_err)?.len()
+        ),
         data,
     )
 }
@@ -336,13 +373,28 @@ fn search_tracks(lib: &mut Library, a: SearchArgs) -> ToolResult {
     };
     if let Some(n) = a.in_node {
         node_of(lib, n)?;
-        let ids: HashSet<TrackId> = lib.node_tracks(NodeId(n)).map_err(lib_err)?.iter().map(|t| t.id).collect();
+        let ids: HashSet<TrackId> = lib
+            .node_tracks(NodeId(n))
+            .map_err(lib_err)?
+            .iter()
+            .map(|t| t.id)
+            .collect();
         tracks.retain(|t| ids.contains(&t.id));
     }
     let key = a.key.as_deref().map(parse_key).transpose()?;
-    let compat = a.compatible_with.as_deref().map(parse_key).transpose()?.map(|k| k.compatible());
+    let compat = a
+        .compatible_with
+        .as_deref()
+        .map(parse_key)
+        .transpose()?
+        .map(|k| k.compatible());
     let color = a.color.as_deref().map(parse_color).transpose()?;
-    let genres: Vec<String> = a.genres.iter().map(|g| g.trim().to_lowercase()).filter(|g| !g.is_empty()).collect();
+    let genres: Vec<String> = a
+        .genres
+        .iter()
+        .map(|g| g.trim().to_lowercase())
+        .filter(|g| !g.is_empty())
+        .collect();
     let my: Vec<(Option<String>, String)> = a
         .my_tags
         .iter()
@@ -351,10 +403,16 @@ fn search_tracks(lib: &mut Library, a: SearchArgs) -> ToolResult {
             None => (None, s.trim().to_lowercase()),
         })
         .collect();
-    let added = a.added_within_days.map(|d| Rule::Cond { field: Field::AddedDaysAgo, op: Op::LessThan, value: json!(d + 1e-9) });
+    let added = a.added_within_days.map(|d| Rule::Cond {
+        field: Field::AddedDaysAgo,
+        op: Op::LessThan,
+        value: json!(d + 1e-9),
+    });
     let exclude: HashSet<i64> = a.exclude_ids.iter().copied().collect();
     let bpm_ok = |b: f64| {
-        let in_range = |x: f64| a.bpm_min.is_none_or(|m| x >= m - 1e-9) && a.bpm_max.is_none_or(|m| x <= m + 1e-9);
+        let in_range = |x: f64| {
+            a.bpm_min.is_none_or(|m| x >= m - 1e-9) && a.bpm_max.is_none_or(|m| x <= m + 1e-9)
+        };
         in_range(b) || (a.bpm_half_double && (in_range(b * 2.0) || in_range(b / 2.0)))
     };
     tracks.retain(|t| {
@@ -363,7 +421,10 @@ fn search_tracks(lib: &mut Library, a: SearchArgs) -> ToolResult {
             && (a.bpm_min.is_none() && a.bpm_max.is_none() || t.bpm.is_some_and(bpm_ok))
             && key.is_none_or(|k| t.key == Some(k))
             && compat.is_none_or(|c| t.key.is_some_and(|k| c.contains(&k)))
-            && (genres.is_empty() || genres.iter().any(|g| t.tags.genre.to_lowercase().contains(g)))
+            && (genres.is_empty()
+                || genres
+                    .iter()
+                    .any(|g| t.tags.genre.to_lowercase().contains(g)))
             && a.rating_min.is_none_or(|r| t.tags.rating >= r)
             && a.rating_max.is_none_or(|r| t.tags.rating <= r)
             && color.is_none_or(|c| t.tags.color == c)
@@ -376,18 +437,29 @@ fn search_tracks(lib: &mut Library, a: SearchArgs) -> ToolResult {
             && my.iter().all(|(cat, val)| {
                 ex.my_tags.get(&t.id).is_some_and(|tags| {
                     tags.iter().any(|tag| {
-                        tag.value.to_lowercase() == *val && cat.as_ref().is_none_or(|c| tag.category.to_lowercase() == *c)
+                        tag.value.to_lowercase() == *val
+                            && cat
+                                .as_ref()
+                                .is_none_or(|c| tag.category.to_lowercase() == *c)
                     })
                 })
             })
     });
-    let sort = a.sort.as_deref().unwrap_or(if query.is_some() { "relevance" } else { "added" });
+    let sort = a.sort.as_deref().unwrap_or(if query.is_some() {
+        "relevance"
+    } else {
+        "added"
+    });
     let energy_of = |t: &TrackRecord| ex.energy.get(&t.id).copied().unwrap_or(-1.0) as f64;
     let opt = |v: Option<f64>| v.unwrap_or(f64::MAX);
     match sort {
         "relevance" => {}
         "bpm" => tracks.sort_by(|x, y| opt(x.bpm).total_cmp(&opt(y.bpm))),
-        "key" => tracks.sort_by_key(|t| t.key.map(|k| (k.camelot_number(), k.mode == od_core::Mode::Major)).unwrap_or((99, false))),
+        "key" => tracks.sort_by_key(|t| {
+            t.key
+                .map(|k| (k.camelot_number(), k.mode == od_core::Mode::Major))
+                .unwrap_or((99, false))
+        }),
         "energy" => tracks.sort_by(|x, y| energy_of(x).total_cmp(&energy_of(y))),
         "rating" => tracks.sort_by_key(|t| t.tags.rating),
         "added" => tracks.sort_by(|x, y| y.date_added.cmp(&x.date_added)),
@@ -402,7 +474,12 @@ fn search_tracks(lib: &mut Library, a: SearchArgs) -> ToolResult {
     }
     let total = tracks.len();
     let limit = a.limit.unwrap_or(50).clamp(1, 500);
-    let page: Vec<Value> = tracks.iter().skip(a.offset).take(limit).map(|t| ex.summary(t)).collect();
+    let page: Vec<Value> = tracks
+        .iter()
+        .skip(a.offset)
+        .take(limit)
+        .map(|t| ex.summary(t))
+        .collect();
     let n = page.len();
     out(
         format!("{total} tracks match; showing {n} from {}", a.offset),
@@ -433,7 +510,17 @@ fn get_tracks(lib: &mut Library, a: GetTracksArgs) -> ToolResult {
     if !unknown.is_empty() {
         data["unknown_ids"] = json!(unknown);
     }
-    out(format!("{n} tracks{}", if unknown.is_empty() { String::new() } else { format!(", unknown ids {unknown:?}") }), data)
+    out(
+        format!(
+            "{n} tracks{}",
+            if unknown.is_empty() {
+                String::new()
+            } else {
+                format!(", unknown ids {unknown:?}")
+            }
+        ),
+        data,
+    )
 }
 
 #[derive(Deserialize, JsonSchema, Default)]
@@ -448,7 +535,10 @@ fn list_nodes(lib: &mut Library, a: ListNodesArgs) -> ToolResult {
         node_of(lib, p)?;
     }
     let tree = node_tree(lib, a.parent.map(NodeId), 16).map_err(lib_err)?;
-    out(format!("{} lists in total", lib.all_nodes().map_err(lib_err)?.len()), json!({"nodes": tree}))
+    out(
+        format!("{} lists in total", lib.all_nodes().map_err(lib_err)?.len()),
+        json!({"nodes": tree}),
+    )
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -516,7 +606,14 @@ pub fn node_json(lib: &Library, id: i64, limit: usize) -> Result<Value, String> 
 
 fn get_node(lib: &mut Library, a: GetNodeArgs) -> ToolResult {
     let v = node_json(lib, a.id, a.limit.unwrap_or(200))?;
-    out(format!("{} \"{}\"", v["kind"].as_str().unwrap_or(""), v["name"].as_str().unwrap_or("")), v)
+    out(
+        format!(
+            "{} \"{}\"",
+            v["kind"].as_str().unwrap_or(""),
+            v["name"].as_str().unwrap_or("")
+        ),
+        v,
+    )
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -550,7 +647,9 @@ pub struct NeighboursArgs {
 }
 
 fn harmonic_neighbours(lib: &mut Library, a: NeighboursArgs) -> ToolResult {
-    let base = lib.track(TrackId(a.track_id)).map_err(|_| format!("no track with id {}", a.track_id))?;
+    let base = lib
+        .track(TrackId(a.track_id))
+        .map_err(|_| format!("no track with id {}", a.track_id))?;
     let ex = Extras::load(lib)?;
     let tol = a.bpm_tolerance_pct.unwrap_or(6.0).max(0.1);
     let max_dist = a.max_key_distance.unwrap_or(1);
@@ -559,25 +658,42 @@ fn harmonic_neighbours(lib: &mut Library, a: NeighboursArgs) -> ToolResult {
     exclude.insert(base.id);
     if let Some(n) = a.exclude_node {
         node_of(lib, n)?;
-        exclude.extend(lib.node_tracks(NodeId(n)).map_err(lib_err)?.iter().map(|t| t.id));
+        exclude.extend(
+            lib.node_tracks(NodeId(n))
+                .map_err(lib_err)?
+                .iter()
+                .map(|t| t.id),
+        );
     }
     let genres: Vec<String> = a.genres.iter().map(|g| g.to_lowercase()).collect();
     let base_e = ex.energy.get(&base.id).copied();
     let want = a.energy.as_deref().unwrap_or("any");
     if !["up", "down", "same", "any"].contains(&want) {
-        return Err(format!("energy must be up, down, same or any, not \"{want}\""));
+        return Err(format!(
+            "energy must be up, down, same or any, not \"{want}\""
+        ));
     }
-    let Some(bpm) = base.bpm else { return Err(format!("track {} has no BPM yet (not analysed)", base.id)) };
+    let Some(bpm) = base.bpm else {
+        return Err(format!("track {} has no BPM yet (not analysed)", base.id));
+    };
     let mut cands: Vec<(f64, Value)> = Vec::new();
     for t in lib.tracks(SortKey::DateAdded, true).map_err(lib_err)? {
         if exclude.contains(&t.id) || t.missing {
             continue;
         }
-        if !genres.is_empty() && !genres.iter().any(|g| t.tags.genre.to_lowercase().contains(g)) {
+        if !genres.is_empty()
+            && !genres
+                .iter()
+                .any(|g| t.tags.genre.to_lowercase().contains(g))
+        {
             continue;
         }
         let Some(tb) = t.bpm else { continue };
-        let pct = if before { bpm_change_pct(tb, bpm) } else { bpm_change_pct(bpm, tb) };
+        let pct = if before {
+            bpm_change_pct(tb, bpm)
+        } else {
+            bpm_change_pct(bpm, tb)
+        };
         if pct.abs() > tol {
             continue;
         }
@@ -616,7 +732,11 @@ fn harmonic_neighbours(lib: &mut Library, a: NeighboursArgs) -> ToolResult {
             None => 5.0,
         };
         let score = key_score + tempo_score + energy_score + t.tags.rating as f64;
-        let (from, to) = if before { (t.key, base.key) } else { (base.key, t.key) };
+        let (from, to) = if before {
+            (t.key, base.key)
+        } else {
+            (base.key, t.key)
+        };
         let mut s = ex.summary(&t);
         s["score"] = json!(round(score, 1));
         s["bpm_change_pct"] = json!(round(pct, 1));
@@ -634,7 +754,14 @@ fn harmonic_neighbours(lib: &mut Library, a: NeighboursArgs) -> ToolResult {
     let limit = a.limit.unwrap_or(20).clamp(1, 100);
     let list: Vec<Value> = cands.into_iter().take(limit).map(|(_, v)| v).collect();
     out(
-        format!("{total} candidates {} \"{}\" ({} BPM, {}); showing {}", if before { "before" } else { "after" }, base.tags.title, round(bpm, 1), base.key.map(|k| k.to_string()).unwrap_or("no key".into()), list.len()),
+        format!(
+            "{total} candidates {} \"{}\" ({} BPM, {}); showing {}",
+            if before { "before" } else { "after" },
+            base.tags.title,
+            round(bpm, 1),
+            base.key.map(|k| k.to_string()).unwrap_or("no key".into()),
+            list.len()
+        ),
         json!({"track": ex.summary(&base), "total": total, "candidates": list}),
     )
 }
@@ -657,7 +784,11 @@ fn fit(f: Fit) -> &'static str {
 fn set_flow(lib: &mut Library, a: NodeArg) -> ToolResult {
     let n = node_of(lib, a.node_id)?;
     let flow = lib.set_flow(n.id).map_err(lib_err)?;
-    let entries = if n.kind.has_entries() { lib.entries(n.id).map_err(lib_err)? } else { vec![] };
+    let entries = if n.kind.has_entries() {
+        lib.entries(n.id).map_err(lib_err)?
+    } else {
+        vec![]
+    };
     let mut warnings: Vec<String> = Vec::new();
     let mut seen: HashMap<TrackId, usize> = HashMap::new();
     let points: Vec<Value> = flow
@@ -666,13 +797,22 @@ fn set_flow(lib: &mut Library, a: NodeArg) -> ToolResult {
         .enumerate()
         .map(|(i, p)| {
             if let Some(first) = seen.insert(p.track.id, i) {
-                warnings.push(format!("pos {i}: \"{}\" already played at pos {first}", p.track.tags.title));
+                warnings.push(format!(
+                    "pos {i}: \"{}\" already played at pos {first}",
+                    p.track.tags.title
+                ));
             }
             if p.bpm.is_none() || p.key.is_none() {
-                warnings.push(format!("pos {i}: \"{}\" is not analysed (no BPM/key)", p.track.tags.title));
+                warnings.push(format!(
+                    "pos {i}: \"{}\" is not analysed (no BPM/key)",
+                    p.track.tags.title
+                ));
             }
             if p.track.missing {
-                warnings.push(format!("pos {i}: \"{}\" file is missing", p.track.tags.title));
+                warnings.push(format!(
+                    "pos {i}: \"{}\" file is missing",
+                    p.track.tags.title
+                ));
             }
             json!({
                 "pos": i,
@@ -733,11 +873,24 @@ fn set_flow(lib: &mut Library, a: NodeArg) -> ToolResult {
         .collect();
     let bpms: Vec<f64> = flow.points.iter().filter_map(|p| p.bpm).collect();
     let bpm_range = (!bpms.is_empty()).then(|| {
-        json!([round(bpms.iter().copied().fold(f64::MAX, f64::min), 1), round(bpms.iter().copied().fold(f64::MIN, f64::max), 1)])
+        json!([
+            round(bpms.iter().copied().fold(f64::MAX, f64::min), 1),
+            round(bpms.iter().copied().fold(f64::MIN, f64::max), 1)
+        ])
     });
-    let clashes = transitions.iter().filter(|t| t.get("warnings").is_some()).count();
+    let clashes = transitions
+        .iter()
+        .filter(|t| t.get("warnings").is_some())
+        .count();
     out(
-        format!("\"{}\": {} tracks, {}, {} of {} transitions with warnings", n.name, points.len(), mmss(flow.total_duration), clashes, transitions.len()),
+        format!(
+            "\"{}\": {} tracks, {}, {} of {} transitions with warnings",
+            n.name,
+            points.len(),
+            mmss(flow.total_duration),
+            clashes,
+            transitions.len()
+        ),
         json!({
             "node": {"id": n.id.0, "name": n.name, "kind": n.kind.as_str()},
             "duration": mmss(flow.total_duration),
@@ -761,7 +914,9 @@ pub struct HistoryArgs {
 
 fn history(lib: &mut Library, a: HistoryArgs) -> ToolResult {
     let ex = Extras::load(lib)?;
-    let plays = lib.history(a.session.as_deref(), a.limit.unwrap_or(100).clamp(1, 2000)).map_err(lib_err)?;
+    let plays = lib
+        .history(a.session.as_deref(), a.limit.unwrap_or(100).clamp(1, 2000))
+        .map_err(lib_err)?;
     let list: Vec<Value> = plays
         .iter()
         .map(|p| {
@@ -782,8 +937,13 @@ fn history(lib: &mut Library, a: HistoryArgs) -> ToolResult {
     let mut data = json!({"plays": list});
     if a.session.is_none() {
         let sessions = lib.history_sessions().map_err(lib_err)?;
-        data["sessions"] =
-            Value::Array(sessions.iter().take(50).map(|(s, at, n)| json!({"session": s, "started": at, "plays": n})).collect());
+        data["sessions"] = Value::Array(
+            sessions
+                .iter()
+                .take(50)
+                .map(|(s, at, n)| json!({"session": s, "started": at, "plays": n}))
+                .collect(),
+        );
     }
     out(format!("{} plays", plays.len()), data)
 }
@@ -825,13 +985,33 @@ fn create_set(lib: &mut Library, a: CreateSetArgs) -> ToolResult {
         .edit_with("MCP: Create set", |l| {
             let tracks = check_tracks(l, &a.track_ids)?;
             let mut node = l.new_node(a.folder_id.map(NodeId), NodeKind::Set, &name)?;
-            node.set_meta = Some(SetMeta { planned_start: a.planned_start.clone(), notes: a.notes.clone().unwrap_or_default() });
+            node.set_meta = Some(SetMeta {
+                planned_start: a.planned_start.clone(),
+                notes: a.notes.clone().unwrap_or_default(),
+            });
             let id = node.id;
-            let tree = Subtree { nodes: vec![node], entries: vec![(id, entries_of(&tracks))], device_links: vec![] };
-            Ok((vec![EntityState::Subtree { root: id, tree: Some(tree) }], id))
+            let tree = Subtree {
+                nodes: vec![node],
+                entries: vec![(id, entries_of(&tracks))],
+                device_links: vec![],
+            };
+            Ok((
+                vec![EntityState::Subtree {
+                    root: id,
+                    tree: Some(tree),
+                }],
+                id,
+            ))
         })
         .map_err(lib_err)?;
-    out(format!("Created set \"{name}\" (id {}) with {} tracks", id.0, a.track_ids.len()), created("set", lib, id))
+    out(
+        format!(
+            "Created set \"{name}\" (id {}) with {} tracks",
+            id.0,
+            a.track_ids.len()
+        ),
+        created("set", lib, id),
+    )
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -854,7 +1034,12 @@ fn create_playlist(lib: &mut Library, a: CreatePlaylistArgs) -> ToolResult {
     if name.is_empty() {
         return Err("name must not be empty".into());
     }
-    let new_folder = a.new_folder.as_deref().map(str::trim).filter(|f| !f.is_empty()).map(String::from);
+    let new_folder = a
+        .new_folder
+        .as_deref()
+        .map(str::trim)
+        .filter(|f| !f.is_empty())
+        .map(String::from);
     let (id, folder) = lib
         .edit_with("MCP: Create playlist", |l| {
             let tracks = check_tracks(l, &a.track_ids)?;
@@ -863,8 +1048,18 @@ fn create_playlist(lib: &mut Library, a: CreatePlaylistArgs) -> ToolResult {
                 None => {
                     let node = l.new_node(parent, NodeKind::Playlist, &name)?;
                     let id = node.id;
-                    let tree = Subtree { nodes: vec![node], entries: vec![(id, entries_of(&tracks))], device_links: vec![] };
-                    Ok((vec![EntityState::Subtree { root: id, tree: Some(tree) }], (id, None)))
+                    let tree = Subtree {
+                        nodes: vec![node],
+                        entries: vec![(id, entries_of(&tracks))],
+                        device_links: vec![],
+                    };
+                    Ok((
+                        vec![EntityState::Subtree {
+                            root: id,
+                            tree: Some(tree),
+                        }],
+                        (id, None),
+                    ))
                 }
                 Some(f) => {
                     let folder = l.new_node(parent, NodeKind::Folder, f)?;
@@ -879,8 +1074,18 @@ fn create_playlist(lib: &mut Library, a: CreatePlaylistArgs) -> ToolResult {
                         created: folder.created.clone(),
                     };
                     let (fid, pid) = (folder.id, pl.id);
-                    let tree = Subtree { nodes: vec![folder, pl], entries: vec![(pid, entries_of(&tracks))], device_links: vec![] };
-                    Ok((vec![EntityState::Subtree { root: fid, tree: Some(tree) }], (pid, Some(fid))))
+                    let tree = Subtree {
+                        nodes: vec![folder, pl],
+                        entries: vec![(pid, entries_of(&tracks))],
+                        device_links: vec![],
+                    };
+                    Ok((
+                        vec![EntityState::Subtree {
+                            root: fid,
+                            tree: Some(tree),
+                        }],
+                        (pid, Some(fid)),
+                    ))
                 }
             }
         })
@@ -889,7 +1094,14 @@ fn create_playlist(lib: &mut Library, a: CreatePlaylistArgs) -> ToolResult {
     if let Some(f) = folder {
         data["folder_id"] = json!(f.0);
     }
-    out(format!("Created playlist \"{name}\" (id {}) with {} tracks", id.0, a.track_ids.len()), data)
+    out(
+        format!(
+            "Created playlist \"{name}\" (id {}) with {} tracks",
+            id.0,
+            a.track_ids.len()
+        ),
+        data,
+    )
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -920,7 +1132,10 @@ fn add_tracks(lib: &mut Library, a: AddTracksArgs) -> ToolResult {
         })
         .map_err(lib_err)?;
     out(
-        format!("Added {} tracks at position {at}; the list now has {len}", a.track_ids.len()),
+        format!(
+            "Added {} tracks at position {at}; the list now has {len}",
+            a.track_ids.len()
+        ),
         json!({"node_id": a.node_id, "inserted_at": at, "count": a.track_ids.len(), "length": len}),
     )
 }
@@ -947,7 +1162,10 @@ fn remove_entries(lib: &mut Library, a: RemoveArgs) -> ToolResult {
             require_list(&l.node(node)?)?;
             let entries = l.entries(node)?;
             if let Some(bad) = a.positions.iter().find(|&&p| p >= entries.len()) {
-                return Err(LibraryError::Invalid(format!("position {bad} out of range (list has {})", entries.len())));
+                return Err(LibraryError::Invalid(format!(
+                    "position {bad} out of range (list has {})",
+                    entries.len()
+                )));
             }
             let pos: HashSet<usize> = a.positions.iter().copied().collect();
             let tracks: HashSet<i64> = a.track_ids.iter().copied().collect();
@@ -960,12 +1178,23 @@ fn remove_entries(lib: &mut Library, a: RemoveArgs) -> ToolResult {
                 .collect();
             let (removed, len) = (before - kept.len(), kept.len());
             if removed == 0 {
-                return Err(LibraryError::Invalid("nothing matched; nothing removed".into()));
+                return Err(LibraryError::Invalid(
+                    "nothing matched; nothing removed".into(),
+                ));
             }
-            Ok((vec![EntityState::Entries { node, entries: kept }], (removed, len)))
+            Ok((
+                vec![EntityState::Entries {
+                    node,
+                    entries: kept,
+                }],
+                (removed, len),
+            ))
         })
         .map_err(lib_err)?;
-    out(format!("Removed {removed} entries; {len} left"), json!({"node_id": a.node_id, "removed": removed, "length": len}))
+    out(
+        format!("Removed {removed} entries; {len} left"),
+        json!({"node_id": a.node_id, "removed": removed, "length": len}),
+    )
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -994,17 +1223,25 @@ fn reorder(lib: &mut Library, a: ReorderArgs) -> ToolResult {
                 let mut seen = vec![false; n];
                 for &p in order {
                     if p >= n || std::mem::replace(&mut seen[p], true) {
-                        return Err(LibraryError::Invalid(format!("order must be a permutation of 0..{n}")));
+                        return Err(LibraryError::Invalid(format!(
+                            "order must be a permutation of 0..{n}"
+                        )));
                     }
                 }
                 if order.len() != n {
-                    return Err(LibraryError::Invalid(format!("order must list all {n} positions")));
+                    return Err(LibraryError::Invalid(format!(
+                        "order must list all {n} positions"
+                    )));
                 }
                 order.iter().map(|&p| entries[p].clone()).collect()
             } else {
-                let to = a.to.ok_or_else(|| LibraryError::Invalid("give `order`, or `from` and `to`".into()))?;
+                let to = a.to.ok_or_else(|| {
+                    LibraryError::Invalid("give `order`, or `from` and `to`".into())
+                })?;
                 if a.from.is_empty() || a.from.iter().any(|&p| p >= n) || to > n {
-                    return Err(LibraryError::Invalid(format!("positions must be within 0..{n}")));
+                    return Err(LibraryError::Invalid(format!(
+                        "positions must be within 0..{n}"
+                    )));
                 }
                 let mut moving = Vec::new();
                 let mut rest = Vec::new();
@@ -1026,7 +1263,10 @@ fn reorder(lib: &mut Library, a: ReorderArgs) -> ToolResult {
             Ok((vec![EntityState::Entries { node, entries: new }], ids))
         })
         .map_err(lib_err)?;
-    out(format!("Reordered {} entries", order.len()), json!({"node_id": a.node_id, "track_order": order}))
+    out(
+        format!("Reordered {} entries", order.len()),
+        json!({"node_id": a.node_id, "track_order": order}),
+    )
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -1048,9 +1288,12 @@ fn set_transition_note(lib: &mut Library, a: NoteArgs) -> ToolResult {
         require_list(&l.node(node)?)?;
         let mut entries = l.entries(node)?;
         let n = entries.len();
-        let e = entries
-            .get_mut(a.position)
-            .ok_or_else(|| LibraryError::Invalid(format!("position {} out of range (list has {n})", a.position)))?;
+        let e = entries.get_mut(a.position).ok_or_else(|| {
+            LibraryError::Invalid(format!(
+                "position {} out of range (list has {n})",
+                a.position
+            ))
+        })?;
         e.note = a.note.trim().to_string();
         if let Some(b) = &a.backup_track_ids {
             e.backups = check_tracks(l, b)?;
@@ -1059,7 +1302,11 @@ fn set_transition_note(lib: &mut Library, a: NoteArgs) -> ToolResult {
     })
     .map_err(lib_err)?;
     out(
-        format!("Note set for transition {} -> {}", a.position, a.position + 1),
+        format!(
+            "Note set for transition {} -> {}",
+            a.position,
+            a.position + 1
+        ),
         json!({"node_id": a.node_id, "position": a.position, "note": a.note.trim()}),
     )
 }
@@ -1105,11 +1352,16 @@ fn set_track_tags(lib: &mut Library, a: TagArgs) -> ToolResult {
     }
     let color = a.color.as_deref().map(parse_color).transpose()?;
     let tags_change = a.rating.is_some() || color.is_some() || a.comment.is_some();
-    let my_change = a.my_tags.is_some() || !a.add_my_tags.is_empty() || !a.remove_my_tags.is_empty();
+    let my_change =
+        a.my_tags.is_some() || !a.add_my_tags.is_empty() || !a.remove_my_tags.is_empty();
     if !tags_change && !my_change {
         return Err("nothing to change: give rating, color, comment or My Tag values".into());
     }
-    let conv = |v: &[MyTagArg]| v.iter().map(|t| MyTag::new(&t.category, &t.value)).collect::<Vec<_>>();
+    let conv = |v: &[MyTagArg]| {
+        v.iter()
+            .map(|t| MyTag::new(&t.category, &t.value))
+            .collect::<Vec<_>>()
+    };
     let n = lib
         .edit_with("MCP: Edit tags", |l| {
             let mut states = Vec::new();
@@ -1140,16 +1392,27 @@ fn set_track_tags(lib: &mut Library, a: TagArgs) -> ToolResult {
                     let remove = conv(&a.remove_my_tags);
                     mine.retain(|t| !remove.contains(t));
                     mine.sort();
-                    states.push(EntityState::MyTags { track: id, tags: mine });
+                    states.push(EntityState::MyTags {
+                        track: id,
+                        tags: mine,
+                    });
                 }
             }
             Ok((states, a.track_ids.len()))
         })
         .map_err(lib_err)?;
     let ex = Extras::load(lib)?;
-    let tracks: Vec<Value> =
-        a.track_ids.iter().filter_map(|&i| lib.track(TrackId(i)).ok()).take(50).map(|t| ex.summary(&t)).collect();
-    out(format!("Updated {n} tracks"), json!({"updated": n, "tracks": tracks}))
+    let tracks: Vec<Value> = a
+        .track_ids
+        .iter()
+        .filter_map(|&i| lib.track(TrackId(i)).ok())
+        .take(50)
+        .map(|t| ex.summary(&t))
+        .collect();
+    out(
+        format!("Updated {n} tracks"),
+        json!({"updated": n, "tracks": tracks}),
+    )
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -1174,13 +1437,28 @@ fn create_smart_list(lib: &mut Library, a: SmartArgs) -> ToolResult {
             let mut node = l.new_node(a.folder_id.map(NodeId), NodeKind::Smart, &name)?;
             node.smart_rule = Some(rule.clone());
             let id = node.id;
-            let tree = Subtree { nodes: vec![node], entries: vec![], device_links: vec![] };
-            Ok((vec![EntityState::Subtree { root: id, tree: Some(tree) }], id))
+            let tree = Subtree {
+                nodes: vec![node],
+                entries: vec![],
+                device_links: vec![],
+            };
+            Ok((
+                vec![EntityState::Subtree {
+                    root: id,
+                    tree: Some(tree),
+                }],
+                id,
+            ))
         })
         .map_err(lib_err)?;
     let v = node_json(lib, id.0, 20)?;
     out(
-        format!("Created smart list \"{name}\" (id {}): {} matches for \"{}\"", id.0, v["matches"], smart_text::format(&rule)),
+        format!(
+            "Created smart list \"{name}\" (id {}): {} matches for \"{}\"",
+            id.0,
+            v["matches"],
+            smart_text::format(&rule)
+        ),
         v,
     )
 }
@@ -1205,7 +1483,10 @@ fn rename_node(lib: &mut Library, a: RenameArgs) -> ToolResult {
             Ok((vec![EntityState::Node { node }], old))
         })
         .map_err(lib_err)?;
-    out(format!("Renamed \"{old}\" to \"{name}\""), json!({"node_id": a.node_id, "old_name": old, "name": name}))
+    out(
+        format!("Renamed \"{old}\" to \"{name}\""),
+        json!({"node_id": a.node_id, "old_name": old, "name": name}),
+    )
 }
 
 #[derive(Deserialize, JsonSchema)]
@@ -1220,17 +1501,37 @@ pub struct DeleteArgs {
 fn delete_node(lib: &mut Library, a: DeleteArgs) -> ToolResult {
     let n = node_of(lib, a.node_id)?;
     let sub = lib.descendants(n.id).map_err(lib_err)?;
-    let entries: usize = sub.iter().map(|&d| lib.entries(d).map(|e| e.len()).unwrap_or(0)).sum();
+    let entries: usize = sub
+        .iter()
+        .map(|&d| lib.entries(d).map(|e| e.len()).unwrap_or(0))
+        .sum();
     let what = format!(
         "{} \"{}\"{} ({entries} entries)",
         n.kind.as_str(),
         n.name,
-        if sub.len() > 1 { format!(" with {} nested lists", sub.len() - 1) } else { String::new() }
+        if sub.len() > 1 {
+            format!(" with {} nested lists", sub.len() - 1)
+        } else {
+            String::new()
+        }
     );
     if !a.confirm {
-        return Err(format!("not deleted: this would delete {what}. Call again with confirm=true after the DJ agrees."));
+        return Err(format!(
+            "not deleted: this would delete {what}. Call again with confirm=true after the DJ agrees."
+        ));
     }
-    lib.edit_with("MCP: Delete", |_| Ok((vec![EntityState::Subtree { root: n.id, tree: None }], ())))
-        .map_err(lib_err)?;
-    out(format!("Deleted {what}; undo in the app restores it"), json!({"deleted": a.node_id, "lists": sub.len(), "entries": entries}))
+    lib.edit_with("MCP: Delete", |_| {
+        Ok((
+            vec![EntityState::Subtree {
+                root: n.id,
+                tree: None,
+            }],
+            (),
+        ))
+    })
+    .map_err(lib_err)?;
+    out(
+        format!("Deleted {what}; undo in the app restores it"),
+        json!({"deleted": a.node_id, "lists": sub.len(), "entries": entries}),
+    )
 }

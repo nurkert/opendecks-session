@@ -33,11 +33,21 @@ fn key_shift_octave_doubles_the_pitch() {
         let out = rig.render(300);
         let want = if keylock { 1000.0 } else { 1080.0 };
         let f = peak_freq(&out, want * 0.8, want * 1.2);
-        assert!((f - want).abs() / want < 0.005, "keylock {keylock}: {f} vs {want}");
+        assert!(
+            (f - want).abs() / want < 0.005,
+            "keylock {keylock}: {f} vs {want}"
+        );
         let st = rig.state().decks[0];
         let expect_pos = 450.0 * BLOCK as f64 * 1.08 / SR as f64;
-        assert!((st.position - expect_pos).abs() < 1e-6, "position follows tempo");
-        let pitch = if keylock { 12.0 } else { 12.0 + 12.0 * 1.08f64.log2() };
+        assert!(
+            (st.position - expect_pos).abs() < 1e-6,
+            "position follows tempo"
+        );
+        let pitch = if keylock {
+            12.0
+        } else {
+            12.0 + 12.0 * 1.08f64.log2()
+        };
         assert!((st.pitch_semitones as f64 - pitch).abs() < 1e-3);
     }
 }
@@ -54,7 +64,12 @@ fn key_sync_matches_the_master_key() {
         (key(9, Mode::Minor), true, 0.0, 0.0),        // A minor = relative of C
         (key(7, Mode::Major), true, 0.0, 5.0),        // G → C: +5 (smallest)
         // Without keylock the +6 % tempo raises the pitch ~1.01 st first.
-        (key(2, Mode::Major), false, 0.6, -2.0 - 12.0 * 1.06f64.log2()),
+        (
+            key(2, Mode::Major),
+            false,
+            0.6,
+            -2.0 - 12.0 * 1.06f64.log2(),
+        ),
     ];
     for (k, keylock, fader, shift) in cases {
         let mut rig = Rig::new(2);
@@ -72,7 +87,11 @@ fn key_sync_matches_the_master_key() {
         rig.render(150);
         let st = rig.state().decks[1];
         assert!(st.key_sync);
-        assert!((st.key_shift as f64 - shift).abs() < 1e-3, "{k:?}: shift {}", st.key_shift);
+        assert!(
+            (st.key_shift as f64 - shift).abs() < 1e-3,
+            "{k:?}: shift {}",
+            st.key_shift
+        );
         // The audible pitch now sits on a key compatible with the master.
         let out = rig.render(300);
         let tempo_st = if keylock { 0.0 } else { 12.0 * 1.06f64.log2() };
@@ -93,15 +112,40 @@ fn keyboard_pads_play_the_hot_cue_at_semitone_offsets() {
     }
     let mut rig = Rig::new(2);
     rig.deck(0, DeckCommand::Load(sine_track(1, 20.0, 500.0, 0.5, 120.0)));
-    rig.deck(0, DeckCommand::SetHotCueAt { slot: 0, start: 2.0, loop_end: None });
+    rig.deck(
+        0,
+        DeckCommand::SetHotCueAt {
+            slot: 0,
+            start: 2.0,
+            loop_end: None,
+        },
+    );
     rig.deck(0, DeckCommand::Play);
     rig.render(100);
-    rig.deck(0, DeckCommand::Keyboard { slot: 0, semitones: 7.0, pressed: true });
+    rig.deck(
+        0,
+        DeckCommand::Keyboard {
+            slot: 0,
+            semitones: 7.0,
+            pressed: true,
+        },
+    );
     rig.render(1);
     let st = rig.state().decks[0];
-    assert!((st.position - (2.0 + BLOCK as f64 / SR as f64)).abs() < 1e-6, "jumped at once: {}", st.position);
+    assert!(
+        (st.position - (2.0 + BLOCK as f64 / SR as f64)).abs() < 1e-6,
+        "jumped at once: {}",
+        st.position
+    );
     assert_eq!(st.key_shift, 7.0);
-    rig.deck(0, DeckCommand::Keyboard { slot: 0, semitones: 7.0, pressed: false });
+    rig.deck(
+        0,
+        DeckCommand::Keyboard {
+            slot: 0,
+            semitones: 7.0,
+            pressed: false,
+        },
+    );
     rig.render(150);
     let out = rig.render(300);
     let want = semis(500.0, 7.0);
@@ -117,7 +161,11 @@ fn hot_cue_banks() {
     let cues = [Cue::hot(1, 1.0), Cue::hot(9, 2.0), Cue::hot(31, 3.0)];
     let t = TrackData::new(
         TrackId(1),
-        DecodedAudio { sample_rate: SR, channels: 2, samples: vec![0.1; n * 2] },
+        DecodedAudio {
+            sample_rate: SR,
+            channels: 2,
+            samples: vec![0.1; n * 2],
+        },
         SR,
         Beatgrid::constant(120.0, 0.0, 1, 10.0),
         &cues,
@@ -132,19 +180,37 @@ fn hot_cue_banks() {
     assert_eq!(st.hot_cue_banks[3][7].map(|c| c.start), Some(3.0));
 
     rig.deck(0, DeckCommand::SetHotCueBank(1));
-    rig.deck(0, DeckCommand::SetHotCueAt { slot: 0, start: 4.0, loop_end: None });
-    rig.deck(0, DeckCommand::HotCue { slot: 1, pressed: true });
+    rig.deck(
+        0,
+        DeckCommand::SetHotCueAt {
+            slot: 0,
+            start: 4.0,
+            loop_end: None,
+        },
+    );
+    rig.deck(
+        0,
+        DeckCommand::HotCue {
+            slot: 1,
+            pressed: true,
+        },
+    );
     rig.render(1);
     let st = rig.state().decks[0];
     assert_eq!(st.hot_cue_bank, 1);
     assert_eq!(st.hot_cues[0].map(|c| c.start), Some(4.0));
     assert!(st.hot_cue_banks[0][0].is_none(), "bank 0 untouched");
-    assert!((st.position - 2.0 - BLOCK as f64 / SR as f64).abs() < 1e-6, "bank 1 slot B = 2.0 s");
+    assert!(
+        (st.position - 2.0 - BLOCK as f64 / SR as f64).abs() < 1e-6,
+        "bank 1 slot B = 2.0 s"
+    );
     let set: Vec<_> = rig
         .engine
         .events()
         .filter_map(|e| match e {
-            Event::HotCueSet { bank, slot, cue, .. } => Some((bank, slot, cue.start)),
+            Event::HotCueSet {
+                bank, slot, cue, ..
+            } => Some((bank, slot, cue.start)),
             _ => None,
         })
         .collect();
@@ -168,7 +234,11 @@ fn active_censor_ends_after_its_beats() {
     let st = rig.state().decks[0];
     assert!(!st.censor && !st.reverse, "ended after two beats");
     // Resumed where playback would be (slip).
-    assert!((st.position * 48_000.0 - (48_000.0 + 380.0 * 128.0)).abs() < 200.0, "position {}", st.position * 48_000.0);
+    assert!(
+        (st.position * 48_000.0 - (48_000.0 + 380.0 * 128.0)).abs() < 200.0,
+        "position {}",
+        st.position * 48_000.0
+    );
 }
 
 #[test]
@@ -182,14 +252,20 @@ fn censor_reverses_and_resumes_where_playback_would_be() {
     // Plays backwards from 48 000.
     for k in [10usize, 5000, 12_000] {
         let p = decode_pos(out[k * 2]);
-        assert!((p - (48_000.0 - k as f64)).abs() < 0.01, "reverse at {k}: {p}");
+        assert!(
+            (p - (48_000.0 - k as f64)).abs() < 0.01,
+            "reverse at {k}: {p}"
+        );
     }
     let st = rig.state().decks[0];
     assert!(st.censor && st.reverse && !st.slip);
     rig.deck(0, DeckCommand::Censor(false));
     let out = rig.render(1);
     let resumed = decode_pos(out[0]);
-    assert!((resumed - (48_000.0 + 12_800.0)).abs() < 0.01, "resumed at {resumed}");
+    assert!(
+        (resumed - (48_000.0 + 12_800.0)).abs() < 0.01,
+        "resumed at {resumed}"
+    );
     let st = rig.state().decks[0];
     assert!(!st.censor && !st.reverse);
 }
@@ -202,7 +278,11 @@ fn search_runs_the_playhead_fast_while_held() {
     // Paused deck: FF moves at 4x real time and is audible.
     rig.deck(0, DeckCommand::Search(4.0));
     let out = rig.render(375); // one second
-    assert!((rig.state().decks[0].position - 14.0).abs() < 0.01, "{}", rig.state().decks[0].position);
+    assert!(
+        (rig.state().decks[0].position - 14.0).abs() < 0.01,
+        "{}",
+        rig.state().decks[0].position
+    );
     assert!(out.iter().any(|s| *s != 0.0));
     // Release: stays where search left it, still paused.
     rig.deck(0, DeckCommand::Search(0.0));
@@ -213,10 +293,18 @@ fn search_runs_the_playhead_fast_while_held() {
     rig.deck(0, DeckCommand::Play);
     rig.deck(0, DeckCommand::Search(-4.0));
     rig.render(375);
-    assert!((rig.state().decks[0].position - 10.0).abs() < 0.02, "{}", rig.state().decks[0].position);
+    assert!(
+        (rig.state().decks[0].position - 10.0).abs() < 0.02,
+        "{}",
+        rig.state().decks[0].position
+    );
     rig.deck(0, DeckCommand::Search(0.0));
     rig.render(375);
-    assert!((rig.state().decks[0].position - 11.0).abs() < 0.02, "{}", rig.state().decks[0].position);
+    assert!(
+        (rig.state().decks[0].position - 11.0).abs() < 0.02,
+        "{}",
+        rig.state().decks[0].position
+    );
 }
 
 #[test]
@@ -246,7 +334,11 @@ fn silence_then_tone(id: i64, cues: &[Cue]) -> std::sync::Arc<TrackData> {
     }
     TrackData::new(
         TrackId(id),
-        DecodedAudio { sample_rate: SR, channels: 2, samples: s },
+        DecodedAudio {
+            sample_rate: SR,
+            channels: 2,
+            samples: s,
+        },
         SR,
         Beatgrid::constant(120.0, 0.0, 1, 10.0),
         cues,
@@ -263,15 +355,25 @@ fn auto_cue_on_load() {
     let st = rig.state().decks[0];
     assert!(st.auto_cue);
     // First sample above −54 dBFS of a 440 Hz sine starting at 1 s.
-    assert!((st.position - 1.0).abs() < 0.0002, "first sound {}", st.position);
+    assert!(
+        (st.position - 1.0).abs() < 0.0002,
+        "first sound {}",
+        st.position
+    );
     assert_eq!(st.cue_point, st.position);
 
-    rig.deck(0, DeckCommand::Load(silence_then_tone(2, &[Cue::memory(2.5)])));
+    rig.deck(
+        0,
+        DeckCommand::Load(silence_then_tone(2, &[Cue::memory(2.5)])),
+    );
     rig.render(1);
     assert_eq!(rig.state().decks[0].position, 2.5, "first memory cue");
 
     rig.deck(0, DeckCommand::SetAutoCue(false));
-    rig.deck(0, DeckCommand::Load(silence_then_tone(3, &[Cue::memory(2.5)])));
+    rig.deck(
+        0,
+        DeckCommand::Load(silence_then_tone(3, &[Cue::memory(2.5)])),
+    );
     rig.render(1);
     assert_eq!(rig.state().decks[0].position, 0.0, "auto cue off");
 }
@@ -285,9 +387,16 @@ fn active_loop_engages_sample_accurately() {
     let blocks = 1000; // 128 000 frames
     let out = rig.render(blocks);
     for k in 0..blocks * BLOCK {
-        let want = if k < 48_000 { k } else { 48_000 + (k - 48_000) % 24_000 };
+        let want = if k < 48_000 {
+            k
+        } else {
+            48_000 + (k - 48_000) % 24_000
+        };
         let got = decode_pos(out[k * 2]);
-        assert!((got - want as f64).abs() < 1e-3, "frame {k}: {got} vs {want}");
+        assert!(
+            (got - want as f64).abs() < 1e-3,
+            "frame {k}: {got} vs {want}"
+        );
     }
     let st = rig.state().decks[0];
     assert!(st.loop_state.active);
@@ -308,7 +417,11 @@ fn saved_loops_are_recalled() {
     let n = 10 * SR as usize;
     let t = TrackData::new(
         TrackId(1),
-        DecodedAudio { sample_rate: SR, channels: 2, samples: vec![0.1; n * 2] },
+        DecodedAudio {
+            sample_rate: SR,
+            channels: 2,
+            samples: vec![0.1; n * 2],
+        },
         SR,
         Beatgrid::constant(120.0, 0.0, 1, 10.0),
         &[Cue::memory(1.0), loop1, loop2],
@@ -318,12 +431,18 @@ fn saved_loops_are_recalled() {
     rig.deck(0, DeckCommand::SavedLoop(MemoryCueJump::Index(1)));
     rig.render(1);
     let st = rig.state().decks[0];
-    assert_eq!((st.loop_state.start, st.loop_state.end), (Some(5.0), Some(5.25)));
+    assert_eq!(
+        (st.loop_state.start, st.loop_state.end),
+        (Some(5.0), Some(5.25))
+    );
     assert!(st.loop_state.active && st.position == 5.0);
     rig.deck(0, DeckCommand::SavedLoop(MemoryCueJump::Previous));
     rig.render(1);
     let st = rig.state().decks[0];
-    assert_eq!((st.loop_state.start, st.loop_state.end), (Some(3.0), Some(3.5)));
+    assert_eq!(
+        (st.loop_state.start, st.loop_state.end),
+        (Some(3.0), Some(3.5))
+    );
     assert_eq!(st.cue_point, 3.0);
     // Auto beat loops go up to 512 beats.
     rig.deck(0, DeckCommand::AutoLoop { beats: 64.0 });
@@ -338,23 +457,41 @@ fn slicer_retriggers_slices_on_the_grid() {
     rig.deck(0, DeckCommand::Play);
     rig.render(1744); // 223 232 frames = beat 9.301
     let at = 1744 * BLOCK;
-    rig.deck(0, DeckCommand::Slicer(SlicerCommand::Enable { beats: 8.0, loop_mode: false }));
+    rig.deck(
+        0,
+        DeckCommand::Slicer(SlicerCommand::Enable {
+            beats: 8.0,
+            loop_mode: false,
+        }),
+    );
     rig.render(1);
     let st = rig.state().decks[0].slicer;
     assert!(st.active && st.start == 4.0 && st.end == 8.0, "{st:?}");
     assert_eq!(st.current, 1);
 
-    rig.deck(0, DeckCommand::Slicer(SlicerCommand::Pad { slice: 2, pressed: true }));
+    rig.deck(
+        0,
+        DeckCommand::Slicer(SlicerCommand::Pad {
+            slice: 2,
+            pressed: true,
+        }),
+    );
     let held_blocks = 400; // 51 200 frames: more than two slice lengths
     let out = rig.render(held_blocks);
     // Same phase within slice 2 (beats 10..11 = frames 240 000..264 000).
     let phase = (at + BLOCK) as f64 - 8.0 * 24_000.0;
     let first = decode_pos(out[0]);
-    assert!((first - (240_000.0 + phase % 24_000.0)).abs() < 0.01, "first {first}");
+    assert!(
+        (first - (240_000.0 + phase % 24_000.0)).abs() < 0.01,
+        "first {first}"
+    );
     let mut wraps = 0;
     for k in 0..held_blocks * BLOCK {
         let p = decode_pos(out[k * 2]);
-        assert!((240_000.0..264_000.0).contains(&p), "inside the slice at {k}: {p}");
+        assert!(
+            (240_000.0..264_000.0).contains(&p),
+            "inside the slice at {k}: {p}"
+        );
         if k > 0 {
             let prev = decode_pos(out[k * 2 - 2]);
             if p < prev {
@@ -367,11 +504,20 @@ fn slicer_retriggers_slices_on_the_grid() {
     assert_eq!(wraps, 2);
     assert_eq!(rig.state().decks[0].slicer.held, Some(2));
 
-    rig.deck(0, DeckCommand::Slicer(SlicerCommand::Pad { slice: 2, pressed: false }));
+    rig.deck(
+        0,
+        DeckCommand::Slicer(SlicerCommand::Pad {
+            slice: 2,
+            pressed: false,
+        }),
+    );
     let out = rig.render(1);
     let resumed = decode_pos(out[0]);
     let expect = (at + BLOCK + held_blocks * BLOCK) as f64;
-    assert!((resumed - expect).abs() < 0.01, "slip resume {resumed} vs {expect}");
+    assert!(
+        (resumed - expect).abs() < 0.01,
+        "slip resume {resumed} vs {expect}"
+    );
     let st = rig.state().decks[0];
     assert!(!st.loop_state.active && st.slicer.held.is_none());
 
@@ -381,11 +527,20 @@ fn slicer_retriggers_slices_on_the_grid() {
     assert!(st.start == 8.0 && st.end == 12.0, "next domain {st:?}");
 
     // Loop mode loops the domain; disabling ends it.
-    rig.deck(0, DeckCommand::Slicer(SlicerCommand::Enable { beats: 4.0, loop_mode: true }));
+    rig.deck(
+        0,
+        DeckCommand::Slicer(SlicerCommand::Enable {
+            beats: 4.0,
+            loop_mode: true,
+        }),
+    );
     rig.render(1);
     let st = rig.state().decks[0];
     assert!(st.loop_state.active && st.slicer.loop_mode);
-    assert_eq!((st.loop_state.start, st.loop_state.end), (Some(st.slicer.start), Some(st.slicer.end)));
+    assert_eq!(
+        (st.loop_state.start, st.loop_state.end),
+        (Some(st.slicer.start), Some(st.slicer.end))
+    );
     rig.deck(0, DeckCommand::Slicer(SlicerCommand::Disable));
     rig.render(1);
     let st = rig.state().decks[0];
@@ -401,7 +556,18 @@ fn bpm_readout_is_steady_on_millisecond_grids() {
         b.time = (b.time * 1000.0).round() / 1000.0;
     }
     let n = 20 * SR as usize;
-    let track = TrackData::new(TrackId(1), DecodedAudio { sample_rate: SR, channels: 2, samples: vec![0.1; n * 2] }, SR, grid, &[], 0.0);
+    let track = TrackData::new(
+        TrackId(1),
+        DecodedAudio {
+            sample_rate: SR,
+            channels: 2,
+            samples: vec![0.1; n * 2],
+        },
+        SR,
+        grid,
+        &[],
+        0.0,
+    );
     let mut rig = Rig::new(2);
     rig.deck(0, DeckCommand::Load(track));
     rig.deck(0, DeckCommand::Play);

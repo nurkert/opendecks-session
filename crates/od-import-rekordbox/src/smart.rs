@@ -43,7 +43,9 @@ fn elements(xml: &str, tag: &str) -> Vec<HashMap<String, String>> {
         while let Some(eq) = s.find('=') {
             let name = s[..eq].trim().trim_start_matches('/').trim().to_string();
             let v = s[eq + 1..].trim_start();
-            let Some(q) = v.chars().next().filter(|c| *c == '"' || *c == '\'') else { break };
+            let Some(q) = v.chars().next().filter(|c| *c == '"' || *c == '\'') else {
+                break;
+            };
             let Some(close) = v[1..].find(q) else { break };
             attrs.insert(name, unescape(&v[1..1 + close]));
             s = &v[close + 2..];
@@ -119,7 +121,11 @@ struct Cond {
 fn num(prop: &str, s: &str) -> Option<f64> {
     let v: f64 = s.trim().parse().ok()?;
     // rekordbox stores BPM ×100 in the database; rule values may use either.
-    Some(if prop == "bpm" && v >= 1000.0 { v / 100.0 } else { v })
+    Some(if prop == "bpm" && v >= 1000.0 {
+        v / 100.0
+    } else {
+        v
+    })
 }
 
 fn matches(c: &Cond, t: &SrcTrack, now: i64) -> Option<bool> {
@@ -178,7 +184,10 @@ fn matches(c: &Cond, t: &SrcTrack, now: i64) -> Option<bool> {
 /// Source ids of the tracks matching the rules, in library order.
 pub(crate) fn evaluate(xml: &str, tracks: &[SrcTrack]) -> Result<Vec<String>, String> {
     let node = elements(xml, "NODE").into_iter().next().ok_or("no rules")?;
-    let any = node.get("LogicalOperator").map(|s| s.trim() == "2").unwrap_or(false);
+    let any = node
+        .get("LogicalOperator")
+        .map(|s| s.trim() == "2")
+        .unwrap_or(false);
     let conds: Vec<Cond> = elements(xml, "CONDITION")
         .into_iter()
         .map(|a| {
@@ -210,10 +219,19 @@ pub(crate) fn evaluate(xml: &str, tracks: &[SrcTrack]) -> Result<Vec<String>, St
         for c in &conds {
             match matches(c, t, now) {
                 Some(b) => results.push(b),
-                None => return Err(format!("rule on \"{}\" with operator {} is not supported", c.prop, c.op)),
+                None => {
+                    return Err(format!(
+                        "rule on \"{}\" with operator {} is not supported",
+                        c.prop, c.op
+                    ));
+                }
             }
         }
-        let ok = if any { results.iter().any(|b| *b) } else { results.iter().all(|b| *b) };
+        let ok = if any {
+            results.iter().any(|b| *b)
+        } else {
+            results.iter().all(|b| *b)
+        };
         if ok {
             out.push(t.src_id.clone());
         }

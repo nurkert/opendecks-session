@@ -26,7 +26,10 @@ pub struct SoftTakeover {
 
 impl SoftTakeover {
     pub fn new(threshold: f32) -> Self {
-        Self { threshold, states: HashMap::new() }
+        Self {
+            threshold,
+            states: HashMap::new(),
+        }
     }
 
     /// Feeds a new hardware position. Returns `true` if the value should be
@@ -76,7 +79,9 @@ impl SoftTakeover {
 
     /// Whether `target` currently follows the hardware.
     pub fn is_caught(&self, target: ParamTarget) -> bool {
-        self.states.get(&target).is_none_or(|s| s.engine.is_none() || s.caught)
+        self.states
+            .get(&target)
+            .is_none_or(|s| s.engine.is_none() || s.caught)
     }
 }
 

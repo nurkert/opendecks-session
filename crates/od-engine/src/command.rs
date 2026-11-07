@@ -23,7 +23,11 @@ pub enum Command {
     BeatFx(usize, BeatFxCommand),
     /// Effect slot 1 or 2 of a Beat FX unit in multi mode (slot 0 is
     /// addressed by [`Command::BeatFx`]). The target follows slot 0.
-    BeatFxSlot { unit: usize, slot: usize, cmd: BeatFxCommand },
+    BeatFxSlot {
+        unit: usize,
+        slot: usize,
+        cmd: BeatFxCommand,
+    },
     /// Multi mode of a Beat FX unit: three effects in a chain.
     SetBeatFxMulti(usize, bool),
     /// Pad FX of mixer channel `0..decks` (an FX unit of its own per
@@ -279,7 +283,9 @@ pub enum DeckCommand {
     Censor(bool),
     /// Active censor: censors for `beats` beats of the deck's tempo, then
     /// returns where normal playback would be (slip).
-    CensorFor { beats: f64 },
+    CensorFor {
+        beats: f64,
+    },
     /// SEARCH buttons (FF / REW): while non-zero the playhead runs at this
     /// many times real time (positive forward, negative backward), audibly,
     /// whether or not the deck plays; 0 releases. Keylock is bypassed.

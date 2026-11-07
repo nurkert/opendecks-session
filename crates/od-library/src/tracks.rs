@@ -161,9 +161,13 @@ pub(crate) fn read_tags(conn: &Connection, id: TrackId) -> Result<TrackTags> {
 }
 
 pub(crate) fn get_track(conn: &Connection, id: TrackId) -> Result<TrackRecord> {
-    conn.query_row(&format!("SELECT {TRACK_COLUMNS} FROM track WHERE id = ?1"), [id.0], track_from_row)
-        .optional()?
-        .ok_or_else(|| LibraryError::NotFound(format!("track {id}")))
+    conn.query_row(
+        &format!("SELECT {TRACK_COLUMNS} FROM track WHERE id = ?1"),
+        [id.0],
+        track_from_row,
+    )
+    .optional()?
+    .ok_or_else(|| LibraryError::NotFound(format!("track {id}")))
 }
 
 pub(crate) fn read_cues(conn: &Connection, id: TrackId) -> Result<Vec<Cue>> {
@@ -177,7 +181,11 @@ pub(crate) fn read_cues(conn: &Connection, id: TrackId) -> Result<Vec<Cue>> {
         let color: Option<String> = r.get(5)?;
         let source: String = r.get(6)?;
         Ok(Cue {
-            kind: if kind == "hot" { CueKind::Hot(slot) } else { CueKind::Memory },
+            kind: if kind == "hot" {
+                CueKind::Hot(slot)
+            } else {
+                CueKind::Memory
+            },
             start: r.get(2)?,
             loop_end: r.get(3)?,
             label: r.get(4)?,
@@ -227,21 +235,31 @@ pub(crate) fn read_grid(conn: &Connection, id: TrackId) -> Result<Option<(Beatgr
     Ok(match row {
         Some((Some(bytes), source, locked)) => Some((
             blob::decode_grid(&bytes, locked),
-            source.as_deref().and_then(DataSource::parse).unwrap_or(DataSource::Analysis),
+            source
+                .as_deref()
+                .and_then(DataSource::parse)
+                .unwrap_or(DataSource::Analysis),
         )),
         _ => None,
     })
 }
 
 fn ensure_analysis_row(conn: &Connection, id: TrackId) -> Result<()> {
-    conn.execute("INSERT OR IGNORE INTO analysis (track_id, version) VALUES (?1, 0)", [id.0])?;
+    conn.execute(
+        "INSERT OR IGNORE INTO analysis (track_id, version) VALUES (?1, 0)",
+        [id.0],
+    )?;
     Ok(())
 }
 
 /// The stored phrases of a track as written (empty when none).
 pub(crate) fn read_phrases(conn: &Connection, id: TrackId) -> Result<Vec<Phrase>> {
     let raw: Option<String> = conn
-        .query_row("SELECT phrases FROM analysis WHERE track_id = ?1", [id.0], |r| r.get(0))
+        .query_row(
+            "SELECT phrases FROM analysis WHERE track_id = ?1",
+            [id.0],
+            |r| r.get(0),
+        )
         .optional()?
         .flatten();
     Ok(match raw {
@@ -252,11 +270,18 @@ pub(crate) fn read_phrases(conn: &Connection, id: TrackId) -> Result<Vec<Phrase>
 
 pub(crate) fn write_phrases(conn: &Connection, id: TrackId, phrases: &[Phrase]) -> Result<()> {
     ensure_analysis_row(conn, id)?;
-    conn.execute("UPDATE analysis SET phrases = ?2 WHERE track_id = ?1", params![id.0, serde_json::to_string(phrases)?])?;
+    conn.execute(
+        "UPDATE analysis SET phrases = ?2 WHERE track_id = ?1",
+        params![id.0, serde_json::to_string(phrases)?],
+    )?;
     Ok(())
 }
 
-pub(crate) fn write_grid(conn: &Connection, id: TrackId, grid: Option<&(Beatgrid, DataSource)>) -> Result<()> {
+pub(crate) fn write_grid(
+    conn: &Connection,
+    id: TrackId,
+    grid: Option<&(Beatgrid, DataSource)>,
+) -> Result<()> {
     ensure_analysis_row(conn, id)?;
     match grid {
         Some((g, src)) => {
@@ -264,7 +289,10 @@ pub(crate) fn write_grid(conn: &Connection, id: TrackId, grid: Option<&(Beatgrid
                 "UPDATE analysis SET grid = ?2, grid_source = ?3, grid_locked = ?4 WHERE track_id = ?1",
                 params![id.0, blob::encode_grid(g), src.as_str(), g.locked],
             )?;
-            conn.execute("UPDATE track SET bpm = ?2 WHERE id = ?1", params![id.0, g.dominant_bpm()])?;
+            conn.execute(
+                "UPDATE track SET bpm = ?2 WHERE id = ?1",
+                params![id.0, g.dominant_bpm()],
+            )?;
         }
         None => {
             conn.execute(
@@ -278,18 +306,36 @@ pub(crate) fn write_grid(conn: &Connection, id: TrackId, grid: Option<&(Beatgrid
 }
 
 pub(crate) fn read_key(conn: &Connection, id: TrackId) -> Result<Option<(MusicalKey, DataSource)>> {
-    let key: Option<String> =
-        conn.query_row("SELECT musical_key FROM track WHERE id = ?1", [id.0], |r| r.get(0)).optional()?.flatten();
+    let key: Option<String> = conn
+        .query_row("SELECT musical_key FROM track WHERE id = ?1", [id.0], |r| {
+            r.get(0)
+        })
+        .optional()?
+        .flatten();
     let source: Option<String> = conn
-        .query_row("SELECT key_source FROM analysis WHERE track_id = ?1", [id.0], |r| r.get(0))
+        .query_row(
+            "SELECT key_source FROM analysis WHERE track_id = ?1",
+            [id.0],
+            |r| r.get(0),
+        )
         .optional()?
         .flatten();
     Ok(key.as_deref().and_then(MusicalKey::parse).map(|k| {
-        (k, source.as_deref().and_then(DataSource::parse).unwrap_or(DataSource::Analysis))
+        (
+            k,
+            source
+                .as_deref()
+                .and_then(DataSource::parse)
+                .unwrap_or(DataSource::Analysis),
+        )
     }))
 }
 
-pub(crate) fn write_key(conn: &Connection, id: TrackId, key: Option<(MusicalKey, DataSource)>) -> Result<()> {
+pub(crate) fn write_key(
+    conn: &Connection,
+    id: TrackId,
+    key: Option<(MusicalKey, DataSource)>,
+) -> Result<()> {
     ensure_analysis_row(conn, id)?;
     conn.execute(
         "UPDATE track SET musical_key = ?2 WHERE id = ?1",
@@ -360,13 +406,18 @@ impl Library {
     }
 
     pub fn tracks_by_hash(&self, hash: &ContentHash) -> Result<Vec<TrackRecord>> {
-        let mut stmt =
-            self.conn.prepare_cached(&format!("SELECT {TRACK_COLUMNS} FROM track WHERE content_hash = ?1"))?;
-        Ok(stmt.query_map([&hash.0], track_from_row)?.collect::<rusqlite::Result<_>>()?)
+        let mut stmt = self.conn.prepare_cached(&format!(
+            "SELECT {TRACK_COLUMNS} FROM track WHERE content_hash = ?1"
+        ))?;
+        Ok(stmt
+            .query_map([&hash.0], track_from_row)?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     pub fn track_count(&self) -> Result<u64> {
-        Ok(self.conn.query_row("SELECT count(*) FROM track", [], |r| r.get::<_, i64>(0))? as u64)
+        Ok(self
+            .conn
+            .query_row("SELECT count(*) FROM track", [], |r| r.get::<_, i64>(0))? as u64)
     }
 
     /// All tracks in the given order.
@@ -376,7 +427,9 @@ impl Library {
             "SELECT {TRACK_COLUMNS} FROM track ORDER BY {} {dir}, id {dir}",
             sort.column()
         ))?;
-        Ok(stmt.query_map([], track_from_row)?.collect::<rusqlite::Result<_>>()?)
+        Ok(stmt
+            .query_map([], track_from_row)?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     pub fn tracks_by_ids(&self, ids: &[TrackId]) -> Result<Vec<TrackRecord>> {
@@ -388,7 +441,11 @@ impl Library {
     pub fn search(&self, query: &str, limit: usize) -> Result<Vec<TrackRecord>> {
         let terms: Vec<String> = query
             .split_whitespace()
-            .map(|w| w.chars().filter(|c| c.is_alphanumeric()).collect::<String>())
+            .map(|w| {
+                w.chars()
+                    .filter(|c| c.is_alphanumeric())
+                    .collect::<String>()
+            })
             .filter(|w| !w.is_empty())
             .map(|w| format!("\"{w}\"*"))
             .collect();
@@ -397,7 +454,11 @@ impl Library {
             all.truncate(limit);
             return Ok(all);
         }
-        let cols = TRACK_COLUMNS.split(", ").map(|c| format!("t.{c}")).collect::<Vec<_>>().join(", ");
+        let cols = TRACK_COLUMNS
+            .split(", ")
+            .map(|c| format!("t.{c}"))
+            .collect::<Vec<_>>()
+            .join(", ");
         let mut stmt = self.conn.prepare_cached(&format!(
             "SELECT {cols} FROM track_fts f JOIN track t ON t.id = f.rowid
              WHERE track_fts MATCH ?1 ORDER BY rank LIMIT ?2"
@@ -410,11 +471,21 @@ impl Library {
     /// Reads the cover art of `ids` from the library file at `path` on a
     /// private read-only connection (for background threads), calling `f`
     /// per track that has one. Stops when `f` returns false.
-    pub fn read_artworks(path: &Path, ids: &[TrackId], mut f: impl FnMut(TrackId, Vec<u8>) -> bool) -> Result<()> {
-        let conn = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX)?;
+    pub fn read_artworks(
+        path: &Path,
+        ids: &[TrackId],
+        mut f: impl FnMut(TrackId, Vec<u8>) -> bool,
+    ) -> Result<()> {
+        let conn = Connection::open_with_flags(
+            path,
+            rusqlite::OpenFlags::SQLITE_OPEN_READ_ONLY | rusqlite::OpenFlags::SQLITE_OPEN_NO_MUTEX,
+        )?;
         let mut stmt = conn.prepare("SELECT data FROM artwork WHERE track_id = ?1")?;
         for id in ids {
-            if let Some(data) = stmt.query_row([id.0], |r| r.get::<_, Vec<u8>>(0)).optional()? {
+            if let Some(data) = stmt
+                .query_row([id.0], |r| r.get::<_, Vec<u8>>(0))
+                .optional()?
+            {
                 if !f(*id, data) {
                     break;
                 }
@@ -425,7 +496,12 @@ impl Library {
 
     /// Stores cover art for a track that has none yet (an existing picture
     /// is kept). Returns whether it was stored.
-    pub fn set_artwork_if_missing(&mut self, id: TrackId, data: &[u8], media_type: &str) -> Result<bool> {
+    pub fn set_artwork_if_missing(
+        &mut self,
+        id: TrackId,
+        data: &[u8],
+        media_type: &str,
+    ) -> Result<bool> {
         let n = self.conn.execute(
             "INSERT OR IGNORE INTO artwork (track_id, media_type, data) VALUES (?1, ?2, ?3)",
             params![id.0, media_type, data],
@@ -436,9 +512,11 @@ impl Library {
     pub fn artwork(&self, id: TrackId) -> Result<Option<(Vec<u8>, String)>> {
         Ok(self
             .conn
-            .query_row("SELECT data, media_type FROM artwork WHERE track_id = ?1", [id.0], |r| {
-                Ok((r.get(0)?, r.get(1)?))
-            })
+            .query_row(
+                "SELECT data, media_type FROM artwork WHERE track_id = ?1",
+                [id.0],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
             .optional()?)
     }
 
@@ -490,7 +568,13 @@ impl Library {
 
     /// User edit: replace the beatgrid (marks it as manual).
     pub fn set_beatgrid(&mut self, id: TrackId, grid: Beatgrid) -> Result<()> {
-        self.edit("Edit beatgrid", vec![EntityState::Grid { track: id, grid: Some((grid, DataSource::Manual)) }])
+        self.edit(
+            "Edit beatgrid",
+            vec![EntityState::Grid {
+                track: id,
+                grid: Some((grid, DataSource::Manual)),
+            }],
+        )
     }
 
     /// User edit: replace the phrases of a track (phrase edit). The list is
@@ -498,14 +582,20 @@ impl Library {
     /// readers, sticks and undo all see DJ-readable sections.
     pub fn set_phrases(&mut self, id: TrackId, phrases: &[Phrase]) -> Result<()> {
         let phrases = od_core::normalize_phrases(phrases);
-        self.edit("Edit phrases", vec![EntityState::Phrases { track: id, phrases }])
+        self.edit(
+            "Edit phrases",
+            vec![EntityState::Phrases { track: id, phrases }],
+        )
     }
 
     /// User edit: set or clear the key (marks it as manual).
     pub fn set_key(&mut self, id: TrackId, key: Option<MusicalKey>) -> Result<()> {
         self.edit(
             "Edit key",
-            vec![EntityState::Key { track: id, key: key.map(|k| (k, DataSource::Manual)) }],
+            vec![EntityState::Key {
+                track: id,
+                key: key.map(|k| (k, DataSource::Manual)),
+            }],
         )
     }
 
@@ -513,12 +603,19 @@ impl Library {
     /// stored data has the same or lower priority than `source` and the grid
     /// is not locked. Waveform, phrases, loudness and energy are always
     /// replaced. Not journaled (not a user edit).
-    pub fn store_analysis(&mut self, id: TrackId, a: &TrackAnalysis, source: DataSource) -> Result<()> {
+    pub fn store_analysis(
+        &mut self,
+        id: TrackId,
+        a: &TrackAnalysis,
+        source: DataSource,
+    ) -> Result<()> {
         self.tx(|tx| {
             ensure_analysis_row(tx, id)?;
             let existing = read_grid(tx, id)?;
             let replace_grid = !a.beatgrid.is_empty()
-                && existing.as_ref().is_none_or(|(g, s)| !g.locked && *s <= source);
+                && existing
+                    .as_ref()
+                    .is_none_or(|(g, s)| !g.locked && *s <= source);
             if replace_grid {
                 write_grid(tx, id, Some(&(a.beatgrid.clone(), source)))?;
             }
@@ -553,12 +650,19 @@ impl Library {
     /// earlier import; manual cues are kept.
     pub fn store_imported_cues(&mut self, id: TrackId, cues: &[Cue]) -> Result<()> {
         self.tx(|tx| {
-            let mut kept: Vec<Cue> =
-                read_cues(tx, id)?.into_iter().filter(|c| c.source == DataSource::Manual).collect();
+            let mut kept: Vec<Cue> = read_cues(tx, id)?
+                .into_iter()
+                .filter(|c| c.source == DataSource::Manual)
+                .collect();
             for c in cues {
-                let taken = kept.iter().any(|k| matches!(k.kind, CueKind::Hot(_)) && k.kind == c.kind);
+                let taken = kept
+                    .iter()
+                    .any(|k| matches!(k.kind, CueKind::Hot(_)) && k.kind == c.kind);
                 if !taken {
-                    kept.push(Cue { source: DataSource::Imported, ..c.clone() });
+                    kept.push(Cue {
+                        source: DataSource::Imported,
+                        ..c.clone()
+                    });
                 }
             }
             write_cues(tx, id, &kept)?;
@@ -592,7 +696,8 @@ impl Library {
         if let Some((version, wf, rate, phrases, mood, loudness, peak, energy)) = row {
             a.analysis_version = version;
             if let Some(wf) = wf {
-                a.waveform = blob::decode_waveform(&wf, rate.unwrap_or(od_core::Waveform::DETAIL_RATE));
+                a.waveform =
+                    blob::decode_waveform(&wf, rate.unwrap_or(od_core::Waveform::DETAIL_RATE));
             }
             if let Some(p) = phrases {
                 // Stored phrases may come from older analyses or a rekordbox
@@ -613,14 +718,19 @@ impl Library {
 
     /// Tracks whose analysis is older than `version` (or missing).
     pub fn tracks_needing_analysis(&self, version: u32) -> Result<Vec<TrackId>> {
-        let mut stmt = self
-            .conn
-            .prepare("SELECT id FROM track WHERE analysis_version < ?1 AND missing = 0 ORDER BY id")?;
-        Ok(stmt.query_map([version], |r| Ok(TrackId(r.get(0)?)))?.collect::<rusqlite::Result<_>>()?)
+        let mut stmt = self.conn.prepare(
+            "SELECT id FROM track WHERE analysis_version < ?1 AND missing = 0 ORDER BY id",
+        )?;
+        Ok(stmt
+            .query_map([version], |r| Ok(TrackId(r.get(0)?)))?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     pub fn set_missing(&mut self, id: TrackId, missing: bool) -> Result<()> {
-        self.conn.execute("UPDATE track SET missing = ?2 WHERE id = ?1", params![id.0, missing])?;
+        self.conn.execute(
+            "UPDATE track SET missing = ?2 WHERE id = ?1",
+            params![id.0, missing],
+        )?;
         Ok(())
     }
 
@@ -638,7 +748,9 @@ impl Library {
     /// Mean analysed energy (0..=1) of every analysed track. Reads only the
     /// energy curves, not waveforms.
     pub fn energy_means(&self) -> Result<std::collections::HashMap<TrackId, f32>> {
-        let mut stmt = self.conn.prepare_cached("SELECT track_id, energy FROM analysis WHERE energy IS NOT NULL")?;
+        let mut stmt = self
+            .conn
+            .prepare_cached("SELECT track_id, energy FROM analysis WHERE energy IS NOT NULL")?;
         let mut out = std::collections::HashMap::new();
         for row in stmt.query_map([], |r| Ok((r.get::<_, i64>(0)?, r.get::<_, Vec<u8>>(1)?)))? {
             let (id, bytes) = row?;
@@ -655,7 +767,9 @@ impl Library {
         let mut stmt = self.conn.prepare_cached(
             "SELECT session, min(played_at), count(*) FROM history GROUP BY session ORDER BY min(played_at) DESC",
         )?;
-        Ok(stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?.collect::<rusqlite::Result<_>>()?)
+        Ok(stmt
+            .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     /// Plays in play order; one session or (for `None`) the most recent
@@ -748,16 +862,49 @@ mod tests {
         use od_core::PhraseKind::*;
         let mut lib = Library::open_in_memory().unwrap();
         let a = track(&mut lib, "Phrased", Some(120.0), None);
-        let p = |s: u32, e: u32, kind| Phrase { start_beat: s * 4, end_beat: e * 4, kind };
-        let analysed = TrackAnalysis { phrases: vec![p(0, 16, Intro), p(16, 48, Chorus)], ..Default::default() };
-        lib.store_analysis(a, &analysed, DataSource::Analysis).unwrap();
+        let p = |s: u32, e: u32, kind| Phrase {
+            start_beat: s * 4,
+            end_beat: e * 4,
+            kind,
+        };
+        let analysed = TrackAnalysis {
+            phrases: vec![p(0, 16, Intro), p(16, 48, Chorus)],
+            ..Default::default()
+        };
+        lib.store_analysis(a, &analysed, DataSource::Analysis)
+            .unwrap();
         // A two-bar fragment joins its neighbour; same-kind neighbours merge.
-        lib.set_phrases(a, &[p(0, 16, Intro), p(16, 18, Verse), p(18, 32, Chorus), p(32, 48, Chorus)]).unwrap();
-        assert_eq!(lib.analysis(a).unwrap().phrases, vec![p(0, 18, Intro), p(18, 48, Chorus)]);
-        let kind: String = lib.conn().query_row("SELECT kind FROM change ORDER BY seq DESC LIMIT 1", [], |r| r.get(0)).unwrap();
-        assert_eq!(kind, "phrases", "the edit is in the change log (sticks resync the track)");
+        lib.set_phrases(
+            a,
+            &[
+                p(0, 16, Intro),
+                p(16, 18, Verse),
+                p(18, 32, Chorus),
+                p(32, 48, Chorus),
+            ],
+        )
+        .unwrap();
+        assert_eq!(
+            lib.analysis(a).unwrap().phrases,
+            vec![p(0, 18, Intro), p(18, 48, Chorus)]
+        );
+        let kind: String = lib
+            .conn()
+            .query_row(
+                "SELECT kind FROM change ORDER BY seq DESC LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            kind, "phrases",
+            "the edit is in the change log (sticks resync the track)"
+        );
         assert_eq!(lib.undo().unwrap().as_deref(), Some("Edit phrases"));
-        assert_eq!(lib.analysis(a).unwrap().phrases, vec![p(0, 16, Intro), p(16, 48, Chorus)]);
+        assert_eq!(
+            lib.analysis(a).unwrap().phrases,
+            vec![p(0, 16, Intro), p(16, 48, Chorus)]
+        );
         lib.redo().unwrap();
         assert_eq!(lib.analysis(a).unwrap().phrases.len(), 2);
         lib.set_phrases(a, &[]).unwrap();
@@ -827,8 +974,12 @@ mod tests {
         assert_eq!(lib.track(a).unwrap().bpm, Some(128.0));
         assert_eq!(lib.track(a).unwrap().key, MusicalKey::parse("5A"));
         // Manual edits win.
-        lib.set_beatgrid(a, Beatgrid::constant(126.0, 0.0, 1, 10.0)).unwrap();
-        assert_eq!(lib.beatgrid_with_source(a).unwrap().unwrap().1, DataSource::Manual);
+        lib.set_beatgrid(a, Beatgrid::constant(126.0, 0.0, 1, 10.0))
+            .unwrap();
+        assert_eq!(
+            lib.beatgrid_with_source(a).unwrap().unwrap().1,
+            DataSource::Manual
+        );
         assert_eq!(lib.track(a).unwrap().bpm, Some(126.0));
         assert_eq!(lib.analysis(a).unwrap().analysis_version, 1);
         assert!(lib.tracks_needing_analysis(2).unwrap().contains(&a));
@@ -839,10 +990,17 @@ mod tests {
         let mut lib = Library::open_in_memory().unwrap();
         let a = track(&mut lib, "T", None, None);
         lib.set_cues(a, vec![Cue::hot(0, 1.0)]).unwrap();
-        lib.store_imported_cues(a, &[Cue::hot(0, 5.0), Cue::hot(1, 9.0), Cue::memory(2.0)]).unwrap();
+        lib.store_imported_cues(a, &[Cue::hot(0, 5.0), Cue::hot(1, 9.0), Cue::memory(2.0)])
+            .unwrap();
         let cues = lib.cues(a).unwrap();
         assert_eq!(cues.len(), 3);
-        assert!(cues.iter().any(|c| c.kind == CueKind::Hot(0) && c.start == 1.0));
-        assert!(cues.iter().any(|c| c.kind == CueKind::Hot(1) && c.source == DataSource::Imported));
+        assert!(
+            cues.iter()
+                .any(|c| c.kind == CueKind::Hot(0) && c.start == 1.0)
+        );
+        assert!(
+            cues.iter()
+                .any(|c| c.kind == CueKind::Hot(1) && c.source == DataSource::Imported)
+        );
     }
 }

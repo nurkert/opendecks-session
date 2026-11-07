@@ -171,7 +171,13 @@ fn tone(n: usize, freq: f64, amp: f32) -> Vec<f32> {
 /// A track whose mix is `vocals + drums + other` (three sines), with stems
 /// for vocals (`f_vocals`) and drums (`f_drums`) attached and silent bass;
 /// `f_other` only lives in the implicit "inst" remainder.
-pub fn stem_track(id: i64, seconds: f64, f_vocals: f64, f_drums: f64, f_other: f64) -> Arc<TrackData> {
+pub fn stem_track(
+    id: i64,
+    seconds: f64,
+    f_vocals: f64,
+    f_drums: f64,
+    f_other: f64,
+) -> Arc<TrackData> {
     let n = (seconds * SR as f64) as usize;
     let v = tone(n, f_vocals, 0.25);
     let d = tone(n, f_drums, 0.25);
@@ -201,7 +207,12 @@ pub fn stem_track(id: i64, seconds: f64, f_vocals: f64, f_drums: f64, f_other: f
 /// Amplitude of the `freq` component of the left channel (Goertzel,
 /// Hann-windowed).
 pub fn tone_level(interleaved: &[f32], freq: f64) -> f64 {
-    let l: Vec<f64> = interleaved.as_chunks::<2>().0.iter().map(|f| f[0] as f64).collect();
+    let l: Vec<f64> = interleaved
+        .as_chunks::<2>()
+        .0
+        .iter()
+        .map(|f| f[0] as f64)
+        .collect();
     let n = l.len();
     let w = std::f64::consts::TAU * freq / SR as f64;
     let (mut re, mut im, mut wsum) = (0.0, 0.0, 0.0);

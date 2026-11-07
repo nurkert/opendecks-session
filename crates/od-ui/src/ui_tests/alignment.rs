@@ -49,8 +49,20 @@ pub(crate) fn snapped_children(root: &ElementHandle) -> Vec<String> {
         .collect();
     let name = |from: usize, to: usize| {
         (from..to.min(nodes.len()))
-            .find_map(|k| nodes[k].e.accessible_label().filter(|s| !s.is_empty()).map(|s| s.to_string()))
-            .unwrap_or_else(|| nodes[from].e.type_name().map(|s| s.to_string()).unwrap_or_default())
+            .find_map(|k| {
+                nodes[k]
+                    .e
+                    .accessible_label()
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+            })
+            .unwrap_or_else(|| {
+                nodes[from]
+                    .e
+                    .type_name()
+                    .map(|s| s.to_string())
+                    .unwrap_or_default()
+            })
     };
     let mut out = Vec::new();
     for (i, l) in nodes.iter().enumerate() {
@@ -67,7 +79,11 @@ pub(crate) fn snapped_children(root: &ElementHandle) -> Vec<String> {
         while j <= l.end && j < nodes.len() {
             let c = &nodes[j];
             let next = c.end.max(j) + 1;
-            let (size, room) = if horizontal { (c.r.h, l.r.h) } else { (c.r.w, l.r.w) };
+            let (size, room) = if horizontal {
+                (c.r.h, l.r.h)
+            } else {
+                (c.r.w, l.r.w)
+            };
             if c.r.w >= 1.0 && c.r.h >= 1.0 && c.e.computed_opacity() > 0.01 && size < 0.9 * room {
                 let (before, after) = if horizontal {
                     (c.r.y - l.r.y, l.r.bottom() - c.r.bottom())
@@ -97,14 +113,21 @@ pub(crate) fn snapped_children(root: &ElementHandle) -> Vec<String> {
 
 fn check_size(size_id: &str) {
     let file = views_file();
-    let size = file.sizes.iter().find(|s| s.id == size_id).expect("size in views.toml").clone();
+    let size = file
+        .sizes
+        .iter()
+        .find(|s| s.id == size_id)
+        .expect("size in views.toml")
+        .clone();
     let kiosk = size_id == "kiosk";
     let mut failures = Vec::new();
     for view in file
         .views
         .iter()
         // Context menus and the View menu are native; Preferences is its own window.
-        .filter(|v| !v.id.starts_with("ctx.") && !v.id.starts_with("menu.") && !v.id.starts_with("prefs."))
+        .filter(|v| {
+            !v.id.starts_with("ctx.") && !v.id.starts_with("menu.") && !v.id.starts_with("prefs.")
+        })
         .filter(|v| v.sizes.is_empty() || v.sizes.iter().any(|s| s == size_id))
     {
         let ui = Ui::start(Fixture::new(), (size.width, size.height), kiosk);
@@ -128,7 +151,11 @@ fn check_size(size_id: &str) {
             failures.push(format!("{size_id} cdj: {f}"));
         }
     }
-    assert!(failures.is_empty(), "controls off their row / column centre:\n{}", failures.join("\n"));
+    assert!(
+        failures.is_empty(),
+        "controls off their row / column centre:\n{}",
+        failures.join("\n")
+    );
 }
 
 #[test]

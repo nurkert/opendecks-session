@@ -67,7 +67,10 @@ pub fn mac_bundle_of(exe: &Path) -> Option<PathBuf> {
     let macos = exe.parent()?;
     let contents = macos.parent()?;
     let bundle = contents.parent()?;
-    (macos.file_name()? == "MacOS" && contents.file_name()? == "Contents" && bundle.extension()? == "app").then(|| bundle.to_path_buf())
+    (macos.file_name()? == "MacOS"
+        && contents.file_name()? == "Contents"
+        && bundle.extension()? == "app")
+        .then(|| bundle.to_path_buf())
 }
 
 /// True when dpkg's file list of our package names `exe`.
@@ -79,7 +82,12 @@ pub fn dpkg_list_owns(list: &str, exe: &Path) -> bool {
 /// Decides the install kind from the facts (pure; [`detect`] gathers them).
 /// `appimage` is `$APPIMAGE` when it names an existing file; `deb_owned`
 /// is only asked for binaries in `/usr/bin`.
-pub fn install_kind(os: Os, exe: &Path, appimage: Option<&Path>, deb_owned: impl FnOnce(&Path) -> bool) -> InstallKind {
+pub fn install_kind(
+    os: Os,
+    exe: &Path,
+    appimage: Option<&Path>,
+    deb_owned: impl FnOnce(&Path) -> bool,
+) -> InstallKind {
     match os {
         Os::MacOs => match mac_bundle_of(exe) {
             Some(bundle) => InstallKind::MacBundle { bundle },
@@ -87,7 +95,9 @@ pub fn install_kind(os: Os, exe: &Path, appimage: Option<&Path>, deb_owned: impl
         },
         Os::Linux => {
             if let Some(p) = appimage {
-                return InstallKind::AppImage { path: p.to_path_buf() };
+                return InstallKind::AppImage {
+                    path: p.to_path_buf(),
+                };
             }
             if exe.parent() == Some(Path::new("/usr/bin")) && deb_owned(exe) {
                 return InstallKind::Deb;
@@ -100,8 +110,13 @@ pub fn install_kind(os: Os, exe: &Path, appimage: Option<&Path>, deb_owned: impl
 
 /// The install kind of the running process.
 pub fn detect() -> InstallKind {
-    let exe = std::env::current_exe().ok().map(|p| p.canonicalize().unwrap_or(p)).unwrap_or_default();
-    let appimage = std::env::var_os("APPIMAGE").map(PathBuf::from).filter(|p| p.is_file());
+    let exe = std::env::current_exe()
+        .ok()
+        .map(|p| p.canonicalize().unwrap_or(p))
+        .unwrap_or_default();
+    let appimage = std::env::var_os("APPIMAGE")
+        .map(PathBuf::from)
+        .filter(|p| p.is_file());
     install_kind(Os::current(), &exe, appimage.as_deref(), |exe| {
         if let Ok(list) = std::fs::read_to_string(DPKG_LIST) {
             return dpkg_list_owns(&list, exe);
@@ -112,7 +127,12 @@ pub fn detect() -> InstallKind {
             .arg(exe)
             .stderr(std::process::Stdio::null())
             .output()
-            .is_ok_and(|o| o.status.success() && String::from_utf8_lossy(&o.stdout).lines().any(|l| l.split(':').next() == Some(DEB_PACKAGE)))
+            .is_ok_and(|o| {
+                o.status.success()
+                    && String::from_utf8_lossy(&o.stdout)
+                        .lines()
+                        .any(|l| l.split(':').next() == Some(DEB_PACKAGE))
+            })
     })
 }
 
@@ -149,9 +169,17 @@ pub fn asset_pattern(os: Os, arch: Arch, kind: &InstallKind) -> Option<(&'static
 }
 
 /// The asset of `release` that updates this install.
-pub fn select_asset<'a>(release: &'a Release, os: Os, arch: Arch, kind: &InstallKind) -> Option<&'a Asset> {
+pub fn select_asset<'a>(
+    release: &'a Release,
+    os: Os,
+    arch: Arch,
+    kind: &InstallKind,
+) -> Option<&'a Asset> {
     let (prefix, suffix) = asset_pattern(os, arch, kind)?;
-    release.assets.iter().find(|a| a.name.starts_with(prefix) && a.name.ends_with(&suffix))
+    release
+        .assets
+        .iter()
+        .find(|a| a.name.starts_with(prefix) && a.name.ends_with(&suffix))
 }
 
 #[cfg(test)]
@@ -165,9 +193,20 @@ mod tests {
 
     #[test]
     fn mac_bundle_from_the_executable() {
-        assert_eq!(mac_bundle_of(&p("/Applications/OpenDecks Session.app/Contents/MacOS/opendecks")), Some(p("/Applications/OpenDecks Session.app")));
-        assert_eq!(mac_bundle_of(&p("/Users/me/Apps/Renamed.app/Contents/MacOS/opendecks")), Some(p("/Users/me/Apps/Renamed.app")));
-        assert_eq!(mac_bundle_of(&p("/Users/me/src/target/release/opendecks")), None);
+        assert_eq!(
+            mac_bundle_of(&p(
+                "/Applications/OpenDecks Session.app/Contents/MacOS/opendecks"
+            )),
+            Some(p("/Applications/OpenDecks Session.app"))
+        );
+        assert_eq!(
+            mac_bundle_of(&p("/Users/me/Apps/Renamed.app/Contents/MacOS/opendecks")),
+            Some(p("/Users/me/Apps/Renamed.app"))
+        );
+        assert_eq!(
+            mac_bundle_of(&p("/Users/me/src/target/release/opendecks")),
+            None
+        );
         assert_eq!(mac_bundle_of(&p("/Contents/MacOS/opendecks")), None);
         assert_eq!(mac_bundle_of(&p("opendecks")), None);
     }
@@ -176,37 +215,94 @@ mod tests {
     fn install_kind_macos() {
         let never = |_: &Path| -> bool { panic!("dpkg asked on macOS") };
         assert_eq!(
-            install_kind(Os::MacOs, &p("/Applications/OpenDecks Session.app/Contents/MacOS/opendecks"), None, never),
-            InstallKind::MacBundle { bundle: p("/Applications/OpenDecks Session.app") }
+            install_kind(
+                Os::MacOs,
+                &p("/Applications/OpenDecks Session.app/Contents/MacOS/opendecks"),
+                None,
+                never
+            ),
+            InstallKind::MacBundle {
+                bundle: p("/Applications/OpenDecks Session.app")
+            }
         );
-        assert_eq!(install_kind(Os::MacOs, &p("/Users/me/src/target/release/opendecks"), None, never), InstallKind::Unknown);
+        assert_eq!(
+            install_kind(
+                Os::MacOs,
+                &p("/Users/me/src/target/release/opendecks"),
+                None,
+                never
+            ),
+            InstallKind::Unknown
+        );
         // $APPIMAGE means nothing on macOS.
-        assert_eq!(install_kind(Os::MacOs, &p("/opt/x/opendecks"), Some(&p("/tmp/a.AppImage")), never), InstallKind::Unknown);
+        assert_eq!(
+            install_kind(
+                Os::MacOs,
+                &p("/opt/x/opendecks"),
+                Some(&p("/tmp/a.AppImage")),
+                never
+            ),
+            InstallKind::Unknown
+        );
     }
 
     #[test]
     fn install_kind_appimage_wins_on_linux() {
         // An AppImage mounts at /tmp/.mount_*/usr/bin/opendecks.
-        let k = install_kind(Os::Linux, &p("/tmp/.mount_OpenDeXYZ/usr/bin/opendecks"), Some(&p("/home/me/Apps/OpenDecks-Session-0.0.1-x86_64.AppImage")), |_| true);
-        assert_eq!(k, InstallKind::AppImage { path: p("/home/me/Apps/OpenDecks-Session-0.0.1-x86_64.AppImage") });
+        let k = install_kind(
+            Os::Linux,
+            &p("/tmp/.mount_OpenDeXYZ/usr/bin/opendecks"),
+            Some(&p("/home/me/Apps/OpenDecks-Session-0.0.1-x86_64.AppImage")),
+            |_| true,
+        );
+        assert_eq!(
+            k,
+            InstallKind::AppImage {
+                path: p("/home/me/Apps/OpenDecks-Session-0.0.1-x86_64.AppImage")
+            }
+        );
     }
 
     #[test]
     fn install_kind_deb() {
-        assert_eq!(install_kind(Os::Linux, &p("/usr/bin/opendecks"), None, |_| true), InstallKind::Deb);
+        assert_eq!(
+            install_kind(Os::Linux, &p("/usr/bin/opendecks"), None, |_| true),
+            InstallKind::Deb
+        );
         // In /usr/bin but not from our package (e.g. copied there by hand).
-        assert_eq!(install_kind(Os::Linux, &p("/usr/bin/opendecks"), None, |_| false), InstallKind::Unknown);
+        assert_eq!(
+            install_kind(Os::Linux, &p("/usr/bin/opendecks"), None, |_| false),
+            InstallKind::Unknown
+        );
         // Elsewhere dpkg is not asked.
         let never = |_: &Path| -> bool { panic!("dpkg asked") };
-        assert_eq!(install_kind(Os::Linux, &p("/usr/local/bin/opendecks"), None, never), InstallKind::Unknown);
-        assert_eq!(install_kind(Os::Linux, &p("/opt/opendecks/opendecks"), None, never), InstallKind::Unknown);
-        assert_eq!(install_kind(Os::Linux, &p("/home/me/opendecks-session-0.0.1-linux-x86_64/opendecks"), None, never), InstallKind::Unknown);
-        assert_eq!(install_kind(Os::Other, &p("/usr/bin/opendecks"), None, |_| true), InstallKind::Unknown);
+        assert_eq!(
+            install_kind(Os::Linux, &p("/usr/local/bin/opendecks"), None, never),
+            InstallKind::Unknown
+        );
+        assert_eq!(
+            install_kind(Os::Linux, &p("/opt/opendecks/opendecks"), None, never),
+            InstallKind::Unknown
+        );
+        assert_eq!(
+            install_kind(
+                Os::Linux,
+                &p("/home/me/opendecks-session-0.0.1-linux-x86_64/opendecks"),
+                None,
+                never
+            ),
+            InstallKind::Unknown
+        );
+        assert_eq!(
+            install_kind(Os::Other, &p("/usr/bin/opendecks"), None, |_| true),
+            InstallKind::Unknown
+        );
     }
 
     #[test]
     fn dpkg_list_parsing() {
-        let list = "/.\n/usr\n/usr/bin\n/usr/bin/od-cli\n/usr/bin/opendecks\n/usr/share/opendecks\n";
+        let list =
+            "/.\n/usr\n/usr/bin\n/usr/bin/od-cli\n/usr/bin/opendecks\n/usr/share/opendecks\n";
         assert!(dpkg_list_owns(list, &p("/usr/bin/opendecks")));
         assert!(!dpkg_list_owns(list, &p("/usr/bin/opendeck")));
         assert!(!dpkg_list_owns("", &p("/usr/bin/opendecks")));
@@ -216,15 +312,38 @@ mod tests {
     fn asset_per_platform_and_install() {
         let r = parse_releases(crate::release::tests::FIXTURE).unwrap();
         let rel = r.iter().find(|r| r.tag_name == "v0.0.1").unwrap();
-        let mac = InstallKind::MacBundle { bundle: p("/Applications/OpenDecks Session.app") };
-        let app = InstallKind::AppImage { path: p("/x.AppImage") };
-        let name = |os, arch, k: &InstallKind| select_asset(rel, os, arch, k).map(|a| a.name.as_str());
-        assert_eq!(name(Os::MacOs, Arch::Aarch64, &mac), Some("OpenDecks-Session-0.0.1-macos-arm64.dmg"));
-        assert_eq!(name(Os::MacOs, Arch::X86_64, &mac), Some("OpenDecks-Session-0.0.1-macos-x86_64.dmg"));
-        assert_eq!(name(Os::Linux, Arch::X86_64, &app), Some("OpenDecks-Session-0.0.1-x86_64.AppImage"));
-        assert_eq!(name(Os::Linux, Arch::Aarch64, &app), Some("OpenDecks-Session-0.0.1-aarch64.AppImage"));
-        assert_eq!(name(Os::Linux, Arch::X86_64, &InstallKind::Deb), Some("opendecks-session_0.0.1_amd64.deb"));
-        assert_eq!(name(Os::Linux, Arch::Aarch64, &InstallKind::Deb), Some("opendecks-session_0.0.1_arm64.deb"));
+        let mac = InstallKind::MacBundle {
+            bundle: p("/Applications/OpenDecks Session.app"),
+        };
+        let app = InstallKind::AppImage {
+            path: p("/x.AppImage"),
+        };
+        let name =
+            |os, arch, k: &InstallKind| select_asset(rel, os, arch, k).map(|a| a.name.as_str());
+        assert_eq!(
+            name(Os::MacOs, Arch::Aarch64, &mac),
+            Some("OpenDecks-Session-0.0.1-macos-arm64.dmg")
+        );
+        assert_eq!(
+            name(Os::MacOs, Arch::X86_64, &mac),
+            Some("OpenDecks-Session-0.0.1-macos-x86_64.dmg")
+        );
+        assert_eq!(
+            name(Os::Linux, Arch::X86_64, &app),
+            Some("OpenDecks-Session-0.0.1-x86_64.AppImage")
+        );
+        assert_eq!(
+            name(Os::Linux, Arch::Aarch64, &app),
+            Some("OpenDecks-Session-0.0.1-aarch64.AppImage")
+        );
+        assert_eq!(
+            name(Os::Linux, Arch::X86_64, &InstallKind::Deb),
+            Some("opendecks-session_0.0.1_amd64.deb")
+        );
+        assert_eq!(
+            name(Os::Linux, Arch::Aarch64, &InstallKind::Deb),
+            Some("opendecks-session_0.0.1_arm64.deb")
+        );
         // Unknown installs, odd architectures and mismatched OS get nothing.
         assert_eq!(name(Os::Linux, Arch::X86_64, &InstallKind::Unknown), None);
         assert_eq!(name(Os::MacOs, Arch::Other, &mac), None);
@@ -235,7 +354,10 @@ mod tests {
             for arch in [Arch::X86_64, Arch::Aarch64] {
                 for k in [&mac, &app, &InstallKind::Deb] {
                     if let Some(n) = name(os, arch, k) {
-                        assert!(!n.ends_with(".tar.gz") && !n.starts_with("opendecks-pi"), "{n}");
+                        assert!(
+                            !n.ends_with(".tar.gz") && !n.starts_with("opendecks-pi"),
+                            "{n}"
+                        );
                     }
                 }
             }

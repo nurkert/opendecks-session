@@ -14,12 +14,14 @@ pub fn parse_tag(tag: &str) -> Option<Version> {
 /// Semver precedence: build metadata is ignored, a pre-release sorts
 /// before its release (1.0.0-rc.1 < 1.0.0).
 pub fn precedence(a: &Version, b: &Version) -> Ordering {
-    (a.major, a.minor, a.patch).cmp(&(b.major, b.minor, b.patch)).then_with(|| match (a.pre.is_empty(), b.pre.is_empty()) {
-        (true, true) => Ordering::Equal,
-        (true, false) => Ordering::Greater,
-        (false, true) => Ordering::Less,
-        (false, false) => a.pre.cmp(&b.pre),
-    })
+    (a.major, a.minor, a.patch)
+        .cmp(&(b.major, b.minor, b.patch))
+        .then_with(|| match (a.pre.is_empty(), b.pre.is_empty()) {
+            (true, true) => Ordering::Equal,
+            (true, false) => Ordering::Greater,
+            (false, true) => Ordering::Less,
+            (false, false) => a.pre.cmp(&b.pre),
+        })
 }
 
 /// True when `candidate` is newer than `current`.

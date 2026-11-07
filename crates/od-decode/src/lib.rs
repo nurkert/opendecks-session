@@ -67,11 +67,19 @@ pub struct DecodedAudio {
 
 impl DecodedAudio {
     pub fn frames(&self) -> usize {
-        if self.channels == 0 { 0 } else { self.samples.len() / self.channels as usize }
+        if self.channels == 0 {
+            0
+        } else {
+            self.samples.len() / self.channels as usize
+        }
     }
 
     pub fn duration(&self) -> f64 {
-        if self.sample_rate == 0 { 0.0 } else { self.frames() as f64 / self.sample_rate as f64 }
+        if self.sample_rate == 0 {
+            0.0
+        } else {
+            self.frames() as f64 / self.sample_rate as f64
+        }
     }
 }
 
@@ -92,7 +100,10 @@ fn open(path: &Path) -> Result<(Box<dyn FormatReader>, Option<MetadataRevision>)
     let probed = symphonia::default::get_probe().format(
         &hint,
         mss,
-        &FormatOptions { enable_gapless: true, ..Default::default() },
+        &FormatOptions {
+            enable_gapless: true,
+            ..Default::default()
+        },
         &MetadataOptions::default(),
     )?;
     // Metadata found before the container (ID3v2) lives in the probe result.
@@ -101,7 +112,11 @@ fn open(path: &Path) -> Result<(Box<dyn FormatReader>, Option<MetadataRevision>)
     Ok((probed.format, early))
 }
 
-fn apply_revision(rev: &MetadataRevision, tags: &mut TrackTags, artwork: &mut Option<(Vec<u8>, String)>) {
+fn apply_revision(
+    rev: &MetadataRevision,
+    tags: &mut TrackTags,
+    artwork: &mut Option<(Vec<u8>, String)>,
+) {
     for tag in rev.tags() {
         let text = match &tag.value {
             Value::String(s) => s.trim().to_string(),
@@ -164,10 +179,18 @@ pub fn probe(path: &Path) -> Result<ProbeInfo> {
         apply_revision(rev, &mut tags, &mut artwork);
     }
     if tags.title.is_empty() {
-        let stem = path.file_stem().and_then(|s| s.to_str()).unwrap_or_default().to_string();
+        let stem = path
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or_default()
+            .to_string();
         // Common file naming without tags: "Artist - Title".
         match stem.split_once(" - ") {
-            Some((artist, title)) if tags.artist.is_empty() && !artist.trim().is_empty() && !title.trim().is_empty() => {
+            Some((artist, title))
+                if tags.artist.is_empty()
+                    && !artist.trim().is_empty()
+                    && !title.trim().is_empty() =>
+            {
                 tags.artist = artist.trim().to_string();
                 tags.title = title.trim().to_string();
             }
@@ -240,7 +263,10 @@ pub fn decode_with(
         sample_rate = spec.rate;
         let in_ch = spec.channels.count();
         let needed = decoded.capacity() as u64;
-        if buf.as_ref().is_none_or(|b| b.capacity() < decoded.capacity() * in_ch) {
+        if buf
+            .as_ref()
+            .is_none_or(|b| b.capacity() < decoded.capacity() * in_ch)
+        {
             buf = Some(SampleBuffer::new(needed, spec));
         }
         let b = buf.as_mut().unwrap();
@@ -268,7 +294,11 @@ pub fn decode_with(
     if sample_rate == 0 {
         return Err(DecodeError::NoAudioTrack);
     }
-    Ok(DecodedAudio { sample_rate, channels: out_channels, samples })
+    Ok(DecodedAudio {
+        sample_rate,
+        channels: out_channels,
+        samples,
+    })
 }
 
 /// BLAKE3 hash of the file contents.
@@ -300,7 +330,8 @@ mod tests {
         let mut w = hound::WavWriter::create(path, spec).unwrap();
         let n = (rate as f32 * secs) as usize;
         for i in 0..n {
-            let v = ((i as f32 * 440.0 * std::f32::consts::TAU / rate as f32).sin() * 16000.0) as i16;
+            let v =
+                ((i as f32 * 440.0 * std::f32::consts::TAU / rate as f32).sin() * 16000.0) as i16;
             for _ in 0..channels {
                 w.write_sample(v).unwrap();
             }
@@ -318,10 +349,15 @@ mod tests {
         assert_eq!(info.channels, 2);
         assert!((info.duration.unwrap() - 1.5).abs() < 0.01);
         assert_eq!(info.tags.title, "tone");
-        let named = dir.path().join("Some Artist - Great Track (Extended Mix).wav");
+        let named = dir
+            .path()
+            .join("Some Artist - Great Track (Extended Mix).wav");
         write_wav(&named, 8_000, 1, 0.1);
         let t = probe(&named).unwrap().tags;
-        assert_eq!((t.artist.as_str(), t.title.as_str()), ("Some Artist", "Great Track (Extended Mix)"));
+        assert_eq!(
+            (t.artist.as_str(), t.title.as_str()),
+            ("Some Artist", "Great Track (Extended Mix)")
+        );
         assert_eq!(info.format, Some(AudioFormat::Wav));
 
         let mono = decode(&p, Layout::Mono).unwrap();

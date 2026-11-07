@@ -71,7 +71,11 @@ impl StemCache {
 
     /// File for a track hash (hashes are hex; anything else is sanitised).
     pub fn path(&self, hash: &ContentHash) -> PathBuf {
-        let name: String = hash.0.chars().filter(|c| c.is_ascii_alphanumeric()).collect();
+        let name: String = hash
+            .0
+            .chars()
+            .filter(|c| c.is_ascii_alphanumeric())
+            .collect();
         self.dir.join(format!("{name}.odstem"))
     }
 
@@ -143,7 +147,11 @@ fn parse_header(h: &[u8]) -> Result<(StemFileInfo, [f32; 3], usize), Error> {
         f32::from_bits(u32_at(28)),
         f32::from_bits(u32_at(32)),
     ];
-    let info = StemFileInfo { version, sample_rate: u32_at(8), frames: u64_at(12) };
+    let info = StemFileInfo {
+        version,
+        sample_rate: u32_at(8),
+        frames: u64_at(12),
+    };
     Ok((info, scale, u64_at(36) as usize))
 }
 
@@ -217,7 +225,12 @@ pub fn decode(bytes: &[u8]) -> Result<Stems, Error> {
         }
     }
     let [vocals, drums, bass] = parts;
-    Ok(Stems { sample_rate: info.sample_rate, vocals, drums, bass })
+    Ok(Stems {
+        sample_rate: info.sample_rate,
+        vocals,
+        drums,
+        bass,
+    })
 }
 
 #[cfg(test)]
@@ -233,7 +246,12 @@ mod tests {
                 })
                 .collect()
         };
-        Stems { sample_rate: 44_100, vocals: t(0.01, 0.8), drums: t(0.2, 1.3), bass: vec![0.0; frames * 2] }
+        Stems {
+            sample_rate: 44_100,
+            vocals: t(0.01, 0.8),
+            drums: t(0.2, 1.3),
+            bass: vec![0.0; frames * 2],
+        }
     }
 
     #[test]
@@ -247,12 +265,23 @@ mod tests {
         cache.store(&h, &s).unwrap();
         assert!(cache.exists(&h));
         let info = cache.info(&h).unwrap().unwrap();
-        assert_eq!((info.sample_rate, info.frames, info.version), (44_100, 10_000, FORMAT_VERSION));
+        assert_eq!(
+            (info.sample_rate, info.frames, info.version),
+            (44_100, 10_000, FORMAT_VERSION)
+        );
         let back = cache.load(&h).unwrap().unwrap();
         assert_eq!(back.sample_rate, 44_100);
-        for (a, b, peak) in [(&s.vocals, &back.vocals, 0.8f32), (&s.drums, &back.drums, 1.3), (&s.bass, &back.bass, 1.0)] {
+        for (a, b, peak) in [
+            (&s.vocals, &back.vocals, 0.8f32),
+            (&s.drums, &back.drums, 1.3),
+            (&s.bass, &back.bass, 1.0),
+        ] {
             assert_eq!(a.len(), b.len());
-            let err = a.iter().zip(b.iter()).map(|(x, y)| (x - y).abs()).fold(0f32, f32::max);
+            let err = a
+                .iter()
+                .zip(b.iter())
+                .map(|(x, y)| (x - y).abs())
+                .fold(0f32, f32::max);
             assert!(err <= peak / 32767.0, "error {err}");
         }
         cache.remove(&h).unwrap();

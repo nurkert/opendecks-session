@@ -5,11 +5,12 @@ use crate::view::track_full;
 use od_core::TrackId;
 use od_library::Library;
 use rmcp::model::{
-    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, GetPromptRequestParams, GetPromptResponse,
-    GetPromptResult, Implementation, ListPromptsResult, ListResourceTemplatesResult, ListResourcesResult,
-    ListToolsResult, PaginatedRequestParams, Prompt, PromptArgument, PromptMessage, ProtocolVersion,
-    ReadResourceRequestParams, ReadResourceResponse, ReadResourceResult, Resource, ResourceContents,
-    ResourceTemplate, Role, ServerCapabilities, ServerConfig,
+    CallToolRequestParams, CallToolResponse, CallToolResult, ContentBlock, GetPromptRequestParams,
+    GetPromptResponse, GetPromptResult, Implementation, ListPromptsResult,
+    ListResourceTemplatesResult, ListResourcesResult, ListToolsResult, PaginatedRequestParams,
+    Prompt, PromptArgument, PromptMessage, ProtocolVersion, ReadResourceRequestParams,
+    ReadResourceResponse, ReadResourceResult, Resource, ResourceContents, ResourceTemplate, Role,
+    ServerCapabilities, ServerConfig,
 };
 use rmcp::service::RequestContext;
 use rmcp::{ErrorData as McpError, RoleServer, ServerHandler};
@@ -37,7 +38,10 @@ pub struct OpenDecksServer {
 
 impl OpenDecksServer {
     pub fn new(lib: Library) -> Self {
-        Self { lib: Arc::new(Mutex::new(lib)), tools: Arc::new(tools::all()) }
+        Self {
+            lib: Arc::new(Mutex::new(lib)),
+            tools: Arc::new(tools::all()),
+        }
     }
 
     fn with_lib<T>(&self, f: impl FnOnce(&mut Library) -> T) -> T {
@@ -52,7 +56,10 @@ impl OpenDecksServer {
         Some(match res {
             Ok(o) => {
                 let json = serde_json::to_string(&o.data).unwrap_or_default();
-                let mut r = CallToolResult::success(vec![ContentBlock::text(o.summary), ContentBlock::text(json)]);
+                let mut r = CallToolResult::success(vec![
+                    ContentBlock::text(o.summary),
+                    ContentBlock::text(json),
+                ]);
                 r.structured_content = Some(o.data);
                 r
             }
@@ -66,16 +73,28 @@ impl OpenDecksServer {
         let (kind, id) = rest.split_once('/').ok_or_else(bad)?;
         let id: i64 = id.parse().map_err(|_| bad())?;
         let v = self.with_lib(|lib| match kind {
-            "track" => lib.track(TrackId(id)).ok().and_then(|t| track_full(lib, &t).ok()),
+            "track" => lib
+                .track(TrackId(id))
+                .ok()
+                .and_then(|t| track_full(lib, &t).ok()),
             "node" => tools::node_json(lib, id, 500).ok(),
             _ => None,
         });
-        v.map(|v| serde_json::to_string(&v).unwrap_or_default()).ok_or_else(bad)
+        v.map(|v| serde_json::to_string(&v).unwrap_or_default())
+            .ok_or_else(bad)
     }
 }
 
 fn prompt_text(name: &str, args: &serde_json::Map<String, Value>) -> Option<(String, String)> {
-    let arg = |k: &str| args.get(k).and_then(|v| v.as_str().map(str::to_string).or_else(|| Some(v.to_string()))).filter(|s| !s.is_empty() && s != "null");
+    let arg = |k: &str| {
+        args.get(k)
+            .and_then(|v| {
+                v.as_str()
+                    .map(str::to_string)
+                    .or_else(|| Some(v.to_string()))
+            })
+            .filter(|s| !s.is_empty() && s != "null")
+    };
     match name {
         "build_set" => {
             let theme = arg("theme").unwrap_or_else(|| "(ask me)".into());
@@ -116,10 +135,19 @@ fn prompt_text(name: &str, args: &serde_json::Map<String, Value>) -> Option<(Str
 
 impl ServerHandler for OpenDecksServer {
     fn get_info(&self) -> ServerConfig {
-        ServerConfig::new(ServerCapabilities::builder().enable_tools().enable_resources().enable_prompts().build())
-            .with_protocol_version(PROTOCOL)
-            .with_server_info(Implementation::new("opendecks-session", env!("CARGO_PKG_VERSION")))
-            .with_instructions(INSTRUCTIONS)
+        ServerConfig::new(
+            ServerCapabilities::builder()
+                .enable_tools()
+                .enable_resources()
+                .enable_prompts()
+                .build(),
+        )
+        .with_protocol_version(PROTOCOL)
+        .with_server_info(Implementation::new(
+            "opendecks-session",
+            env!("CARGO_PKG_VERSION"),
+        ))
+        .with_instructions(INSTRUCTIONS)
     }
 
     fn supported_protocol_versions(&self) -> Cow<'static, [ProtocolVersion]> {
@@ -131,11 +159,16 @@ impl ServerHandler for OpenDecksServer {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, McpError> {
-        Ok(ListToolsResult::with_all_items(self.tools.iter().map(ToolDef::to_tool).collect()))
+        Ok(ListToolsResult::with_all_items(
+            self.tools.iter().map(ToolDef::to_tool).collect(),
+        ))
     }
 
     fn get_tool(&self, name: &str) -> Option<rmcp::model::Tool> {
-        self.tools.iter().find(|t| t.name == name).map(ToolDef::to_tool)
+        self.tools
+            .iter()
+            .find(|t| t.name == name)
+            .map(ToolDef::to_tool)
     }
 
     async fn call_tool(
@@ -146,7 +179,10 @@ impl ServerHandler for OpenDecksServer {
         let args = request.arguments.map(Value::Object).unwrap_or(Value::Null);
         match self.call(&request.name, args) {
             Some(r) => Ok(r.into()),
-            None => Err(McpError::invalid_params(format!("unknown tool {}", request.name), None)),
+            None => Err(McpError::invalid_params(
+                format!("unknown tool {}", request.name),
+                None,
+            )),
         }
     }
 
@@ -179,7 +215,9 @@ impl ServerHandler for OpenDecksServer {
                 .with_description("Every field of one track (same as get_tracks)")
                 .with_mime_type("application/json"),
             ResourceTemplate::new("opendecks://node/{id}", "node")
-                .with_description("A playlist, set, smart list or folder with its entries (same as get_node)")
+                .with_description(
+                    "A playlist, set, smart list or folder with its entries (same as get_node)",
+                )
                 .with_mime_type("application/json"),
         ]))
     }
@@ -201,22 +239,38 @@ impl ServerHandler for OpenDecksServer {
         _request: Option<PaginatedRequestParams>,
         _context: RequestContext<RoleServer>,
     ) -> Result<ListPromptsResult, McpError> {
-        let a = |n: &str, d: &str, req: bool| PromptArgument::new(n).with_description(d).with_required(req);
+        let a = |n: &str, d: &str, req: bool| {
+            PromptArgument::new(n)
+                .with_description(d)
+                .with_required(req)
+        };
         Ok(ListPromptsResult::with_all_items(vec![
             Prompt::new(
                 "build_set",
                 Some("Plan a set with the DJ and create it in the library"),
                 Some(vec![
-                    a("theme", "Theme or feeling, e.g. \"sunset rooftop, deep and warm\"", false),
+                    a(
+                        "theme",
+                        "Theme or feeling, e.g. \"sunset rooftop, deep and warm\"",
+                        false,
+                    ),
                     a("duration_minutes", "Length of the set in minutes", false),
-                    a("energy_arc", "Energy shape, e.g. \"slow build to a peak at 75 %, short cool-down\"", false),
+                    a(
+                        "energy_arc",
+                        "Energy shape, e.g. \"slow build to a peak at 75 %, short cool-down\"",
+                        false,
+                    ),
                     a("bpm_range", "BPM range, e.g. \"118-124\"", false),
                 ]),
             ),
             Prompt::new(
                 "fix_transitions",
                 Some("Find clashing transitions in a set and fix them"),
-                Some(vec![a("node_id", "Id of the set or playlist (from list_nodes)", true)]),
+                Some(vec![a(
+                    "node_id",
+                    "Id of the set or playlist (from list_nodes)",
+                    true,
+                )]),
             ),
         ]))
     }
@@ -227,8 +281,16 @@ impl ServerHandler for OpenDecksServer {
         _context: RequestContext<RoleServer>,
     ) -> Result<GetPromptResponse, McpError> {
         let args = request.arguments.clone().unwrap_or_default();
-        let (desc, text) = prompt_text(&request.name, &args)
-            .ok_or_else(|| McpError::invalid_params(format!("unknown prompt {} or missing argument", request.name), None))?;
-        Ok(GetPromptResult::new(vec![PromptMessage::new_text(Role::User, text)]).with_description(desc).into())
+        let (desc, text) = prompt_text(&request.name, &args).ok_or_else(|| {
+            McpError::invalid_params(
+                format!("unknown prompt {} or missing argument", request.name),
+                None,
+            )
+        })?;
+        Ok(
+            GetPromptResult::new(vec![PromptMessage::new_text(Role::User, text)])
+                .with_description(desc)
+                .into(),
+        )
     }
 }

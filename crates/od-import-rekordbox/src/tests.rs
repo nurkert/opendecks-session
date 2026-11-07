@@ -1,5 +1,7 @@
 use super::*;
-use od_core::{Beat, Cue, CueColor, CueKind, MusicalKey, Phrase, PhraseKind, PhraseMood, TrackTags, Waveform};
+use od_core::{
+    Beat, Cue, CueColor, CueKind, MusicalKey, Phrase, PhraseKind, PhraseMood, TrackTags, Waveform,
+};
 use od_format_pioneer::anlz::{AnlzInput, anlz_dat_path_for, build_anlz};
 use od_format_pioneer::pdb::{ExportDatabase, ExportPlaylist, ExportTrack};
 use od_format_pioneer::{HOT_CUE_PALETTE, TRACK_COLORS};
@@ -35,7 +37,11 @@ fn write_wav(path: &Path, seed: u32) {
 fn grid(bpm: f64, n: usize) -> Beatgrid {
     Beatgrid {
         beats: (0..n)
-            .map(|i| Beat { time: 0.05 + i as f64 * 60.0 / bpm, bpm, bar_position: (i % 4) as u8 + 1 })
+            .map(|i| Beat {
+                time: 0.05 + i as f64 * 60.0 / bpm,
+                bpm,
+                bar_position: (i % 4) as u8 + 1,
+            })
             .collect(),
         locked: false,
     }
@@ -45,11 +51,27 @@ fn grid(bpm: f64, n: usize) -> Beatgrid {
 fn write_anlz(dat: &Path, device_path: &str, g: &Beatgrid, cues: &[Cue]) {
     let wf = Waveform {
         columns_per_second: Waveform::DETAIL_RATE,
-        columns: vec![od_core::WaveformColumn { low: 100, mid: 50, high: 20, peak: 100 }; 300],
+        columns: vec![
+            od_core::WaveformColumn {
+                low: 100,
+                mid: 50,
+                high: 20,
+                peak: 100
+            };
+            300
+        ],
     };
     let phrases = [
-        Phrase { start_beat: 0, end_beat: 2, kind: PhraseKind::Intro },
-        Phrase { start_beat: 2, end_beat: 4, kind: PhraseKind::Outro },
+        Phrase {
+            start_beat: 0,
+            end_beat: 2,
+            kind: PhraseKind::Intro,
+        },
+        Phrase {
+            start_beat: 2,
+            end_beat: 4,
+            kind: PhraseKind::Outro,
+        },
     ];
     let set = build_anlz(&AnlzInput {
         device_path,
@@ -90,13 +112,21 @@ CREATE TABLE djmdSongHistory (ID PRIMARY KEY, HistoryID, ContentID, TrackNo INTE
 /// Builds a synthetic rekordbox folder in `rb` with music in `music`.
 /// Returns the connection-free paths of the three track files.
 fn build_master(rb: &Path, music: &Path, reserve: bool) -> Vec<PathBuf> {
-    let files: Vec<PathBuf> = ["one.wav", "two.wav", "gone.wav", "deleted.wav"].iter().map(|n| music.join(n)).collect();
+    let files: Vec<PathBuf> = ["one.wav", "two.wav", "gone.wav", "deleted.wav"]
+        .iter()
+        .map(|n| music.join(n))
+        .collect();
     write_wav(&files[0], 1);
     write_wav(&files[1], 2);
     write_wav(&files[3], 4);
     // files[2] intentionally missing.
     let anlz_rel = "/PIONEER/USBANLZ/abc/0001-uuid/ANLZ0000.DAT";
-    write_anlz(&rb.join("share").join(&anlz_rel[1..]), "/one.wav", &grid(120.0, 4), &[Cue::hot(0, 9.0)]);
+    write_anlz(
+        &rb.join("share").join(&anlz_rel[1..]),
+        "/one.wav",
+        &grid(120.0, 4),
+        &[Cue::hot(0, 9.0)],
+    );
 
     std::fs::create_dir_all(rb).unwrap();
     let path = rb.join(if reserve { "plain.db" } else { "master.db" });
@@ -122,7 +152,14 @@ fn build_master(rb: &Path, music: &Path, reserve: bool) -> Vec<PathBuf> {
          INSERT INTO djmdKey VALUES ('k1','8A',1,0),('k2','5B',2,0);",
     )
     .unwrap();
-    let add = |id: &str, f: &Path, title: &str, genre: &str, key: &str, bpm: i64, anlz: &str, deleted: i64| {
+    let add = |id: &str,
+               f: &Path,
+               title: &str,
+               genre: &str,
+               key: &str,
+               bpm: i64,
+               anlz: &str,
+               deleted: i64| {
         conn.execute(
             "INSERT INTO djmdContent (ID, FolderPath, FileNameL, Title, ArtistID, AlbumID, GenreID, LabelID,
                RemixerID, KeyID, Commnt, ReleaseYear, TrackNo, Rating, ColorID, BPM, Length, SampleRate,
@@ -143,7 +180,11 @@ fn build_master(rb: &Path, music: &Path, reserve: bool) -> Vec<PathBuf> {
     std::fs::create_dir_all(&art).unwrap();
     std::fs::write(art.join("a1.jpg"), b"small").unwrap();
     std::fs::write(art.join("a1_m.jpg"), b"\xFF\xD8medium").unwrap();
-    conn.execute("UPDATE djmdContent SET ImagePath = '/PIONEER/Artwork/00001/a1.jpg' WHERE ID = '1'", []).unwrap();
+    conn.execute(
+        "UPDATE djmdContent SET ImagePath = '/PIONEER/Artwork/00001/a1.jpg' WHERE ID = '1'",
+        [],
+    )
+    .unwrap();
     conn.execute_batch(
         "INSERT INTO djmdCue VALUES ('c1','1',500,-1,1,255,36,'Drop',0);
          INSERT INTO djmdCue VALUES ('c2','1',1000,1500,5,255,43,'',0);
@@ -187,7 +228,11 @@ fn import_all(source: &Source, lib: &mut Library, opts: &ImportOptions) -> Impor
 }
 
 fn find_node(lib: &Library, parent: Option<NodeId>, name: &str) -> od_library::Node {
-    lib.children(parent).unwrap().into_iter().find(|n| n.name == name).unwrap_or_else(|| panic!("no node {name}"))
+    lib.children(parent)
+        .unwrap()
+        .into_iter()
+        .find(|n| n.name == name)
+        .unwrap_or_else(|| panic!("no node {name}"))
 }
 
 #[test]
@@ -212,14 +257,23 @@ fn master_db_import() {
     );
 
     let mut lib = Library::open_in_memory().unwrap();
-    let opts = ImportOptions { include_history: true, analyse_missing: true, ..Default::default() };
+    let opts = ImportOptions {
+        include_history: true,
+        analyse_missing: true,
+        ..Default::default()
+    };
     let r = import_all(&source, &mut lib, &opts);
     assert_eq!((r.tracks_added, r.tracks_existing), (3, 0));
     assert_eq!(r.missing_files, vec![files[2].clone()]);
     assert_eq!(r.grids, 1);
     assert_eq!(r.keys, 2);
     assert_eq!(r.cues, 4);
-    assert!(r.skipped.iter().any(|(what, why)| what.contains("Smart MyTag") && why.contains("myTag")), "{r:?}");
+    assert!(
+        r.skipped
+            .iter()
+            .any(|(what, why)| what.contains("Smart MyTag") && why.contains("myTag")),
+        "{r:?}"
+    );
     assert!(r.notes.iter().any(|n| n.contains("smart playlist")));
     assert_eq!(lib.track_count().unwrap(), 3);
 
@@ -237,13 +291,22 @@ fn master_db_import() {
     assert_eq!(one.tags.rating, 3);
     assert_eq!(one.tags.color, Some(TRACK_COLORS[1].1));
     // The cover comes from rekordbox's artwork folder, larger variant first.
-    let (art, media) = lib.artwork(one.id).unwrap().expect("cover from PIONEER/Artwork");
-    assert_eq!((art.as_slice(), media.as_str()), (b"\xFF\xD8medium".as_slice(), "image/jpeg"));
+    let (art, media) = lib
+        .artwork(one.id)
+        .unwrap()
+        .expect("cover from PIONEER/Artwork");
+    assert_eq!(
+        (art.as_slice(), media.as_str()),
+        (b"\xFF\xD8medium".as_slice(), "image/jpeg")
+    );
     let (g, src) = lib.beatgrid_with_source(one.id).unwrap().unwrap();
     assert_eq!(src, DataSource::Imported);
     assert_eq!(g.beats.len(), 4);
     assert!((g.beats[0].time - 0.05).abs() < 1e-3);
-    assert_eq!(lib.key_with_source(one.id).unwrap(), Some((MusicalKey::parse("8A").unwrap(), DataSource::Imported)));
+    assert_eq!(
+        lib.key_with_source(one.id).unwrap(),
+        Some((MusicalKey::parse("8A").unwrap(), DataSource::Imported))
+    );
     let an = lib.analysis(one.id).unwrap();
     // The fixture's two phrases span one bar; readers get them normalised
     // into one section (fragments under four bars merge, see
@@ -253,17 +316,26 @@ fn master_db_import() {
     let cues = lib.cues(one.id).unwrap();
     assert_eq!(cues.len(), 3, "{cues:?}");
     let a = cues.iter().find(|c| c.kind == CueKind::Hot(0)).unwrap();
-    assert_eq!((a.start, a.label.as_str(), a.color), (0.5, "Drop", Some(HOT_CUE_PALETTE[35])));
+    assert_eq!(
+        (a.start, a.label.as_str(), a.color),
+        (0.5, "Drop", Some(HOT_CUE_PALETTE[35]))
+    );
     assert_eq!(a.source, DataSource::Imported);
     let d = cues.iter().find(|c| c.kind == CueKind::Hot(3)).unwrap();
-    assert_eq!((d.start, d.loop_end, d.color), (1.0, Some(1.5), Some(HOT_CUE_PALETTE[42])));
+    assert_eq!(
+        (d.start, d.loop_end, d.color),
+        (1.0, Some(1.5), Some(HOT_CUE_PALETTE[42]))
+    );
     let m = cues.iter().find(|c| c.kind == CueKind::Memory).unwrap();
     assert_eq!((m.start, m.label.as_str(), m.color), (0.25, "mem", None));
 
     // Track two: no ANLZ -> provisional grid from the BPM column (analysis priority).
     let two = lib.track_by_path(&files[1]).unwrap().unwrap();
     assert_eq!(two.bpm, Some(128.0));
-    assert_eq!(lib.beatgrid_with_source(two.id).unwrap().unwrap().1, DataSource::Analysis);
+    assert_eq!(
+        lib.beatgrid_with_source(two.id).unwrap().unwrap().1,
+        DataSource::Analysis
+    );
     assert_eq!(lib.cues(two.id).unwrap()[0].kind, CueKind::Hot(7));
     assert_eq!(r.needs_analysis, vec![two.id]);
     // Missing track is kept but flagged.
@@ -273,18 +345,38 @@ fn master_db_import() {
     // Playlist tree.
     let root = lib.node(r.root_folder.unwrap()).unwrap();
     assert!(root.name.starts_with("rekordbox import 20"));
-    let names: Vec<String> = lib.children(Some(root.id)).unwrap().into_iter().map(|n| n.name).collect();
+    let names: Vec<String> = lib
+        .children(Some(root.id))
+        .unwrap()
+        .into_iter()
+        .map(|n| n.name)
+        .collect();
     assert_eq!(names, ["Folder", "Top", "Smart House", "rekordbox History"]);
     let folder = find_node(&lib, Some(root.id), "Folder");
-    let inner: Vec<String> = lib.children(Some(folder.id)).unwrap().into_iter().map(|n| n.name).collect();
+    let inner: Vec<String> = lib
+        .children(Some(folder.id))
+        .unwrap()
+        .into_iter()
+        .map(|n| n.name)
+        .collect();
     assert_eq!(inner, ["First", "Second"]);
     let top = find_node(&lib, Some(root.id), "Top");
     let gone = lib.track_by_path(&files[2]).unwrap().unwrap().id;
-    let top_tracks: Vec<TrackId> = lib.entries(top.id).unwrap().into_iter().map(|e| e.track).collect();
+    let top_tracks: Vec<TrackId> = lib
+        .entries(top.id)
+        .unwrap()
+        .into_iter()
+        .map(|e| e.track)
+        .collect();
     assert_eq!(top_tracks, vec![two.id, one.id, gone]);
     let smart = find_node(&lib, Some(root.id), "Smart House");
     assert_eq!(smart.kind, NodeKind::Playlist);
-    let smart_tracks: Vec<TrackId> = lib.entries(smart.id).unwrap().into_iter().map(|e| e.track).collect();
+    let smart_tracks: Vec<TrackId> = lib
+        .entries(smart.id)
+        .unwrap()
+        .into_iter()
+        .map(|e| e.track)
+        .collect();
     assert_eq!(smart_tracks, vec![one.id, gone]);
     let hist = find_node(&lib, Some(root.id), "rekordbox History");
     let year = find_node(&lib, Some(hist.id), "2026");
@@ -298,14 +390,21 @@ fn master_db_import() {
     let r2 = import_all(&source, &mut lib, &opts);
     assert_eq!((r2.tracks_added, r2.tracks_existing), (0, 3));
     assert_eq!(lib.track_count().unwrap(), 3);
-    assert_eq!(lib.key_with_source(one.id).unwrap().unwrap().1, DataSource::Manual);
+    assert_eq!(
+        lib.key_with_source(one.id).unwrap().unwrap().1,
+        DataSource::Manual
+    );
     let cues = lib.cues(one.id).unwrap();
     let a = cues.iter().find(|c| c.kind == CueKind::Hot(0)).unwrap();
     assert_eq!((a.start, a.source), (0.75, DataSource::Manual));
     assert_eq!(cues.len(), 3);
     // Identical playlists are not created twice.
     assert_eq!(r2.root_folder, r.root_folder);
-    assert!(r2.notes.iter().any(|n| n.contains("identical import folder")));
+    assert!(
+        r2.notes
+            .iter()
+            .any(|n| n.contains("identical import folder"))
+    );
     assert_eq!(lib.children(None).unwrap().len(), 1);
 }
 
@@ -318,10 +417,19 @@ fn changed_source_creates_second_folder() {
     let mut lib = Library::open_in_memory().unwrap();
     import_all(&source, &mut lib, &ImportOptions::default());
     let conn = Connection::open(rb.join("master.db")).unwrap();
-    conn.execute("INSERT INTO djmdPlaylist VALUES ('p9',9,'New',0,'root',NULL,0)", []).unwrap();
+    conn.execute(
+        "INSERT INTO djmdPlaylist VALUES ('p9',9,'New',0,'root',NULL,0)",
+        [],
+    )
+    .unwrap();
     drop(conn);
     let r = import_all(&source, &mut lib, &ImportOptions::default());
-    let roots: Vec<String> = lib.children(None).unwrap().into_iter().map(|n| n.name).collect();
+    let roots: Vec<String> = lib
+        .children(None)
+        .unwrap()
+        .into_iter()
+        .map(|n| n.name)
+        .collect();
     assert_eq!(roots.len(), 2);
     assert!(roots[1].ends_with("(2)"), "{roots:?}");
     assert_eq!(r.tracks_added, 0);
@@ -333,9 +441,12 @@ fn cancel_stops_import() {
     let rb = tmp.path().join("rekordbox");
     build_master(&rb, &tmp.path().join("music"), false);
     let mut lib = Library::open_in_memory().unwrap();
-    let res = import(&Source::RekordboxLibrary { dir: rb }, &mut lib, &ImportOptions::default(), |p| {
-        p.phase != ImportPhase::Playlists
-    });
+    let res = import(
+        &Source::RekordboxLibrary { dir: rb },
+        &mut lib,
+        &ImportOptions::default(),
+        |p| p.phase != ImportPhase::Playlists,
+    );
     assert!(matches!(res, Err(ImportError::Cancelled)));
     assert!(lib.children(None).unwrap().len() <= 1);
 }
@@ -379,13 +490,22 @@ fn stick_import_with_copy() {
         hot.label = "Hi".into();
         let mut mem = Cue::memory(1.0);
         mem.loop_end = Some(1.5);
-        write_anlz(&stick::on_stick(&root, &anlz), dp, &grid(124.0, 4), &[hot, mem]);
+        write_anlz(
+            &stick::on_stick(&root, &anlz),
+            dp,
+            &grid(124.0, 4),
+            &[hot, mem],
+        );
         tracks.push(ExportTrack {
             id: i as u32 + 1,
             device_path: dp.to_string(),
             tags: TrackTags {
                 title: format!("T{i}"),
-                artist: if i == 0 { "Alpha".into() } else { "Beta".into() },
+                artist: if i == 0 {
+                    "Alpha".into()
+                } else {
+                    "Beta".into()
+                },
                 rating: 4,
                 color: Some(CueColor::rgb(0x10, 0xe0, 0x20)),
                 ..Default::default()
@@ -407,8 +527,22 @@ fn stick_import_with_copy() {
     let db = ExportDatabase {
         tracks,
         playlists: vec![
-            ExportPlaylist { id: 1, parent_id: 0, name: "Gigs".into(), is_folder: true, sort_order: 0, track_ids: vec![] },
-            ExportPlaylist { id: 2, parent_id: 1, name: "Club".into(), is_folder: false, sort_order: 0, track_ids: vec![2, 1] },
+            ExportPlaylist {
+                id: 1,
+                parent_id: 0,
+                name: "Gigs".into(),
+                is_folder: true,
+                sort_order: 0,
+                track_ids: vec![],
+            },
+            ExportPlaylist {
+                id: 2,
+                parent_id: 1,
+                name: "Club".into(),
+                is_folder: false,
+                sort_order: 0,
+                track_ids: vec![2, 1],
+            },
         ],
         history: vec![],
         export_date: "2026-01-01".into(),
@@ -419,25 +553,46 @@ fn stick_import_with_copy() {
 
     let source = Source::RekordboxStick { root: root.clone() };
     let p = preview(&source).unwrap();
-    assert_eq!((p.tracks, p.playlists, p.folders, p.cues, p.missing_files), (2, 1, 1, 4, 0));
+    assert_eq!(
+        (p.tracks, p.playlists, p.folders, p.cues, p.missing_files),
+        (2, 1, 1, 4, 0)
+    );
 
     let mut lib = Library::open_in_memory().unwrap();
-    let opts = ImportOptions { copy_audio_to: Some(dest.clone()), ..Default::default() };
+    let opts = ImportOptions {
+        copy_audio_to: Some(dest.clone()),
+        ..Default::default()
+    };
     let r = import_all(&source, &mut lib, &opts);
     assert_eq!(r.tracks_added, 2);
     assert_eq!((r.grids, r.keys, r.cues), (2, 2, 4));
     let all = lib.tracks(od_library::SortKey::Title, false).unwrap();
-    assert!(all.iter().all(|t| t.path.starts_with(&dest) && t.path.is_file()), "{all:?}");
+    assert!(
+        all.iter()
+            .all(|t| t.path.starts_with(&dest) && t.path.is_file()),
+        "{all:?}"
+    );
     assert_eq!(all[0].path, dest.join("Alpha").join("a.wav"));
     assert_eq!(all[0].tags.rating, 4);
     let cues = lib.cues(all[0].id).unwrap();
     let hot = cues.iter().find(|c| c.kind == CueKind::Hot(2)).unwrap();
-    assert_eq!((hot.label.as_str(), hot.color), ("Hi", Some(HOT_CUE_PALETTE[5])));
-    assert!(cues.iter().any(|c| c.kind == CueKind::Memory && c.loop_end == Some(1.5)));
+    assert_eq!(
+        (hot.label.as_str(), hot.color),
+        ("Hi", Some(HOT_CUE_PALETTE[5]))
+    );
+    assert!(
+        cues.iter()
+            .any(|c| c.kind == CueKind::Memory && c.loop_end == Some(1.5))
+    );
     let root_node = r.root_folder.unwrap();
     let gigs = find_node(&lib, Some(root_node), "Gigs");
     let club = find_node(&lib, Some(gigs.id), "Club");
-    let order: Vec<TrackId> = lib.entries(club.id).unwrap().into_iter().map(|e| e.track).collect();
+    let order: Vec<TrackId> = lib
+        .entries(club.id)
+        .unwrap()
+        .into_iter()
+        .map(|e| e.track)
+        .collect();
     assert_eq!(order, vec![all[1].id, all[0].id]);
 
     // Re-import: tracks are found by content hash, nothing is copied twice.
@@ -454,7 +609,22 @@ fn rating_and_slots() {
     assert_eq!(masterdb::rating(255), 5);
     assert_eq!(masterdb::rating(102), 2);
     let slots: Vec<Option<u8>> = (0..=10).map(masterdb::hot_slot).collect();
-    assert_eq!(slots, [None, Some(0), Some(1), Some(2), None, Some(3), Some(4), Some(5), Some(6), Some(7), None]);
+    assert_eq!(
+        slots,
+        [
+            None,
+            Some(0),
+            Some(1),
+            Some(2),
+            None,
+            Some(3),
+            Some(4),
+            Some(5),
+            Some(6),
+            Some(7),
+            None
+        ]
+    );
 }
 
 /// Reads the real rekordbox library read-only (on a temporary copy) and
@@ -462,9 +632,15 @@ fn rating_and_slots() {
 /// `OD_RB_MASTER_DB=~/Library/Pioneer/rekordbox/master.db cargo test -p od-import-rekordbox real_master_db -- --nocapture`.
 #[test]
 fn real_master_db() {
-    let Some(p) = std::env::var_os("OD_RB_MASTER_DB") else { return };
+    let Some(p) = std::env::var_os("OD_RB_MASTER_DB") else {
+        return;
+    };
     let p = PathBuf::from(p);
-    let dir = if p.is_dir() { p } else { p.parent().unwrap().to_path_buf() };
+    let dir = if p.is_dir() {
+        p
+    } else {
+        p.parent().unwrap().to_path_buf()
+    };
     let t0 = std::time::Instant::now();
     let preview = preview(&Source::RekordboxLibrary { dir: dir.clone() }).unwrap();
     println!("preview in {:?}: {preview:?}", t0.elapsed());
@@ -480,7 +656,12 @@ fn real_master_db() {
             no_anlz += 1;
             continue;
         }
-        for c in t.db_cues.iter().flatten().filter(|c| matches!(c.kind, CueKind::Hot(_))) {
+        for c in t
+            .db_cues
+            .iter()
+            .flatten()
+            .filter(|c| matches!(c.kind, CueKind::Hot(_)))
+        {
             match a.cues.iter().find(|x| x.kind == c.kind) {
                 Some(x) if (x.start - c.start).abs() < 0.002 && x.color == c.color => same += 1,
                 _ => differ += 1,
@@ -499,7 +680,11 @@ fn real_master_db() {
     if std::env::var_os("OD_RB_FULL_IMPORT").is_some() {
         let tmp = tempfile::tempdir().unwrap();
         let mut lib = Library::open(&tmp.path().join("library.sqlite")).unwrap();
-        let opts = ImportOptions { include_history: true, analyse_missing: true, ..Default::default() };
+        let opts = ImportOptions {
+            include_history: true,
+            analyse_missing: true,
+            ..Default::default()
+        };
         let t0 = std::time::Instant::now();
         let source = Source::RekordboxLibrary { dir };
         let r = import(&source, &mut lib, &opts, |_| true).unwrap();
@@ -520,6 +705,9 @@ fn real_master_db() {
             r.notes
         );
         let r2 = import(&source, &mut lib, &opts, |_| true).unwrap();
-        println!("re-run: added {}, existing {}, notes {:?}", r2.tracks_added, r2.tracks_existing, r2.notes);
+        println!(
+            "re-run: added {}, existing {}, notes {:?}",
+            r2.tracks_added, r2.tracks_existing, r2.notes
+        );
     }
 }

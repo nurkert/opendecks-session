@@ -462,7 +462,10 @@ mod tests {
         for w in phrases.windows(2) {
             assert_ne!(w[0].kind, w[1].kind, "{phrases:?}");
         }
-        let first_drop = phrases.iter().find(|p| p.kind == PhraseKind::Chorus).unwrap();
+        let first_drop = phrases
+            .iter()
+            .find(|p| p.kind == PhraseKind::Chorus)
+            .unwrap();
         assert_eq!(
             (first_drop.start_beat / 4, first_drop.end_beat / 4),
             (16, 48),

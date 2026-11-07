@@ -15,7 +15,10 @@ pub struct Response {
 
 impl std::fmt::Debug for Response {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Response").field("status", &self.status).field("content_length", &self.content_length).finish()
+        f.debug_struct("Response")
+            .field("status", &self.status)
+            .field("content_length", &self.content_length)
+            .finish()
     }
 }
 
@@ -38,7 +41,10 @@ pub fn get_text(http: &dyn Http, url: &str, limit: u64) -> Result<String, Error>
         return Err(Error::Status(r.status, url.to_string()));
     }
     let mut s = String::new();
-    r.body.take(limit).read_to_string(&mut s).map_err(|e| Error::Network(e.to_string()))?;
+    r.body
+        .take(limit)
+        .read_to_string(&mut s)
+        .map_err(|e| Error::Network(e.to_string()))?;
     Ok(s)
 }
 
@@ -68,16 +74,26 @@ impl Http for UreqHttp {
     fn get(&self, url: &str, range_from: Option<u64>) -> Result<Response, Error> {
         let mut req = self.agent.get(url);
         if url.starts_with("https://api.github.com/") {
-            req = req.header("Accept", "application/vnd.github+json").header("X-GitHub-Api-Version", "2022-11-28");
+            req = req
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28");
         }
         if let Some(n) = range_from.filter(|n| *n > 0) {
             req = req.header("Range", format!("bytes={n}-"));
         }
         let resp = req.call().map_err(|e| Error::Network(e.to_string()))?;
         let status = resp.status().as_u16();
-        let content_length = resp.headers().get("content-length").and_then(|v| v.to_str().ok()).and_then(|v| v.parse().ok());
+        let content_length = resp
+            .headers()
+            .get("content-length")
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.parse().ok());
         let body = resp.into_body().into_reader();
-        Ok(Response { status, content_length, body: Box::new(body) })
+        Ok(Response {
+            status,
+            content_length,
+            body: Box::new(body),
+        })
     }
 }
 
@@ -109,20 +125,38 @@ pub(crate) mod mock {
 
     impl Http for MockHttp {
         fn get(&self, url: &str, range_from: Option<u64>) -> Result<Response, Error> {
-            self.requests.lock().unwrap().push((url.to_string(), range_from));
+            self.requests
+                .lock()
+                .unwrap()
+                .push((url.to_string(), range_from));
             let Some(data) = self.files.get(url) else {
-                return Ok(Response { status: 404, content_length: Some(0), body: Box::new(std::io::empty()) });
+                return Ok(Response {
+                    status: 404,
+                    content_length: Some(0),
+                    body: Box::new(std::io::empty()),
+                });
             };
-            let (status, mut part) = match range_from.filter(|n| *n > 0 && !self.no_range.iter().any(|u| u == url)) {
-                Some(n) if n as usize >= data.len() => return Ok(Response { status: 416, content_length: Some(0), body: Box::new(std::io::empty()) }),
-                Some(n) => (206, data[n as usize..].to_vec()),
-                None => (200, data.clone()),
-            };
+            let (status, mut part) =
+                match range_from.filter(|n| *n > 0 && !self.no_range.iter().any(|u| u == url)) {
+                    Some(n) if n as usize >= data.len() => {
+                        return Ok(Response {
+                            status: 416,
+                            content_length: Some(0),
+                            body: Box::new(std::io::empty()),
+                        });
+                    }
+                    Some(n) => (206, data[n as usize..].to_vec()),
+                    None => (200, data.clone()),
+                };
             let len = part.len() as u64;
             if let Some(c) = self.cut.lock().unwrap().remove(url) {
                 part.truncate(c);
             }
-            Ok(Response { status, content_length: Some(len), body: Box::new(std::io::Cursor::new(part)) })
+            Ok(Response {
+                status,
+                content_length: Some(len),
+                body: Box::new(std::io::Cursor::new(part)),
+            })
         }
     }
 }
@@ -141,6 +175,9 @@ mod tests {
         let m = mock::MockHttp::default().with("https://x/a", "hello");
         assert_eq!(get_text(&m, "https://x/a", 100).unwrap(), "hello");
         assert_eq!(get_text(&m, "https://x/a", 3).unwrap(), "hel");
-        assert!(matches!(get_text(&m, "https://x/missing", 100), Err(Error::Status(404, _))));
+        assert!(matches!(
+            get_text(&m, "https://x/missing", 100),
+            Err(Error::Status(404, _))
+        ));
     }
 }

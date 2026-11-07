@@ -110,10 +110,21 @@ fn cdj_beat_position_follows_playback() {
 
     let id = ui.fx.tracks[0].0;
     crate::decks::load_track(&ui.app, 0, id, None);
-    assert!(ui.wait_until(30.0, |u| deck_views(u).first().is_some_and(|d| d.loaded)), "deck 1 loads");
-    assert!(ui.wait_until(30.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].track.is_some())), "engine has the track");
+    assert!(
+        ui.wait_until(30.0, |u| deck_views(u).first().is_some_and(|d| d.loaded)),
+        "deck 1 loads"
+    );
+    assert!(
+        ui.wait_until(30.0, |u| crate::engine::snapshot(&u.app)
+            .is_some_and(|s| s.decks[0].track.is_some())),
+        "engine has the track"
+    );
     ui.click("deck1.cdj.play");
-    assert!(ui.wait_until(10.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].playing)), "PLAY starts");
+    assert!(
+        ui.wait_until(10.0, |u| crate::engine::snapshot(&u.app)
+            .is_some_and(|s| s.decks[0].playing)),
+        "PLAY starts"
+    );
     // The lit beat walks through the bar: at least three different beats
     // of 1..4 are seen while it plays.
     let mut seen = std::collections::BTreeSet::new();

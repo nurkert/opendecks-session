@@ -25,7 +25,12 @@ fn io(e: std::io::Error) -> LibraryError {
 impl Library {
     /// Writes the archive to `dest`. With `include_audio`, every existing
     /// audio file goes in under `audio/<id>.<ext>`.
-    pub fn export_archive(&self, dest: &Path, include_audio: bool, mut progress: impl FnMut(usize, usize)) -> Result<usize> {
+    pub fn export_archive(
+        &self,
+        dest: &Path,
+        include_audio: bool,
+        mut progress: impl FnMut(usize, usize),
+    ) -> Result<usize> {
         // A consistent copy of the database next to the archive, removed after.
         let db = dest.with_extension("odlib-db.tmp");
         let _ = std::fs::remove_file(&db);
@@ -35,11 +40,22 @@ impl Library {
         result
     }
 
-    fn write_archive(&self, dest: &Path, db: &Path, include_audio: bool, progress: &mut impl FnMut(usize, usize)) -> Result<usize> {
-        let enc = zstd::Encoder::new(File::create(dest).map_err(io)?, 3).map_err(io)?.auto_finish();
+    fn write_archive(
+        &self,
+        dest: &Path,
+        db: &Path,
+        include_audio: bool,
+        progress: &mut impl FnMut(usize, usize),
+    ) -> Result<usize> {
+        let enc = zstd::Encoder::new(File::create(dest).map_err(io)?, 3)
+            .map_err(io)?
+            .auto_finish();
         let mut tar = tar::Builder::new(enc);
         tar.append_path_with_name(db, DB_NAME).map_err(io)?;
-        let mut manifest = Manifest { format: 1, audio: HashMap::new() };
+        let mut manifest = Manifest {
+            format: 1,
+            audio: HashMap::new(),
+        };
         if include_audio {
             let tracks = self.tracks(crate::SortKey::DateAdded, false)?;
             let total = tracks.len();
@@ -48,18 +64,24 @@ impl Library {
                 if !t.path.is_file() {
                     continue;
                 }
-                let ext = t.path.extension().map(|e| e.to_string_lossy().into_owned()).unwrap_or_default();
+                let ext = t
+                    .path
+                    .extension()
+                    .map(|e| e.to_string_lossy().into_owned())
+                    .unwrap_or_default();
                 let name = format!("audio/{}.{ext}", t.id.0);
                 tar.append_path_with_name(&t.path, &name).map_err(io)?;
                 manifest.audio.insert(t.id.0, name);
             }
         }
-        let json = serde_json::to_vec_pretty(&manifest).map_err(|e| io(std::io::Error::other(e)))?;
+        let json =
+            serde_json::to_vec_pretty(&manifest).map_err(|e| io(std::io::Error::other(e)))?;
         let mut header = tar::Header::new_gnu();
         header.set_size(json.len() as u64);
         header.set_mode(0o644);
         header.set_cksum();
-        tar.append_data(&mut header, MANIFEST, json.as_slice()).map_err(io)?;
+        tar.append_data(&mut header, MANIFEST, json.as_slice())
+            .map_err(io)?;
         tar.finish().map_err(io)?;
         Ok(manifest.audio.len())
     }
@@ -86,8 +108,9 @@ impl Library {
                 entry.unpack(target).map_err(io)?;
             }
         }
-        let manifest: Manifest = serde_json::from_slice(&std::fs::read(dir.join(MANIFEST)).map_err(io)?)
-            .map_err(|e| io(std::io::Error::other(e)))?;
+        let manifest: Manifest =
+            serde_json::from_slice(&std::fs::read(dir.join(MANIFEST)).map_err(io)?)
+                .map_err(|e| io(std::io::Error::other(e)))?;
         let mut lib = Library::open(&dir.join(DB_NAME))?;
         for (id, rel) in &manifest.audio {
             let p: PathBuf = dir.join(rel);

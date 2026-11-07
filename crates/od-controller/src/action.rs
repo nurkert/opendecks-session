@@ -15,8 +15,14 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ControlAction {
-    Deck { deck: u8, action: DeckAction },
-    Mixer { channel: u8, action: MixerAction },
+    Deck {
+        deck: u8,
+        action: DeckAction,
+    },
+    Mixer {
+        channel: u8,
+        action: MixerAction,
+    },
     /// 0.0 = full A side, 1.0 = full B side.
     Crossfader(f32),
     MasterLevel(f32),
@@ -26,7 +32,10 @@ pub enum ControlAction {
     HeadphoneLevel(f32),
     /// Press of the master cue button.
     MasterCue,
-    BeatFx { unit: u8, action: BeatFxAction },
+    BeatFx {
+        unit: u8,
+        action: BeatFxAction,
+    },
     ColorFx(ColorFxAction),
     Browse(BrowseAction),
     Sampler(SamplerAction),
@@ -156,28 +165,50 @@ pub enum DeckAction {
     Quantize,
     JogTouch(bool),
     /// Relative jog movement in hardware ticks (sign = direction).
-    JogTurn { ticks: i32, mode: JogMode },
-    HotCue { slot: u8, pressed: bool },
-    HotCueDelete { slot: u8 },
+    JogTurn {
+        ticks: i32,
+        mode: JogMode,
+    },
+    HotCue {
+        slot: u8,
+        pressed: bool,
+    },
+    HotCueDelete {
+        slot: u8,
+    },
     MemoryCueSet,
     MemoryCueDelete,
     MemoryCuePrev,
     MemoryCueNext,
     LoopIn,
     LoopOut,
-    AutoLoop { beats: f32 },
-    LoopRoll { beats: f32, pressed: bool },
+    AutoLoop {
+        beats: f32,
+    },
+    LoopRoll {
+        beats: f32,
+        pressed: bool,
+    },
     LoopHalve,
     LoopDouble,
     ReloopExit,
-    BeatJump { beats: f32 },
-    Search { forward: bool, pressed: bool },
+    BeatJump {
+        beats: f32,
+    },
+    Search {
+        forward: bool,
+        pressed: bool,
+    },
     Slip,
     VinylMode,
     Shift(bool),
     PadMode(PadMode),
     /// Generic pad hit; the engine interprets it according to the deck's pad mode.
-    Pad { index: u8, pressed: bool, velocity: u8 },
+    Pad {
+        index: u8,
+        pressed: bool,
+        velocity: u8,
+    },
     Load,
     /// Momentary slip-reverse ("censor").
     Censor(bool),
@@ -187,9 +218,14 @@ pub enum DeckAction {
     /// This deck became the active deck on its side of a 4-deck controller.
     DeckSelect,
     /// Stem (part isolator) level 0.0..=1.0 for one part of the track.
-    StemLevel { stem: StemPart, level: f32 },
+    StemLevel {
+        stem: StemPart,
+        level: f32,
+    },
     /// Stem mute button: toggles the part between muted and full level.
-    StemMuteToggle { stem: StemPart },
+    StemMuteToggle {
+        stem: StemPart,
+    },
 }
 
 /// A separated part of a track (see `od_engine::Stem`).
@@ -278,8 +314,14 @@ pub enum BrowseAction {
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum SamplerAction {
-    Pad { slot: u8, pressed: bool, velocity: u8 },
-    Stop { slot: u8 },
+    Pad {
+        slot: u8,
+        pressed: bool,
+        velocity: u8,
+    },
+    Stop {
+        slot: u8,
+    },
     BankNext,
     BankPrev,
     Volume(f32),
@@ -311,7 +353,10 @@ pub enum ParamTarget {
 impl ParamTarget {
     /// Bipolar parameters are expressed as -1..1 in actions; 0..1 otherwise.
     pub fn is_bipolar(self) -> bool {
-        matches!(self, ParamTarget::Tempo { .. } | ParamTarget::ColorFx { .. })
+        matches!(
+            self,
+            ParamTarget::Tempo { .. } | ParamTarget::ColorFx { .. }
+        )
     }
 
     /// Deck or mixer channel this parameter belongs to.
@@ -330,7 +375,11 @@ impl ParamTarget {
 
     /// Converts an action-domain value to the normalised 0..1 domain.
     pub fn to_unit(self, v: f32) -> f32 {
-        if self.is_bipolar() { (v + 1.0) * 0.5 } else { v }
+        if self.is_bipolar() {
+            (v + 1.0) * 0.5
+        } else {
+            v
+        }
     }
 
     /// Converts a normalised 0..1 value to the action domain.
@@ -342,26 +391,47 @@ impl ParamTarget {
     pub fn action(self, value: f32) -> ControlAction {
         use ControlAction as A;
         match self {
-            ParamTarget::Tempo { deck } => A::Deck { deck, action: DeckAction::Tempo(value) },
-            ParamTarget::NeedleSearch { deck } => {
-                A::Deck { deck, action: DeckAction::NeedleSearch(value) }
-            }
-            ParamTarget::Trim { channel } => A::Mixer { channel, action: MixerAction::Trim(value) },
-            ParamTarget::EqHigh { channel } => {
-                A::Mixer { channel, action: MixerAction::EqHigh(value) }
-            }
-            ParamTarget::EqMid { channel } => A::Mixer { channel, action: MixerAction::EqMid(value) },
-            ParamTarget::EqLow { channel } => A::Mixer { channel, action: MixerAction::EqLow(value) },
-            ParamTarget::ColorFx { channel } => {
-                A::Mixer { channel, action: MixerAction::ColorFx(value) }
-            }
-            ParamTarget::Fader { channel } => A::Mixer { channel, action: MixerAction::Fader(value) },
+            ParamTarget::Tempo { deck } => A::Deck {
+                deck,
+                action: DeckAction::Tempo(value),
+            },
+            ParamTarget::NeedleSearch { deck } => A::Deck {
+                deck,
+                action: DeckAction::NeedleSearch(value),
+            },
+            ParamTarget::Trim { channel } => A::Mixer {
+                channel,
+                action: MixerAction::Trim(value),
+            },
+            ParamTarget::EqHigh { channel } => A::Mixer {
+                channel,
+                action: MixerAction::EqHigh(value),
+            },
+            ParamTarget::EqMid { channel } => A::Mixer {
+                channel,
+                action: MixerAction::EqMid(value),
+            },
+            ParamTarget::EqLow { channel } => A::Mixer {
+                channel,
+                action: MixerAction::EqLow(value),
+            },
+            ParamTarget::ColorFx { channel } => A::Mixer {
+                channel,
+                action: MixerAction::ColorFx(value),
+            },
+            ParamTarget::Fader { channel } => A::Mixer {
+                channel,
+                action: MixerAction::Fader(value),
+            },
             ParamTarget::Crossfader => A::Crossfader(value),
             ParamTarget::MasterLevel => A::MasterLevel(value),
             ParamTarget::BoothLevel => A::BoothLevel(value),
             ParamTarget::HeadphoneMix => A::HeadphoneMix(value),
             ParamTarget::HeadphoneLevel => A::HeadphoneLevel(value),
-            ParamTarget::BeatFxLevel { unit } => A::BeatFx { unit, action: BeatFxAction::Level(value) },
+            ParamTarget::BeatFxLevel { unit } => A::BeatFx {
+                unit,
+                action: BeatFxAction::Level(value),
+            },
             ParamTarget::SamplerVolume => A::Sampler(SamplerAction::Volume(value)),
         }
     }
@@ -372,10 +442,14 @@ impl ControlAction {
     pub fn param(&self) -> Option<(ParamTarget, f32)> {
         use ControlAction as A;
         Some(match self {
-            A::Deck { deck, action: DeckAction::Tempo(v) } => (ParamTarget::Tempo { deck: *deck }, *v),
-            A::Deck { deck, action: DeckAction::NeedleSearch(v) } => {
-                (ParamTarget::NeedleSearch { deck: *deck }, *v)
-            }
+            A::Deck {
+                deck,
+                action: DeckAction::Tempo(v),
+            } => (ParamTarget::Tempo { deck: *deck }, *v),
+            A::Deck {
+                deck,
+                action: DeckAction::NeedleSearch(v),
+            } => (ParamTarget::NeedleSearch { deck: *deck }, *v),
             A::Mixer { channel, action } => {
                 let c = *channel;
                 match action {
@@ -393,9 +467,10 @@ impl ControlAction {
             A::BoothLevel(v) => (ParamTarget::BoothLevel, *v),
             A::HeadphoneMix(v) => (ParamTarget::HeadphoneMix, *v),
             A::HeadphoneLevel(v) => (ParamTarget::HeadphoneLevel, *v),
-            A::BeatFx { unit, action: BeatFxAction::Level(v) } => {
-                (ParamTarget::BeatFxLevel { unit: *unit }, *v)
-            }
+            A::BeatFx {
+                unit,
+                action: BeatFxAction::Level(v),
+            } => (ParamTarget::BeatFxLevel { unit: *unit }, *v),
             A::Sampler(SamplerAction::Volume(v)) => (ParamTarget::SamplerVolume, *v),
             _ => return None,
         })

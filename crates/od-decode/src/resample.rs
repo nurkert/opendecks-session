@@ -7,7 +7,11 @@ use std::f64::consts::PI;
 const HALF_TAPS: i64 = 16;
 
 fn sinc(x: f64) -> f64 {
-    if x.abs() < 1e-12 { 1.0 } else { (PI * x).sin() / (PI * x) }
+    if x.abs() < 1e-12 {
+        1.0
+    } else {
+        (PI * x).sin() / (PI * x)
+    }
 }
 
 fn blackman(n: f64, half: f64) -> f64 {
@@ -47,7 +51,11 @@ pub fn resample(input: &[f32], channels: usize, from: u32, to: u32) -> Vec<f32> 
                 acc[c] += input[base + c] as f64 * w;
             }
         }
-        let norm = if norm.abs() < 1e-12 { 1.0 } else { norm / cutoff.min(1.0) * cutoff.min(1.0) };
+        let norm = if norm.abs() < 1e-12 {
+            1.0
+        } else {
+            norm / cutoff.min(1.0) * cutoff.min(1.0)
+        };
         for c in 0..channels {
             out[o * channels + c] = (acc[c] / norm) as f32;
         }
@@ -60,7 +68,9 @@ mod tests {
     use super::*;
 
     fn tone(rate: u32, freq: f64, n: usize) -> Vec<f32> {
-        (0..n).map(|i| (2.0 * PI * freq * i as f64 / rate as f64).sin() as f32).collect()
+        (0..n)
+            .map(|i| (2.0 * PI * freq * i as f64 / rate as f64).sin() as f32)
+            .collect()
     }
 
     #[test]
@@ -82,7 +92,10 @@ mod tests {
 
     #[test]
     fn upsampling_interleaved() {
-        let x: Vec<f32> = tone(22_050, 500.0, 2205).into_iter().flat_map(|v| [v, -v]).collect();
+        let x: Vec<f32> = tone(22_050, 500.0, 2205)
+            .into_iter()
+            .flat_map(|v| [v, -v])
+            .collect();
         let y = resample(&x, 2, 22_050, 44_100);
         assert_eq!(y.len(), 4410 * 2);
         assert!((y[2000] + y[2001]).abs() < 1e-4);

@@ -90,7 +90,12 @@ fn package_name(manifest: &Path) -> Option<String> {
         .map(str::to_owned)
 }
 
-fn scan_package(root: &Path, pkg_dir: &Path, pkg: &str, index: &mut TestIndex) -> std::io::Result<()> {
+fn scan_package(
+    root: &Path,
+    pkg_dir: &Path,
+    pkg: &str,
+    index: &mut TestIndex,
+) -> std::io::Result<()> {
     // Library and binary sources: module path from the file location.
     let src = pkg_dir.join("src");
     for file in rust_files(&src)? {
@@ -245,9 +250,7 @@ fn tokenize(src: &str) -> Vec<(Tok, usize)> {
             }
             i += 1;
             line += bump_lines(&chars[start..i.min(n)]);
-        } else if (c == 'r' || c == 'b')
-            && raw_string_start(&chars, i).is_some()
-        {
+        } else if (c == 'r' || c == 'b') && raw_string_start(&chars, i).is_some() {
             let (hashes, body) = raw_string_start(&chars, i).unwrap();
             let start = i;
             i = body;

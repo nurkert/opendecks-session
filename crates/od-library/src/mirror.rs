@@ -24,7 +24,10 @@ pub struct MirrorTrack {
 impl Library {
     /// Collects the mirror data of a track from this library.
     pub fn mirror_track_data(&self, id: TrackId) -> Result<MirrorTrack> {
-        let grid_source = self.beatgrid_with_source(id)?.map(|g| g.1).unwrap_or(DataSource::Analysis);
+        let grid_source = self
+            .beatgrid_with_source(id)?
+            .map(|g| g.1)
+            .unwrap_or(DataSource::Analysis);
         Ok(MirrorTrack {
             record: self.track(id)?,
             analysis: self.analysis(id)?,
@@ -161,7 +164,10 @@ impl Library {
     /// Reads a value from the `meta` table.
     pub fn meta(&self, key: &str) -> Result<Option<String>> {
         use rusqlite::OptionalExtension;
-        Ok(self.conn.query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0)).optional()?)
+        Ok(self
+            .conn
+            .query_row("SELECT value FROM meta WHERE key = ?1", [key], |r| r.get(0))
+            .optional()?)
     }
 
     pub fn set_meta(&mut self, key: &str, value: &str) -> Result<()> {
@@ -174,7 +180,9 @@ impl Library {
 
     /// Timestamp in the library's format.
     pub fn now(&self) -> Result<String> {
-        Ok(self.conn.query_row(&format!("SELECT {NOW}"), [], |r| r.get(0))?)
+        Ok(self
+            .conn
+            .query_row(&format!("SELECT {NOW}"), [], |r| r.get(0))?)
     }
 }
 
@@ -191,7 +199,8 @@ mod tests {
         let a = track(&mut src, "A", None, None);
         let b = track(&mut src, "B", None, None);
         src.set_cues(a, vec![Cue::hot(2, 3.5)]).unwrap();
-        src.set_beatgrid(a, Beatgrid::constant(125.0, 0.2, 1, 30.0)).unwrap();
+        src.set_beatgrid(a, Beatgrid::constant(125.0, 0.2, 1, 30.0))
+            .unwrap();
         let pl = src.create_node(None, NodeKind::Playlist, "P").unwrap();
         src.add_to_node(pl, &[b, a], None).unwrap();
 
@@ -201,16 +210,29 @@ mod tests {
             t.record.path = format!("Contents/{id}.mp3").into();
             dst.mirror_put_track(&t).unwrap();
         }
-        dst.mirror_replace_tree(&[(src.node(pl).unwrap(), src.entries(pl).unwrap())]).unwrap();
+        dst.mirror_replace_tree(&[(src.node(pl).unwrap(), src.entries(pl).unwrap())])
+            .unwrap();
         assert_eq!(dst.cues(a).unwrap(), src.cues(a).unwrap());
-        assert_eq!(dst.beatgrid_with_source(a).unwrap(), src.beatgrid_with_source(a).unwrap());
+        assert_eq!(
+            dst.beatgrid_with_source(a).unwrap(),
+            src.beatgrid_with_source(a).unwrap()
+        );
         assert_eq!(dst.track(a).unwrap().bpm, Some(125.0));
-        assert_eq!(dst.node_tracks(pl).unwrap().iter().map(|t| t.id).collect::<Vec<_>>(), vec![b, a]);
+        assert_eq!(
+            dst.node_tracks(pl)
+                .unwrap()
+                .iter()
+                .map(|t| t.id)
+                .collect::<Vec<_>>(),
+            vec![b, a]
+        );
         // Updating keeps one row.
         let t = src.mirror_track_data(a).unwrap();
         dst.mirror_put_track(&t).unwrap();
         assert_eq!(dst.track_count().unwrap(), 2);
-        let removed = dst.mirror_retain_tracks(&[a].into_iter().collect()).unwrap();
+        let removed = dst
+            .mirror_retain_tracks(&[a].into_iter().collect())
+            .unwrap();
         assert_eq!(removed.len(), 1);
         assert_eq!(dst.node_tracks(pl).unwrap().len(), 1);
     }

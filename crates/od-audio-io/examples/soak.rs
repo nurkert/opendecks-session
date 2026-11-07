@@ -17,11 +17,18 @@ fn main() -> anyhow::Result<()> {
     let mut args = std::env::args().skip(1);
     let seconds: u64 = args.next().and_then(|v| v.parse().ok()).unwrap_or(3600);
     let buffer: u32 = args.next().and_then(|v| v.parse().ok()).unwrap_or(128);
-    let profile = if args.next().as_deref() == Some("lite") { Profile::Lite } else { Profile::Full };
+    let profile = if args.next().as_deref() == Some("lite") {
+        Profile::Lite
+    } else {
+        Profile::Full
+    };
     let files: Vec<std::path::PathBuf> = args.map(Into::into).collect();
     anyhow::ensure!(!files.is_empty(), "give at least one audio file");
 
-    let cfg = AudioConfig { buffer_frames: Some(buffer), ..Default::default() };
+    let cfg = AudioConfig {
+        buffer_frames: Some(buffer),
+        ..Default::default()
+    };
     let neg = AudioHost::negotiate(&cfg)?;
     let (mut engine, processor) = Engine::new(EngineConfig {
         sample_rate: neg.sample_rate,
@@ -33,7 +40,8 @@ fn main() -> anyhow::Result<()> {
     for d in 0..4 {
         let path = &files[d % files.len()];
         let analysis = od_analysis::analyze_file(path, &Default::default())?;
-        let track = engine.prepare_track(TrackId(d as i64 + 1), path, analysis.beatgrid, &[], 0.0)?;
+        let track =
+            engine.prepare_track(TrackId(d as i64 + 1), path, analysis.beatgrid, &[], 0.0)?;
         engine.deck(d, DeckCommand::Load(track))?;
     }
     let host = AudioHost::start(&cfg, processor)?;
@@ -57,7 +65,10 @@ fn main() -> anyhow::Result<()> {
         engine.send(Command::Channel(d, ChannelCommand::SetColorFxAmount(0.3)))?;
         engine.deck(d, DeckCommand::Play)?;
     }
-    for (unit, kind, target) in [(0, BeatFxKind::Echo, FxTarget::Master), (1, BeatFxKind::Reverb, FxTarget::Channel(1))] {
+    for (unit, kind, target) in [
+        (0, BeatFxKind::Echo, FxTarget::Master),
+        (1, BeatFxKind::Reverb, FxTarget::Channel(1)),
+    ] {
         engine.send(Command::BeatFx(unit, BeatFxCommand::SetKind(kind)))?;
         engine.send(Command::BeatFx(unit, BeatFxCommand::SetTarget(target)))?;
         engine.send(Command::BeatFx(unit, BeatFxCommand::SetLevel(0.5)))?;
@@ -83,10 +94,17 @@ fn main() -> anyhow::Result<()> {
         engine.collect_garbage();
         if start.elapsed() >= next_report {
             // Fine-grained during the first minute, then once a minute.
-            next_report += if next_report < Duration::from_secs(60) { Duration::from_secs(5) } else { Duration::from_secs(300) };
+            next_report += if next_report < Duration::from_secs(60) {
+                Duration::from_secs(5)
+            } else {
+                Duration::from_secs(300)
+            };
             // Move the master tempo at every report to keep keylock and sync busy.
             tempo_step += 1;
-            engine.deck(0, DeckCommand::SetTempoFader(((tempo_step % 7) as f32 - 3.0) / 10.0))?;
+            engine.deck(
+                0,
+                DeckCommand::SetTempoFader(((tempo_step % 7) as f32 - 3.0) / 10.0),
+            )?;
             let s = host.stats();
             println!(
                 "{:>5.0} s | dropouts {} (xruns {}, overruns {}) | load {:4.1}% peak {:4.1}% | recorded {:.0} s | lost {}",

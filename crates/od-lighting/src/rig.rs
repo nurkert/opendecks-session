@@ -21,18 +21,31 @@ pub enum LiveCommand {
     /// Previous cue.
     CueBack,
     /// A cue of the stack by index.
-    Cue { index: usize },
-    Flash { on: bool },
-    Strobe { on: bool },
-    Fog { on: bool },
-    Blackout { on: bool },
+    Cue {
+        index: usize,
+    },
+    Flash {
+        on: bool,
+    },
+    Strobe {
+        on: bool,
+    },
+    Fog {
+        on: bool,
+    },
+    Blackout {
+        on: bool,
+    },
     /// One tap of the tap tempo (used while no deck plays).
     Tap,
 }
 
 /// The rig file of the library at `library`.
 pub fn rig_path(library: &Path) -> PathBuf {
-    library.parent().map(|d| d.join("lighting.json")).unwrap_or_else(|| PathBuf::from("lighting.json"))
+    library
+        .parent()
+        .map(|d| d.join("lighting.json"))
+        .unwrap_or_else(|| PathBuf::from("lighting.json"))
 }
 
 /// The inbox of the rig at `rig` (`lighting.json`).
@@ -44,24 +57,36 @@ pub fn inbox_dir(rig: &Path) -> PathBuf {
 pub fn send(rig: &Path, cmd: &LiveCommand) -> std::io::Result<()> {
     let dir = inbox_dir(rig);
     std::fs::create_dir_all(&dir)?;
-    let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_nanos()).unwrap_or(0);
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_nanos())
+        .unwrap_or(0);
     let name = format!("{nanos:024}-{}", std::process::id());
     let tmp = dir.join(format!("{name}.part"));
-    std::fs::write(&tmp, serde_json::to_vec(cmd).map_err(std::io::Error::other)?)?;
+    std::fs::write(
+        &tmp,
+        serde_json::to_vec(cmd).map_err(std::io::Error::other)?,
+    )?;
     std::fs::rename(tmp, dir.join(format!("{name}.json")))
 }
 
 /// Takes the waiting commands in the order they were sent (unreadable
 /// files are dropped).
 pub fn drain(rig: &Path) -> Vec<LiveCommand> {
-    let Ok(entries) = std::fs::read_dir(inbox_dir(rig)) else { return Vec::new() };
-    let mut files: Vec<PathBuf> =
-        entries.filter_map(|e| e.ok().map(|e| e.path())).filter(|p| p.extension().is_some_and(|x| x == "json")).collect();
+    let Ok(entries) = std::fs::read_dir(inbox_dir(rig)) else {
+        return Vec::new();
+    };
+    let mut files: Vec<PathBuf> = entries
+        .filter_map(|e| e.ok().map(|e| e.path()))
+        .filter(|p| p.extension().is_some_and(|x| x == "json"))
+        .collect();
     files.sort();
     files
         .into_iter()
         .filter_map(|p| {
-            let cmd = std::fs::read(&p).ok().and_then(|b| serde_json::from_slice(&b).ok());
+            let cmd = std::fs::read(&p)
+                .ok()
+                .and_then(|b| serde_json::from_slice(&b).ok());
             let _ = std::fs::remove_file(&p);
             cmd
         })
@@ -160,4 +185,3 @@ pub fn parse_output(kind: &str, target: &str) -> Result<OutputKind, String> {
         _ => Err(format!("unknown output {kind}")),
     }
 }
-

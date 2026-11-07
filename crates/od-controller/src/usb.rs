@@ -27,22 +27,36 @@ pub fn list_usb_devices() -> Vec<UsbDevice> {
 #[cfg(target_os = "linux")]
 fn linux() -> Vec<UsbDevice> {
     let mut out = Vec::new();
-    let Ok(rd) = std::fs::read_dir("/sys/bus/usb/devices") else { return out };
+    let Ok(rd) = std::fs::read_dir("/sys/bus/usb/devices") else {
+        return out;
+    };
     for e in rd.flatten() {
         let p = e.path();
-        let read = |f: &str| std::fs::read_to_string(p.join(f)).ok().map(|s| s.trim().to_string());
-        let (Some(v), Some(pid)) = (read("idVendor"), read("idProduct")) else { continue };
+        let read = |f: &str| {
+            std::fs::read_to_string(p.join(f))
+                .ok()
+                .map(|s| s.trim().to_string())
+        };
+        let (Some(v), Some(pid)) = (read("idVendor"), read("idProduct")) else {
+            continue;
+        };
         let (Ok(v), Ok(pid)) = (u16::from_str_radix(&v, 16), u16::from_str_radix(&pid, 16)) else {
             continue;
         };
-        out.push(UsbDevice { vendor_id: v, product_id: pid, product: read("product") });
+        out.push(UsbDevice {
+            vendor_id: v,
+            product_id: pid,
+            product: read("product"),
+        });
     }
     out
 }
 
 #[cfg(target_os = "macos")]
 fn macos() -> Vec<UsbDevice> {
-    let Ok(o) = std::process::Command::new("/usr/sbin/ioreg").args(["-p", "IOUSB", "-l", "-w0"]).output()
+    let Ok(o) = std::process::Command::new("/usr/sbin/ioreg")
+        .args(["-p", "IOUSB", "-l", "-w0"])
+        .output()
     else {
         return Vec::new();
     };
@@ -56,7 +70,11 @@ pub(crate) fn parse_ioreg(text: &str) -> Vec<UsbDevice> {
     let mut cur: (Option<u16>, Option<u16>, Option<String>) = (None, None, None);
     let flush = |cur: &mut (Option<u16>, Option<u16>, Option<String>), out: &mut Vec<UsbDevice>| {
         if let (Some(v), Some(p)) = (cur.0, cur.1) {
-            out.push(UsbDevice { vendor_id: v, product_id: p, product: cur.2.clone() });
+            out.push(UsbDevice {
+                vendor_id: v,
+                product_id: p,
+                product: cur.2.clone(),
+            });
         }
         *cur = (None, None, None);
     };
@@ -65,7 +83,9 @@ pub(crate) fn parse_ioreg(text: &str) -> Vec<UsbDevice> {
             flush(&mut cur, &mut out);
             continue;
         }
-        let Some((k, v)) = line.split_once(" = ") else { continue };
+        let Some((k, v)) = line.split_once(" = ") else {
+            continue;
+        };
         let k = k.trim().trim_start_matches('|').trim().trim_matches('"');
         let v = v.trim();
         match k {

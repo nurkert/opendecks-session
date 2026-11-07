@@ -230,7 +230,9 @@ impl Ui {
         let fixture: Vec<od_core::TrackId> = ui.fx.tracks.iter().map(|(id, _)| *id).collect();
         ui.wait_until(60.0, |u| {
             let lib = u.fx.lib();
-            fixture.iter().all(|id| lib.track(*id).is_ok_and(|t| t.bpm.is_some()))
+            fixture
+                .iter()
+                .all(|id| lib.track(*id).is_ok_and(|t| t.bpm.is_some()))
                 && slint::Model::iter(&u.app.ui.get_tracks()).all(|r| r.analysed || r.id < 0)
         });
         ui.pump(100);

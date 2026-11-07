@@ -84,8 +84,10 @@ pub(crate) fn open_copy(rb_dir: &Path) -> Result<MasterCopy> {
         OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX,
     )?;
     // Fail early with a clear error if this is not a rekordbox library.
-    conn.query_row("SELECT count(*) FROM djmdContent", [], |r| r.get::<_, i64>(0))
-        .map_err(|e| ImportError::Invalid(format!("not a rekordbox library database: {e}")))?;
+    conn.query_row("SELECT count(*) FROM djmdContent", [], |r| {
+        r.get::<_, i64>(0)
+    })
+    .map_err(|e| ImportError::Invalid(format!("not a rekordbox library database: {e}")))?;
     Ok(MasterCopy { conn, _dir: dir })
 }
 
@@ -108,24 +110,34 @@ fn int(r: &Row, i: usize) -> rusqlite::Result<i64> {
 }
 
 fn has_table(conn: &Connection, name: &str) -> bool {
-    conn.query_row("SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?1", [name], |r| {
-        r.get::<_, i64>(0)
-    })
+    conn.query_row(
+        "SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?1",
+        [name],
+        |r| r.get::<_, i64>(0),
+    )
     .map(|n| n > 0)
     .unwrap_or(false)
 }
 
 /// rekordbox rating to 0..=5 stars.
 pub(crate) fn rating(v: i64) -> u8 {
-    if v <= 5 { v.max(0) as u8 } else { ((v.min(255) + 25) / 51) as u8 }
+    if v <= 5 {
+        v.max(0) as u8
+    } else {
+        ((v.min(255) + 25) / 51) as u8
+    }
 }
 
 fn track_color(id: i64) -> Option<od_core::CueColor> {
-    (1..=8).contains(&id).then(|| TRACK_COLORS[id as usize - 1].1)
+    (1..=8)
+        .contains(&id)
+        .then(|| TRACK_COLORS[id as usize - 1].1)
 }
 
 fn hot_palette(code: i64) -> Option<od_core::CueColor> {
-    (1..=HOT_CUE_PALETTE.len() as i64).contains(&code).then(|| HOT_CUE_PALETTE[code as usize - 1])
+    (1..=HOT_CUE_PALETTE.len() as i64)
+        .contains(&code)
+        .then(|| HOT_CUE_PALETTE[code as usize - 1])
 }
 
 /// Hot cue slot of a `djmdCue.Kind` value.
@@ -218,14 +230,21 @@ pub(crate) fn read(conn: &Connection, rb_dir: &Path, with_smart: bool) -> Result
     for t in rows {
         let t = t?;
         if t.path.as_os_str().is_empty() {
-            lib.skipped.push((t.tags.title.clone(), "no file path (streaming or cloud track)".into()));
+            lib.skipped.push((
+                t.tags.title.clone(),
+                "no file path (streaming or cloud track)".into(),
+            ));
             continue;
         }
         lib.tracks.push(t);
     }
     drop(stmt);
-    let index: HashMap<String, usize> =
-        lib.tracks.iter().enumerate().map(|(i, t)| (t.src_id.clone(), i)).collect();
+    let index: HashMap<String, usize> = lib
+        .tracks
+        .iter()
+        .enumerate()
+        .map(|(i, t)| (t.src_id.clone(), i))
+        .collect();
 
     // Cues.
     let mut stmt = conn.prepare(&format!(
@@ -235,7 +254,9 @@ pub(crate) fn read(conn: &Connection, rb_dir: &Path, with_smart: bool) -> Result
     let mut unknown_kinds = 0usize;
     let mut rows = stmt.query([])?;
     while let Some(r) = rows.next()? {
-        let Some(&ti) = index.get(&text(r, 0)?) else { continue };
+        let Some(&ti) = index.get(&text(r, 0)?) else {
+            continue;
+        };
         let kind = int(r, 3)?;
         let (in_ms, out_ms) = (int(r, 1)?, int(r, 2)?);
         let (color, table) = (int(r, 4)?, int(r, 5)?);
@@ -262,13 +283,18 @@ pub(crate) fn read(conn: &Connection, rb_dir: &Path, with_smart: bool) -> Result
             source: DataSource::Imported,
             active: false,
         };
-        lib.tracks[ti].db_cues.get_or_insert_with(Vec::new).push(cue);
+        lib.tracks[ti]
+            .db_cues
+            .get_or_insert_with(Vec::new)
+            .push(cue);
         lib.db_cue_count += 1;
     }
     drop(rows);
     drop(stmt);
     if unknown_kinds > 0 {
-        lib.notes.push(format!("{unknown_kinds} cue(s) of an unknown kind were not imported"));
+        lib.notes.push(format!(
+            "{unknown_kinds} cue(s) of an unknown kind were not imported"
+        ));
     }
 
     // Playlists.
@@ -313,14 +339,18 @@ pub(crate) fn read(conn: &Connection, rb_dir: &Path, with_smart: bool) -> Result
                         match smart::evaluate(&text(r, 5)?, &lib.tracks) {
                             Ok(ids) => node.tracks = ids,
                             Err(reason) => {
-                                lib.skipped.push((format!("smart playlist \"{}\"", node.name), reason));
+                                lib.skipped
+                                    .push((format!("smart playlist \"{}\"", node.name), reason));
                                 continue;
                             }
                         }
                     }
                 }
                 other => {
-                    lib.skipped.push((format!("playlist \"{}\"", node.name), format!("unknown type {other}")));
+                    lib.skipped.push((
+                        format!("playlist \"{}\"", node.name),
+                        format!("unknown type {other}"),
+                    ));
                     continue;
                 }
             }
@@ -344,8 +374,9 @@ pub(crate) fn read(conn: &Connection, rb_dir: &Path, with_smart: bool) -> Result
         }
         drop(rows);
         drop(stmt);
-        let mut stmt =
-            conn.prepare(&format!("SELECT ID, Name, Attribute, ParentID, Seq FROM djmdHistory WHERE {NOT_DELETED}"))?;
+        let mut stmt = conn.prepare(&format!(
+            "SELECT ID, Name, Attribute, ParentID, Seq FROM djmdHistory WHERE {NOT_DELETED}"
+        ))?;
         let mut rows = stmt.query([])?;
         while let Some(r) = rows.next()? {
             let id = text(r, 0)?;

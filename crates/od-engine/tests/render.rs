@@ -760,7 +760,12 @@ fn tempo_sync_matches_bpm_but_leaves_the_phase() {
     let mut rig = Rig::new(2);
     let n = 30 * SR as usize;
     let a = sine_track(1, 30.0, 220.0, 0.3, 128.0);
-    let b = track_from(2, (0..n).flat_map(|_| [0.1f32, 0.1]).collect(), 124.0, 0.123);
+    let b = track_from(
+        2,
+        (0..n).flat_map(|_| [0.1f32, 0.1]).collect(),
+        124.0,
+        0.123,
+    );
     rig.deck(0, DeckCommand::Load(a));
     rig.deck(1, DeckCommand::Load(b));
     rig.deck(0, DeckCommand::Play);
@@ -774,7 +779,17 @@ fn tempo_sync_matches_bpm_but_leaves_the_phase() {
     let first = phase(&rig.state());
     rig.render(400);
     let st = rig.state();
-    assert!((st.decks[0].bpm - st.decks[1].bpm).abs() < 1e-6, "tempo matched");
-    assert!((phase(&st) - first).abs() < 0.01, "phase left alone: {first} → {}", phase(&st));
-    assert!(first > 0.05 && first < 0.95, "the decks are out of phase to begin with: {first}");
+    assert!(
+        (st.decks[0].bpm - st.decks[1].bpm).abs() < 1e-6,
+        "tempo matched"
+    );
+    assert!(
+        (phase(&st) - first).abs() < 0.01,
+        "phase left alone: {first} → {}",
+        phase(&st)
+    );
+    assert!(
+        first > 0.05 && first < 0.95,
+        "the decks are out of phase to begin with: {first}"
+    );
 }

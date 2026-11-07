@@ -87,7 +87,11 @@ pub struct Entry {
 
 impl Entry {
     pub fn new(track: TrackId) -> Self {
-        Self { track, note: String::new(), backups: Vec::new() }
+        Self {
+            track,
+            note: String::new(),
+            backups: Vec::new(),
+        }
     }
 }
 
@@ -118,9 +122,13 @@ fn node_from_row(r: &rusqlite::Row) -> rusqlite::Result<Node> {
 const NODE_COLUMNS: &str = "id, parent_id, kind, name, sort_order, smart_rule, set_meta, created";
 
 pub(crate) fn read_node(conn: &Connection, id: NodeId) -> Result<Node> {
-    conn.query_row(&format!("SELECT {NODE_COLUMNS} FROM node WHERE id = ?1"), [id.0], node_from_row)
-        .optional()?
-        .ok_or_else(|| LibraryError::NotFound(format!("node {id}")))
+    conn.query_row(
+        &format!("SELECT {NODE_COLUMNS} FROM node WHERE id = ?1"),
+        [id.0],
+        node_from_row,
+    )
+    .optional()?
+    .ok_or_else(|| LibraryError::NotFound(format!("node {id}")))
 }
 
 fn insert_node(conn: &Connection, n: &Node) -> Result<()> {
@@ -133,7 +141,10 @@ fn insert_node(conn: &Connection, n: &Node) -> Result<()> {
             n.kind.as_str(),
             n.name,
             n.sort_order,
-            n.smart_rule.as_ref().map(serde_json::to_string).transpose()?,
+            n.smart_rule
+                .as_ref()
+                .map(serde_json::to_string)
+                .transpose()?,
             n.set_meta.as_ref().map(serde_json::to_string).transpose()?,
             n.created
         ],
@@ -151,7 +162,10 @@ pub(crate) fn write_node(conn: &Connection, n: &Node) -> Result<()> {
             n.kind.as_str(),
             n.name,
             n.sort_order,
-            n.smart_rule.as_ref().map(serde_json::to_string).transpose()?,
+            n.smart_rule
+                .as_ref()
+                .map(serde_json::to_string)
+                .transpose()?,
             n.set_meta.as_ref().map(serde_json::to_string).transpose()?
         ],
     )?;
@@ -179,7 +193,13 @@ pub(crate) fn write_entries(conn: &Connection, node: NodeId, entries: &[Entry]) 
         "INSERT INTO entry (node_id, position, track_id, note, backups) VALUES (?1, ?2, ?3, ?4, ?5)",
     )?;
     for (i, e) in entries.iter().enumerate() {
-        stmt.execute(params![node.0, i as i64, e.track.0, e.note, serde_json::to_string(&e.backups)?])?;
+        stmt.execute(params![
+            node.0,
+            i as i64,
+            e.track.0,
+            e.note,
+            serde_json::to_string(&e.backups)?
+        ])?;
     }
     Ok(())
 }
@@ -189,11 +209,17 @@ pub(crate) fn descendants(conn: &Connection, root: NodeId) -> Result<Vec<NodeId>
         "WITH RECURSIVE sub(id) AS (SELECT ?1 UNION ALL SELECT n.id FROM node n JOIN sub ON n.parent_id = sub.id)
          SELECT id FROM sub",
     )?;
-    Ok(stmt.query_map([root.0], |r| Ok(NodeId(r.get(0)?)))?.collect::<rusqlite::Result<_>>()?)
+    Ok(stmt
+        .query_map([root.0], |r| Ok(NodeId(r.get(0)?)))?
+        .collect::<rusqlite::Result<_>>()?)
 }
 
 pub(crate) fn capture_subtree(conn: &Connection, root: NodeId) -> Result<Option<Subtree>> {
-    let exists: bool = conn.query_row("SELECT count(*) > 0 FROM node WHERE id = ?1", [root.0], |r| r.get(0))?;
+    let exists: bool = conn.query_row(
+        "SELECT count(*) > 0 FROM node WHERE id = ?1",
+        [root.0],
+        |r| r.get(0),
+    )?;
     if !exists {
         return Ok(None);
     }
@@ -204,12 +230,17 @@ pub(crate) fn capture_subtree(conn: &Connection, root: NodeId) -> Result<Option<
     for id in &ids {
         nodes.push(read_node(conn, *id)?);
         entries.push((*id, read_entries(conn, *id)?));
-        let mut stmt = conn.prepare_cached("SELECT device_id FROM device_node WHERE node_id = ?1")?;
+        let mut stmt =
+            conn.prepare_cached("SELECT device_id FROM device_node WHERE node_id = ?1")?;
         for d in stmt.query_map([id.0], |r| r.get::<_, i64>(0))? {
             device_links.push((DeviceId(d?), *id));
         }
     }
-    Ok(Some(Subtree { nodes, entries, device_links }))
+    Ok(Some(Subtree {
+        nodes,
+        entries,
+        device_links,
+    }))
 }
 
 pub(crate) fn delete_subtree(conn: &Connection, root: NodeId) -> Result<()> {
@@ -236,22 +267,32 @@ pub(crate) fn restore_subtree(conn: &Connection, t: &Subtree) -> Result<()> {
 
 impl Library {
     /// Creates a node as the last child of `parent`.
-    pub fn create_node(&mut self, parent: Option<NodeId>, kind: NodeKind, name: &str) -> Result<NodeId> {
+    pub fn create_node(
+        &mut self,
+        parent: Option<NodeId>,
+        kind: NodeKind,
+        name: &str,
+    ) -> Result<NodeId> {
         let name = name.to_string();
         self.tx(|tx| {
             if let Some(p) = parent {
                 if read_node(tx, p)?.kind != NodeKind::Folder {
-                    return Err(LibraryError::Invalid("only folders can contain other nodes".into()));
+                    return Err(LibraryError::Invalid(
+                        "only folders can contain other nodes".into(),
+                    ));
                 }
             }
-            let id = NodeId(tx.query_row("SELECT coalesce(max(id), 0) + 1 FROM node", [], |r| r.get(0))?);
+            let id = NodeId(tx.query_row(
+                "SELECT coalesce(max(id), 0) + 1 FROM node",
+                [],
+                |r| r.get(0),
+            )?);
             let sort_order: i64 = tx.query_row(
                 "SELECT coalesce(max(sort_order), -1) + 1 FROM node WHERE parent_id IS ?1",
                 [parent.map(|p| p.0)],
                 |r| r.get(0),
             )?;
-            let created: String =
-                tx.query_row(&format!("SELECT {NOW}"), [], |r| r.get(0))?;
+            let created: String = tx.query_row(&format!("SELECT {NOW}"), [], |r| r.get(0))?;
             let node = Node {
                 id,
                 parent,
@@ -268,7 +309,11 @@ impl Library {
                 &label,
                 vec![EntityState::Subtree {
                     root: id,
-                    tree: Some(Subtree { nodes: vec![node], entries: vec![], device_links: vec![] }),
+                    tree: Some(Subtree {
+                        nodes: vec![node],
+                        entries: vec![],
+                        device_links: vec![],
+                    }),
                 }],
             )?;
             Ok(id)
@@ -285,9 +330,15 @@ impl Library {
         if let Some(p) = parent
             && read_node(conn, p)?.kind != NodeKind::Folder
         {
-            return Err(LibraryError::Invalid("only folders can contain other nodes".into()));
+            return Err(LibraryError::Invalid(
+                "only folders can contain other nodes".into(),
+            ));
         }
-        let id = NodeId(conn.query_row("SELECT coalesce(max(id), 0) + 1 FROM node", [], |r| r.get(0))?);
+        let id = NodeId(
+            conn.query_row("SELECT coalesce(max(id), 0) + 1 FROM node", [], |r| {
+                r.get(0)
+            })?,
+        );
         let sort_order: i64 = conn.query_row(
             "SELECT coalesce(max(sort_order), -1) + 1 FROM node WHERE parent_id IS ?1",
             [parent.map(|p| p.0)],
@@ -315,14 +366,19 @@ impl Library {
         let mut stmt = self.conn.prepare_cached(&format!(
             "SELECT {NODE_COLUMNS} FROM node WHERE parent_id IS ?1 ORDER BY sort_order, id"
         ))?;
-        Ok(stmt.query_map([parent.map(|p| p.0)], node_from_row)?.collect::<rusqlite::Result<_>>()?)
+        Ok(stmt
+            .query_map([parent.map(|p| p.0)], node_from_row)?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     /// All nodes.
     pub fn all_nodes(&self) -> Result<Vec<Node>> {
-        let mut stmt =
-            self.conn.prepare(&format!("SELECT {NODE_COLUMNS} FROM node ORDER BY parent_id, sort_order, id"))?;
-        Ok(stmt.query_map([], node_from_row)?.collect::<rusqlite::Result<_>>()?)
+        let mut stmt = self.conn.prepare(&format!(
+            "SELECT {NODE_COLUMNS} FROM node ORDER BY parent_id, sort_order, id"
+        ))?;
+        Ok(stmt
+            .query_map([], node_from_row)?
+            .collect::<rusqlite::Result<_>>()?)
     }
 
     pub fn descendants(&self, root: NodeId) -> Result<Vec<NodeId>> {
@@ -339,13 +395,21 @@ impl Library {
     pub fn move_node(&mut self, id: NodeId, parent: Option<NodeId>, index: usize) -> Result<()> {
         if let Some(p) = parent {
             if self.descendants(id)?.contains(&p) {
-                return Err(LibraryError::Invalid("cannot move a folder into itself".into()));
+                return Err(LibraryError::Invalid(
+                    "cannot move a folder into itself".into(),
+                ));
             }
             if self.node(p)?.kind != NodeKind::Folder {
-                return Err(LibraryError::Invalid("only folders can contain other nodes".into()));
+                return Err(LibraryError::Invalid(
+                    "only folders can contain other nodes".into(),
+                ));
             }
         }
-        let mut siblings: Vec<Node> = self.children(parent)?.into_iter().filter(|n| n.id != id).collect();
+        let mut siblings: Vec<Node> = self
+            .children(parent)?
+            .into_iter()
+            .filter(|n| n.id != id)
+            .collect();
         let mut node = self.node(id)?;
         node.parent = parent;
         siblings.insert(index.min(siblings.len()), node);
@@ -362,7 +426,13 @@ impl Library {
 
     pub fn delete_node(&mut self, id: NodeId) -> Result<()> {
         self.node(id)?;
-        self.edit("Delete", vec![EntityState::Subtree { root: id, tree: None }])
+        self.edit(
+            "Delete",
+            vec![EntityState::Subtree {
+                root: id,
+                tree: None,
+            }],
+        )
     }
 
     pub fn entries(&self, node: NodeId) -> Result<Vec<Entry>> {
@@ -378,7 +448,12 @@ impl Library {
     }
 
     /// Inserts tracks at `index` (append for `None`).
-    pub fn add_to_node(&mut self, node: NodeId, tracks: &[TrackId], index: Option<usize>) -> Result<()> {
+    pub fn add_to_node(
+        &mut self,
+        node: NodeId,
+        tracks: &[TrackId],
+        index: Option<usize>,
+    ) -> Result<()> {
         self.require_entries(node)?;
         let mut entries = self.entries(node)?;
         let at = index.unwrap_or(entries.len()).min(entries.len());
@@ -395,7 +470,10 @@ impl Library {
             .filter(|(i, _)| !positions.contains(i))
             .map(|(_, e)| e)
             .collect();
-        self.edit("Remove tracks", vec![EntityState::Entries { node, entries }])
+        self.edit(
+            "Remove tracks",
+            vec![EntityState::Entries { node, entries }],
+        )
     }
 
     /// Moves the entries at `positions` so that they start at `to` (index in
@@ -416,21 +494,42 @@ impl Library {
             }
         }
         rest.splice(insert_at..insert_at, moving);
-        self.edit("Reorder", vec![EntityState::Entries { node, entries: rest }])
+        self.edit(
+            "Reorder",
+            vec![EntityState::Entries {
+                node,
+                entries: rest,
+            }],
+        )
     }
 
     pub fn set_entry_note(&mut self, node: NodeId, position: usize, note: &str) -> Result<()> {
         let mut entries = self.entries(node)?;
-        let e = entries.get_mut(position).ok_or_else(|| LibraryError::NotFound("entry".into()))?;
+        let e = entries
+            .get_mut(position)
+            .ok_or_else(|| LibraryError::NotFound("entry".into()))?;
         e.note = note.to_string();
-        self.edit("Edit transition note", vec![EntityState::Entries { node, entries }])
+        self.edit(
+            "Edit transition note",
+            vec![EntityState::Entries { node, entries }],
+        )
     }
 
-    pub fn set_entry_backups(&mut self, node: NodeId, position: usize, backups: Vec<TrackId>) -> Result<()> {
+    pub fn set_entry_backups(
+        &mut self,
+        node: NodeId,
+        position: usize,
+        backups: Vec<TrackId>,
+    ) -> Result<()> {
         let mut entries = self.entries(node)?;
-        let e = entries.get_mut(position).ok_or_else(|| LibraryError::NotFound("entry".into()))?;
+        let e = entries
+            .get_mut(position)
+            .ok_or_else(|| LibraryError::NotFound("entry".into()))?;
         e.backups = backups;
-        self.edit("Edit backup tracks", vec![EntityState::Entries { node, entries }])
+        self.edit(
+            "Edit backup tracks",
+            vec![EntityState::Entries { node, entries }],
+        )
     }
 
     pub fn set_smart_rule(&mut self, id: NodeId, rule: Rule) -> Result<()> {
@@ -460,9 +559,15 @@ impl Library {
                 let mut stmt = self.conn.prepare_cached(&format!(
                     "SELECT {} FROM entry e JOIN track t ON t.id = e.track_id WHERE e.node_id = ?1
                      ORDER BY e.position",
-                    TRACK_COLUMNS.split(", ").map(|c| format!("t.{c}")).collect::<Vec<_>>().join(", ")
+                    TRACK_COLUMNS
+                        .split(", ")
+                        .map(|c| format!("t.{c}"))
+                        .collect::<Vec<_>>()
+                        .join(", ")
                 ))?;
-                Ok(stmt.query_map([id.0], track_from_row)?.collect::<rusqlite::Result<_>>()?)
+                Ok(stmt
+                    .query_map([id.0], track_from_row)?
+                    .collect::<rusqlite::Result<_>>()?)
             }
             NodeKind::Smart => {
                 let rule = node.smart_rule.unwrap_or(Rule::All(vec![]));
@@ -497,7 +602,9 @@ mod tests {
         let b = track(&mut lib, "B", None, None);
         let c = track(&mut lib, "C", None, None);
         let folder = lib.create_node(None, NodeKind::Folder, "Gigs").unwrap();
-        let pl = lib.create_node(Some(folder), NodeKind::Playlist, "Warmup").unwrap();
+        let pl = lib
+            .create_node(Some(folder), NodeKind::Playlist, "Warmup")
+            .unwrap();
         assert!(lib.create_node(Some(pl), NodeKind::Playlist, "x").is_err());
         lib.add_to_node(pl, &[a, b, c], None).unwrap();
         lib.move_entries(pl, &[2], 0).unwrap();
@@ -534,7 +641,12 @@ mod tests {
         let y = lib.create_node(None, NodeKind::Playlist, "Y").unwrap();
         let f = lib.create_node(None, NodeKind::Folder, "F").unwrap();
         lib.move_node(f, None, 0).unwrap();
-        let names: Vec<_> = lib.children(None).unwrap().into_iter().map(|n| n.name).collect();
+        let names: Vec<_> = lib
+            .children(None)
+            .unwrap()
+            .into_iter()
+            .map(|n| n.name)
+            .collect();
         assert_eq!(names, vec!["F", "X", "Y"]);
         lib.move_node(y, Some(f), 0).unwrap();
         assert_eq!(lib.children(Some(f)).unwrap()[0].id, y);

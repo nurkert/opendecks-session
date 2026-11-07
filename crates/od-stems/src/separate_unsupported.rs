@@ -20,7 +20,10 @@ pub struct SeparatorOptions {
 
 impl Default for SeparatorOptions {
     fn default() -> Self {
-        Self { threads: 0, overlap: OVERLAP }
+        Self {
+            threads: 0,
+            overlap: OVERLAP,
+        }
     }
 }
 
@@ -38,15 +41,29 @@ impl Separator {
         Err(Error::Unsupported)
     }
 
-    pub fn separate_file(&mut self, _path: &Path, _progress: &mut dyn FnMut(f32), _cancel: &AtomicBool) -> Result<Stems, Error> {
+    pub fn separate_file(
+        &mut self,
+        _path: &Path,
+        _progress: &mut dyn FnMut(f32),
+        _cancel: &AtomicBool,
+    ) -> Result<Stems, Error> {
         Err(Error::Unsupported)
     }
 
-    pub fn separate(&mut self, _audio: &DecodedAudio, _progress: &mut dyn FnMut(f32), _cancel: &AtomicBool) -> Result<Stems, Error> {
+    pub fn separate(
+        &mut self,
+        _audio: &DecodedAudio,
+        _progress: &mut dyn FnMut(f32),
+        _cancel: &AtomicBool,
+    ) -> Result<Stems, Error> {
         Err(Error::Unsupported)
     }
 }
 
-pub fn separate(_path: &Path, _progress: &mut dyn FnMut(f32), _cancel: &AtomicBool) -> Result<Stems, Error> {
+pub fn separate(
+    _path: &Path,
+    _progress: &mut dyn FnMut(f32),
+    _cancel: &AtomicBool,
+) -> Result<Stems, Error> {
     Err(Error::Unsupported)
 }

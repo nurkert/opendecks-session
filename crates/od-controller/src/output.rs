@@ -80,7 +80,11 @@ impl OutputEngine {
                 None => Render::Blink {
                     on,
                     off: b.off,
-                    period_ms: if state == LedState::Blink { opts.blink_ms } else { opts.blink_fast_ms },
+                    period_ms: if state == LedState::Blink {
+                        opts.blink_ms
+                    } else {
+                        opts.blink_fast_ms
+                    },
                 },
             },
         };
@@ -192,16 +196,21 @@ impl OutputEngine {
                     Render::Static(v) => v,
                     Render::Blink { on, off, period_ms } => {
                         let half = (period_ms / 2).max(1) as u64;
-                        if (elapsed_ms / half).is_multiple_of(2) { on } else { off }
+                        if (elapsed_ms / half).is_multiple_of(2) {
+                            on
+                        } else {
+                            off
+                        }
                     }
                 };
                 if st.sent == Some(value) {
                     continue;
                 }
                 if let (Some(at), Some(_)) = (st.sent_at, st.sent)
-                    && now.saturating_duration_since(at) < st.min_interval {
-                        continue;
-                    }
+                    && now.saturating_duration_since(at) < st.min_interval
+                {
+                    continue;
+                }
                 if out.len() >= budget {
                     // Out of budget: stays dirty and goes out on the next poll.
                     continue;
