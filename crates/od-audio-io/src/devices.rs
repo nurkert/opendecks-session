@@ -213,17 +213,20 @@ mod tests {
     }
 
     /// JACK (and PipeWire's JACK layer) when built with `--features jack`.
+    /// Compiled in is checked; whether a server runs depends on the machine.
     #[cfg(all(target_os = "linux", feature = "jack"))]
     #[test]
     fn jack_host_compiled_in() {
-        assert!(cpal::available_hosts().iter().any(|h| h.name().eq_ignore_ascii_case("JACK")));
+        assert!(cpal::ALL_HOSTS.iter().any(|h| h.name().eq_ignore_ascii_case("JACK")));
+        assert_eq!(Backend::from_host_name("JACK"), Some(Backend::Jack));
     }
 
     /// Native PipeWire when built with `--features pipewire`.
     #[cfg(all(target_os = "linux", feature = "pipewire"))]
     #[test]
     fn pipewire_host_compiled_in() {
-        assert!(cpal::available_hosts().iter().any(|h| h.name().eq_ignore_ascii_case("PipeWire")));
+        assert!(cpal::ALL_HOSTS.iter().any(|h| h.name().eq_ignore_ascii_case("PipeWire")));
+        assert_eq!(Backend::from_host_name("PipeWire"), Some(Backend::PipeWire));
     }
 
     #[cfg(target_os = "macos")]
