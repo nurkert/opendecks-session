@@ -35,6 +35,8 @@ const TARGET_LUFS: f32 = -10.0;
 #[derive(Clone)]
 pub(crate) struct Loaded {
     pub id: TrackId,
+    /// Cover art thumbnail.
+    artwork: Option<Image>,
     pub title: String,
     pub artist: String,
     key: String,
@@ -270,8 +272,10 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
     let scale = app.ui.window().scale_factor();
     let gain = analysis.loudness_lufs.map(|l| (TARGET_LUFS - l).clamp(-12.0, 12.0)).unwrap_or(0.0);
     let source = TrackSource { path: st.resolve(&t.path), hash: t.content_hash.clone(), cues: cues.clone(), gain };
+    let artwork = st.src().artwork(track).ok().flatten().and_then(|(data, _)| render::artwork_thumbnail(&data, (72.0 * scale) as u32));
     let meta = Loaded {
         id: track,
+        artwork,
         title: t.tags.title.clone(),
         artist: t.tags.artist.clone(),
         key: st.key_text(&t),
@@ -724,6 +728,7 @@ struct Lane {
     /// Phrases were shown when `phrases` was built (Preferences > View).
     phrases_on: bool,
     overview: Image,
+    artwork: Option<Image>,
     wave_key: Option<WaveKey>,
     waveform: Image,
     pads: Rows<PadView>,
@@ -740,6 +745,7 @@ impl Default for Lane {
             phrases: model(Vec::new()),
             phrases_on: true,
             overview: Image::default(),
+            artwork: None,
             wave_key: None,
             waveform: Image::default(),
             pads: Rows::default(),
@@ -774,6 +780,8 @@ impl Lane {
             fader: f.fader,
             waveform: self.waveform.clone(),
             overview: self.overview.clone(),
+            artwork: self.artwork.clone().unwrap_or_default(),
+            has_artwork: self.artwork.is_some(),
             cues: self.cues.clone(),
             pads: self.pads.handle(),
             pads_left: self.pads_left.handle(),
@@ -890,6 +898,7 @@ pub(crate) fn project(app: &App, state: &EngineState) {
             lane.cues = model(meta.map(|m| m.cues.clone()).unwrap_or_default());
             lane.phrases = model(meta.filter(|_| show_phrases).map(|m| m.phrase_marks.clone()).unwrap_or_default());
             lane.overview = meta.map(|m| m.overview.clone()).unwrap_or_default();
+            lane.artwork = meta.and_then(|m| m.artwork.clone());
             lane.waveform = Image::default();
             lane.wave_key = None;
             dirty = true;
@@ -1288,6 +1297,8 @@ pub(crate) fn stem_of_ui(name: &str) -> Option<od_engine::Stem> {
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
+    let zoom = crate::preferences::default_deck_zoom(&app.state.borrow().settings);
+    app.decks.borrow_mut().zoom = [zoom; DECKS];
     let ui = &app.ui;
     ui.set_lane_motion(ModelRc::from(app.decks.borrow().motion.clone()));
     ui.on_deck_zoom(handler!(app, |a, d: i32, delta: f32| {
@@ -1297,7 +1308,8 @@ pub(crate) fn wire(app: &Rc<App>) {
     }));
     ui.on_deck_zoom_reset(handler!(app, |a, d: i32| {
         let i = (d as usize).saturating_sub(1).min(DECKS - 1);
-        a.decks.borrow_mut().zoom[i] = 1.0;
+        let zoom = crate::preferences::default_deck_zoom(&a.state.borrow().settings);
+        a.decks.borrow_mut().zoom[i] = zoom;
     }));
     // Deck callbacks carry 1-based deck numbers.
     let idx = |d: i32| (d as usize).saturating_sub(1).min(DECKS - 1);

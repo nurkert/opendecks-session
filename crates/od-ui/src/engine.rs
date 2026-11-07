@@ -43,11 +43,21 @@ pub(crate) fn snapshot(app: &App) -> Option<EngineState> {
     app.engine.borrow_mut().engine.as_mut().map(|e| *e.state())
 }
 
-/// Starts audio on first use. Prefers the controller's audio interface.
+/// Starts audio on first use, then applies the deck and mixer settings
+/// (Preferences) to the new engine.
 pub(crate) fn ensure_engine(app: &App) -> bool {
     if app.engine.borrow().engine.is_some() {
         return true;
     }
+    let started = start_engine(app);
+    if started {
+        crate::preferences::apply_engine_settings(app);
+    }
+    started
+}
+
+/// Starts audio. Prefers the controller's audio interface.
+fn start_engine(app: &App) -> bool {
     let lite = app.state.borrow().config.lite;
     if app.state.borrow().config.null_audio {
         start_null(app, lite);

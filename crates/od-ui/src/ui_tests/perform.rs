@@ -55,3 +55,23 @@ fn new_pad_modes_are_selectable() {
     ui.pump(100);
     assert_eq!(ui.app.decks.borrow().pad_mode[0], od_controller::PadMode::MemoryCue);
 }
+
+/// STEM on a mixer channel: the EQ knobs become part levels (HI vocals,
+/// MID inst, LOW drums) and show them.
+#[test]
+fn mixer_stem_button_turns_eq_into_parts() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    assert!(ui.wait_until(5.0, |u| u.has("mixer.ch1.stem")));
+    ui.click("mixer.ch1.stem");
+    assert!(ui.app.mixer.parts.get()[0]);
+    ui.app.ui.invoke_mixer_eq(1, 2, -1.0); // HI fully left: vocals off
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].stem_levels[od_engine::Stem::Vocals.index()] == 0.0)));
+    assert!(ui.wait_until(5.0, |u| u.app.mixer.channels.get(0).is_some_and(|c| c.parts && c.high == -1.0)));
+    // The channel EQ itself is untouched.
+    assert_eq!(crate::engine::snapshot(&ui.app).unwrap().channels[0].eq[2], 0.0);
+    ui.click("mixer.ch1.stem");
+    assert!(!ui.app.mixer.parts.get()[0]);
+    assert_eq!(crate::mixer::knob_to_part(0.3), 1.0);
+    assert_eq!(crate::mixer::part_to_knob(0.5), -0.5);
+}

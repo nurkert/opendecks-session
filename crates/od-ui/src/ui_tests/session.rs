@@ -14,6 +14,8 @@ fn prefs(ui: &Ui, page: &str) -> crate::PreferencesWindow {
     ui.click("topbar.settings");
     let w = ui.app.prefs.borrow().window.as_ref().map(|w| w.clone_strong()).expect("Preferences open");
     w.set_page(page.into());
+    // Tall enough that every row of the page is on screen (and findable).
+    w.window().set_size(slint::LogicalSize::new(900.0, 1600.0));
     ui.pump(200);
     w
 }

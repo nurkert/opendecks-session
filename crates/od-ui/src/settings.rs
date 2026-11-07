@@ -111,7 +111,7 @@ pub struct ViewSettings {
     pub reduced_motion: bool,
     /// "dark", "light" or "system" (follow the OS appearance).
     pub appearance: String,
-    /// "3band" or "blue".
+    /// "3band", "blue" or "rgb".
     pub waveform: String,
     pub phrases: bool,
     /// Bar counter on decks: "to-phrase" (bars left in the phrase, the
@@ -338,7 +338,7 @@ impl Settings {
         if !APPEARANCES.contains(&v.appearance.as_str()) {
             v.appearance = "dark".into();
         }
-        if !["3band", "blue"].contains(&v.waveform.as_str()) {
+        if !["3band", "blue", "rgb"].contains(&v.waveform.as_str()) {
             v.waveform = "3band".into();
         }
         let a = &mut self.analysis;
@@ -421,7 +421,7 @@ impl Settings {
             let ok = match key.as_str() {
                 "view.language" => ["en", "de"].contains(&v.as_str()).then(|| self.view.language = v.clone()).is_some(),
                 "view.key_notation" => ["camelot", "openkey", "musical"].contains(&v.as_str()).then(|| self.view.key_notation = v.clone()).is_some(),
-                "view.waveform" => ["3band", "blue"].contains(&v.as_str()).then(|| self.view.waveform = v.clone()).is_some(),
+                "view.waveform" => ["3band", "blue", "rgb"].contains(&v.as_str()).then(|| self.view.waveform = v.clone()).is_some(),
                 "view.phrases" => flag(v).map(|b| self.view.phrases = b).is_some(),
                 "view.bar_counter" => BAR_COUNTERS.contains(&v.as_str()).then(|| self.view.bar_counter = v.clone()).is_some(),
                 "analysis.bpm_min" => v.parse().map(|n| self.analysis.bpm_min = n).is_ok(),

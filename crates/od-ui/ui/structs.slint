@@ -274,6 +274,9 @@ export struct DeckView {
     level-inst: float,
     level-drums: float,
     level-bass: float,
+    // Cover art of the loaded track (has-artwork false = none).
+    artwork: image,
+    has-artwork: bool,
     loop-size: string,
     phrases: [PhraseMark],
     // Current phrase and bars left in it, e.g. "CHORUS · 8".
@@ -296,6 +299,8 @@ export struct ChannelView {
     cue: bool,
     level: float,
     peak: float,
+    // STEM: the HI / MID / LOW knobs set vocals / inst / drums.
+    parts: bool,
 }
 
 // Slot 2 or 3 of a Beat FX unit in multi mode.

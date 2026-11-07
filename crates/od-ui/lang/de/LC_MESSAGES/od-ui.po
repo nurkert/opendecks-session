@@ -3050,11 +3050,6 @@ msgid "STROBE"
 msgstr "STROBE"
 
 #: ui/player.slint
-msgctxt "AppWindow"
-msgid "RULES, E.G.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
-msgstr "REGELN, Z. B.  bpm 120-126, key 8A~, genre house, rating >= 3, added < 30d"
-
-#: ui/player.slint
 msgctxt "PreparePlayer"
 msgid "Cues appear here. Double-click one to name it."
 msgstr "Cues erscheinen hier. Doppelklick zum Benennen."

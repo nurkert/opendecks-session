@@ -4578,6 +4578,7 @@ dependencies = [
  "crossbeam-channel",
  "hound",
  "i-slint-backend-testing",
+ "image",
  "od-analysis",
  "od-audio-io",
  "od-controller",

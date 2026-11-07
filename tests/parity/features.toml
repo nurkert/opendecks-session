@@ -916,11 +916,14 @@ id = "analysis-waveform-styles"
 area = "analysis"
 name = "Waveform style options (RGB / blue / 3-band)"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
+tests = [
+  "od-ui::render::tests::waveform_styles",
+  "od-ui::render::tests::three_bands_stack_by_amplitude",
+]
 evidence = ["PWAV/PWV2–PWV7"]
-note = "One style by design; stick export still writes `PWAV/PWV2–PWV7` for players"
+note = "Preferences ▸ View ▸ Waveform colour: 3-band (low / mid / high stacked), blue, or RGB (one envelope, hue from the band balance)"
 
 [[feature]]
 id = "analysis-vocal-position"
@@ -1559,16 +1562,17 @@ id = "deck-header-readouts"
 area = "deck"
 name = "Deck header: title, artist, artwork, BPM, remaining / elapsed time"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
   "od-ui::format::tests::deck_fields",
   "od-ui::format::tests::times",
   "od-ui::decks::tests::empty_deck_projection",
   "od-ui::ui_tests::features::deck_header_readouts",
+  "od-ui::render::tests::artwork_thumbnails_are_square",
 ]
 evidence = ["crates/od-ui/src/format.rs"]
-note = "Artwork not shown (see `browser-artwork`)"
+note = "Number, cover art (from the library, as a thumbnail), title, artist, BPM, remaining / elapsed time, key, SYNC / MASTER"
 spec = "SPEC §10.1; UX §1.3"
 
 [[feature]]
@@ -1855,13 +1859,15 @@ id = "mixer-stem-button"
 area = "mixer"
 name = "STEM button per mixer channel"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P2"
-tests = []
+tests = [
+  "od-ui::ui_tests::perform::mixer_stem_button_turns_eq_into_parts",
+]
 spec = "UX §1.3, §2.4"
 
 # ---- Effects ----
-
+note = "STEM per mixer channel switches its HI / MID / LOW knobs to part isolation (vocals / inst / drums), centre = full level; the channel EQ stays as it was"
 [[feature]]
 id = "fx-beat-fx"
 area = "effects"
@@ -2493,14 +2499,15 @@ id = "prefs-waveform-options"
 area = "preferences"
 name = "Waveform options (zoom default, phrase display)"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-ui::render::tests::waveform_styles",
   "od-ui::settings::tests::json_round_trip",
   "od-ui::preferences::tests::engine_settings_cover_every_deck_and_channel",
 ]
 evidence = ["settings.rs::ViewSettings", "crates/od-ui/src/preferences.rs::default_deck_zoom"]
-note = "Phrase display on/off (live, Prepare and Perform); waveform zoom default (4/8/16/32 s) drives the Prepare player, the decks start at `preferences::default_deck_zoom`; waveform colour 3-band/blue is stored but the renderer does not read it yet"
+note = "Phrase display on/off (live, Prepare and Perform); waveform zoom default (4/8/16/32 s) for the Prepare player and the decks; waveform colour 3-band / blue / RGB read by the renderer"
 
 [[feature]]
 id = "prefs-deck-defaults"

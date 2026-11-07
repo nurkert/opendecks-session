@@ -269,7 +269,7 @@ pub(crate) fn refresh(app: &App) {
         w.set_reduced_motion(s.view.reduced_motion);
         w.set_bar_counter(index_of(&crate::settings::BAR_COUNTERS, &s.view.bar_counter.as_str()));
         w.set_appearance(index_of(&crate::settings::APPEARANCES, &s.view.appearance.as_str()));
-        w.set_waveform(index_of(&["3band", "blue"], &s.view.waveform.as_str()));
+        w.set_waveform(index_of(&["3band", "blue", "rgb"], &s.view.waveform.as_str()));
         w.set_phrases(s.view.phrases);
         w.set_zoom_span(index_of(&ZOOM_SPANS, &s.view.zoom_span));
         w.set_font_size(index_of(&FONT_SIZES, &s.browser.font_size));
@@ -613,7 +613,7 @@ fn choose(app: &App, key: &str, i: i32) {
             crate::appearance::set(app, crate::settings::APPEARANCES.get(i).unwrap_or(&"dark"));
             return;
         }
-        "view.waveform" => change(app, |s| s.view.waveform = ["3band", "blue"].get(i).unwrap_or(&"3band").to_string()),
+        "view.waveform" => change(app, |s| s.view.waveform = ["3band", "blue", "rgb"].get(i).unwrap_or(&"3band").to_string()),
         "analysis.bpm" => {
             let (a, b) = BPM_RANGES.get(i).copied().unwrap_or((87, 175));
             change(app, |s| {

@@ -18,6 +18,19 @@ const HIGH_CB: [u8; 3] = [0xFF, 0xFF, 0xFF];
 
 static COLORBLIND: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// Waveform style: 0 = three bands, 1 = blue, 2 = RGB.
+static STYLE: std::sync::atomic::AtomicU8 = std::sync::atomic::AtomicU8::new(0);
+
+/// Waveform style by its settings name ("3band", "blue", "rgb").
+pub fn set_waveform_style(name: &str) {
+    let v = match name {
+        "blue" => 1,
+        "rgb" => 2,
+        _ => 0,
+    };
+    STYLE.store(v, std::sync::atomic::Ordering::Relaxed);
+}
+
 /// Switches waveform bands to the colour-blind-safe palette.
 pub fn set_colorblind_safe(on: bool) {
     COLORBLIND.store(on, std::sync::atomic::Ordering::Relaxed);
@@ -137,6 +150,15 @@ fn dim(rgb: [u8; 3]) -> [u8; 3] {
 /// Draws one three-band column centred on `mid`; `amp` is the half height of
 /// the loudest band.
 fn column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, played: bool) {
+    styled_column(STYLE.load(std::sync::atomic::Ordering::Relaxed), buf, x, mid, amp, c, played)
+}
+
+fn styled_column(style: u8, buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, played: bool) {
+    match style {
+        1 => return mono_column(buf, x, mid, amp, c, played),
+        2 => return rgb_column(buf, x, mid, amp, c, played),
+        _ => {}
+    }
     let [lo, mi, hi] = bands();
     let top = c.low.max(c.mid).max(c.high).max(1) as f32;
     for (v, rgb) in [(c.low, lo), (c.mid, mi), (c.high, hi)] {
@@ -147,6 +169,31 @@ fn column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c
         let rgb = if played { dim(rgb) } else { rgb };
         vline(buf, x, mid.saturating_sub(a), mid + a, rgb);
     }
+}
+
+/// Blue style: one envelope in blue, the highs lighter on top.
+fn mono_column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, played: bool) {
+    let top = c.low.max(c.mid).max(c.high).max(1) as f32;
+    let body = bands()[0];
+    let light = body.map(|v| v / 2 + 120);
+    for (v, rgb) in [(c.low.max(c.mid), body), (c.high, light)] {
+        let a = (v as f32 / top * amp as f32).round() as u32;
+        if a > 0 {
+            vline(buf, x, mid.saturating_sub(a), mid + a, if played { dim(rgb) } else { rgb });
+        }
+    }
+}
+
+/// RGB style: one envelope whose colour mixes the bands (lows red, mids
+/// green, highs blue), so the timbre shows as hue.
+fn rgb_column(buf: &mut SharedPixelBuffer<Rgba8Pixel>, x: u32, mid: u32, amp: u32, c: &WaveformColumn, played: bool) {
+    let top = c.low.max(c.mid).max(c.high);
+    if top == 0 || amp == 0 {
+        return;
+    }
+    // The loudest band is full intensity; the others in proportion.
+    let rgb = [c.low, c.mid, c.high].map(|v| ((v as u32 * 255) / top as u32).max(40) as u8);
+    vline(buf, x, mid.saturating_sub(amp), mid + amp, if played { dim(rgb) } else { rgb });
 }
 
 /// Paints phrase colours as a strip of `strip` pixels along the bottom.
@@ -312,6 +359,14 @@ pub fn ground_texture() -> Image {
     Image::from_rgba8(buf)
 }
 
+/// Cover art scaled to a square thumbnail of `size` pixels (PNG / JPEG).
+pub fn artwork_thumbnail(data: &[u8], size: u32) -> Option<Image> {
+    let img = image::load_from_memory(data).ok()?;
+    let thumb = img.resize_to_fill(size.max(1), size.max(1), image::imageops::FilterType::Triangle).to_rgba8();
+    let buf = slint::SharedPixelBuffer::<slint::Rgba8Pixel>::clone_from_slice(thumb.as_raw(), thumb.width(), thumb.height());
+    Some(Image::from_rgba8(buf))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -390,5 +445,32 @@ mod tests {
         let buf = img.to_rgba8().unwrap();
         let p = buf.as_slice()[(89 * 200 + 150) as usize];
         assert_eq!([p.r, p.g, p.b], phrase_rgb(PhraseKind::Chorus));
+    }
+
+    #[test]
+    fn artwork_thumbnails_are_square() {
+        let mut png = Vec::new();
+        let img = image::RgbaImage::from_pixel(40, 20, image::Rgba([200, 10, 10, 255]));
+        image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+        let t = artwork_thumbnail(&png, 16).unwrap();
+        assert_eq!((t.size().width, t.size().height), (16, 16));
+        assert!(artwork_thumbnail(b"not an image", 16).is_none());
+    }
+
+    #[test]
+    fn waveform_styles() {
+        let c = WaveformColumn { low: 200, mid: 50, high: 10, peak: 200 };
+        // Styles by number (the global switch is shared by parallel tests).
+        let px = |style: u8| {
+            let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(1, 21);
+            styled_column(style, &mut buf, 0, 10, 8, &c, false);
+            let p = buf.as_slice()[10];
+            [p.r, p.g, p.b]
+        };
+        let rgb = px(2);
+        assert!(rgb[0] == 255 && rgb[1] < 100 && rgb[2] < 100, "bass-heavy column is red in RGB: {rgb:?}");
+        let blue = px(1);
+        assert!(blue[2] > blue[0], "blue style: {blue:?}");
+        assert_ne!(px(0), rgb);
     }
 }

@@ -365,13 +365,10 @@ export component PreferencesWindow inherits Window {
                         Heading { text: @tr("Language and keys"); }
                         Row { label: @tr("Language"); Choice { accessible-label: "prefs.view.language"; options: [@tr("SYSTEM"), "ENGLISH", "DEUTSCH"]; selected: root.language; picked(i) => { root.choose("view.language", i); } } }
                         Row { label: @tr("Key notation"); Choice { accessible-label: "prefs.analysis.key-notation"; options: [@tr("CAMELOT  8A"), @tr("OPEN KEY  1M"), @tr("MUSICAL  Am")]; selected: root.notation; picked(i) => { root.choose("view.notation", i); } } }
-                        Heading { text: @tr("Browser"); }
-                        Row { label: @tr("Text size"); Choice { accessible-label: "prefs.view.font-size"; options: ["12", "14", "16", "18"]; selected: root.font-size; picked(i) => { root.choose("view.font-size", i); } } }
-                        Row { label: @tr("Line spacing"); Choice { accessible-label: "prefs.view.line-space"; options: [@tr("COMPACT"), @tr("NORMAL"), @tr("ROOMY")]; selected: root.line-spacing; picked(i) => { root.choose("view.line-spacing", i); } } }
                         Heading { text: @tr("Display"); note: root.scale-pending ? @tr("UI SCALE APPLIES AFTER RESTART") : ""; }
                         Row { label: @tr("Appearance"); Choice { accessible-label: "prefs.view.appearance"; options: [@tr("DARK"), @tr("LIGHT"), @tr("SYSTEM")]; selected: root.appearance; picked(i) => { root.choose("view.appearance", i); } } }
                         Row { label: @tr("UI scale"); Choice { accessible-label: "prefs.view.scale"; options: root.scale-options; selected: root.scale; picked(i) => { root.choose("view.scale", i); } } }
-                        Row { label: @tr("Waveform colour"); Choice { accessible-label: "prefs.view.waveform-colour"; options: [@tr("3-BAND"), @tr("BLUE")]; selected: root.waveform; picked(i) => { root.choose("view.waveform", i); } } }
+                        Row { label: @tr("Waveform colour"); Choice { accessible-label: "prefs.view.waveform-colour"; options: [@tr("3-BAND"), @tr("BLUE"), "RGB"]; selected: root.waveform; picked(i) => { root.choose("view.waveform", i); } } }
                         Row {
                             label: @tr("Bar counter");
                             RadioList {
@@ -383,12 +380,15 @@ export component PreferencesWindow inherits Window {
                             }
                         }
                         Row { label: @tr("Phrases"); Switch { accessible-label: "prefs.view.phrase-enlarged"; label: @tr("Show phrases on the waveforms"); on: root.phrases; toggled(v) => { root.flag("view.phrases", v); } } }
-                        Row { label: @tr("Waveform zoom"); Choice { accessible-label: "prefs.view.zoom"; options: [@tr("4 S"), @tr("8 S"), @tr("16 S"), @tr("32 S")]; selected: root.zoom-span; picked(i) => { root.choose("view.zoom", i); } } }
-                        Note { text: @tr("Seconds shown across the zoomed waveform when a track opens; the wheel still zooms each waveform."); }
                         Heading { text: @tr("Accessibility"); }
                         Row { label: @tr("Colour"); Switch { accessible-label: "prefs.view.colour-blind"; label: @tr("Colour-blind-safe palette"); on: root.colorblind; toggled(v) => { root.flag("view.colorblind", v); } } }
                         Row { label: @tr("Contrast"); Switch { accessible-label: "prefs.view.high-contrast"; label: @tr("High contrast (bright light)"); on: root.high-contrast; toggled(v) => { root.flag("view.contrast", v); } } }
                         Row { label: @tr("Motion"); Switch { accessible-label: "prefs.view.reduced-motion"; label: @tr("Reduce motion"); on: root.reduced-motion; toggled(v) => { root.flag("view.motion", v); } } }
+                        Row { label: @tr("Waveform zoom"); Choice { accessible-label: "prefs.view.zoom"; options: [@tr("4 S"), @tr("8 S"), @tr("16 S"), @tr("32 S")]; selected: root.zoom-span; picked(i) => { root.choose("view.zoom", i); } } }
+                        Note { text: @tr("Seconds shown across the zoomed waveform when a track opens; the wheel still zooms each waveform."); }
+                        Heading { text: @tr("Browser"); }
+                        Row { label: @tr("Text size"); Choice { accessible-label: "prefs.view.font-size"; options: ["12", "14", "16", "18"]; selected: root.font-size; picked(i) => { root.choose("view.font-size", i); } } }
+                        Row { label: @tr("Line spacing"); Choice { accessible-label: "prefs.view.line-space"; options: [@tr("COMPACT"), @tr("NORMAL"), @tr("ROOMY")]; selected: root.line-spacing; picked(i) => { root.choose("view.line-spacing", i); } } }
                     }
                 }
 

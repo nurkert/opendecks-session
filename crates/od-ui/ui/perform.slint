@@ -15,6 +15,7 @@ import { SamplerPanel } from "sampler.slint";
 import { SamplerPadView, SamplerView } from "structs.slint";
 import { WaveLane } from "wave.slint";
 import { MicControls } from "mic.slint";
+import { RecStrip } from "rec.slint";
 import { LightingStrip, Lighting } from "lighting.slint";
 import { CdjPlayer, CdjSteps, Cdj } from "cdj.slint";
 
@@ -486,6 +487,13 @@ export component DeckPanel inherits Rectangle {
                 font-family: Theme.family; font-size: root.compact ? 22px : 28px; font-weight: 600;
                 color: root.tone; vertical-alignment: center;
             }
+            if root.deck.has-artwork && !root.compact: Image {
+                accessible-role: image;
+                accessible-label: "deck\{root.deck.deck}.artwork";
+                width: 36px; height: 36px;
+                source: root.deck.artwork;
+                image-fit: cover;
+            }
             VerticalLayout {
                 horizontal-stretch: 1;
                 alignment: center;
@@ -632,8 +640,14 @@ export component DeckPanel inherits Rectangle {
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
 }
 
-// One mixer channel, top to bottom: numeral, TRIM, HI, MID, LOW, CFX, CUE,
-// meter + fader.
+// STEM per mixer channel: switches the channel's EQ knobs to part
+// isolation (as the controller's part isolator does).
+export global MixerParts {
+    callback toggle(int);
+}
+
+// One mixer channel, top to bottom: numeral, TRIM, HI, MID, LOW, CFX, STEM,
+// CUE, meter + fader.
 component ChannelStrip inherits Rectangle {
     in property <ChannelView> ch;
     in property <bool> compact;
@@ -648,11 +662,17 @@ component ChannelStrip inherits Rectangle {
         spacing: 2px;
         Text { text: root.ch.channel; font-family: Theme.family; font-size: 14px; font-weight: 600; color: root.tone; horizontal-alignment: center; }
         Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.trim"; accessible-value: root.ch.trim; label: "TRIM"; value: root.ch.trim; size: root.compact ? 16px : 22px; changed(v) => { root.trim(v); } }
-        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-high"; accessible-value: root.ch.high; label: "HI"; value: root.ch.high; size: root.compact ? 16px : 22px; tone: Theme.w486; changed(v) => { root.eq(2, v); } }
-        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-mid"; accessible-value: root.ch.mid; label: "MID"; value: root.ch.mid; size: root.compact ? 16px : 22px; tone: Theme.w546; changed(v) => { root.eq(1, v); } }
-        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-low"; accessible-value: root.ch.low; label: "LOW"; value: root.ch.low; size: root.compact ? 16px : 22px; tone: Theme.w656; changed(v) => { root.eq(0, v); } }
+        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-high"; accessible-value: root.ch.high; label: root.ch.parts ? "VOC" : "HI"; value: root.ch.high; size: root.compact ? 16px : 22px; tone: Theme.w486; changed(v) => { root.eq(2, v); } }
+        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-mid"; accessible-value: root.ch.mid; label: root.ch.parts ? "INST" : "MID"; value: root.ch.mid; size: root.compact ? 16px : 22px; tone: Theme.w546; changed(v) => { root.eq(1, v); } }
+        Knob { accessible-role: slider; accessible-label: "mixer.ch\{root.ch.channel}.eq-low"; accessible-value: root.ch.low; label: root.ch.parts ? "DRUM" : "LOW"; value: root.ch.low; size: root.compact ? 16px : 22px; tone: Theme.w656; changed(v) => { root.eq(0, v); } }
         Knob { accessible-role: slider; accessible-label: "fx.cfx.ch\{root.ch.channel}"; accessible-value: root.ch.cfx; label: "CFX"; value: root.ch.cfx; size: root.compact ? 16px : 22px; tone: Theme.w405; changed(v) => { root.cfx(v); } }
-        Rectangle { height: 2px; }
+        Toggle {
+            accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.ch.parts;
+            accessible-label: "mixer.ch\{root.ch.channel}.stem";
+            size: root.compact ? 18px : 20px; label: "STEM"; on: root.ch.parts; tone: Theme.w656;
+            tooltip: @tr("EQ knobs control the parts: HI vocals, MID inst, LOW drums");
+            clicked => { MixerParts.toggle(root.ch.channel); }
+        }
         Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.ch.cue; accessible-label: "mixer.ch\{root.ch.channel}.cue"; size: 22px; label: "CUE"; on: root.ch.cue; tone: Theme.attention; clicked => { root.cue(); } }
         HorizontalLayout {
             vertical-stretch: 1;
@@ -746,6 +766,7 @@ component GlobalBar inherits Rectangle {
     in property <length> centre-width: 200px;
     in property <bool> recording;
     in property <string> recording-time;
+    in property <bool> touch-size;
     callback set-crossfader(float);
     callback set-master-level(float);
     callback set-headphone-mix(float);
@@ -780,6 +801,7 @@ component GlobalBar inherits Rectangle {
             Caps { text: @tr("MASTER OUT"); vertical-alignment: center; }
             Knob { label: ""; size: 20px; minimum: 0; maximum: 1; default-value: 1; value: root.master-level; tone: Theme.attention; changed(v) => { root.set-master-level(v); } }
             Rectangle { width: 10px; }
+            RecStrip { tall: root.touch-size; }
             // Recording, one click away.
             Rectangle {
                 width: 30px;
@@ -1048,6 +1070,7 @@ export component PerformView inherits Rectangle {
         }
         GlobalBar {
             centre-width: root.show-mixer ? mixer.width : 240px;
+            touch-size: root.touch-size;
             crossfader: root.crossfader;
             master-level: root.master-level;
             headphone-mix: root.headphone-mix;
