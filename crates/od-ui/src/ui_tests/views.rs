@@ -273,7 +273,7 @@ pub(crate) fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String>
             // The View menu lives in the platform menu bar (shown in the
             // window on macOS; elsewhere only its shortcuts work).
             if !cfg!(target_os = "macos") {
-                return Err("the View menu is the platform menu bar (macOS only)".into());
+                return Err(format!("{PLATFORM}the View menu is the native menu bar (macOS only)"));
             }
             prepare_library();
             ui.pump(200);
@@ -312,6 +312,10 @@ struct ElementResult {
     present: bool,
     failures: Vec<String>,
 }
+
+/// Reason prefix of a view this platform does not have (not a gap; the
+/// parity report skips it too).
+const PLATFORM: &str = "platform: ";
 
 #[derive(Debug, Default)]
 struct ViewResult {
@@ -603,7 +607,7 @@ fn run_size(size_id: &str) {
         let failing: Vec<&str> = results.iter().filter(|r| r.available && !r.passed()).map(|r| r.id.as_str()).collect();
         let missing: Vec<&str> = results
             .iter()
-            .filter(|r| !r.available && !(r.id == "menu.view" && !cfg!(target_os = "macos")))
+            .filter(|r| !r.available && !r.reason.starts_with(PLATFORM))
             .map(|r| r.id.as_str())
             .collect();
         assert!(

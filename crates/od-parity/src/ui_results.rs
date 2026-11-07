@@ -114,7 +114,9 @@ impl UiResults {
             .flat_map(|s| {
                 s.views
                     .iter()
-                    .filter(|v| !v.passed)
+                    // A view the platform does not have (reason
+                    // "platform: …", e.g. the native macOS menu bar) is no gap.
+                    .filter(|v| !v.passed && !(!v.available && v.reason.starts_with("platform: ")))
                     .map(move |v| format!("{} @ {}", v.id, s.size))
             })
             .collect()
