@@ -386,12 +386,12 @@ fn controller_page_monitor_learn_and_flx10() {
     w.invoke_choose("flx10.fader-start".into(), 0);
     w.invoke_choose("flx10.boost".into(), 3);
     prefs_el(&w, "prefs.controller.flx10-virtual-deck").mock_single_click(PointerEventButton::Left);
-    ui.pump(50);
+    ui.wait_until(10.0, |u| !stored(u).controller.flx10.virtual_deck);
     let f = stored(&ui).controller.flx10;
     assert_eq!((f.fader_start.as_str(), f.boost_db, f.virtual_deck), ("off", 9, false));
     assert_eq!(w.get_flx10_wire(), crate::midi_tools::flx10_wire_text(&f).as_str(), "the transfers to write are shown");
     prefs_el(&w, "prefs.controller.flx10-apply").mock_single_click(PointerEventButton::Left);
-    ui.pump(50);
+    ui.wait_until(10.0, |u| u.app.ui.get_status_text().contains("FLX10"));
     assert!(ui.app.ui.get_status_text().contains("FLX10"), "the write reports back: {}", ui.app.ui.get_status_text());
 }
 
