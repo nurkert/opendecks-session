@@ -298,35 +298,85 @@ pub(crate) fn dropped_audio(paths: &[std::path::PathBuf]) -> Vec<std::path::Path
 /// The list dropped files also go into: the open playlist or set of the
 /// library (not a stick, the Explorer or a virtual list).
 pub(crate) fn drop_list(app: &App) -> Option<od_library::NodeId> {
-    let st = app.state.borrow();
+    drop_list_of(&app.state.borrow())
+}
+
+fn drop_list_of(st: &crate::state::AppState) -> Option<od_library::NodeId> {
     if st.read_only() || st.explorer.open.is_some() || st.browser.special.is_some() {
         return None;
     }
     st.browser.node.filter(|n| st.lib.node(*n).is_ok_and(|n| matches!(n.kind, od_library::NodeKind::Playlist | od_library::NodeKind::Set)))
 }
 
-/// Files dropped on the window: onto a deck (`deck` 1-based) the first file
-/// is added to the collection and loaded there; anywhere else every audio
-/// file (folders included) is added to the collection and to the open
-/// playlist or set, in the background.
-pub(crate) fn files_dropped(app: &App, paths: Vec<std::path::PathBuf>, deck: i32) {
+/// Where dropped files go, from the drop target under the pointer
+/// (`DragState.target`, the ranges of `browser::drop_target`).
+#[derive(Debug, PartialEq)]
+pub(crate) enum FileDrop {
+    /// Load the first file on this deck (0-based).
+    Deck(usize),
+    /// Show the first file in Prepare player 1 or 2.
+    Player(u8),
+    /// Add every file to the collection and to this library list.
+    List(od_library::NodeId),
+    /// Add every file to the collection and into the open list before row `n`.
+    Row(usize),
+    /// Add every file to the collection and to the open playlist or set.
+    Collection,
+}
+
+/// The drop target id → what happens to dropped files (pure).
+pub(crate) fn file_drop(target: i32) -> FileDrop {
+    use crate::browser::DropTarget;
+    match crate::browser::drop_target(target) {
+        DropTarget::Row(n) => FileDrop::Row(n),
+        DropTarget::Tree(id) if id >= 0 => FileDrop::List(od_library::NodeId(id as i64)),
+        DropTarget::Tree(_) => FileDrop::Collection,
+        DropTarget::Deck if (1..=crate::decks::DECKS as i32).contains(&target) => FileDrop::Deck(target as usize - 1),
+        DropTarget::Deck if target == -1 || target == -2 => FileDrop::Player(target.unsigned_abs() as u8),
+        DropTarget::Deck => FileDrop::Collection,
+    }
+}
+
+/// Files dropped on the window at drop target `target` (`DragState.target`:
+/// the deck, Prepare player, tree list or list position under the
+/// pointer, 0 = none): onto a deck or a player the first file is added to
+/// the collection and loaded there; onto a list in the tree every audio
+/// file (folders included) is added to the collection and that list;
+/// anywhere else to the collection and the open playlist or set (at the
+/// row under the pointer when the list is in its own order), in the
+/// background.
+pub(crate) fn files_dropped(app: &App, paths: Vec<std::path::PathBuf>, target: i32) {
     let files = dropped_audio(&paths);
     if files.is_empty() {
         app.status("No audio files in what was dropped");
         return;
     }
-    if deck >= 1 {
-        let d = (deck as usize - 1).min(crate::decks::DECKS - 1);
-        crate::explorer::import_and_load(app, files[0].clone(), d);
-        return;
-    }
-    let list = drop_list(app);
+    let (list, at) = match file_drop(target) {
+        FileDrop::Deck(d) => {
+            crate::explorer::import_and_load(app, files[0].clone(), d.min(crate::decks::DECKS - 1));
+            return;
+        }
+        FileDrop::Player(n) => {
+            crate::explorer::import_and_show(app, files[0].clone(), n);
+            return;
+        }
+        FileDrop::List(node) => {
+            let st = app.state.borrow();
+            let takes = !st.read_only() && st.lib.node(node).is_ok_and(|n| matches!(n.kind, od_library::NodeKind::Playlist | od_library::NodeKind::Set));
+            (if takes { Some(node) } else { drop_list_of(&st) }, None)
+        }
+        FileDrop::Row(n) => {
+            let ordered = crate::browser::reorderable(&app.state.borrow());
+            (drop_list(app), ordered.then_some(n))
+        }
+        FileDrop::Collection => (drop_list(app), None),
+    };
     let library = app.state.borrow().config.library_path.clone();
     let (tx, wake) = (app.worker_tx.clone(), app.analysis.wake.clone());
     app.status(od_i18n::trf("Adding {} dropped file(s)…", &[&files.len()]));
     std::thread::spawn(move || {
         let (added, failed) = match od_library::Library::open(&library) {
-            Ok(mut lib) => add_files(&mut lib, &files, list),
+            Ok(mut lib) => add_files(&mut lib, &files, list, at),
             Err(e) => {
                 let _ = tx.send(WorkerEvent::Message(format!("Cannot open library: {e}")));
                 return;
@@ -338,8 +388,9 @@ pub(crate) fn files_dropped(app: &App, paths: Vec<std::path::PathBuf>, deck: i32
 }
 
 /// Adds `files` to the collection (known paths are kept) and, when `list`
-/// is given, appends them to that list in order. Returns (added, failed).
-pub(crate) fn add_files(lib: &mut od_library::Library, files: &[std::path::PathBuf], list: Option<od_library::NodeId>) -> (usize, usize) {
+/// is given, inserts them into that list in order before position `at`
+/// (`None`: at the end). Returns (added, failed).
+pub(crate) fn add_files(lib: &mut od_library::Library, files: &[std::path::PathBuf], list: Option<od_library::NodeId>, at: Option<usize>) -> (usize, usize) {
     let (mut added, mut failed) = (0, 0);
     let mut ids = Vec::new();
     for f in files {
@@ -353,41 +404,131 @@ pub(crate) fn add_files(lib: &mut od_library::Library, files: &[std::path::PathB
         }
     }
     if let (Some(n), false) = (list, ids.is_empty()) {
-        if let Err(e) = lib.add_to_node(n, &ids, None) {
+        if let Err(e) = lib.add_to_node(n, &ids, at) {
             tracing::warn!(error = %e, "dropped files not added to the list");
         }
     }
     (added, failed)
 }
 
+/// A file drag from the file manager enters the window: the drop targets
+/// (decks, players, lists) follow `DragState` as for dragged rows. The
+/// pointer is unknown until [`follow_pointer`] reads it.
+pub(crate) fn file_drag_begin(app: &App, files: usize) {
+    let d = app.ui.global::<crate::DragState>();
+    if !d.get_files() {
+        d.set_x(-10_000.0);
+        d.set_y(-10_000.0);
+        d.set_target(0);
+    }
+    d.set_kind("tracks".into());
+    d.set_files(true);
+    d.set_active(true);
+    d.set_label(od_i18n::trf("{} file(s)", &[&files.max(1)]).into());
+    app.ui.set_file_drag(true);
+}
+
+/// The file drag left the window or was dropped.
+pub(crate) fn file_drag_end(app: &App) {
+    let d = app.ui.global::<crate::DragState>();
+    d.set_active(false);
+    d.set_files(false);
+    d.set_target(0);
+    app.ui.set_file_drag(false);
+}
+
+/// Moves the drag position to the pointer while files hover the window
+/// (the OS reports no position with native file drags).
+fn follow_pointer(app: &App) {
+    if let Some((x, y)) = pointer_in_window(app.ui.window()) {
+        let d = app.ui.global::<crate::DragState>();
+        d.set_x(x);
+        d.set_y(y);
+    }
+}
+
+/// A point in the window's content (AppKit points, origin bottom-left of
+/// the content of height `content_h`) in logical window coordinates (origin
+/// top-left), for a backing scale `backing` and a UI scale factor `ui`
+/// (pure).
+pub(crate) fn content_point_to_logical(px: f64, py: f64, content_h: f64, backing: f64, ui: f64) -> (f32, f32) {
+    let k = if ui > 0.0 { backing / ui } else { 1.0 };
+    ((px * k) as f32, ((content_h - py) * k) as f32)
+}
+
+/// The pointer over the window in logical coordinates, read from AppKit
+/// while a file drag is in flight (the window gets no mouse events then).
+#[cfg(target_os = "macos")]
+fn pointer_in_window(window: &slint::Window) -> Option<(f32, f32)> {
+    use slint::winit_030::WinitWindowAccessor;
+    use slint::winit_030::winit::raw_window_handle::{HasWindowHandle, RawWindowHandle};
+    let ui = window.scale_factor() as f64;
+    window
+        .with_winit_window(|w| {
+            let handle = w.window_handle().ok()?;
+            let RawWindowHandle::AppKit(h) = handle.as_raw() else { return None };
+            // SAFETY: winit's content view lives as long as its window, and
+            // this runs on the main (UI) thread.
+            let view: &objc2_app_kit::NSView = unsafe { h.ns_view.cast().as_ref() };
+            let p = view.window()?.mouseLocationOutsideOfEventStream();
+            let frame = view.frame();
+            let (x, y) = content_point_to_logical(p.x - frame.origin.x, p.y - frame.origin.y, frame.size.height, w.scale_factor(), ui);
+            Some((x, y))
+        })
+        .flatten()
+}
+
+#[cfg(not(target_os = "macos"))]
+fn pointer_in_window(_window: &slint::Window) -> Option<(f32, f32)> {
+    None
+}
+
 /// Native file drops (winit: Finder / the file manager). The OS reports one
-/// event per file; they are collected and handled together. Platforms whose
-/// Slint backend delivers OS drops to `DropArea` use that path instead.
+/// event per file; they are collected and handled together, at the drop
+/// target under the pointer (macOS reads the pointer while the files
+/// hover; elsewhere they go to the collection and the open list).
+/// Platforms whose Slint backend delivers OS drops to `DropArea` use that
+/// path instead.
 pub(crate) fn wire_native_drop(app: &std::rc::Rc<App>) {
     use slint::winit_030::{WinitWindowAccessor, winit::event::WindowEvent};
     let pending: std::rc::Rc<std::cell::RefCell<Vec<std::path::PathBuf>>> = Default::default();
+    let hovered = std::rc::Rc::new(std::cell::Cell::new(0usize));
     let weak = std::rc::Rc::downgrade(app);
     let timer = std::rc::Rc::new(slint::Timer::default());
+    let follow = std::rc::Rc::new(slint::Timer::default());
     app.ui.window().on_winit_window_event(move |_, event| {
         match event {
             WindowEvent::HoveredFile(_) => {
+                hovered.set(hovered.get() + 1);
                 if let Some(a) = weak.upgrade() {
-                    a.ui.set_file_drag(true);
+                    file_drag_begin(&a, hovered.get());
+                    follow_pointer(&a);
+                    let w = weak.clone();
+                    follow.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(30), move || {
+                        if let Some(a) = w.upgrade() {
+                            follow_pointer(&a);
+                        }
+                    });
                 }
             }
             WindowEvent::HoveredFileCancelled => {
+                hovered.set(0);
+                follow.stop();
                 if let Some(a) = weak.upgrade() {
-                    a.ui.set_file_drag(false);
+                    file_drag_end(&a);
                 }
             }
             WindowEvent::DroppedFile(path) => {
+                hovered.set(0);
                 pending.borrow_mut().push(path.clone());
-                let (weak, pending) = (weak.clone(), pending.clone());
+                let (weak, pending, follow) = (weak.clone(), pending.clone(), follow.clone());
                 timer.start(slint::TimerMode::SingleShot, std::time::Duration::from_millis(120), move || {
+                    follow.stop();
                     let paths = std::mem::take(&mut *pending.borrow_mut());
                     if let Some(a) = weak.upgrade() {
-                        a.ui.set_file_drag(false);
-                        files_dropped(&a, paths, 0);
+                        let target = a.ui.global::<crate::DragState>().get_target();
+                        file_drag_end(&a);
+                        files_dropped(&a, paths, target);
                     }
                 });
             }

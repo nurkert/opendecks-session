@@ -4328,3 +4328,13 @@ msgstr "BEAT"
 msgctxt "PreferencesWindow"
 msgid "TEMPO ONLY"
 msgstr "NUR TEMPO"
+
+#: ui/perform.slint
+msgctxt "FxNames"
+msgid "SMART"
+msgstr "SMART"
+
+#: ui/perform.slint
+msgctxt "GlobalBar"
+msgid "Smart Fader: the crossfader also swaps the basses and keeps the decks in sync"
+msgstr "Smart Fader: Der Crossfader tauscht auch die Bässe und hält die Decks synchron"

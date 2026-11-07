@@ -279,6 +279,8 @@ pub(crate) fn refresh(app: &App) {
         w.set_appearance(index_of(&crate::settings::APPEARANCES, &s.view.appearance.as_str()));
         w.set_waveform(index_of(&["3band", "blue", "rgb"], &s.view.waveform.as_str()));
         w.set_phrases(s.view.phrases);
+        w.set_phrases_overview(s.view.phrases_overview);
+        w.set_phrase_types(index_of(&crate::settings::PHRASE_TYPES, &s.view.phrase_types.as_str()));
         w.set_zoom_span(index_of(&ZOOM_SPANS, &s.view.zoom_span));
         w.set_font_size(index_of(&FONT_SIZES, &s.browser.font_size));
         w.set_line_spacing(index_of(&LINE_SPACINGS, &s.browser.line_spacing.as_str()));
@@ -670,6 +672,8 @@ fn apply_live(app: &App) {
     shell::apply_theme(&app.ui.global::<crate::Theme>(), &settings, lite);
     with_window(app, |w| shell::apply_theme(&w.global::<crate::Theme>(), &settings, lite));
     app.ui.set_show_phrases(settings.view.phrases);
+    app.ui.set_show_phrases_overview(settings.view.phrases_overview);
+    crate::player::refresh_detail(app);
     shell::apply_browser_style(&app.ui, &settings, app.state.borrow().config.kiosk);
     crate::recorder::apply_gain(app);
     {
@@ -736,6 +740,7 @@ fn choose(app: &App, key: &str, i: i32) {
             return;
         }
         "view.waveform" => change(app, |s| s.view.waveform = ["3band", "blue", "rgb"].get(i).unwrap_or(&"3band").to_string()),
+        "view.phrase-types" => change(app, |s| s.view.phrase_types = crate::settings::PHRASE_TYPES.get(i).unwrap_or(&"names").to_string()),
         "analysis.bpm" => {
             let (a, b) = BPM_RANGES.get(i).copied().unwrap_or((87, 175));
             change(app, |s| {
@@ -775,6 +780,7 @@ fn choose(app: &App, key: &str, i: i32) {
 fn flag(app: &App, key: &str, v: bool) {
     match key {
         "view.phrases" => change(app, |s| s.view.phrases = v),
+        "view.phrases-overview" => change(app, |s| s.view.phrases_overview = v),
         "view.colorblind" => change(app, |s| s.view.colorblind_safe = v),
         "view.contrast" => change(app, |s| s.view.high_contrast = v),
         "view.motion" => change(app, |s| s.view.reduced_motion = v),

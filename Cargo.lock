@@ -4580,6 +4580,7 @@ dependencies = [
  "i-slint-backend-testing",
  "i-slint-core",
  "image",
+ "objc2-app-kit 0.3.2",
  "od-analysis",
  "od-audio-io",
  "od-controller",

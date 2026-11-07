@@ -340,6 +340,8 @@ enum LoadTarget {
     Deck(usize),
     /// Double-click / browse press: free deck (Perform) or preview (Prepare).
     Free,
+    /// A Prepare player (1 = the main player, 2 = the second player).
+    Player(u8),
 }
 
 struct Imported {
@@ -561,6 +563,20 @@ pub(crate) fn import_and_load(app: &App, path: PathBuf, deck: usize) {
     }
 }
 
+/// A file (dropped from the file manager) shown in Prepare player `n`
+/// (1 or 2), added to the collection first when it is not in it yet.
+pub(crate) fn import_and_show(app: &App, path: PathBuf, n: u8) {
+    let known = app.state.borrow().lib.track_by_path(&path).ok().flatten().map(|t| t.id);
+    match known {
+        Some(id) if n == 2 => player::load_second(app, id),
+        Some(id) => load(app, id, LoadTarget::Player(1)),
+        None => {
+            let title = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+            start_import(app, ExplorerFile { path, title, ..Default::default() }, LoadTarget::Player(n));
+        }
+    }
+}
+
 fn start_import(app: &App, file: ExplorerFile, target: LoadTarget) {
     if !app.explorer.importing.borrow_mut().insert(file.path.clone()) {
         return;
@@ -577,6 +593,10 @@ fn start_import(app: &App, file: ExplorerFile, target: LoadTarget) {
 
 /// Makes `id` the current track and loads it as `target` asks.
 fn load(app: &App, id: TrackId, target: LoadTarget) {
+    if matches!(target, LoadTarget::Player(2)) {
+        player::load_second(app, id);
+        return;
+    }
     {
         let mut st = app.state.borrow_mut();
         if st.player.current != Some(id) {
@@ -588,6 +608,7 @@ fn load(app: &App, id: TrackId, target: LoadTarget) {
     match target {
         LoadTarget::Deck(d) => decks::load_track(app, d, id, None),
         LoadTarget::Free => decks::load_selected_into_free_deck(app),
+        LoadTarget::Player(_) => {}
     }
 }
 

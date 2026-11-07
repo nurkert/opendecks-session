@@ -47,6 +47,13 @@ serde.workspace = true
 toml.workspace = true
 rfd = "0.15"
 symphonia.workspace = true
+# Edit mode: the rendered edit is written as WAV.
+hound = "3"
+
+# The pointer over the window while files from Finder hover it (winit
+# reports native file drops without a position).
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "NSResponder", "NSView", "NSWindow", "objc2-core-foundation"] }
 
 [dev-dependencies]
 tempfile.workspace = true
@@ -54,7 +61,6 @@ tempfile.workspace = true
 i-slint-backend-testing = "=1.18.1"
 # Delivers simulated OS drag-and-drop events to the window (file drops).
 i-slint-core = "=1.18.1"
-hound = "3"
 od-parity = { path = "../od-parity" }
 
 [build-dependencies]

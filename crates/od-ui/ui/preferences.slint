@@ -192,7 +192,11 @@ export component PreferencesWindow inherits Window {
     // 0 countdown to phrase end, 1 to the next memory cue, 2 count up.
     in property <int> bar-counter;
     in property <int> waveform;
+    // Phrases on the enlarged waveforms and on the overviews; phrase types
+    // as names (0) or colours only (1).
     in property <bool> phrases;
+    in property <bool> phrases-overview;
+    in property <int> phrase-types;
     // Index into the zoom spans (4, 8, 16, 32 s), text sizes (12–18 px)
     // and line spacings (compact, normal, roomy).
     in property <int> zoom-span;
@@ -401,7 +405,9 @@ export component PreferencesWindow inherits Window {
                                 picked(i) => { root.choose("view.bar-counter", i); }
                             }
                         }
-                        Row { label: @tr("Phrases"); Switch { accessible-label: "prefs.view.phrase-enlarged"; label: @tr("Show phrases on the waveforms"); on: root.phrases; toggled(v) => { root.flag("view.phrases", v); } } }
+                        Row { label: @tr("Phrases"); Switch { accessible-label: "prefs.view.phrase-enlarged"; label: @tr("Show phrases on the enlarged waveforms"); on: root.phrases; toggled(v) => { root.flag("view.phrases", v); } } }
+                        Row { label: ""; Switch { accessible-label: "prefs.view.phrase-overview"; label: @tr("Show the phrase bar under the overviews"); on: root.phrases-overview; toggled(v) => { root.flag("view.phrases-overview", v); } } }
+                        Row { label: @tr("Phrase types"); Choice { accessible-label: "prefs.view.phrase-types"; options: [@tr("NAMES"), @tr("COLOURS ONLY")]; selected: root.phrase-types; picked(i) => { root.choose("view.phrase-types", i); } } }
                         Heading { text: @tr("Accessibility"); }
                         Row { label: @tr("Colour"); Switch { accessible-label: "prefs.view.colour-blind"; label: @tr("Colour-blind-safe palette"); on: root.colorblind; toggled(v) => { root.flag("view.colorblind", v); } } }
                         Row { label: @tr("Contrast"); Switch { accessible-label: "prefs.view.high-contrast"; label: @tr("High contrast (bright light)"); on: root.high-contrast; toggled(v) => { root.flag("view.contrast", v); } } }

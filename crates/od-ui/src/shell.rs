@@ -90,6 +90,7 @@ pub(crate) fn setup_window(ui: &AppWindow, config: &AppConfig, settings: &Settin
     ui.set_kiosk(config.kiosk);
     apply_theme(&ui.global::<crate::Theme>(), settings, config.lite);
     ui.set_show_phrases(settings.view.phrases);
+    ui.set_show_phrases_overview(settings.view.phrases_overview);
     apply_browser_style(ui, settings, config.kiosk);
     ui.set_ground_texture(crate::render::ground_texture());
     if config.kiosk {
@@ -142,6 +143,7 @@ pub(crate) fn apply_theme(theme: &crate::Theme<'_>, settings: &Settings, lite: b
     theme.set_colorblind_safe(settings.view.colorblind_safe);
     theme.set_high_contrast(settings.view.high_contrast);
     theme.set_motion(!settings.view.reduced_motion && !lite);
+    theme.set_phrase_names(settings.view.phrase_types != "colors");
     crate::appearance::apply(theme, &settings.view.appearance);
     crate::render::set_colorblind_safe(settings.view.colorblind_safe);
     crate::render::set_waveform_style(&settings.view.waveform);
@@ -299,9 +301,9 @@ pub(crate) fn wire(app: &Rc<App>) {
     }));
     // Files from Finder / the file manager.
     ui.on_drop_accepts(|data| data.has_file_paths());
-    ui.on_files_dropped(handler!(app, |a, data: slint::DataTransfer, deck: i32| {
+    ui.on_files_dropped(handler!(app, |a, data: slint::DataTransfer, target: i32| {
         let paths: Vec<std::path::PathBuf> = data.file_paths().map(|p| p.map(|p| p.to_path_buf()).collect()).unwrap_or_default();
-        crate::import::files_dropped(&a, paths, deck);
+        crate::import::files_dropped(&a, paths, target);
     }));
     crate::import::wire_native_drop(app);
     let weak = Rc::downgrade(app);

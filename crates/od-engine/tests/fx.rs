@@ -351,6 +351,7 @@ fn every_colour_fx_runs_and_returns_to_dry() {
         ColorFxKind::Pitch,
         ColorFxKind::DubEcho,
         ColorFxKind::Sweep,
+        ColorFxKind::Smart,
     ] {
         for amount in [-0.8f32, 0.8] {
             let mut dry = rich_rig();

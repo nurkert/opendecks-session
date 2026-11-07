@@ -128,6 +128,54 @@ impl StemData {
             .collect()
     }
 
+    /// Where the vocals sing (SPEC §10.4 vocal position): spans in seconds
+    /// where the vocal stem's RMS (¼-second windows) is above −16 dB of its
+    /// loudest window and above −46 dBFS; gaps under 1.5 s are bridged and
+    /// spans under 1 s dropped.
+    pub fn vocal_regions(&self, sample_rate: u32) -> Vec<(f64, f64)> {
+        let win = (sample_rate as usize / 4).max(1);
+        let k = self.scale[0];
+        let rms: Vec<f32> = (0..self.frames.div_ceil(win))
+            .map(|w| {
+                let (a, b) = (w * win, ((w + 1) * win).min(self.frames));
+                let sum: f32 = (a..b)
+                    .map(|i| {
+                        let (l, r) = (self.data[i * 6] as f32 * k, self.data[i * 6 + 1] as f32 * k);
+                        (l * l + r * r) * 0.5
+                    })
+                    .sum();
+                (sum / (b - a).max(1) as f32).sqrt()
+            })
+            .collect();
+        let loudest = rms.iter().copied().fold(0.0f32, f32::max);
+        let gate = (loudest * 0.158).max(0.005);
+        let secs = |w: usize| (w * win) as f64 / sample_rate as f64;
+        let mut spans: Vec<(f64, f64)> = Vec::new();
+        let mut start: Option<usize> = None;
+        for (w, v) in rms.iter().enumerate() {
+            match (v >= &gate, start) {
+                (true, None) => start = Some(w),
+                (false, Some(a)) => {
+                    spans.push((secs(a), secs(w)));
+                    start = None;
+                }
+                _ => {}
+            }
+        }
+        if let Some(a) = start {
+            spans.push((secs(a), self.frames as f64 / sample_rate as f64));
+        }
+        let mut merged: Vec<(f64, f64)> = Vec::new();
+        for (a, b) in spans {
+            match merged.last_mut() {
+                Some(last) if a - last.1 < 1.5 => last.1 = b,
+                _ => merged.push((a, b)),
+            }
+        }
+        merged.retain(|(a, b)| b - a >= 1.0);
+        merged
+    }
+
     /// Combined frame `i` (in range) for mix coefficients `c`.
     #[inline(always)]
     fn weighted(&self, i: usize, c: &[f32; 4]) -> (f32, f32) {

@@ -943,10 +943,13 @@ id = "analysis-vocal-position"
 area = "analysis"
 name = "Vocal position"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "Could be derived from the vocal stem"
+tests = [
+  "od-engine::stems::vocal_regions_follow_the_vocal_stem",
+  "od-ui::decks::tests::vocal_spans_become_overview_fractions",
+]
+note = "Derived from the separated vocal part when a track has parts: spans where the vocals sing are drawn as a band along the top of the deck overview"
 
 [[feature]]
 id = "analysis-loudness-auto-gain"
@@ -1845,10 +1848,13 @@ id = "mixer-smart-cfx-fader"
 area = "mixer"
 name = "Smart CFX / Smart Fader (FLX4)"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "—"
+tests = [
+  "od-ui::ui_tests::perform::smart_fader_swaps_the_basses",
+  "od-engine::fx::every_colour_fx_runs_and_returns_to_dry",
+]
+note = "Smart CFX: a colour FX on one knob (low-pass + echo left, high-pass + reverb right); Smart Fader (SMART beside the crossfader): the crossfader swaps the basses of the A and B channels and the decks on the crossfader follow the master tempo"
 
 [[feature]]
 id = "mixer-mic-aux"
@@ -1991,7 +1997,7 @@ scope = "in"
 status = "missing"
 prio = "P3"
 tests = []
-note = "—"
+note = "Not yet: FX on one part needs that part as its own time-stretched signal (a second keylock path per deck). Planned with the keylock refactor; part levels, part isolation and Beat FX on the whole channel work today"
 
 [[feature]]
 id = "fx-panel"

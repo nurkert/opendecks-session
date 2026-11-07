@@ -335,7 +335,12 @@ pub(crate) fn refresh_detail(app: &App) {
     ui.set_grid_locked(grid.as_ref().is_some_and(|(g, _)| g.locked));
     let scale = ui.window().scale_factor();
     ui.set_track_overview(render::overview(&analysis.waveform, &analysis.beatgrid, t.duration, (1000.0 * scale) as u32, (48.0 * scale) as u32));
-    ui.set_track_phrases(model(phrase_marks(&analysis.phrases, &analysis.beatgrid, t.duration)));
+    let mut marks = phrase_marks(&analysis.phrases, &analysis.beatgrid, t.duration);
+    if st.settings.view.phrase_types == "colors" {
+        // Preferences > View > Phrase types: colours only.
+        marks.iter_mut().for_each(|m| m.label = SharedString::default());
+    }
+    ui.set_track_phrases(model(marks));
     ui.set_track_cues(model(cue_marks(&cues, t.duration, true)));
     let slots = hot_cue_slots(&cues);
     ui.set_hot_cues_top(model(slots[..4].to_vec()));

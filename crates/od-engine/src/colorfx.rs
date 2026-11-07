@@ -90,7 +90,7 @@ impl ColorFx {
     }
 
     fn has_tail(kind: ColorFxKind) -> bool {
-        matches!(kind, ColorFxKind::Echo | ColorFxKind::DubEcho | ColorFxKind::Space)
+        matches!(kind, ColorFxKind::Echo | ColorFxKind::DubEcho | ColorFxKind::Space | ColorFxKind::Smart)
     }
 
     fn bypassed(&self) -> bool {
@@ -239,6 +239,30 @@ impl ColorFx {
                         x[1] * mag + fw[1] * fb,
                     ]);
                     [x[0] + fw[0], x[1] + fw[1]]
+                }
+                ColorFxKind::Smart => {
+                    // Filter the dry signal as Filter does …
+                    let mut dry = [0.0; 2];
+                    for ch in 0..2 {
+                        let o = self.svf.tick(ch, x[ch]);
+                        let filtered = if lp { o.low } else { o.high };
+                        dry[ch] = x[ch] + (filtered - x[ch]) * w;
+                    }
+                    // … and add an echo (left) or a reverb (right).
+                    let send = mag * mag;
+                    let wet = if lp {
+                        let d = (beat_frames * 0.75).clamp(1.0, self.delay.capacity() as f32);
+                        let wet = self.delay.read(d);
+                        self.fb_hold = (self.fb_hold * release).max(mag);
+                        let fb = 0.25 + 0.45 * self.fb_hold;
+                        self.delay.push([dry[0] * send + wet[0] * fb, dry[1] * send + wet[1] * fb]);
+                        wet
+                    } else {
+                        self.reverb.room = 0.75 + 0.2 * mag;
+                        self.reverb.process([dry[0] * send * 1.5, dry[1] * send * 1.5])
+                    };
+                    wet_energy += wet[0] * wet[0] + wet[1] * wet[1];
+                    [dry[0] + wet[0], dry[1] + wet[1]]
                 }
                 ColorFxKind::Pitch => {
                     let y = self.shifter.process(x, 2f32.powf(a));

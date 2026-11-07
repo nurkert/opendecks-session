@@ -50,6 +50,7 @@ pub(crate) struct Loaded {
     labels: Vec<String>,
     phrases: Vec<od_core::Phrase>,
     phrase_marks: Vec<PhraseMark>,
+    vocals: Vec<crate::VocalMark>,
     /// What a reload with stems needs.
     source: TrackSource,
 }
@@ -84,6 +85,12 @@ pub(crate) fn toggle_vertical_layout(app: &App) {
 pub(crate) fn toggle_browse_layout(app: &App) {
     let cur = app.ui.global::<crate::PerformLayout>().get_layout();
     set_perform_layout(app, if cur == "browse" { "standard" } else { "browse" });
+}
+
+/// Vocal spans as fractions of the track.
+pub(crate) fn vocal_marks(spans: &[(f64, f64)], duration: f64) -> Vec<crate::VocalMark> {
+    let d = duration.max(1e-6);
+    spans.iter().map(|(a, b)| crate::VocalMark { start: (a / d) as f32, end: (b / d).min(1.0) as f32 }).collect()
 }
 
 /// The track's active loop (a saved loop marked active), if any.
@@ -126,6 +133,8 @@ struct TrackSource {
 struct Prepared {
     deck: usize,
     data: Arc<od_engine::TrackData>,
+    /// Vocal spans (seconds) when the data carries parts.
+    vocals: Vec<(f64, f64)>,
     play_from: Option<f64>,
     /// Replaces the data of the track already on `deck` without a gap.
     swap: Option<Swap>,
@@ -341,6 +350,7 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
         labels: hot_labels(&cues),
         phrases: analysis.phrases.clone(),
         phrase_marks: phrase_marks(&analysis.phrases, &analysis.beatgrid, t.duration),
+        vocals: Vec::new(),
         source: source.clone(),
     };
     let read_only = st.read_only();
@@ -373,7 +383,8 @@ fn prepare_in_background(
 ) {
     std::thread::spawn(move || match od_stems::load_track_data(&cache, track, &src.path, Some(&src.hash), rate, grid, &src.cues, src.gain) {
         Ok(data) => {
-            let _ = tx.send(Prepared { deck, data, play_from, swap });
+            let vocals = data.stems.as_ref().map(|s| s.vocal_regions(rate)).unwrap_or_default();
+            let _ = tx.send(Prepared { deck, data, vocals, play_from, swap });
         }
         Err(e) => tracing::warn!(error = %e, "track load failed"),
     });
@@ -387,6 +398,15 @@ pub(crate) fn receive_prepared(app: &App) {
         if let Some(why) = pr.swap {
             // Same track still on the deck: swap without a gap.
             if app.decks.borrow().loaded_id(deck) == Some(pr.data.id) {
+                let duration = pr.data.duration();
+                {
+                    let mut d = app.decks.borrow_mut();
+                    if let Some(m) = d.loaded[deck].as_mut() {
+                        m.vocals = vocal_marks(&pr.vocals, duration);
+                    }
+                    // Rebuild the per-track view parts (vocal marks).
+                    d.views.lanes[deck].track = None;
+                }
                 engine::deck_cmd(app, deck, DeckCommand::SwapTrackData(pr.data));
                 if why == Swap::Stems {
                     app.status(format!("Stems ready on deck {}", deck + 1));
@@ -396,7 +416,8 @@ pub(crate) fn receive_prepared(app: &App) {
         }
         let needs_stems = !pr.data.has_stems();
         let meta = app.decks.borrow_mut().pending[deck].take().filter(|m| m.id == pr.data.id);
-        let Some(meta) = meta else { continue };
+        let Some(mut meta) = meta else { continue };
+        meta.vocals = vocal_marks(&pr.vocals, pr.data.duration());
         let title = meta.title.clone();
         let musical_key = meta.musical_key;
         let active_loop = active_loop(&meta.source.cues);
@@ -788,6 +809,7 @@ struct Lane {
     track: Option<TrackId>,
     cues: ModelRc<CueMark>,
     phrases: ModelRc<PhraseMark>,
+    vocals: ModelRc<crate::VocalMark>,
     /// Phrases were shown when `phrases` was built (Preferences > View).
     phrases_on: bool,
     overview: Image,
@@ -806,6 +828,7 @@ impl Default for Lane {
             track: None,
             cues: model(Vec::new()),
             phrases: model(Vec::new()),
+            vocals: model(Vec::new()),
             phrases_on: true,
             overview: Image::default(),
             artwork: None,
@@ -865,6 +888,7 @@ impl Lane {
             level_bass: f.level_bass,
             loop_size: f.loop_size,
             phrases: self.phrases.clone(),
+            vocals: self.vocals.clone(),
             phrase: f.phrase,
             jog_angle: f.jog_angle,
             beat_pos: f.beat_pos,
@@ -969,6 +993,7 @@ pub(crate) fn project(app: &App, state: &EngineState) {
             lane.cues = model(meta.map(|m| m.cues.clone()).unwrap_or_default());
             lane.phrases = model(meta.filter(|_| show_phrases).map(|m| m.phrase_marks.clone()).unwrap_or_default());
             lane.overview = meta.map(|m| m.overview.clone()).unwrap_or_default();
+            lane.vocals = model(meta.map(|m| m.vocals.clone()).unwrap_or_default());
             lane.artwork = meta.and_then(|m| m.artwork.clone());
             lane.waveform = Image::default();
             lane.wave_key = None;
@@ -1609,6 +1634,13 @@ mod tests {
         assert_ne!(a, WaveKey::new(t, 10.01, 8.0, 800, 100));
         assert_ne!(a, WaveKey::new(t, 10.0, 8.08, 800, 100));
         assert_ne!(a, WaveKey::new(t, 10.0, 8.0, 801, 100));
+    }
+
+    #[test]
+    fn vocal_spans_become_overview_fractions() {
+        let m = vocal_marks(&[(30.0, 60.0), (150.0, 240.0)], 200.0);
+        assert_eq!((m[0].start, m[0].end), (0.15, 0.3));
+        assert_eq!(m[1].end, 1.0, "clamped to the track");
     }
 
     #[test]

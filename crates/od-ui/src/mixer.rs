@@ -27,6 +27,17 @@ pub(crate) struct MixerView {
     pub channels: Rows<ChannelView>,
     /// STEM per channel.
     pub parts: Cell<[bool; decks::DECKS]>,
+    /// Smart Fader on, and the low EQ it last set per channel.
+    pub smart: Cell<bool>,
+    smart_low: Cell<[Option<f32>; decks::DECKS]>,
+}
+
+/// Smart Fader bass swap: the low EQ of the A side (`a = true`) or B side
+/// for crossfader position `u` (0 = A … 1 = B). The basses cross between
+/// 40 % and 60 %; the side being faded out loses its bass.
+pub(crate) fn smart_low(u: f32, a: bool) -> f32 {
+    let t = ((u - 0.4) / 0.2).clamp(0.0, 1.0);
+    if a { -t } else { -(1.0 - t) }
 }
 
 /// Trim in dB (−24..+12) onto the knob's −1..1.
@@ -70,12 +81,61 @@ pub(crate) fn project(app: &App, state: &EngineState) {
             .map(|d| if parts[d] { parts_view(d, &state.channels[d], &state.decks[d]) } else { channel_view(d, &state.channels[d]) })
             .collect(),
     );
+    smart_fader(app, state);
     let ui = &app.ui;
     ui.set_master_level(state.master_level);
     ui.set_headphone_mix(state.headphone_mix);
     ui.set_headphone_level(state.headphone_level);
     ui.set_master_bpm(if state.master_deck.is_some() { format!("{:.1}", state.master_bpm) } else { String::new() }.into());
     ui.set_crossfader((state.crossfader + 1.0) / 2.0);
+}
+
+/// Smart Fader: moves the low EQs of the A and B channels with the
+/// crossfader (only when they change).
+fn smart_fader(app: &App, state: &EngineState) {
+    if !app.mixer.smart.get() {
+        return;
+    }
+    let u = (state.crossfader + 1.0) / 2.0;
+    let mut last = app.mixer.smart_low.get();
+    let count = app.decks.borrow().deck_count.min(decks::DECKS);
+    for c in 0..count {
+        let side = match state.channels[c].xf_assign {
+            od_engine::XfAssign::A => true,
+            od_engine::XfAssign::B => false,
+            od_engine::XfAssign::Thru => continue,
+        };
+        let low = smart_low(u, side);
+        if last[c].is_none_or(|l| (l - low).abs() > 0.005) {
+            engine::send(app, Command::Channel(c, ChannelCommand::SetEq { band: 0, value: low }));
+            last[c] = Some(low);
+        }
+    }
+    app.mixer.smart_low.set(last);
+}
+
+/// Smart Fader on / off: on, the decks on the crossfader follow the master
+/// tempo; off, their basses return to flat.
+pub(crate) fn toggle_smart_fader(app: &App) {
+    engine::ensure_engine(app);
+    let on = !app.mixer.smart.get();
+    app.mixer.smart.set(on);
+    app.ui.global::<crate::MixerParts>().set_smart_fader(on);
+    let Some(state) = engine::snapshot(app) else { return };
+    let count = app.decks.borrow().deck_count.min(decks::DECKS);
+    for c in 0..count {
+        if state.channels[c].xf_assign == od_engine::XfAssign::Thru {
+            continue;
+        }
+        if on {
+            if state.master_deck != Some(c) && state.decks[c].track.is_some() {
+                engine::deck_cmd(app, c, DeckCommand::SetSync(true));
+            }
+        } else if app.mixer.smart_low.get()[c].is_some() {
+            engine::send(app, Command::Channel(c, ChannelCommand::SetEq { band: 0, value: 0.0 }));
+        }
+    }
+    app.mixer.smart_low.set([None; decks::DECKS]);
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
@@ -97,6 +157,7 @@ pub(crate) fn wire(app: &Rc<App>) {
             ch(&a, c, ChannelCommand::SetEq { band: band as usize, value: v })
         }
     }));
+    ui.global::<crate::MixerParts>().on_toggle_smart_fader(handler!(app, |a| toggle_smart_fader(&a)));
     ui.global::<crate::MixerParts>().on_toggle(handler!(app, |a, c: i32| {
         let i = (c as usize).saturating_sub(1).min(decks::DECKS - 1);
         let mut p = a.mixer.parts.get();

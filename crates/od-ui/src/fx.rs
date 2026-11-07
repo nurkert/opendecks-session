@@ -114,6 +114,7 @@ pub(crate) fn color_fx_kind(name: &str) -> ColorFxKind {
         "pitch" => ColorFxKind::Pitch,
         "dub_echo" => ColorFxKind::DubEcho,
         "sweep" => ColorFxKind::Sweep,
+        "smart" => ColorFxKind::Smart,
         _ => ColorFxKind::Filter,
     }
 }

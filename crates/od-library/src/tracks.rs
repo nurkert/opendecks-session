@@ -238,6 +238,24 @@ fn ensure_analysis_row(conn: &Connection, id: TrackId) -> Result<()> {
     Ok(())
 }
 
+/// The stored phrases of a track as written (empty when none).
+pub(crate) fn read_phrases(conn: &Connection, id: TrackId) -> Result<Vec<Phrase>> {
+    let raw: Option<String> = conn
+        .query_row("SELECT phrases FROM analysis WHERE track_id = ?1", [id.0], |r| r.get(0))
+        .optional()?
+        .flatten();
+    Ok(match raw {
+        Some(p) => serde_json::from_str(&p)?,
+        None => Vec::new(),
+    })
+}
+
+pub(crate) fn write_phrases(conn: &Connection, id: TrackId, phrases: &[Phrase]) -> Result<()> {
+    ensure_analysis_row(conn, id)?;
+    conn.execute("UPDATE analysis SET phrases = ?2 WHERE track_id = ?1", params![id.0, serde_json::to_string(phrases)?])?;
+    Ok(())
+}
+
 pub(crate) fn write_grid(conn: &Connection, id: TrackId, grid: Option<&(Beatgrid, DataSource)>) -> Result<()> {
     ensure_analysis_row(conn, id)?;
     match grid {
@@ -447,6 +465,14 @@ impl Library {
     /// User edit: replace the beatgrid (marks it as manual).
     pub fn set_beatgrid(&mut self, id: TrackId, grid: Beatgrid) -> Result<()> {
         self.edit("Edit beatgrid", vec![EntityState::Grid { track: id, grid: Some((grid, DataSource::Manual)) }])
+    }
+
+    /// User edit: replace the phrases of a track (phrase edit). The list is
+    /// normalized ([`od_core::normalize_phrases`]) before it is stored, so
+    /// readers, sticks and undo all see DJ-readable sections.
+    pub fn set_phrases(&mut self, id: TrackId, phrases: &[Phrase]) -> Result<()> {
+        let phrases = od_core::normalize_phrases(phrases);
+        self.edit("Edit phrases", vec![EntityState::Phrases { track: id, phrases }])
     }
 
     /// User edit: set or clear the key (marks it as manual).
@@ -690,6 +716,31 @@ impl TrackRecord {
 mod tests {
     use super::*;
     use crate::test_util::track;
+
+    #[test]
+    fn phrase_edits_are_normalized_journaled_and_undoable() {
+        use od_core::PhraseKind::*;
+        let mut lib = Library::open_in_memory().unwrap();
+        let a = track(&mut lib, "Phrased", Some(120.0), None);
+        let p = |s: u32, e: u32, kind| Phrase { start_beat: s * 4, end_beat: e * 4, kind };
+        let analysed = TrackAnalysis { phrases: vec![p(0, 16, Intro), p(16, 48, Chorus)], ..Default::default() };
+        lib.store_analysis(a, &analysed, DataSource::Analysis).unwrap();
+        // A two-bar fragment joins its neighbour; same-kind neighbours merge.
+        lib.set_phrases(a, &[p(0, 16, Intro), p(16, 18, Verse), p(18, 32, Chorus), p(32, 48, Chorus)]).unwrap();
+        assert_eq!(lib.analysis(a).unwrap().phrases, vec![p(0, 18, Intro), p(18, 48, Chorus)]);
+        let kind: String = lib.conn().query_row("SELECT kind FROM change ORDER BY seq DESC LIMIT 1", [], |r| r.get(0)).unwrap();
+        assert_eq!(kind, "phrases", "the edit is in the change log (sticks resync the track)");
+        assert_eq!(lib.undo().unwrap().as_deref(), Some("Edit phrases"));
+        assert_eq!(lib.analysis(a).unwrap().phrases, vec![p(0, 16, Intro), p(16, 48, Chorus)]);
+        lib.redo().unwrap();
+        assert_eq!(lib.analysis(a).unwrap().phrases.len(), 2);
+        lib.set_phrases(a, &[]).unwrap();
+        assert!(lib.analysis(a).unwrap().phrases.is_empty(), "cleared");
+        // A track without an analysis row gets one.
+        let b = track(&mut lib, "Fresh", None, None);
+        lib.set_phrases(b, &[p(0, 32, Up)]).unwrap();
+        assert_eq!(lib.analysis(b).unwrap().phrases, vec![p(0, 32, Up)]);
+    }
 
     #[test]
     fn add_get_search() {

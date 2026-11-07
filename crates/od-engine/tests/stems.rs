@@ -236,3 +236,24 @@ fn swap_track_data_attaches_stems_without_interruption() {
         assert!(removed < -40.0, "keylock={keylock}: vocals only {removed:.1} dB after swap");
     }
 }
+
+#[test]
+fn vocal_regions_follow_the_vocal_stem() {
+    // 20 s: vocals sing 2–8 s and 12–16 s, with a 0.5 s breath at 5 s.
+    let sr = 48_000u32;
+    let n = 20 * sr as usize;
+    let sings = |t: f64| ((2.0..8.0).contains(&t) && !(5.0..5.5).contains(&t)) || (12.0..16.0).contains(&t);
+    let vocals: Vec<f32> = (0..n)
+        .flat_map(|i| {
+            let t = i as f64 / sr as f64;
+            let v = if sings(t) { (std::f64::consts::TAU * 440.0 * t).sin() as f32 * 0.3 } else { 0.0 };
+            [v, v]
+        })
+        .collect();
+    let silence = vec![0.0f32; n * 2];
+    let st = StemData::new(&StemInput { sample_rate: sr, vocals, drums: silence.clone(), bass: silence }, sr);
+    let r = st.vocal_regions(sr);
+    assert_eq!(r.len(), 2, "{r:?}");
+    assert!((r[0].0 - 2.0).abs() < 0.3 && (r[0].1 - 8.0).abs() < 0.3, "breath bridged: {r:?}");
+    assert!((r[1].0 - 12.0).abs() < 0.3 && (r[1].1 - 16.0).abs() < 0.3, "{r:?}");
+}

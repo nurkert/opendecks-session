@@ -78,6 +78,79 @@ fn files_dropped_from_the_file_manager() {
     assert!(ui.fx.lib().track_by_path(&deck_file).ok().flatten().is_some(), "and it joined the collection");
 }
 
+/// Hovers an OS file drag over `at` without dropping; returns the drop
+/// target the window claims there (`DragState.target`).
+fn hover_files(ui: &Ui, paths: &[&Path], at: LogicalPosition) -> i32 {
+    let mut data = slint::DataTransfer::default();
+    data.set_file_paths(paths);
+    let mut event = DropEvent::default();
+    event.data = data;
+    event.position = at;
+    event.proposed_action = DragAction::Copy;
+    let allowed = AllowedDragActions { copy: true, move_: false, link: false };
+    WindowInner::from_pub(ui.app.ui.window()).process_drag_event(BackendDragEvent::Move { event, allowed });
+    ui.pump(50);
+    ui.app.ui.global::<crate::DragState>().get_target()
+}
+
+/// Files from the file manager use the drop targets of dragged rows: the
+/// Prepare player lights up under them and shows the dropped file, a
+/// playlist in the tree takes the file, and in Perform with four decks a
+/// file dropped on deck 3 loads there.
+#[test]
+fn files_dropped_on_players_lists_and_decks() {
+    let ui = Ui::open((1440, 900));
+    ui.pump(200);
+    let to_player = new_wav(&ui, "Player Drop.wav", 520.0);
+    let player = Rect::of(&ui.get("player1.enlarged")).centre();
+    assert_eq!(hover_files(&ui, &[&to_player], player), -1, "the Prepare player claims the hovering files");
+    let drag = ui.app.ui.global::<crate::DragState>();
+    assert!(drag.get_active() && drag.get_files(), "the files drag like rows (ghost, highlights)");
+    let (action, _) = drop_files(&ui, &[&to_player], player);
+    assert_eq!(action, DragAction::Copy);
+    assert!(ui.wait_until(30.0, |u| u.value("player1.title") == "Player Drop"), "the player shows the dropped file, got `{}`", ui.value("player1.title"));
+    assert!(!drag.get_active() && !drag.get_files() && drag.get_target() == 0, "the drag ends with the drop");
+    let entries = ui.fx.lib().entries(ui.fx.playlist).unwrap().len();
+
+    // Onto the playlist in the tree (the collection is open).
+    let to_list = new_wav(&ui, "List Drop.wav", 560.0);
+    let node = Rect::of(&ui.get(&format!("browser.tree.node{}", ui.fx.playlist.0))).centre();
+    drop_files(&ui, &[&to_list], node);
+    assert!(
+        ui.wait_until(30.0, |u| u.fx.lib().entries(u.fx.playlist).unwrap().len() == entries + 1),
+        "the playlist under the pointer takes the dropped file"
+    );
+    let lib = ui.fx.lib();
+    let id = lib.track_by_path(&to_list).unwrap().unwrap().id;
+    assert_eq!(lib.entries(ui.fx.playlist).unwrap().last().map(|e| e.track), Some(id));
+
+    // Perform, four decks: onto deck 3.
+    ui.app.ui.invoke_set_mode("perform".into());
+    ui.app.ui.invoke_set_deck_count(4);
+    ui.pump(400);
+    let to_deck = new_wav(&ui, "Deck Three.wav", 600.0);
+    let deck3 = Rect::of(&ui.get("deck3.overview")).centre();
+    assert_eq!(hover_files(&ui, &[&to_deck], deck3), 3, "deck 3 lights up under the files");
+    drop_files(&ui, &[&to_deck], deck3);
+    assert!(ui.wait_until(30.0, |u| deck_title(u, 3) == "Deck Three"), "deck 3 loads the dropped file, got `{}`", deck_title(&ui, 3));
+}
+
+/// Where dropped files go, by drop target (pure).
+#[test]
+fn file_drop_targets() {
+    use crate::import::{FileDrop, file_drop};
+    assert_eq!(file_drop(0), FileDrop::Collection);
+    assert_eq!(file_drop(3), FileDrop::Deck(2));
+    assert_eq!(file_drop(-1), FileDrop::Player(1));
+    assert_eq!(file_drop(-2), FileDrop::Player(2));
+    assert_eq!(file_drop(100_004), FileDrop::Row(4));
+    assert_eq!(file_drop(200_001_000 + 7), FileDrop::List(od_library::NodeId(7)));
+    assert_eq!(file_drop(200_001_000 - 3), FileDrop::Collection, "special tree rows (tag list …) add to the collection");
+    // The AppKit pointer (points, bottom-left origin) in window coordinates.
+    assert_eq!(crate::import::content_point_to_logical(100.0, 700.0, 900.0, 2.0, 2.0), (100.0, 200.0));
+    assert_eq!(crate::import::content_point_to_logical(100.0, 700.0, 900.0, 2.0, 4.0), (50.0, 100.0), "a larger UI scale shrinks logical units");
+}
+
 /// The pure part: which dropped paths are audio.
 #[test]
 fn dropped_audio_expands_folders_and_skips_other_files() {

@@ -338,6 +338,10 @@ pub enum ColorFxKind {
     /// Left: beat-synced 1/16 gate (depth = knob); right: band-pass sweep
     /// rising with the knob.
     Sweep,
+    /// Smart CFX: one knob for a combination — left a low-pass with a
+    /// 3/4-beat echo, right a high-pass with a reverb, both growing with
+    /// the turn; tails ring out.
+    Smart,
 }
 
 /// Crossfader assignment of a channel.

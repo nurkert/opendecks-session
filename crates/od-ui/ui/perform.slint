@@ -129,6 +129,12 @@ component Overview inherits VerticalLayout {
             tone: c.slot >= 0 ? Theme.cue-tone(c.slot, c.tone) : Theme.bone;
             form: c.slot >= 0 ? "solid" : "dashed";
         }
+        // Vocal position: a band along the top where the vocals sing.
+        for v in root.deck.vocals: Rectangle {
+            x: parent.width * v.start; width: max(1px, parent.width * (v.end - v.start));
+            y: 0; height: 3px;
+            background: Theme.w546;
+        }
         if root.deck.loaded: Rectangle { x: parent.width * root.deck.progress - 1px; width: 2px; height: parent.height; background: Theme.bone; }
         TouchArea {
             mouse-cursor: crosshair;
@@ -659,6 +665,9 @@ export global PerformLayout {
 // isolation (as the controller's part isolator does).
 export global MixerParts {
     callback toggle(int);
+    // Smart Fader: the crossfader also swaps the basses and syncs.
+    in property <bool> smart-fader;
+    callback toggle-smart-fader();
 }
 
 // One mixer channel, top to bottom: numeral, TRIM, HI, MID, LOW, CFX, STEM,
@@ -804,10 +813,24 @@ component GlobalBar inherits Rectangle {
             Knob { accessible-role: slider; accessible-label: "global.phones.mix"; accessible-value: root.headphone-mix; label: "MIX"; size: 20px; minimum: 0; maximum: 1; default-value: 0.5; value: root.headphone-mix; changed(v) => { root.set-headphone-mix(v); } }
             Knob { accessible-role: slider; accessible-label: "global.phones.level"; accessible-value: root.headphone-level; label: @tr("LEVEL"); size: 20px; minimum: 0; maximum: 1; default-value: 0.8; value: root.headphone-level; changed(v) => { root.set-headphone-level(v); } }
         }
-        VerticalLayout {
+        HorizontalLayout {
             width: max(160px, root.centre-width);
-            alignment: center;
-            Crossfader { accessible-role: slider; accessible-label: "global.xfader"; accessible-value: root.crossfader; value: root.crossfader; changed(v) => { root.set-crossfader(v); } }
+            spacing: 6px;
+            VerticalLayout {
+                horizontal-stretch: 1;
+                alignment: center;
+                Crossfader { accessible-role: slider; accessible-label: "global.xfader"; accessible-value: root.crossfader; value: root.crossfader; changed(v) => { root.set-crossfader(v); } }
+            }
+            VerticalLayout {
+                alignment: center;
+                Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: MixerParts.smart-fader;
+                    accessible-label: "global.smart-fader";
+                    size: 22px; width: 52px; label: "SMART"; on: MixerParts.smart-fader; tone: Theme.w486;
+                    tooltip: @tr("Smart Fader: the crossfader also swaps the basses and keeps the decks in sync");
+                    clicked => { MixerParts.toggle-smart-fader(); }
+                }
+            }
         }
         HorizontalLayout {
             width: (root.width - 28px - max(160px, root.centre-width)) / 2;

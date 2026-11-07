@@ -226,6 +226,12 @@ export struct PadView {
     tone: color,
 }
 
+// A span where the vocals sing, as fractions of the track.
+export struct VocalMark {
+    start: float,
+    end: float,
+}
+
 export struct DeckView {
     deck: int,
     loaded: bool,
@@ -285,6 +291,8 @@ export struct DeckView {
     has-artwork: bool,
     loop-size: string,
     phrases: [PhraseMark],
+    // Where the vocals sing (from the separated parts).
+    vocals: [VocalMark],
     // Current phrase and bars left in it, e.g. "CHORUS · 8".
     phrase: string,
     // Platter rotation in degrees.

@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 192 DONE (93 %), 5 PARTIAL, 1 ENGINE-ONLY, 8 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 194 DONE (94 %), 5 PARTIAL, 1 ENGINE-ONLY, 6 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -99,7 +99,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Phrase analysis | DONE | Analysed (`od-analysis/src/phrase.rs`), stored and exported (`PSSI` in `anlz/build.rs`). Display: see `deck-phrase-display` | 2 |  |
 | Waveform: own 3-band colour | DONE | `od-analysis/src/waveform.rs`, `render.rs` (+ colour-blind palette) | 4 |  |
 | Waveform style options (RGB / blue / 3-band) | DONE | `PWAV/PWV2–PWV7`; Preferences ▸ View ▸ Waveform colour: 3-band (low / mid / high stacked), blue, or RGB (one envelope, hue from the band balance) | 2 | P3 |
-| Vocal position | MISSING | Could be derived from the vocal stem | — | P3 |
+| Vocal position | DONE | Derived from the separated vocal part when a track has parts: spans where the vocals sing are drawn as a band along the top of the deck overview | 2 | P3 |
 | Loudness + auto gain | DONE | `od-analysis/src/loudness.rs`; gain in `perform.rs::load_track`, engine default on (`mixer.rs` `auto_gain: true`); no toggle in UI | 3 |  |
 | Re-analyse selected, never overwrite manual/imported | DONE | `on_analyse_selected`; `DataSource` priority in `tracks.rs::store_analysis` | 3 |  |
 | Phrase editing (GRID EDIT \| PHRASE EDIT, cut / clear) | MISSING | (UX §2.5) | — | P3 |
@@ -185,7 +185,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Master level, VU meters, limiter | DONE | `SetMasterLevel`, meters in `ChannelView`, limiter on by default | 3 |  |
 | Master cue | DONE | `controller.rs::handle_action`; Controller `master_cue` toggles it, with LED | 1 | P2 |
 | Booth level / booth output | DONE | `controller.rs::handle_action`; Controller `booth_level` sets the booth output | 1 | P2 |
-| Smart CFX / Smart Fader (FLX4) | MISSING | — | — | P3 |
+| Smart CFX / Smart Fader (FLX4) | DONE | Smart CFX: a colour FX on one knob (low-pass + echo left, high-pass + reverb right); Smart Fader (SMART beside the crossfader): the crossfader swaps the basses of the A and B channels and the decks on the crossfader follow the master tempo | 2 | P3 |
 | Mic / aux input | DONE | MIC in the global bar: on, level, input meter, talkover with ducking indicator, input device; engine input channel mixed before Beat FX / booth / recording | 5 | P3 |
 | Auto gain toggle | DONE | `ChannelCommand::SetAutoGain`; Preferences > Controller > Mixer: auto gain on / off for every channel | 2 |  |
 | STEM button per mixer channel | DONE | STEM per mixer channel switches its HI / MID / LOW knobs to part isolation (vocals / inst / drums), centre = full level; the channel EQ stays as it was; (UX §1.3, §2.4) | 1 | P2 |
@@ -200,7 +200,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Sound Colour FX selection (filter, noise, space, crush, echo) | DONE | `fx.rs::select_color_fx`; One global selection (‹ NAME › under the mixer, keyboard, controller CFX buttons with LEDs), persisted, applied to every channel | 3 | **P1** |
 | Release FX | DONE | `fx.slint::FxUnit`; BRAKE / BACKSPIN / ECHO OUT per unit while held (panel, keyboard); controller release button = echo out | 2 | P2 |
 | Pad FX | DONE | `fx.rs::pad_fx_preset`; Two pages of eight presets (beat and release FX) on the deck pads | 3 | P2 |
-| Stem FX (FX on one part) | MISSING | — | — | P3 |
+| Stem FX (FX on one part) | MISSING | Not yet: FX on one part needs that part as its own time-stretched signal (a second keylock path per deck). Planned with the keylock refactor; part levels, part isolation and Beat FX on the whole channel work today | — | P3 |
 | FX panel (FX1 \| FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row) | DONE | `crates/od-ui/ui/fx.slint`; FX1 \| FX2: effect, beat, assign (channels, sampler, master), level, parameter, ON, AUTO, TAP, Release FX, and ×3 multi mode with three chained slots (effect, beat, depth, ON each); (SPEC §10.2; UX §1.5) | 4 | **P1** |
 | Colour FX: pitch, dub echo, sweep | DONE | `settings.rs::COLOR_FX`; Pitch, dub echo and sweep selectable like the others; (SPEC §10.2) | 2 | P3 |
 
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 192 |
+| DONE | 194 |
 | PARTIAL | 5 |
 | ENGINE-ONLY | 1 |
-| MISSING | 8 |
+| MISSING | 6 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |

@@ -35,7 +35,7 @@ import { MixerParts, PerformLayout } from "perform.slint";
 export { MixerParts, PerformLayout }
 export { Lighting, LightFixtureView, LightGroupView, LightingWindow }
 import { PreferencesWindow, KeyRow } from "preferences.slint";
-import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget } from "structs.slint";
+import { VocalMark, TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget } from "structs.slint";
 
 export { PreferencesWindow, KeyRow }
 // Perform panels (FX, sampler, pad modes).
@@ -178,8 +178,9 @@ export component AppWindow inherits Window {
     // Menu bar items and other commands by keymap action id.
     callback menu-action(string);
     // Files dragged in from Finder / the file manager: accepted when the
-    // transfer carries file paths; dropped with the deck under the pointer
-    // (1-based, Perform) or 0 (collection and the open list).
+    // transfer carries file paths; dropped with the drop target under the
+    // pointer (DragState.target: deck, player, list, list position; 0 =
+    // the collection and the open list).
     pure callback drop-accepts(data-transfer) -> bool;
     callback files-dropped(data-transfer, int);
     // A file drag hovers the window (native drops that carry no position).
@@ -396,8 +397,10 @@ export component AppWindow inherits Window {
     changed theme-light => { root.appearance-changed(self.theme-light); }
     // Each change focuses the search field (keyboard: search).
     in property <int> search-focus;
-    // Preferences > View: phrases on the waveforms.
+    // Preferences > View: phrases on the enlarged waveforms and the phrase
+    // bar under the overviews.
     in property <bool> show-phrases: true;
+    in property <bool> show-phrases-overview: true;
     callback nudge(float);
     callback jump-start();
     callback deck-master(int);
@@ -535,7 +538,7 @@ export component AppWindow inherits Window {
             preferred-height: root.mode == "prepare" && root.prepare-layout == "browser" ? 0px : root.upper-height > 0 ? root.upper-height
                 : (root.mode == "prepare" ? (root.prepare-layout == "two" ? 400px : root.prepare-layout == "dual" ? 150px : root.prepare-layout == "simple" ? 120px : 280px) : PerformLayout.layout == "browse" ? 220px : 560px);
             if root.mode == "prepare" && (root.prepare-layout == "player" || root.prepare-layout == "two"): PreparePlayer {
-                phrases: root.show-phrases ? root.track-phrases : [];
+                phrases: root.show-phrases-overview ? root.track-phrases : [];
                 info-width: root.sidebar-width;
                 info-dragged(d) => { root.sidebar-width = clamp(root.sidebar-width + d, 180px, 480px); }
                 info-reset => { root.sidebar-width = 260px; }
@@ -1099,21 +1102,44 @@ export component AppWindow inherits Window {
 
     // Files from Finder / the file manager: the whole window takes them.
     file-drop := DropArea {
-        can-drop(event) => { root.drop-accepts(event.data) ? DragAction.copy : DragAction.none }
-        dropped(event) => {
-            root.files-dropped(event.data,
-                root.mode == "perform" && event.position.y >= upper.y && event.position.y < upper.y + upper.height
-                    ? (event.position.x < root.width / 2 ? 1 : 2) : 0);
+        // The drag position drives the same drop targets as dragged rows
+        // (decks, players, lists, list positions; DragState.target).
+        can-drop(event) => {
+            if (!root.drop-accepts(event.data)) {
+                return DragAction.none;
+            }
+            DragState.x = event.position.x;
+            DragState.y = event.position.y;
+            DragState.kind = "tracks";
+            DragState.files = true;
+            DragState.label = @tr("Audio files");
+            DragState.active = true;
             DragAction.copy
+        }
+        dropped(event) => {
+            root.files-dropped(event.data, DragState.target);
+            DragState.active = false;
+            DragState.files = false;
+            DragState.target = 0;
+            DragAction.copy
+        }
+        changed has-drag => {
+            if (!self.has-drag && DragState.files && !root.file-drag) {
+                DragState.active = false;
+                DragState.files = false;
+                DragState.target = 0;
+            }
         }
     }
     if file-drop.has-drag || root.file-drag: drop-hint := Rectangle {
         accessible-label: "browser.drop-files"; accessible-role: text;
         accessible-value: self.hint;
-        property <string> hint: root.mode == "perform" ? @tr("Drop on a deck to load, anywhere else to add to the collection") : @tr("Drop to add to the collection and the open list");
+        property <string> hint: root.mode == "perform" ? @tr("Drop on a deck to load, anywhere else to add to the collection") : @tr("Drop on a player to open, on a list to add to it, anywhere else to add to the collection and the open list");
         border-width: 2px; border-color: Theme.live;
         background: Theme.live.with-alpha(0.06);
+        // Low in the window, clear of the decks and players it points at.
         Rectangle {
+            y: parent.height - 76px;
             width: t.preferred-width + 32px; height: 36px;
             background: Theme.plate-raised; border-width: 1px; border-color: Theme.live;
             t := Text { text: drop-hint.hint; font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; }

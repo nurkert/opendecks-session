@@ -116,7 +116,14 @@ pub struct ViewSettings {
     pub appearance: String,
     /// "3band", "blue" or "rgb".
     pub waveform: String,
+    /// Phrases on the enlarged (zoomed) waveforms: a colour strip along
+    /// the bottom.
     pub phrases: bool,
+    /// The phrase bar under the overviews (decks and the Prepare player).
+    pub phrases_overview: bool,
+    /// Phrase types on the phrase bar: "names" (labelled colour blocks) or
+    /// "colors" (colour only).
+    pub phrase_types: String,
     /// Bar counter on decks: "to-phrase" (bars left in the phrase, the
     /// default), "to-memory-cue" (bars left to the next memory cue) or "up".
     pub bar_counter: String,
@@ -279,7 +286,7 @@ pub struct SortSpec {
 }
 
 /// Colour FX names stored in [`PerformSettings::color_fx`], in panel order.
-pub const COLOR_FX: [&str; 8] = ["filter", "echo", "noise", "space", "crush", "pitch", "dub_echo", "sweep"];
+pub const COLOR_FX: [&str; 9] = ["filter", "echo", "noise", "space", "crush", "pitch", "dub_echo", "sweep", "smart"];
 
 /// The update check (SPEC §14.1; Preferences > Advanced).
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -337,6 +344,8 @@ impl Default for ViewSettings {
             appearance: "dark".into(),
             waveform: "3band".into(),
             phrases: true,
+            phrases_overview: true,
+            phrase_types: "names".into(),
             bar_counter: "to-phrase".into(),
             zoom_span: 8.0,
         }
@@ -367,6 +376,9 @@ pub const SAMPLE_RATES: [u32; 3] = [0, 44_100, 48_000];
 pub const SCALES: [f32; 6] = [0.75, 1.0, 1.25, 1.5, 1.75, 2.0];
 /// Bar counter modes of the decks, in the order Preferences lists them.
 pub const BAR_COUNTERS: [&str; 3] = ["to-phrase", "to-memory-cue", "up"];
+/// How phrase types show on the phrase bar: names on the colour blocks, or
+/// colours only.
+pub const PHRASE_TYPES: [&str; 2] = ["names", "colors"];
 /// Appearance modes, in the order the top-bar button cycles them.
 pub const APPEARANCES: [&str; 3] = ["dark", "light", "system"];
 pub const BPM_RANGES: [(u32, u32); 5] = [(58, 115), (68, 135), (78, 155), (87, 175), (98, 195)];
@@ -402,6 +414,9 @@ impl Settings {
         }
         if !["3band", "blue", "rgb"].contains(&v.waveform.as_str()) {
             v.waveform = "3band".into();
+        }
+        if !PHRASE_TYPES.contains(&v.phrase_types.as_str()) {
+            v.phrase_types = "names".into();
         }
         let a = &mut self.analysis;
         a.bpm_min = a.bpm_min.clamp(40, 200);
@@ -713,6 +728,18 @@ mod tests {
     }
 
     #[test]
+    fn phrase_display_options() {
+        let d = Settings::default();
+        assert!(d.view.phrases && d.view.phrases_overview, "phrases on both waveforms by default");
+        assert_eq!(d.view.phrase_types, "names");
+        // Settings stored before the options existed keep phrases everywhere.
+        let old = Settings::from_json(r#"{"view": {"phrases": false}}"#);
+        assert!(!old.view.phrases && old.view.phrases_overview && old.view.phrase_types == "names");
+        assert_eq!(Settings::from_json(r#"{"view": {"phrase_types": "colors"}}"#).view.phrase_types, "colors");
+        assert_eq!(Settings::from_json(r#"{"view": {"phrase_types": "glyphs"}}"#).view.phrase_types, "names");
+    }
+
+    #[test]
     fn new_values_fall_back_and_row_heights() {
         let s = Settings::from_json(r#"{"deck": {"tempo_range": "huge", "jog_mode": "spin"}, "mixer": {"eq_mode": "x", "fader_curve": "y", "crossfader_curve": "z"}, "browser": {"font_size": 99, "line_spacing": "airy"}, "view": {"zoom_span": 3.0}, "recording": {"gain_db": 40.0, "name_pattern": " a/b:c "}}"#);
         assert_eq!((s.deck.tempo_range.as_str(), s.deck.jog_mode.as_str()), ("ten", "vinyl"));
@@ -767,6 +794,8 @@ mod tests {
         let mut lib = od_library::Library::open(&dir.path().join("library.sqlite")).unwrap();
         let mut s = Settings::default();
         s.view.phrases = false;
+        s.view.phrases_overview = false;
+        s.view.phrase_types = "colors".into();
         s.analysis.detect_key = false;
         lib.set_meta(META_SETTINGS, &s.to_json()).unwrap();
         drop(lib);

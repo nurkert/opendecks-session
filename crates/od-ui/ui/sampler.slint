@@ -10,10 +10,11 @@ import { DragState } from "drag.slint";
 import { SamplerPadView, SamplerView } from "structs.slint";
 
 // Drop target for a dragged track row. It does not claim DragState.target
-// (that would load a deck); it notices the release itself.
+// (that would load a deck); it notices the release itself. Files from the
+// file manager do not drop here.
 component SampleDrop inherits Rectangle {
     callback dropped();
-    property <bool> over: DragState.active
+    property <bool> over: DragState.active && !DragState.files
         && DragState.x >= self.absolute-position.x && DragState.x < self.absolute-position.x + self.width
         && DragState.y >= self.absolute-position.y && DragState.y < self.absolute-position.y + self.height;
     property <bool> was-over;

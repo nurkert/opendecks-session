@@ -229,3 +229,25 @@ fn rec_toggle_hides_the_recording_section() {
     ui.pump(100);
     assert!(!ui.has("rec.toggle") && !ui.has("rec.time"));
 }
+
+/// Smart Fader: with A and B assigned, the crossfader swaps the basses;
+/// off, the basses return to flat. Smart CFX is one of the colour FX.
+#[test]
+fn smart_fader_swaps_the_basses() {
+    use od_engine::{ChannelCommand, Command, MixerCommand, XfAssign};
+    assert_eq!((crate::mixer::smart_low(0.0, true), crate::mixer::smart_low(0.0, false)), (0.0, -1.0));
+    assert_eq!((crate::mixer::smart_low(1.0, true), crate::mixer::smart_low(1.0, false)), (-1.0, 0.0));
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let send = |c| crate::engine::send(&ui.app, c);
+    send(Command::Channel(0, ChannelCommand::SetCrossfaderAssign(XfAssign::A)));
+    send(Command::Channel(1, ChannelCommand::SetCrossfaderAssign(XfAssign::B)));
+    ui.pump(100);
+    ui.click("global.smart-fader");
+    assert!(ui.app.mixer.smart.get());
+    send(Command::Mixer(MixerCommand::SetCrossfader(1.0))); // full B
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.channels[0].eq[0] == -1.0 && s.channels[1].eq[0] == 0.0)), "A loses its bass");
+    ui.click("global.smart-fader");
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.channels[0].eq[0] == 0.0)), "flat again");
+    assert_eq!(crate::fx::color_fx_kind("smart"), od_engine::ColorFxKind::Smart);
+}

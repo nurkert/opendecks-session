@@ -6,9 +6,11 @@
 
 use crate::mytags::{self, MyTag};
 use crate::nodes::{self, Entry, Node, NodeId, Subtree};
-use crate::tracks::{read_cues, read_grid, read_key, read_tags, write_cues, write_grid, write_key};
+use crate::tracks::{
+    read_cues, read_grid, read_key, read_phrases, read_tags, write_cues, write_grid, write_key, write_phrases,
+};
 use crate::{Library, NOW, Result, record_change};
-use od_core::{Beatgrid, Cue, DataSource, MusicalKey, TrackId, TrackTags};
+use od_core::{Beatgrid, Cue, DataSource, MusicalKey, Phrase, TrackId, TrackTags};
 use rusqlite::{Connection, OptionalExtension, params};
 use serde::{Deserialize, Serialize};
 
@@ -31,6 +33,8 @@ pub enum EntityState {
     Subtree { root: NodeId, tree: Option<Subtree> },
     /// The My Tag values of a track.
     MyTags { track: TrackId, tags: Vec<MyTag> },
+    /// The phrases of a track (phrase edit).
+    Phrases { track: TrackId, phrases: Vec<Phrase> },
 }
 
 impl EntityState {
@@ -50,6 +54,9 @@ impl EntityState {
             }
             EntityState::MyTags { track, .. } => {
                 EntityState::MyTags { track: *track, tags: mytags::read(conn, *track)? }
+            }
+            EntityState::Phrases { track, .. } => {
+                EntityState::Phrases { track: *track, phrases: read_phrases(conn, *track)? }
             }
         })
     }
@@ -99,6 +106,10 @@ impl EntityState {
             EntityState::MyTags { track, tags } => {
                 mytags::write(conn, *track, tags)?;
                 record_change(conn, "tags", Some(*track), None)
+            }
+            EntityState::Phrases { track, phrases } => {
+                write_phrases(conn, *track, phrases)?;
+                record_change(conn, "phrases", Some(*track), None)
             }
         }
     }

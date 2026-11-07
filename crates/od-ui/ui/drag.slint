@@ -18,6 +18,9 @@ export global DragState {
     // What is dragged: "tracks" (list rows) or "node" (a tree node, `source`).
     in-out property <string> kind: "tracks";
     in-out property <int> source;
+    // Files dragged in from Finder / the file manager (kind "tracks"): the
+    // same targets light up; the drop goes to `files-dropped`.
+    in-out property <bool> files;
 }
 
 // Target id ranges (kept in step with `browser::drop_target`).
