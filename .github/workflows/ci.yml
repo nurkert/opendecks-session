@@ -3,7 +3,21 @@ name: CI
 on:
   push:
     branches: [main]
+    paths-ignore: ["**.md", "docs/**", "assets/**"]
   pull_request:
+    paths-ignore: ["**.md", "docs/**", "assets/**"]
+  # macOS runners are expensive on a free account: they only run when started
+  # by hand (Actions → CI → Run workflow → macos) and in the release workflow.
+  workflow_dispatch:
+    inputs:
+      macos:
+        description: "Also test on the macOS runners"
+        type: boolean
+        default: false
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,11 +27,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: macos-latest    # Apple Silicon
-          - os: macos-15-intel  # Intel
-          - os: ubuntu-24.04    # x86_64
-          - os: ubuntu-24.04-arm  # aarch64 (Raspberry Pi class)
+        # ubuntu-24.04: x86_64, ubuntu-24.04-arm: aarch64 (Raspberry Pi class),
+        # macos-latest: Apple Silicon, macos-15-intel: Intel (manual runs only)
+        os: ${{ fromJSON(inputs.macos && '["ubuntu-24.04","ubuntu-24.04-arm","macos-latest","macos-15-intel"]' || '["ubuntu-24.04","ubuntu-24.04-arm"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
