@@ -746,7 +746,12 @@ fn separate_parts_for_selected_tracks() {
     let c = crate::stems_batch::count();
     assert_eq!(c.done + c.failed, 2);
     assert!(
-        ui.wait_until(5.0, |u| u.app.ui.get_status_text().contains('2')),
+        // "Parts ready for N tracks, M failed" (another test may have left
+        // parts of the same fixture audio in the shared cache).
+        ui.wait_until(5.0, |u| {
+            let t = u.app.ui.get_status_text();
+            t.contains(&c.done.to_string()) && t.contains(&c.failed.to_string()) && !t.is_empty()
+        }),
         "status reports the batch: {}",
         ui.app.ui.get_status_text()
     );

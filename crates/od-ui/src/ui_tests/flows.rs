@@ -375,5 +375,7 @@ fn separate_stems() {
     ui.click("deck1.stem.vocal");
     let muted = ui.wait_until(5.0, |u| deck_views(u).into_iter().any(|d| d.deck == 1 && d.mute_vocal));
     assert!(muted, "one click on VOCAL mutes the vocals");
+    // The fixture audio is the same in every test: leave no parts behind.
+    let _ = ui.app.decks.borrow().stem_cache().remove(&track.content_hash);
     record(FlowResult { id: "separate-stems", steps: ui.steps.get(), achieved: muted, note: String::new() });
 }

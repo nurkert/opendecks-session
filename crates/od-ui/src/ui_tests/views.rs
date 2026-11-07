@@ -598,11 +598,19 @@ fn run_size(size_id: &str) {
     std::fs::write(dir.join(format!("views-{size_id}.json")), json).unwrap();
     std::fs::write(dir.join(format!("views-{size_id}.md")), md).unwrap();
     if strict() {
-        assert_eq!(
-            passing,
-            results.len(),
-            "views failing at {size_id} (OD_PARITY_STRICT=1); see target/parity/views-{size_id}.md"
+        // Every view the platform can show passes; the only view a platform
+        // may lack is the View menu outside macOS (it is the native menu bar).
+        let failing: Vec<&str> = results.iter().filter(|r| r.available && !r.passed()).map(|r| r.id.as_str()).collect();
+        let missing: Vec<&str> = results
+            .iter()
+            .filter(|r| !r.available && !(r.id == "menu.view" && !cfg!(target_os = "macos")))
+            .map(|r| r.id.as_str())
+            .collect();
+        assert!(
+            failing.is_empty() && missing.is_empty(),
+            "views failing at {size_id} (OD_PARITY_STRICT=1): {failing:?}, unavailable: {missing:?}; see target/parity/views-{size_id}.md"
         );
+        let _ = passing;
     }
 }
 
