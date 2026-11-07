@@ -4,7 +4,9 @@
 
 [meta]
 snapshot = "2026-11-06, from a read of the source tree"
-deferred_milestones = ["M6"]
+# M4 needs a USB capture with the owner's DDJ-FLX10 (SPEC §9.3); M6 needs a
+# player or a reference export to verify against (SPEC §8.6, §15).
+deferred_milestones = ["M4", "M6"]
 intro = '''
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -730,14 +732,20 @@ id = "browser-drag-to-deck"
 area = "browser"
 name = "Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player"
 scope = "in"
-status = "partial"
 prio = "P1"
+status = "done"
 tests = [
   "od-ui::ui_tests::features::drag_row_onto_deck_loads_it",
   "od-ui::ui_tests::flows::separate_stems",
+  "od-ui::ui_tests::prepare::files_dropped_from_the_file_manager",
+  "od-ui::ui_tests::prepare::files_dropped_on_players_lists_and_decks",
+  "od-ui::ui_tests::prepare::file_drop_targets",
 ]
-evidence = []
-note = "List and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight), UI-tested (drag a row onto deck 2 loads it). Missing: drop from Finder"
+evidence = [
+  "crates/od-ui/src/import.rs::files_dropped",
+  "crates/od-ui/ui/app.slint",
+]
+note = "List, Explorer and sub-browser rows and files from Finder / the file manager onto any deck (1–4) or either Prepare player, with drag ghost and the target highlighting while dragging; files dropped on a list in the tree go into that list, elsewhere into the collection and the open list (at the row under the pointer when it is in its own order). UI-tested on the Slint drop path. Native winit drops carry no position: on macOS the pointer is read from AppKit while files hover; on Linux they go to the collection and the open list"
 spec = "SPEC §5.5"
 
 [[feature]]
@@ -771,9 +779,17 @@ id = "browser-sub-browser"
 area = "browser"
 name = "Sub-browser (second tree + list for dragging between playlists)"
 scope = "in"
-status = "missing"
 prio = "P3"
-tests = []
+status = "done"
+tests = [
+  "od-ui::browser::sub::tests::lists_open_every_folder",
+  "od-ui::ui_tests::editing::sub_browser_drags_between_lists",
+]
+evidence = [
+  "crates/od-ui/src/browser/sub.rs",
+  "crates/od-ui/ui/subbrowser.slint",
+]
+note = "SUB in the list header, View > Sub Browser and a shortcut open a second tree (all library lists) and list under the main list; main-list rows dropped on its lists are added there, its rows go to main-tree lists, the open list, decks and players"
 spec = "UX §1.6, §4 P4.12"
 
 [[feature]]
@@ -984,9 +1000,21 @@ id = "analysis-phrase-edit"
 area = "analysis"
 name = "Phrase editing (GRID EDIT | PHRASE EDIT, cut / clear)"
 scope = "in"
-status = "missing"
 prio = "P3"
-tests = []
+status = "done"
+tests = [
+  "od-library::tracks::tests::phrase_edits_are_normalized_journaled_and_undoable",
+  "od-ui::phrase_edit::tests::cuts_keep_a_different_kind_and_survive_normalization",
+  "od-ui::phrase_edit::tests::boundaries_move_without_crossing",
+  "od-ui::phrase_edit::tests::kind_changes_and_fills_gaps",
+  "od-ui::phrase_edit::tests::edits_snap_to_the_nearest_downbeat",
+  "od-ui::ui_tests::editing::phrase_editing_in_the_prepare_player",
+]
+evidence = [
+  "crates/od-ui/src/phrase_edit.rs",
+  "crates/od-library/src/tracks.rs::set_phrases",
+]
+note = "PHRASE tab next to GRID in the Prepare player: kind of the phrase at the cursor (a gap gets a new phrase), CUT at the nearest bar (at least 4 bars each side), BOUNDARY TO CURSOR, CLEAR; keyboard commands. Stored with Library::set_phrases (normalized with od_core::normalize_phrases, one undo step, change log → sticks resync). A new analysis of the track replaces edited phrases"
 spec = "UX §2.5"
 
 # ---- Cues and loops ----
@@ -1571,13 +1599,19 @@ id = "deck-phrase-display"
 area = "deck"
 name = "Phrases on the overview and enlarged waveform, with display options"
 scope = "in"
-status = "partial"
 prio = "P2"
+status = "done"
 tests = [
   "od-ui::render::tests::phrase_strip_is_painted",
+  "od-ui::settings::tests::phrase_display_options",
+  "od-ui::ui_tests::editing::phrase_display_options_in_preferences",
 ]
-evidence = ["crates/od-ui/src/player.rs::phrase_marks", "crates/od-ui/src/render.rs"]
-note = "Phrase strip is painted; no opt-in toggles for enlarged / overview waveform and no phrase types"
+evidence = [
+  "crates/od-ui/src/player.rs::phrase_marks",
+  "crates/od-ui/src/render.rs",
+  "crates/od-ui/src/settings.rs::PHRASE_TYPES",
+]
+note = "Phrases on the enlarged waveforms and the phrase bar under the overviews switch separately (Preferences > View), phrase types as names or colours only; Prepare player and Perform decks"
 spec = "SPEC §10.1; UX §2.5"
 
 [[feature]]
@@ -2080,11 +2114,12 @@ id = "stems-controller-buttons"
 area = "stems"
 name = "Stem buttons on the controller"
 scope = "in"
+milestone = "M4"
 status = "engine-only"
 prio = "P1"
 tests = []
 evidence = ["DeckAction::StemMuteToggle", "flx10.toml"]
-note = "`DeckAction::StemMuteToggle` exists; FLX10 part buttons mapped to `ignore` (`flx10.toml` \"Mix point / part buttons\") (controller coverage)"
+note = "`DeckAction::StemMuteToggle` and the mapping action exist; which FLX10 notes are the part buttons (vs. mix point buttons) needs the USB/MIDI capture with the controller (M4, SPEC §9.3)"
 
 [[feature]]
 id = "stems-batch-prepare"
@@ -2448,11 +2483,12 @@ id = "export-export-ext-pdb"
 area = "export"
 name = "`exportExt.pdb` (My Tag on players)"
 scope = "in"
+milestone = "M6"
 status = "missing"
 prio = "P3"
+note = "Not written. Public documentation (Deep Symmetry crate-digger rekordbox_pdb.ksy) describes only two of the nine exportExt.pdb table types: tags (3) and tag_tracks (4) rows, with fields it marks as unknown or constant (\"seems always zero\", the 0x03 byte, subtype 0x0680/0x0684 with conflicting notes on the far-name flag, tag_index in steps of 0x20). Table types 0–2 and 5–8, what players expect in them, and the ext page header values (the 1004 / page-flag 0x44 / 0x64 \"strange pages\") are undocumented; a file built from this would be guesswork without a player or a reference export to verify against"
 tests = []
 evidence = ["pdb/mod.rs"]
-note = "Not written: the exportExt.pdb table layouts (My Tag tables) are only partly described in public documentation; writing it needs a documented layout or verification against a player"
 
 [[feature]]
 id = "export-mysetting"
@@ -2626,6 +2662,7 @@ id = "ctrl-flx10-utility"
 area = "preferences"
 name = "FLX10 utility settings (jog ring, fader start, USB input …)"
 scope = "in"
+milestone = "M4"
 status = "partial"
 prio = "P3"
 tests = [
@@ -2714,10 +2751,19 @@ id = "shell-edit-mode"
 area = "shell"
 name = "Edit mode (track editing / remix)"
 scope = "in"
-status = "missing"
 prio = "P3"
-tests = []
-note = "Not implemented. Proposal (owner decision, SPEC §1): exclude — the track edit / remix mode is a waveform audio editor (cutting, re-arranging and rendering new files), outside the scope of a library / performance app; recordings are already cut into tracks, and loops / cues cover in-set edits"
+status = "done"
+tests = [
+  "od-ui::track_edit::tests::segments_per_operation",
+  "od-ui::track_edit::tests::render_joins_with_crossfades_and_keeps_timing",
+  "od-ui::track_edit::tests::region_and_names",
+  "od-ui::ui_tests::editing::edit_mode_renders_a_new_track",
+  "od-ui::ui_tests::editing::edit_mode_cut_and_repeat_lengths",
+]
+evidence = [
+  "crates/od-ui/src/track_edit.rs",
+]
+note = "Minimal edit mode (EDIT tab of the Prepare player): a region (IN / OUT at the cursor or shift-drag on the overview) is cut out, trimmed to or repeated with 5 ms crossfades at the joins; the result is a new 24-bit WAV next to the original, added as \"<title> (Edit)\" with the original tags and artwork and analysed; the original stays untouched. No multi-track arrangement"
 
 [[feature]]
 id = "shell-mode-switch"
@@ -2992,7 +3038,7 @@ id = "lighting-outputs"
 area = "lighting"
 name = "DMX outputs: FLX10 DMX port, Enttec USB-DMX, Art-Net, sACN, several universes"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
   "od-lighting::output::tests::artnet_layout",
@@ -3001,7 +3047,19 @@ tests = [
   "od-lighting::output::tests::artnet_reaches_a_listener",
 ]
 spec = "SPEC §10.5"
-note = "Art-Net, sACN and USB-DMX (Enttec Pro) from the LIGHTING view or od-cli, several universes; the FLX10 DMX port needs a USB capture"
+note = "Art-Net, sACN and USB-DMX (Enttec Pro) from the LIGHTING view or od-cli, several universes; the FLX10 built-in DMX port is tracked separately (lighting-flx10-dmx, M4)"
+
+[[feature]]
+id = "lighting-flx10-dmx"
+area = "lighting"
+name = "DMX out through the DDJ-FLX10's built-in DMX port"
+scope = "in"
+milestone = "M4"
+status = "missing"
+prio = "P3"
+tests = []
+spec = "SPEC §10.5"
+note = "The controller's DMX port is driven by its vendor USB protocol, which needs the USB capture with the controller (M4, SPEC §9.3); every other output works today"
 
 [[feature]]
 id = "lighting-fixtures"

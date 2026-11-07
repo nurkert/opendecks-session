@@ -17,8 +17,10 @@
 //! - [`features`]: behaviour tests for features of `tests/parity/features.toml`
 //! - [`prepare`]: Prepare / browser behaviour tests (file drops, controller
 //!   browsing, source rail, layouts, panel toggles, batch separation)
+//! - [`editing`]: phrase display and editing, edit mode, sub-browser
 
 mod browser;
+mod editing;
 mod features;
 mod flows;
 pub(crate) mod harness;

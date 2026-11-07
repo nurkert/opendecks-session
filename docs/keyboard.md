@@ -3,7 +3,7 @@
 Every user action of OpenDecks Session is a command in one registry
 (`crates/od-ui/src/keymap.rs`) with an id, a default binding per platform
 and optional user bindings (SPEC §12.2). The registry currently holds
-**242 actions**; every one has a default binding, and no two defaults
+**251 actions**; every one has a default binding, and no two defaults
 collide where they apply (checked by tests, together with this table).
 
 ## Changing bindings
@@ -100,6 +100,7 @@ Perform). Text fields keep the keys they type.
 | Show / hide related tracks | `view.panel.related` | both | `⌥⌘E` | `Alt+E` |
 | Show / hide My Tag | `view.panel.my-tag` | both | `⌥⌘G` | `Alt+G` |
 | Show / hide the recording section | `view.panel.rec` | both | `⌥⇧⌘R` | `Alt+Shift+R` |
+| Show / hide the sub-browser | `view.panel.sub-browser` | both | `⌥⌘W` | `Alt+W` |
 | Show / hide the mixer | `perform.mixer.panel` | Perform | `⌥⌘M` | `Alt+M` |
 | Show / hide Mix Point Link | `perform.mpl.panel` | Perform | `⌥⌘P` | `Alt+P` |
 | Import a library XML (rekordbox-compatible) | `library.import.xml` | both | `⌥⇧⌘X` | `Alt+Shift+X` |
@@ -168,6 +169,14 @@ Perform). Text fields keep the keys they type.
 | Set the downbeat at the cursor | `player.grid.downbeat` | Prepare | `D` | `D` |
 | Lock / unlock the beatgrid | `player.grid.lock` | Prepare | `L` | `L` |
 | Tap the tempo | `player.grid.tap` | Prepare | `B` | `B` |
+| Cut the phrase at the cursor | `player.phrase.cut` | Prepare | `⇧X` | `Shift+X` |
+| Move the nearest phrase boundary to the cursor | `player.phrase.boundary` | Prepare | `⇧B` | `Shift+B` |
+| Clear the phrases | `player.phrase.clear` | Prepare | `⇧⌘⌫` | `Ctrl+Shift+Backspace` |
+| Edit region start at the cursor | `player.edit.in` | Prepare | `⇧I` | `Shift+I` |
+| Edit region end at the cursor | `player.edit.out` | Prepare | `⇧O` | `Shift+O` |
+| New track without the edit region | `player.edit.cut` | Prepare | `⇧⌘X` | `Ctrl+Shift+X` |
+| New track with only the edit region | `player.edit.trim` | Prepare | `⇧⌘K` | `Ctrl+Shift+K` |
+| New track with the edit region repeated | `player.edit.repeat` | Prepare | `⇧⌘E` | `Ctrl+Shift+E` |
 | Analyse the track | `player.analyse` | Prepare | `⇧⌘A` | `Ctrl+Shift+A` |
 | **Deck 1** | | | | |
 | Play / pause | `deck1.play` | Perform | `Z` | `Z` |

@@ -616,11 +616,6 @@ msgctxt "AppWindow"
 msgid "Drop on a deck to load, anywhere else to add to the collection"
 msgstr "Auf ein Deck ziehen zum Laden, sonst in die Sammlung aufnehmen"
 
-#: ui/app.slint:1112
-msgctxt "AppWindow"
-msgid "Drop to add to the collection and the open list"
-msgstr "Loslassen, um in die Sammlung und die offene Liste aufzunehmen"
-
 #: ui/cdj.slint:150
 msgctxt "CdjPlayer"
 msgid "No track — browse and load"
@@ -2342,11 +2337,6 @@ msgstr "Hochzählen"
 msgctxt "PreferencesWindow"
 msgid "Phrases"
 msgstr "Phrasen"
-
-#: ui/preferences.slint:403
-msgctxt "PreferencesWindow"
-msgid "Show phrases on the waveforms"
-msgstr "Phrasen auf den Wellenformen zeigen"
 
 #: ui/preferences.slint:404
 msgctxt "PreferencesWindow"
@@ -4338,3 +4328,143 @@ msgstr "SMART"
 msgctxt "GlobalBar"
 msgid "Smart Fader: the crossfader also swaps the basses and keeps the decks in sync"
 msgstr "Smart Fader: Der Crossfader tauscht auch die Bässe und hält die Decks synchron"
+
+msgctxt "AppWindow"
+msgid "Sub Browser"
+msgstr "Sub-Browser"
+
+msgctxt "AppWindow"
+msgid "SUB"
+msgstr "SUB"
+
+msgctxt "AppWindow"
+msgid "A second tree and list under this one, to drag tracks between lists"
+msgstr "Ein zweiter Baum mit Liste unter dieser, um Tracks zwischen Listen zu ziehen"
+
+msgctxt "AppWindow"
+msgid "Audio files"
+msgstr "Audiodateien"
+
+msgctxt "AppWindow"
+msgid "Drop on a player to open, on a list to add to it, anywhere else to add to the collection and the open list"
+msgstr "Auf einem Player ablegen zum Öffnen, auf einer Liste zum Hinzufügen, sonst zur Sammlung und zur offenen Liste"
+
+msgctxt "PreparePlayer"
+msgid "PHRASE"
+msgstr "PHRASE"
+
+msgctxt "PreparePlayer"
+msgid "EDIT"
+msgstr "EDIT"
+
+msgctxt "PreparePlayer"
+msgid "The phrase at the cursor becomes this kind (in a gap: a new phrase)"
+msgstr "Die Phrase am Cursor bekommt diese Art (in einer Lücke: eine neue Phrase)"
+
+msgctxt "PreparePlayer"
+msgid "CUT"
+msgstr "TEILEN"
+
+msgctxt "PreparePlayer"
+msgid "Split the phrase at the cursor (on the nearest bar)"
+msgstr "Die Phrase am Cursor teilen (am nächsten Takt)"
+
+msgctxt "PreparePlayer"
+msgid "BOUNDARY TO CURSOR"
+msgstr "GRENZE ZUM CURSOR"
+
+msgctxt "PreparePlayer"
+msgid "Move the nearest phrase boundary to the cursor (on the nearest bar)"
+msgstr "Die nächste Phrasengrenze an den Cursor verschieben (am nächsten Takt)"
+
+msgctxt "PreparePlayer"
+msgid "CLEAR"
+msgstr "LÖSCHEN"
+
+msgctxt "PreparePlayer"
+msgid "Remove all phrases of this track"
+msgstr "Alle Phrasen dieses Tracks entfernen"
+
+msgctxt "PreparePlayer"
+msgid "Region start at the cursor (or shift-drag on the overview)"
+msgstr "Bereichsanfang am Cursor (oder mit Umschalt auf der Übersicht ziehen)"
+
+msgctxt "PreparePlayer"
+msgid "Region end at the cursor (or shift-drag on the overview)"
+msgstr "Bereichsende am Cursor (oder mit Umschalt auf der Übersicht ziehen)"
+
+msgctxt "PreparePlayer"
+msgid "RENDERING…"
+msgstr "WIRD ERSTELLT …"
+
+msgctxt "PreparePlayer"
+msgid "SET IN AND OUT"
+msgstr "IN UND OUT SETZEN"
+
+msgctxt "PreparePlayer"
+msgid "CUT OUT"
+msgstr "HERAUSSCHNEIDEN"
+
+msgctxt "PreparePlayer"
+msgid "New file without the region"
+msgstr "Neue Datei ohne den Bereich"
+
+msgctxt "PreparePlayer"
+msgid "TRIM"
+msgstr "ZUSCHNEIDEN"
+
+msgctxt "PreparePlayer"
+msgid "New file with only the region"
+msgstr "Neue Datei nur mit dem Bereich"
+
+msgctxt "PreparePlayer"
+msgid "REPEAT"
+msgstr "WIEDERHOLEN"
+
+msgctxt "PreparePlayer"
+msgid "New file with the region played twice"
+msgstr "Neue Datei, in der der Bereich zweimal läuft"
+
+msgctxt "PreparePlayer"
+msgid "NEW FILE · ORIGINAL KEPT"
+msgstr "NEUE DATEI · ORIGINAL BLEIBT"
+
+msgctxt "PreparePlayer"
+msgid "Forget the region"
+msgstr "Bereich verwerfen"
+
+msgctxt "PreferencesWindow"
+msgid "Show phrases on the enlarged waveforms"
+msgstr "Phrasen auf den vergrößerten Wellenformen zeigen"
+
+msgctxt "PreferencesWindow"
+msgid "Show the phrase bar under the overviews"
+msgstr "Phrasenleiste unter den Übersichten zeigen"
+
+msgctxt "PreferencesWindow"
+msgid "Phrase types"
+msgstr "Phrasenarten"
+
+msgctxt "PreferencesWindow"
+msgid "NAMES"
+msgstr "NAMEN"
+
+msgctxt "PreferencesWindow"
+msgid "COLOURS ONLY"
+msgstr "NUR FARBEN"
+
+msgctxt "SubBrowserPane"
+msgid "SUB-BROWSER — PICK A LIST"
+msgstr "SUB-BROWSER — LISTE WÄHLEN"
+
+msgctxt "SubBrowserPane"
+msgid "{} TRACKS"
+msgstr "{} TRACKS"
+
+msgctxt "SubBrowserPane"
+msgid "Empty. Drag tracks from the list above onto this list."
+msgstr "Leer. Ziehe Tracks aus der Liste darüber auf diese Liste."
+
+msgctxt "SubBrowserPane"
+msgid "No tracks in this list."
+msgstr "Keine Tracks in dieser Liste."

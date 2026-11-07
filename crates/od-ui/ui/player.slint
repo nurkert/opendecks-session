@@ -1,7 +1,7 @@
 // Prepare player, arranged like the export-mode player DJs know: a transport
 // column on the left, then the header line, overview with phrase bar, the
-// enlarged waveform and a tool bar (CUE/LOOP | GRID tabs), and a cue list on
-// the right with MEMORY / HOT CUE / INFO tabs.
+// enlarged waveform and a tool bar (CUE/LOOP | GRID | PHRASE | EDIT tabs),
+// and a cue list on the right with MEMORY / HOT CUE / INFO tabs.
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
@@ -61,6 +61,38 @@ export global CueEdit {
     // Active loop on / off (loops).
     callback active(int);
     callback delete(int);
+}
+
+// Phrase editing at the cursor (PHRASE tab).
+export global PhraseEdit {
+    // Labels of the kinds offered, in button order.
+    in property <[string]> kinds;
+    // The phrase at the cursor (its label; "" = none).
+    in property <string> current;
+    callback kind(int);
+    callback cut();
+    callback boundary();
+    callback clear();
+}
+
+// Edit mode (EDIT tab): a region rendered into a new file.
+export global TrackEdit {
+    // Region ends as fractions of the track (-1 = not set).
+    in property <float> start: -1;
+    in property <float> end: -1;
+    // Both ends set: CUT / TRIM / REPEAT work.
+    in property <bool> ready;
+    // An edit is being rendered.
+    in property <bool> busy;
+    // "0:12.000 – 0:28.000  (0:16)".
+    in property <string> region;
+    callback mark-in();
+    callback mark-out();
+    // A region dragged on the overview (fractions, either order).
+    callback select(float, float);
+    callback clear();
+    // "cut", "trim" or "repeat".
+    callback apply(string);
 }
 
 export component PreparePlayer inherits Rectangle {
@@ -176,11 +208,37 @@ export component PreparePlayer inherits Rectangle {
                     }
                     Text { x: 4px; y: 1px; text: c.letter; font-family: Theme.family; font-size: 10px; font-weight: 600; color: Theme.bone; }
                 }
+                // Edit region: a sodium bar along the top between dashed IN / OUT lines.
+                if root.has-track && TrackEdit.start >= 0 && TrackEdit.end >= 0: Rectangle {
+                    accessible-role: text; accessible-label: "player1.edit.span"; accessible-value: TrackEdit.region;
+                    x: parent.width * min(TrackEdit.start, TrackEdit.end);
+                    width: max(1px, parent.width * abs(TrackEdit.end - TrackEdit.start));
+                    y: 0; height: 3px;
+                    background: Theme.attention.with-alpha(0.6);
+                }
+                for f in [TrackEdit.start, TrackEdit.end]: Rectangle {
+                    visible: root.has-track && f >= 0;
+                    x: parent.width * f; width: 1px;
+                    VLine { height: parent.height; weight: 1px; tone: Theme.attention; form: "dashed"; }
+                }
                 if root.has-track: Rectangle { x: parent.width * root.cursor - 1px; width: 2px; height: parent.height; background: Theme.bone; }
                 TouchArea {
                     mouse-cursor: crosshair;
-                    clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); }
-                    moved => { if (self.pressed) { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
+                    // Shift-drag selects the edit region; otherwise the cursor follows.
+                    property <float> from: -1;
+                    pointer-event(ev) => {
+                        if (ev.kind == PointerEventKind.down) {
+                            self.from = ev.modifiers.shift ? clamp(self.mouse-x / self.width, 0, 1) : -1;
+                        }
+                    }
+                    clicked => { if (self.from < 0) { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
+                    moved => {
+                        if (self.pressed && self.from >= 0) {
+                            TrackEdit.select(self.from, clamp(self.mouse-x / self.width, 0, 1));
+                        } else if (self.pressed) {
+                            root.seek(clamp(self.mouse-x / self.width, 0, 1));
+                        }
+                    }
                 }
             }
             PhraseBar { phrases: root.has-track ? root.phrases : []; }
@@ -222,6 +280,14 @@ export component PreparePlayer inherits Rectangle {
                     alignment: center;
                     Tab { accessible-label: "player1.tab.grid"; label: @tr("GRID"); current: root.tool-tab == "grid"; clicked => { root.tool-tab = "grid"; } }
                 }
+                VerticalLayout {
+                    alignment: center;
+                    Tab { accessible-label: "player1.tab.phrase"; label: @tr("PHRASE"); current: root.tool-tab == "phrase"; clicked => { root.tool-tab = "phrase"; } }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    Tab { accessible-label: "player1.tab.edit"; label: @tr("EDIT"); current: root.tool-tab == "edit"; clicked => { root.tool-tab = "edit"; } }
+                }
                 Rectangle { width: 10px; }
                 if root.tool-tab == "cue": HorizontalLayout {
                     horizontal-stretch: 1;
@@ -258,6 +324,44 @@ export component PreparePlayer inherits Rectangle {
                     Rectangle { horizontal-stretch: 1; }
                     Caps { accessible-role: text; accessible-label: "player1.grid.source"; accessible-value: self.text; text: root.grid-source; font-size: 10px; vertical-alignment: center; }
                     Toggle { accessible-role: checkbox; accessible-label: "player1.grid.lock"; accessible-checkable: true; accessible-checked: root.grid-locked; label: root.grid-locked ? @tr("GRID LOCKED") : @tr("LOCK GRID"); on: root.grid-locked; tone: Theme.attention; enabled: !root.read-only; clicked => { root.grid-lock(); } }
+                }
+                if root.tool-tab == "phrase": HorizontalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 4px;
+                    padding-top: 9px; padding-bottom: 9px;
+                    property <bool> can-edit: root.has-track && !root.read-only;
+                    for k[i] in PhraseEdit.kinds: Toggle {
+                        accessible-role: button; accessible-label: "player1.phrase.kind" + i;
+                        accessible-checkable: true; accessible-checked: PhraseEdit.current == k;
+                        label: k; on: PhraseEdit.current == k; enabled: parent.can-edit;
+                        tooltip: @tr("The phrase at the cursor becomes this kind (in a gap: a new phrase)");
+                        clicked => { PhraseEdit.kind(i); }
+                    }
+                    Rectangle { width: 8px; }
+                    Toggle { accessible-role: button; accessible-label: "player1.phrase.cut"; label: @tr("CUT"); command: "player.phrase.cut"; tooltip: @tr("Split the phrase at the cursor (on the nearest bar)"); enabled: parent.can-edit; clicked => { PhraseEdit.cut(); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.phrase.boundary"; label: @tr("BOUNDARY TO CURSOR"); command: "player.phrase.boundary"; tooltip: @tr("Move the nearest phrase boundary to the cursor (on the nearest bar)"); enabled: parent.can-edit; clicked => { PhraseEdit.boundary(); } }
+                    Rectangle { horizontal-stretch: 1; }
+                    Toggle { accessible-role: button; accessible-label: "player1.phrase.clear"; label: @tr("CLEAR"); command: "player.phrase.clear"; tone: Theme.fault; tooltip: @tr("Remove all phrases of this track"); enabled: parent.can-edit; clicked => { PhraseEdit.clear(); } }
+                }
+                if root.tool-tab == "edit": HorizontalLayout {
+                    horizontal-stretch: 1;
+                    spacing: 4px;
+                    padding-top: 9px; padding-bottom: 9px;
+                    property <bool> can-edit: root.has-track && !root.read-only && !TrackEdit.busy;
+                    Toggle { accessible-role: button; accessible-label: "player1.edit.in"; label: "IN"; command: "player.edit.in"; tooltip: @tr("Region start at the cursor (or shift-drag on the overview)"); enabled: parent.can-edit; on: TrackEdit.start >= 0; clicked => { TrackEdit.mark-in(); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.edit.out"; label: "OUT"; command: "player.edit.out"; tooltip: @tr("Region end at the cursor (or shift-drag on the overview)"); enabled: parent.can-edit; on: TrackEdit.end >= 0; clicked => { TrackEdit.mark-out(); } }
+                    Caps {
+                        accessible-role: text; accessible-label: "player1.edit.region"; accessible-value: TrackEdit.region;
+                        min-width: 190px;
+                        text: TrackEdit.busy ? @tr("RENDERING…") : TrackEdit.region == "" ? @tr("SET IN AND OUT") : TrackEdit.region;
+                        font-size: 10px; vertical-alignment: center; horizontal-alignment: center;
+                    }
+                    Toggle { accessible-role: button; accessible-label: "player1.edit.cut"; label: @tr("CUT OUT"); command: "player.edit.cut"; tooltip: @tr("New file without the region"); enabled: parent.can-edit && TrackEdit.ready; clicked => { TrackEdit.apply("cut"); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.edit.trim"; label: @tr("TRIM"); command: "player.edit.trim"; tooltip: @tr("New file with only the region"); enabled: parent.can-edit && TrackEdit.ready; clicked => { TrackEdit.apply("trim"); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.edit.repeat"; label: @tr("REPEAT"); command: "player.edit.repeat"; tooltip: @tr("New file with the region played twice"); enabled: parent.can-edit && TrackEdit.ready; clicked => { TrackEdit.apply("repeat"); } }
+                    Rectangle { horizontal-stretch: 1; }
+                    Caps { text: @tr("NEW FILE · ORIGINAL KEPT"); font-size: 10px; vertical-alignment: center; }
+                    Toggle { accessible-role: button; accessible-label: "player1.edit.clear"; label: @tr("CLEAR"); tone: Theme.fault; tooltip: @tr("Forget the region"); enabled: TrackEdit.start >= 0 || TrackEdit.end >= 0; clicked => { TrackEdit.clear(); } }
                 }
             }
         }

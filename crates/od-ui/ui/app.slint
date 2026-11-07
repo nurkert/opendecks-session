@@ -26,9 +26,11 @@ import { Mpl, MplDeck, MplPanel } from "mpl.slint";
 export { Mpl, MplDeck }
 export { Rec, RecTrack }
 export { Mic }
-import { CueEdit, MiniPlayer, MiniView } from "player.slint";
+import { CueEdit, MiniPlayer, MiniView, PhraseEdit, TrackEdit } from "player.slint";
+import { SubBrowser, SubBrowserPane, SubTrackRow } from "subbrowser.slint";
+export { SubBrowser, SubTrackRow }
 export { MiniView }
-export { CueEdit }
+export { CueEdit, PhraseEdit, TrackEdit }
 import { FxSlots } from "fx.slint";
 export { FxSlots }
 import { MixerParts, PerformLayout } from "perform.slint";
@@ -300,6 +302,9 @@ export component AppWindow inherits Window {
     callback row-rated(int, int);
     callback row-menu(int, string);
     in property <[MenuTarget]> menu-playlists;
+    // Sub-browser under the list (View > Sub Browser, SUB in the list header).
+    in-out property <bool> sub-browser-open;
+    callback toggle-sub-browser();
     // Track info panel (right of the browser).
     in-out property <bool> info-open;
     in property <TrackInfo> track-info;
@@ -473,6 +478,7 @@ export component AppWindow inherits Window {
             MenuItem { title: @tr("Related Tracks"); checkable: true; checked: root.related-open; activated => { root.menu-action("view.panel.related"); } }
             MenuItem { title: @tr("My Tag"); checkable: true; checked: root.my-tag-open; activated => { root.menu-action("view.panel.my-tag"); } }
             MenuItem { title: @tr("Filter Bar"); checkable: true; checked: root.filter-open; activated => { root.menu-action("browser.filter"); } }
+            MenuItem { title: @tr("Sub Browser"); checkable: true; checked: root.sub-browser-open; activated => { root.menu-action("view.panel.sub-browser"); } }
             MenuSeparator { }
             MenuItem { title: @tr("Library"); activated => { root.select-section("library"); } }
             MenuItem { title: @tr("USB Sticks"); activated => { root.select-section("devices"); } }
@@ -830,6 +836,15 @@ export component AppWindow inherits Window {
                             clicked => { root.related-open = !root.related-open; root.panels-changed(); }
                         }
                         if !root.kiosk: PlateButton {
+                            accessible-label: "browser.panel.sub-browser"; accessible-role: button;
+                            accessible-checkable: true; accessible-checked: root.sub-browser-open;
+                            horizontal-stretch: 0; compact: true; label: @tr("SUB");
+                            active: root.sub-browser-open; tone: Theme.attention;
+                            tooltip: @tr("A second tree and list under this one, to drag tracks between lists");
+                            command: "view.panel.sub-browser";
+                            clicked => { root.toggle-sub-browser(); }
+                        }
+                        if !root.kiosk: PlateButton {
                             accessible-label: "browser.panel.info"; accessible-role: button;
                             accessible-checkable: true; accessible-checked: root.info-open;
                             horizontal-stretch: 0; compact: true; label: "INFO";
@@ -937,6 +952,10 @@ export component AppWindow inherits Window {
                         reset-columns => { root.reset-columns(); }
                         toggle-filter => { root.toggle-filter(); }
                         filter-edit(f, v) => { root.filter-edit(f, v); }
+                    }
+                    if root.section == "library" && root.sub-browser-open && !root.kiosk: SubBrowserPane {
+                        height: 210px;
+                        tree-width: min(root.sidebar-width, 240px);
                     }
                     if root.section == "library" && root.node-kind == "all" && root.tracks.length == 0: HorizontalLayout {
                         alignment: center;
@@ -1108,8 +1127,8 @@ export component AppWindow inherits Window {
             if (!root.drop-accepts(event.data)) {
                 return DragAction.none;
             }
-            DragState.x = event.position.x;
-            DragState.y = event.position.y;
+            DragState.x = self.absolute-position.x + event.position.x;
+            DragState.y = self.absolute-position.y + event.position.y;
             DragState.kind = "tracks";
             DragState.files = true;
             DragState.label = @tr("Audio files");

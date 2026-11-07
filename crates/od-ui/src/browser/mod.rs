@@ -5,6 +5,7 @@ mod columns;
 mod filter;
 pub(crate) mod navigate;
 mod sources;
+pub(crate) mod sub;
 mod tracks;
 mod tree;
 
@@ -485,6 +486,7 @@ pub(crate) fn wire(app: &Rc<App>) {
     }));
     wire_columns(app);
     sources::wire(app);
+    sub::wire(app);
     ui.on_row_clicked(handler!(app, |a, i: i32, toggle: bool, range: bool| select_row(&a, i as usize, toggle, range)));
     ui.on_row_activated(handler!(app, |a, i: i32| {
         select_row(&a, i as usize, false, false);

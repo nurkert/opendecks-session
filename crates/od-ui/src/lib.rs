@@ -35,6 +35,7 @@ mod mixer;
 mod mpl;
 mod models;
 mod pads;
+mod phrase_edit;
 mod player;
 mod preferences;
 mod recorder;
@@ -45,6 +46,7 @@ mod shell;
 mod smart_text;
 mod state;
 mod stems_batch;
+mod track_edit;
 mod update;
 mod workers;
 

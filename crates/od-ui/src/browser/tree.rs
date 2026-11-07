@@ -77,6 +77,7 @@ fn walk(st: &AppState, all: &[od_library::Node], parent: Option<NodeId>, depth: 
 
 pub(crate) fn refresh_tree(app: &App) {
     refresh_menu_targets(app);
+    super::sub::refresh(app);
     let (names, histories) = super::sources::history_rows(&app.state.borrow().lib);
     app.state.borrow_mut().browser.histories = names;
     app.ui.set_histories(model(histories));

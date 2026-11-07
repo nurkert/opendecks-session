@@ -24,6 +24,8 @@ pub(crate) struct PlayerState {
     pub second_cursor: f64,
     /// The player the preview deck plays for (1 or 2).
     pub preview_slot: u8,
+    /// Edit mode: the region of the current track (EDIT tab).
+    pub edit: crate::track_edit::Region,
 }
 
 /// Taps further apart than this start a new count (seconds).
@@ -348,11 +350,13 @@ pub(crate) fn refresh_detail(app: &App) {
     ui.set_hot_cues(model(slots));
     ui.set_cursor((st.player.cursor / duration) as f32);
     ui.set_track_position(format::cue_time(st.player.cursor).into());
+    ui.global::<crate::PhraseEdit>().set_current(crate::phrase_edit::current_label(&analysis.phrases, &analysis.beatgrid, st.player.cursor).into());
     let phrases = if st.settings.view.phrases { analysis.phrases.clone() } else { Vec::new() };
     DETAIL_SRC.with(|d| *d.borrow_mut() = Some(DetailSrc { track: id, waveform: analysis.waveform, grid: analysis.beatgrid, phrases, last_px: None }));
     drop(st);
     render_detail(app);
     refresh_minis(app);
+    crate::track_edit::refresh(app);
 }
 
 // ── Compact players (2 players, dual, simple) ───────────────────────────
@@ -674,6 +678,8 @@ fn edit_cues(app: &App, label: &str, f: impl FnOnce(&mut Vec<Cue>, f64)) {
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
+    crate::phrase_edit::wire(app);
+    crate::track_edit::wire(app);
     let ui = &app.ui;
     ui.on_mini_act(handler!(app, |a, n: i32, w: SharedString| mini_act(&a, n, w.as_str())));
     ui.on_mini_seek(handler!(app, |a, n: i32, p: f32| mini_seek(&a, n, p)));

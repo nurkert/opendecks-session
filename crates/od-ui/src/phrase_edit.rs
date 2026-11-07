@@ -53,13 +53,17 @@ pub(crate) fn set_kind(phrases: &[Phrase], beat: u32, kind: PhraseKind, total: u
     v
 }
 
+/// The shortest part a cut may leave (beats: 4 bars; shorter fragments
+/// would join a neighbour when normalized).
+pub(crate) const MIN_PART: u32 = 16;
+
 /// Splits the phrase at `beat` there; the part from `beat` on takes the
 /// next kind that differs from the phrase and from the one after it (so
 /// the cut survives normalization). `None` when no phrase holds `beat` or
-/// `beat` already is a boundary (pure).
+/// either part would be shorter than [`MIN_PART`] (pure).
 pub(crate) fn cut(phrases: &[Phrase], beat: u32) -> Option<Vec<Phrase>> {
     let mut v = sorted(phrases);
-    let i = phrase_at(&v, beat).filter(|&i| v[i].start_beat < beat)?;
+    let i = phrase_at(&v, beat).filter(|&i| beat >= v[i].start_beat + MIN_PART && beat + MIN_PART <= v[i].end_beat)?;
     let kind = v[i].kind;
     let following = v.get(i + 1).filter(|n| n.start_beat == v[i].end_beat).map(|n| n.kind);
     let at = KINDS.iter().position(|k| *k == kind).unwrap_or(0);
@@ -144,7 +148,7 @@ pub(crate) fn edit(app: &App, op: Op) {
         (Op::Cut, Some(b)) => match cut(&phrases, b) {
             Some(v) => (v, "Phrase cut at the cursor"),
             None => {
-                app.status("No phrase to cut at the cursor");
+                app.status(if phrase_at(&phrases, b).is_some() { "Cut at least 4 bars from the edges of the phrase" } else { "No phrase to cut at the cursor" });
                 return;
             }
         },
@@ -203,7 +207,7 @@ mod tests {
         let g = set_kind(&v, 20 * 4, Bridge, 256);
         assert_eq!(g[1], p(16, 32, Bridge));
         // After the last one: up to the end of the grid; without phrases: all of it.
-        assert_eq!(set_kind(&v, 70 * 4, Outro, 256)[2], Phrase { start_beat: 64 * 4, end_beat: 256, kind: Outro });
+        assert_eq!(set_kind(&v, 70 * 4, Outro, 400)[2], Phrase { start_beat: 64 * 4, end_beat: 400, kind: Outro });
         assert_eq!(set_kind(&[], 10, Up, 128), vec![Phrase { start_beat: 0, end_beat: 128, kind: Up }]);
     }
 
@@ -217,8 +221,9 @@ mod tests {
         assert_eq!(normalize_phrases(&c).len(), 3, "a 16-bar part stays its own phrase");
         assert!(cut(&v, 32 * 4).is_none(), "already a boundary");
         assert!(cut(&v, 80 * 4).is_none(), "no phrase there");
-        // A two-bar fragment is absorbed again by normalization.
-        assert_eq!(normalize_phrases(&cut(&v, 30 * 4).unwrap()), normalize_phrases(&v));
+        // A part under 4 bars would join its neighbour: no cut there.
+        assert!(cut(&v, 30 * 4).is_none() && cut(&v, 2 * 4).is_none());
+        assert!(cut(&v, 4 * 4).is_some() && cut(&v, 28 * 4).is_some(), "exactly 4 bars is enough");
     }
 
     #[test]

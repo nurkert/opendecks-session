@@ -412,6 +412,7 @@ fn build() -> Vec<Action> {
     b.add_split("view.panel.related", "Show / hide related tracks", None, g, Global, &["Mod+Alt+E"], &["Alt+E"]);
     b.add_split("view.panel.my-tag", "Show / hide My Tag", None, g, Global, &["Mod+Alt+G"], &["Alt+G"]);
     b.add_split("view.panel.rec", "Show / hide the recording section", None, g, Global, &["Mod+Alt+Shift+R"], &["Alt+Shift+R"]);
+    b.add_split("view.panel.sub-browser", "Show / hide the sub-browser", None, g, Global, &["Mod+Alt+W"], &["Alt+W"]);
     b.add_split("perform.mixer.panel", "Show / hide the mixer", None, g, Perform, &["Mod+Alt+M"], &["Alt+M"]);
     b.add_split("perform.mpl.panel", "Show / hide Mix Point Link", None, g, Perform, &["Mod+Alt+P"], &["Alt+P"]);
     b.add_split("library.import.xml", "Import a library XML (rekordbox-compatible)", None, g, Global, &["Mod+Alt+Shift+X"], &["Alt+Shift+X"]);
@@ -474,6 +475,14 @@ fn build() -> Vec<Action> {
     b.add("player.grid.downbeat", "Set the downbeat at the cursor", None, g, Prepare, &["D"]);
     b.add("player.grid.lock", "Lock / unlock the beatgrid", None, g, Prepare, &["L"]);
     b.add("player.grid.tap", "Tap the tempo", None, g, Prepare, &["B"]);
+    b.add("player.phrase.cut", "Cut the phrase at the cursor", None, g, Prepare, &["Shift+X"]);
+    b.add("player.phrase.boundary", "Move the nearest phrase boundary to the cursor", None, g, Prepare, &["Shift+B"]);
+    b.add("player.phrase.clear", "Clear the phrases", None, g, Prepare, &["Mod+Shift+Backspace"]);
+    b.add("player.edit.in", "Edit region start at the cursor", None, g, Prepare, &["Shift+I"]);
+    b.add("player.edit.out", "Edit region end at the cursor", None, g, Prepare, &["Shift+O"]);
+    b.add("player.edit.cut", "New track without the edit region", None, g, Prepare, &["Mod+Shift+X"]);
+    b.add("player.edit.trim", "New track with only the edit region", None, g, Prepare, &["Mod+Shift+K"]);
+    b.add("player.edit.repeat", "New track with the edit region repeated", None, g, Prepare, &["Mod+Shift+E"]);
     b.add("player.analyse", "Analyse the track", None, g, Prepare, &["Mod+Shift+A"]);
 
     // ── Decks 1 and 2: left / right keyboard halves ──

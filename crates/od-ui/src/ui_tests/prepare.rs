@@ -115,6 +115,7 @@ fn files_dropped_on_players_lists_and_decks() {
     // Onto the playlist in the tree (the collection is open).
     let to_list = new_wav(&ui, "List Drop.wav", 560.0);
     let node = Rect::of(&ui.get(&format!("browser.tree.node{}", ui.fx.playlist.0))).centre();
+    assert_eq!(hover_files(&ui, &[&to_list], node), 200_001_000 + ui.fx.playlist.0 as i32, "the playlist lights up under the files");
     drop_files(&ui, &[&to_list], node);
     assert!(
         ui.wait_until(30.0, |u| u.fx.lib().entries(u.fx.playlist).unwrap().len() == entries + 1),
@@ -545,3 +546,4 @@ fn tempo_marker_in_the_grid_editor() {
     assert!(grid.beats.iter().filter(|b| b.time < cursor - 0.3).all(|b| (b.bpm - 120.0).abs() < 1e-6), "before the cursor: 120");
     assert!(grid.beats.iter().filter(|b| b.time > cursor + 0.3).all(|b| (b.bpm - 100.0).abs() < 1e-6), "after it: 100");
 }
+

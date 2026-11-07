@@ -1,0 +1,171 @@
+// Sub-browser: a second tree and list under the main list (View > Sub
+// Browser, SUB in the list header), for dragging tracks between lists.
+// Rows of the main list dropped on a list here (or on the list shown) are
+// added to it; rows dragged from here go to the main tree, the open list,
+// a deck or a player like rows of the main list. State in `SubBrowser`.
+
+import { Theme } from "tokens.slint";
+import { VLine, HLine } from "lines.slint";
+import { Caps } from "controls.slint";
+import { DragState, DragTargets, DropZone } from "drag.slint";
+import { TreeRow } from "structs.slint";
+
+export struct SubTrackRow {
+    title: string,
+    artist: string,
+    bpm: string,
+    key: string,
+}
+
+export global SubBrowser {
+    // Library lists (all folders open) and the selected one (-1 = none).
+    in property <[TreeRow]> lists;
+    in property <int> selected: -1;
+    // The name and tracks of the selected list.
+    in property <string> title;
+    in property <[SubTrackRow]> tracks;
+    // The selected list takes dropped tracks (a playlist or a set).
+    in property <bool> takes-tracks;
+    callback select(int);
+    // Row `index` was dragged onto drop target `target` (DragState.target).
+    callback row-dropped(int, int);
+}
+
+component ListItem inherits Rectangle {
+    in property <TreeRow> item;
+    in property <bool> selected;
+    callback clicked();
+    property <bool> takes: root.item.kind == "playlist" || root.item.kind == "set";
+    accessible-role: list-item;
+    accessible-label: "browser.sub.node\{root.item.id}";
+    accessible-value: root.item.name;
+    accessible-item-selectable: true;
+    accessible-item-selected: root.selected;
+    height: 24px;
+    background: touch.has-hover ? Theme.plate : transparent;
+    if root.selected: Rectangle { x: 0; y: parent.height / 2 - 1px; width: 8px; height: 2px; background: Theme.attention; }
+    // Kind marker: sets solid sodium, smart lists dashed indigo, playlists bone.
+    if root.item.kind != "folder": VLine {
+        x: 14px + root.item.depth * 12px; y: 6px; height: parent.height - 12px;
+        weight: 1px;
+        tone: root.item.kind == "set" ? Theme.attention : root.item.kind == "smart" ? Theme.w436 : Theme.bone-3;
+        form: root.item.kind == "smart" ? "dashed" : "solid";
+    }
+    Text {
+        x: 22px + root.item.depth * 12px; width: parent.width - self.x - 34px;
+        text: root.item.name;
+        font-family: Theme.family; font-size: 13px; font-weight: root.item.kind == "folder" ? 600 : 400;
+        color: root.selected ? Theme.bone : Theme.bone-2; vertical-alignment: center; overflow: elide;
+    }
+    if root.item.kind != "folder": Text {
+        x: parent.width - 30px; width: 24px;
+        text: root.item.count; font-family: Theme.family; font-size: 11px; color: Theme.bone-3;
+        horizontal-alignment: right; vertical-alignment: center;
+    }
+    touch := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    DropZone { width: parent.width; height: parent.height; id: DragTargets.tree + root.item.id; enabled: root.takes; }
+}
+
+component TrackItem inherits Rectangle {
+    in property <SubTrackRow> item;
+    in property <int> index;
+    callback dropped(int);
+    height: 24px;
+    background: touch.has-hover ? Theme.plate : transparent;
+    HorizontalLayout {
+        padding-left: 10px; padding-right: 8px;
+        spacing: 10px;
+        Text { horizontal-stretch: 3; text: root.item.title; font-family: Theme.family; font-size: 13px; color: Theme.bone; vertical-alignment: center; overflow: elide; }
+        Text { horizontal-stretch: 2; text: root.item.artist; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
+        Text { width: 58px; text: root.item.bpm; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; horizontal-alignment: right; vertical-alignment: center; }
+        Text { width: 46px; text: root.item.key; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; horizontal-alignment: right; vertical-alignment: center; }
+    }
+    touch := TouchArea {
+        accessible-role: list-item;
+        accessible-label: "browser.sub.row\{root.index}";
+        accessible-value: root.item.title;
+        mouse-cursor: pointer;
+        pointer-event(ev) => {
+            if (ev.kind == PointerEventKind.up && DragState.active && !DragState.files) {
+                if (DragState.target != 0) { root.dropped(DragState.target); }
+                DragState.active = false;
+                DragState.target = 0;
+            }
+        }
+        moved => {
+            if (self.pressed && (DragState.active || abs(self.mouse-x - self.pressed-x) > 6px || abs(self.mouse-y - self.pressed-y) > 6px)) {
+                DragState.label = root.item.title;
+                DragState.x = self.absolute-position.x + self.mouse-x;
+                DragState.y = self.absolute-position.y + self.mouse-y;
+                DragState.kind = "tracks";
+                DragState.active = true;
+            }
+        }
+    }
+}
+
+export component SubBrowserPane inherits Rectangle {
+    in property <length> tree-width: 220px;
+    accessible-role: groupbox;
+    accessible-label: "browser.sub";
+    HLine { y: 0; width: parent.width; tone: Theme.rule; }
+    HorizontalLayout {
+        padding-top: 1px;
+        // Lists.
+        Flickable {
+            accessible-role: list;
+            accessible-label: "browser.sub.tree";
+            width: root.tree-width;
+            // The wheel scrolls; mouse drags move tracks.
+            mouse-drag-pan-enabled: false;
+            VerticalLayout {
+                alignment: start;
+                padding-top: 4px;
+                for l in SubBrowser.lists: ListItem {
+                    item: l;
+                    selected: l.id == SubBrowser.selected;
+                    clicked => { SubBrowser.select(l.id); }
+                }
+            }
+        }
+        VLine { weight: 1px; tone: Theme.rule; }
+        // Tracks of the selected list.
+        VerticalLayout {
+            horizontal-stretch: 1;
+            HorizontalLayout {
+                height: 26px;
+                padding-left: 10px; padding-right: 8px;
+                spacing: 10px;
+                Text {
+                    accessible-role: text; accessible-label: "browser.sub.title"; accessible-value: self.text;
+                    text: SubBrowser.selected < 0 ? @tr("SUB-BROWSER — PICK A LIST") : SubBrowser.title;
+                    font-family: Theme.family; font-size: 13px; font-weight: 600; color: Theme.bone; vertical-alignment: center; overflow: elide;
+                }
+                Rectangle { horizontal-stretch: 1; }
+                if SubBrowser.selected >= 0: Caps { text: @tr("{} TRACKS", SubBrowser.tracks.length); vertical-alignment: center; }
+            }
+            HLine { tone: Theme.rule; }
+            Rectangle {
+                vertical-stretch: 1;
+                Flickable {
+                    accessible-role: list;
+                    accessible-label: "browser.sub.list";
+                    mouse-drag-pan-enabled: false;
+                    VerticalLayout {
+                        alignment: start;
+                        for t[i] in SubBrowser.tracks: TrackItem {
+                            item: t; index: i;
+                            dropped(target) => { SubBrowser.row-dropped(i, target); }
+                        }
+                    }
+                }
+                if SubBrowser.selected >= 0 && SubBrowser.tracks.length == 0: Text {
+                    text: SubBrowser.takes-tracks ? @tr("Empty. Drag tracks from the list above onto this list.") : @tr("No tracks in this list.");
+                    font-family: Theme.family; font-size: 12px; color: Theme.bone-3;
+                }
+                // Main-list rows dropped here go into the list shown.
+                if SubBrowser.selected >= 0: DropZone { width: parent.width; height: parent.height; id: DragTargets.tree + SubBrowser.selected; enabled: SubBrowser.takes-tracks; }
+            }
+        }
+    }
+}

@@ -960,6 +960,8 @@ pub(crate) fn show_empty(app: &App) {
 /// Frame tick: engine state → deck rows (only what changed).
 pub(crate) fn project(app: &App, state: &EngineState) {
     let show_phrases = app.ui.get_show_phrases();
+    // The phrase bar under the overview has its own switch (Preferences > View).
+    let show_overview_phrases = app.ui.get_show_phrases_overview();
     let bar_mode = app.state.borrow().settings.view.bar_counter.clone();
     let scale = app.ui.window().scale_factor();
     let sampler_bank = app.sampler.bank.get();
@@ -987,11 +989,11 @@ pub(crate) fn project(app: &App, state: &EngineState) {
         let lane = &mut d.views.lanes[i];
         let mut dirty = false;
         let tid = meta.map(|m| m.id);
-        if lane.track != tid || lane.fields.is_none() || lane.phrases_on != show_phrases {
+        if lane.track != tid || lane.fields.is_none() || lane.phrases_on != show_overview_phrases {
             lane.track = tid;
-            lane.phrases_on = show_phrases;
+            lane.phrases_on = show_overview_phrases;
             lane.cues = model(meta.map(|m| m.cues.clone()).unwrap_or_default());
-            lane.phrases = model(meta.filter(|_| show_phrases).map(|m| m.phrase_marks.clone()).unwrap_or_default());
+            lane.phrases = model(meta.filter(|_| show_overview_phrases).map(|m| m.phrase_marks.clone()).unwrap_or_default());
             lane.overview = meta.map(|m| m.overview.clone()).unwrap_or_default();
             lane.vocals = model(meta.map(|m| m.vocals.clone()).unwrap_or_default());
             lane.artwork = meta.and_then(|m| m.artwork.clone());
