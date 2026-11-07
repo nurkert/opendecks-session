@@ -1,5 +1,5 @@
 #!/bin/sh
-# Build dependencies on Debian 12+, Ubuntu 22.04+ and Raspberry Pi OS (64-bit).
+# Build dependencies on Ubuntu 24.04+, Debian 13+ and Raspberry Pi OS (64-bit, trixie).
 set -eu
 SUDO=""
 [ "$(id -u)" -eq 0 ] || SUDO=sudo

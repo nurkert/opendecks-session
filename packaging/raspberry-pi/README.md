@@ -1,6 +1,6 @@
 # OpenDecks Session on a Raspberry Pi
 
-Standalone setup: a Raspberry Pi 4 or 5 (64-bit Raspberry Pi OS Lite) with a
+Standalone setup: a Raspberry Pi 4 or 5 (64-bit Raspberry Pi OS Lite, trixie or newer) with a
 touchscreen, attached to a DDJ-FLX10 or DDJ-FLX4. The Pi boots straight into
 Perform; the controller drives everything, including the library browser.
 

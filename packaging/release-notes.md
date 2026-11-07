@@ -6,9 +6,9 @@ OpenDecks Session 0.1.0 — the first regular release of the open-source DJ soft
 |---|---|
 | macOS (Apple Silicon) | `OpenDecks-Session-*-macos-arm64.dmg` |
 | macOS (Intel) | `OpenDecks-Session-*-macos-x86_64.dmg` |
-| Debian 12+, Ubuntu 22.04+ (x86_64) | `opendecks-session_*_amd64.deb` |
-| Debian 12+, Ubuntu 22.04+, Raspberry Pi OS 64-bit (arm64) | `opendecks-session_*_arm64.deb` |
-| Any Linux | `OpenDecks-Session-*.AppImage`, `opendecks-session-*-linux-*.tar.gz` |
+| Ubuntu 24.04+, Debian 13+ (x86_64) | `opendecks-session_*_amd64.deb` |
+| Ubuntu 24.04+, Debian 13+, Raspberry Pi OS 64-bit trixie (arm64) | `opendecks-session_*_arm64.deb` |
+| Other Linux (glibc 2.39+) | `OpenDecks-Session-*.AppImage`, `opendecks-session-*-linux-*.tar.gz` |
 | Raspberry Pi standalone (kiosk) | `opendecks-pi-*.tar.gz` — see `packaging/raspberry-pi/README.md` |
 
 `SHA256SUMS.txt` lists the checksums of every file.
