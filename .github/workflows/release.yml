@@ -90,5 +90,4 @@ jobs:
           (cd dist && sha256sum * > SHA256SUMS.txt)
           gh release create "${GITHUB_REF_NAME}" dist/* \
             --title "OpenDecks Session ${GITHUB_REF_NAME#v}" \
-            --notes-file packaging/release-notes.md \
-            --prerelease
+            --notes-file packaging/release-notes.md
