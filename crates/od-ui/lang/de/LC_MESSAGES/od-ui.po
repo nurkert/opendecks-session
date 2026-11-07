@@ -4175,6 +4175,30 @@ msgctxt "DeckTime"
 msgid "REAL TIME"
 msgstr "ECHTZEIT"
 
+msgctxt "HotCueKey"
+msgid "Empty hot cue: press to set it"
+msgstr "Leerer Hot Cue: drücken zum Setzen"
+
+msgctxt "CdjPlayer"
+msgid "TEMPO"
+msgstr "TEMPO"
+
+msgctxt "CdjPlayer"
+msgid "RELOOP"
+msgstr "RELOOP"
+
+msgctxt "CdjPlayer"
+msgid "Reloop / exit the loop"
+msgstr "Loop wieder starten / verlassen"
+
+msgctxt "CdjPlayer"
+msgid "BEAT JUMP"
+msgstr "BEAT JUMP"
+
+msgctxt "CdjPlayer"
+msgid "Master tempo: the key stays when the tempo changes"
+msgstr "Master Tempo: die Tonart bleibt, wenn sich das Tempo ändert"
+
 #~ msgctxt "DeckPanel"
 #~ msgid "SPLIT…"
 #~ msgstr "TRENNEN…"
@@ -5071,3 +5095,9 @@ msgstr "TAKT"
 
 msgid "TO PHRASE"
 msgstr "BIS PHRASE"
+
+msgid "Click to type a BPM: the tempo fader goes there (the range widens if needed)"
+msgstr "Klicken und BPM eintippen: der Tempo-Fader geht dorthin (der Bereich wird bei Bedarf erweitert)"
+
+msgid "Click for the next tempo range: ±6 %, ±10 %, ±16 %, WIDE"
+msgstr "Klicken für den nächsten Tempobereich: ±6 %, ±10 %, ±16 %, WIDE"

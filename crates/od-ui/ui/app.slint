@@ -476,6 +476,7 @@ export component AppWindow inherits Window {
     callback deck-beat-jump(int, float);
     callback deck-loop-manual(int);
     callback deck-tempo-range(int);
+    callback deck-set-bpm(int, string);
     callback deck-load(int);
     callback mixer-trim(int, float);
     callback mixer-eq(int, int, float);
@@ -770,6 +771,7 @@ export component AppWindow inherits Window {
                 load(d) => { root.deck-load(d); }
                 loop-manual(d) => { root.deck-loop-manual(d); }
                 tempo-range(d) => { root.deck-tempo-range(d); }
+                set-bpm(d, t) => { root.deck-set-bpm(d, t); }
                 trim(c, v) => { root.mixer-trim(c, v); }
                 eq(c, b, v) => { root.mixer-eq(c, b, v); }
                 cfx(c, v) => { root.mixer-cfx(c, v); }

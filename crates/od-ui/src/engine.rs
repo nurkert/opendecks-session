@@ -355,6 +355,67 @@ fn perform_crowd(app: &App) {
     }
 }
 
+thread_local! {
+    /// Per deck: the engine has taken over the remembered switches (until
+    /// then, its start values must not overwrite them).
+    static SWITCHES_APPLIED: std::cell::Cell<[bool; 4]> = const { std::cell::Cell::new([false; 4]) };
+}
+
+/// The engine is (re)given the remembered switches: record again only once
+/// it shows them.
+pub(crate) fn switches_sent() {
+    SWITCHES_APPLIED.with(|a| a.set([false; 4]));
+}
+
+/// Tempo range id as stored in the settings.
+pub(crate) fn tempo_range_id(r: od_engine::TempoRange) -> &'static str {
+    match r {
+        od_engine::TempoRange::Six => "six",
+        od_engine::TempoRange::Ten => "ten",
+        od_engine::TempoRange::Sixteen => "sixteen",
+        od_engine::TempoRange::Wide => "wide",
+    }
+}
+
+/// Keeps the deck switches the DJ sets (master tempo, tempo range per
+/// deck; quantize for all) in the settings, so a track load or a restart
+/// never resets them. Records only once the engine shows the remembered
+/// values (it was given them at start, `preferences::deck_defaults`).
+fn remember_deck_switches(app: &App, state: &EngineState) {
+    let s = app.state.borrow().settings.deck.clone();
+    let mut applied = SWITCHES_APPLIED.with(|a| a.get());
+    let mut changed: Vec<(usize, bool, &'static str)> = Vec::new();
+    for (i, d) in state.decks.iter().enumerate().take(4) {
+        let mem = s.decks.get(i).cloned().unwrap_or_default();
+        let want = if mem.tempo_range.is_empty() { s.tempo_range.as_str() } else { mem.tempo_range.as_str() };
+        let range = tempo_range_id(d.tempo_range);
+        if !applied[i] {
+            applied[i] = d.keylock == mem.master_tempo && range == want;
+            continue;
+        }
+        if d.keylock != mem.master_tempo || range != want {
+            changed.push((i, d.keylock, range));
+        }
+    }
+    SWITCHES_APPLIED.with(|a| a.set(applied));
+    let quantize = applied.iter().any(|a| *a) && state.quantize != s.quantize;
+    if changed.is_empty() && !quantize {
+        return;
+    }
+    let q = state.quantize;
+    app.state.borrow_mut().change_settings(|st| {
+        for (i, mt, range) in &changed {
+            if let Some(m) = st.deck.decks.get_mut(*i) {
+                m.master_tempo = *mt;
+                m.tempo_range = range.to_string();
+            }
+        }
+        if quantize {
+            st.deck.quantize = q;
+        }
+    });
+}
+
 fn frame(app: &App) {
     let scale = app.ui.window().scale_factor();
     let small = (app.ui.window().size().height as f32 / scale) < 620.0;
@@ -411,6 +472,7 @@ fn frame(app: &App) {
     }
     decks::project(app, &state);
     crate::cdj::frame(app, &state);
+    remember_deck_switches(app, &state);
     crate::mic::frame(app, &state);
     mixer::project(app, &state);
     fx::project(app, &state);

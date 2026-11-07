@@ -760,6 +760,8 @@ export component DeckPanel inherits Rectangle {
     callback load();
     callback loop-manual();
     callback tempo-range();
+    // A typed target BPM (click on the platter's BPM).
+    callback set-bpm(string);
 
     // Browse layout: header, overview and stem strip only.
     in property <bool> browse;
@@ -895,6 +897,9 @@ export component DeckPanel inherits Rectangle {
                 playing: root.deck.playing; loaded: root.deck.loaded; tone: root.tone;
                 top-text: root.deck.phrase; main-text: root.deck.loaded ? root.deck.bpm : "—";
                 sub-text: root.deck.tempo + "  " + root.deck.tempo-range;
+                editable: true; a11y-prefix: "deck\{root.deck.deck}";
+                set-bpm(t) => { root.set-bpm(t); }
+                range => { root.tempo-range(); }
             }
             StateColumn { deck: root.deck; ctl-h: root.ctl-h; slip => { root.slip(); } quantize => { root.quantize(); } keylock => { root.keylock(); } }
             TempoColumn { deck: root.deck; tempo(v) => { root.tempo(v); } }
@@ -911,6 +916,9 @@ export component DeckPanel inherits Rectangle {
                 playing: root.deck.playing; loaded: root.deck.loaded; tone: root.tone;
                 top-text: root.deck.phrase; main-text: root.deck.loaded ? root.deck.bpm : "—";
                 sub-text: root.deck.tempo + "  " + root.deck.tempo-range;
+                editable: true; a11y-prefix: "deck\{root.deck.deck}";
+                set-bpm(t) => { root.set-bpm(t); }
+                range => { root.tempo-range(); }
             }
             TransportColumn { deck: root.deck; size: root.touch-size ? 60px : 52px; ctl-h: root.ctl-h; cue => { root.cue(); } toggle-play => { root.toggle-play(); } tempo-range => { root.tempo-range(); } }
             LoopColumn { deck: root.deck; ctl-h: root.ctl-h; loop(b) => { root.loop(b); } loop-exit => { root.loop-exit(); } loop-scale(f) => { root.loop-scale(f); } beat-jump-step(f) => { root.beat-jump-step(f); } loop-manual => { root.loop-manual(); } }
@@ -1396,6 +1404,7 @@ export component PerformView inherits Rectangle {
     callback load(int);
     callback loop-manual(int);
     callback tempo-range(int);
+    callback set-bpm(int, string);
     callback trim(int, float);
     callback eq(int, int, float);
     callback cfx(int, float);
@@ -1497,6 +1506,7 @@ export component PerformView inherits Rectangle {
                 spacing: 0;
                 for d in root.decks-left: VerticalLayout {
                     if Cdj.enabled: CdjPlayer {
+                        short: root.short || root.tight || root.crowd >= 1; narrow: root.narrow;
                         deck: d;
                         motion: root.lane-motion[d.deck - 1];
                         zoom(delta) => { root.zoom(d.deck, delta); }
@@ -1541,6 +1551,7 @@ export component PerformView inherits Rectangle {
                     load => { root.load(d.deck); }
                     loop-manual => { root.loop-manual(d.deck); }
                     tempo-range => { root.tempo-range(d.deck); }
+                    set-bpm(t) => { root.set-bpm(d.deck, t); }
                 }
                 }
             }
@@ -1607,6 +1618,7 @@ export component PerformView inherits Rectangle {
                 spacing: 0;
                 for d in root.decks-right: VerticalLayout {
                     if Cdj.enabled: CdjPlayer {
+                        short: root.short || root.tight || root.crowd >= 1; narrow: root.narrow;
                         mirror: true;
                         deck: d;
                         motion: root.lane-motion[d.deck - 1];
@@ -1653,6 +1665,7 @@ export component PerformView inherits Rectangle {
                     load => { root.load(d.deck); }
                     loop-manual => { root.loop-manual(d.deck); }
                     tempo-range => { root.tempo-range(d.deck); }
+                    set-bpm(t) => { root.set-bpm(d.deck, t); }
                 }
                 }
             }

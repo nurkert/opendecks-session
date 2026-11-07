@@ -418,3 +418,37 @@ fn lighting_track_cue_timeline() {
             .is_none_or(|v| v.is_empty())
     );
 }
+
+/// Both player screens fit side by side at desktop and laptop size: every
+/// control lies inside its player and the window, CUE / PLAY sit bottom
+/// left, the jog is round and centred under the hot cues.
+#[test]
+fn cdj_players_fit_side_by_side() {
+    for size in [(1440, 900), (1280, 800)] {
+        let ui = Ui::open(size);
+        ui.app.ui.invoke_set_mode("perform".into());
+        crate::engine::ensure_engine(&ui.app);
+        ui.pump(300);
+        ui.click("topbar.toggle.cdj");
+        ui.pump(300);
+        let (ww, wh) = ui.size();
+        let win = Rect { x: 0.0, y: 0.0, w: ww, h: wh };
+        for n in [1, 2] {
+            let player = Rect::of(&ui.get(&format!("deck{n}.cdj")));
+            assert!(win.contains(&player, 0.5), "{size:?} player {n} in the window");
+            for part in ["browse", "overview", "search-back", "search-fwd", "call-prev", "call-next", "time", "bpm", "loop-in", "loop-out", "reloop", "loop-4", "jump-back", "jump-fwd", "cue", "play", "jog", "tempo-range", "master-tempo", "tempo"] {
+                let r = Rect::of(&ui.get(&format!("deck{n}.cdj.{part}")));
+                assert!(player.contains(&r, 0.5) && r.w > 1.0, "{size:?} deck{n}.cdj.{part} at {:?} outside its player {:?}", (r.x, r.y, r.w, r.h), (player.x, player.y, player.w, player.h));
+            }
+            let cue = Rect::of(&ui.get(&format!("deck{n}.cdj.cue")));
+            let play = Rect::of(&ui.get(&format!("deck{n}.cdj.play")));
+            let jog = Rect::of(&ui.get(&format!("deck{n}.cdj.jog")));
+            let loop_in = Rect::of(&ui.get(&format!("deck{n}.cdj.loop-in")));
+            let tempo = Rect::of(&ui.get(&format!("deck{n}.cdj.tempo")));
+            assert!((cue.w - cue.h).abs() < 0.5 && (jog.w - jog.h).abs() < 0.5, "round keys and jog");
+            assert!((cue.y - play.y).abs() < 0.5 && cue.right() <= play.x, "CUE left of PLAY on one line");
+            assert!(cue.x < jog.x && cue.y > loop_in.y, "CUE / PLAY bottom left, loop above");
+            assert!(tempo.x > jog.right(), "tempo fader right of the jog");
+        }
+    }
+}

@@ -74,8 +74,11 @@ pub(crate) fn analysis_control(s: &Settings, lite: bool) -> AnalysisControl {
 /// Deck defaults (Preferences > Controller > Decks) as commands for one
 /// deck: tempo range, jog mode and auto cue. Quantize is global, see
 /// [`engine_settings`].
-pub(crate) fn deck_defaults(s: &Settings) -> Vec<DeckCommand> {
-    let range = match s.deck.tempo_range.as_str() {
+pub(crate) fn deck_defaults(s: &Settings, deck: usize) -> Vec<DeckCommand> {
+    // The deck's own remembered switches win over the defaults.
+    let memory = s.deck.decks.get(deck).cloned().unwrap_or_default();
+    let range_id = if memory.tempo_range.is_empty() { s.deck.tempo_range.as_str() } else { memory.tempo_range.as_str() };
+    let range = match range_id {
         "six" => TempoRange::Six,
         "sixteen" => TempoRange::Sixteen,
         "wide" => TempoRange::Wide,
@@ -96,6 +99,7 @@ pub(crate) fn deck_defaults(s: &Settings) -> Vec<DeckCommand> {
         DeckCommand::SetJogMode(jog),
         DeckCommand::SetAutoCue(s.deck.auto_cue),
         DeckCommand::SetSyncMode(sync),
+        DeckCommand::SetKeylock(memory.master_tempo),
     ]
 }
 
@@ -135,7 +139,7 @@ pub(crate) fn mixer_settings(s: &Settings, channels: usize) -> Vec<Command> {
 pub(crate) fn engine_settings(s: &Settings, decks: usize) -> Vec<Command> {
     let mut out: Vec<Command> = Vec::new();
     for d in 0..decks {
-        out.extend(deck_defaults(s).into_iter().map(|c| Command::Deck(d, c)));
+        out.extend(deck_defaults(s, d).into_iter().map(|c| Command::Deck(d, c)));
     }
     out.push(Command::SetQuantize(s.deck.quantize));
     out.extend(mixer_settings(s, decks));
@@ -155,6 +159,7 @@ pub(crate) fn apply_engine_settings(app: &App) {
         return;
     }
     let s = app.state.borrow().settings.clone();
+    crate::engine::switches_sent();
     for c in engine_settings(&s, crate::decks::DECKS) {
         crate::engine::send(app, c);
     }
@@ -181,6 +186,7 @@ fn apply_engine_key(app: &App, key: &str) {
         ("mixer.crossfader-curve", Command::Mixer(MixerCommand::SetCrossfaderCurve(_))) => true,
         _ => false,
     };
+    crate::engine::switches_sent();
     for c in all.into_iter().filter(wanted) {
         crate::engine::send(app, c);
     }
@@ -1236,8 +1242,13 @@ fn choose(app: &App, key: &str, i: i32) {
         "view.line-spacing" => change(app, |s| {
             s.browser.line_spacing = LINE_SPACINGS.get(i).unwrap_or(&"normal").to_string()
         }),
+        // A new default range applies to every deck (their own last
+        // ranges are forgotten).
         "deck.tempo-range" => change_engine(app, key, |s| {
-            s.deck.tempo_range = TEMPO_RANGES.get(i).unwrap_or(&"ten").to_string()
+            s.deck.tempo_range = TEMPO_RANGES.get(i).unwrap_or(&"ten").to_string();
+            for m in &mut s.deck.decks {
+                m.tempo_range.clear();
+            }
         }),
         "deck.jog-mode" => change_engine(app, key, |s| {
             s.deck.jog_mode = JOG_MODES.get(i).unwrap_or(&"vinyl").to_string()
@@ -1694,7 +1705,7 @@ mod tests {
         s.mixer.crossfader_curve = "cut".into();
         s.mixer.auto_gain = false;
         assert_eq!(
-            format!("{:?}", deck_defaults(&s)),
+            format!("{:?}", deck_defaults(&s, 0)),
             format!(
                 "{:?}",
                 vec![

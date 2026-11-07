@@ -40,3 +40,27 @@ fn bar_counter_cycles_its_mode() {
     assert!(ui.wait_until(2.0, |u| mode(u) != before), "click picks the next mode");
     assert!(ui.wait_until(2.0, |u| deck_views(u)[0].counter_mode.as_str() == mode(u)));
 }
+
+/// Typing a BPM on the platter sets the tempo there (the range widens when
+/// it must); a click on the tempo line steps the range.
+#[test]
+fn platter_takes_a_typed_bpm_and_steps_the_range() {
+    let ui = Ui::open((1440, 900));
+    perform_with_track(&ui);
+    let bpm = |u: &Ui| crate::engine::snapshot(&u.app).unwrap().decks[0].bpm;
+    assert!(ui.wait_until(10.0, |u| bpm(u) > 0.0), "analysed track has a BPM");
+    let track = bpm(&ui);
+    ui.click("deck1.bpm-set");
+    let target = (track * 1.12 * 100.0).round() / 100.0;
+    ui.type_text(&format!("{target}"));
+    ui.key(slint::platform::Key::Return);
+    assert!(
+        ui.wait_until(5.0, |u| (bpm(u) - target).abs() < 0.01),
+        "deck plays at {target}, got {}",
+        bpm(&ui)
+    );
+    let range = |u: &Ui| crate::engine::snapshot(&u.app).unwrap().decks[0].tempo_range;
+    assert_eq!(range(&ui), od_engine::TempoRange::Sixteen, "+12 % needs ±16 %");
+    ui.click("deck1.range-set");
+    assert!(ui.wait_until(2.0, |u| range(u) == od_engine::TempoRange::Wide), "click steps the range");
+}

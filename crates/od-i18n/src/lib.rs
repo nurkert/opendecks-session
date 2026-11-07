@@ -186,6 +186,8 @@ const DE: &[(&str, &str)] = &[
     ("Controller connected: {}", "Controller verbunden: {}"),
     ("Controller disconnected: {}", "Controller getrennt: {}"),
     ("Loaded {} on deck {}", "{} auf Deck {} geladen"),
+    ("Deck {}: {} BPM", "Deck {}: {} BPM"),
+    ("Type a tempo the track can reach (half to double its BPM)", "Ein Tempo eingeben, das der Track erreichen kann (halbe bis doppelte BPM)"),
     ("Could not load {}", "{} konnte nicht geladen werden"),
     ("Stems ready on deck {}", "Stems auf Deck {} bereit"),
     (

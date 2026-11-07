@@ -12,7 +12,7 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, PlateButton, Fader, Transport, Jog, HoldButton } from "controls.slint";
+import { Caps, PlateButton, Fader, Jog, TipArea } from "controls.slint";
 import { DeckView, LaneMotion, PadView, DeckTime } from "structs.slint";
 import { WaveLane } from "wave.slint";
 
@@ -54,45 +54,59 @@ export global Cdj {
     callback set-enabled(bool);
 }
 
+// The player's keys: rounded plates with an emission line along the top
+// when lit (our design language, the club player's operating logic). A key
+// clicks; a hold key also reports press and release (search, CUE preview).
 component Key inherits Rectangle {
     in property <string> label;
     in property <string> tooltip;
     in property <bool> on;
     in property <color> tone: Theme.attention;
+    in property <length> key-h: 30px;
     callback clicked();
-    min-width: max(44px, t.preferred-width + 14px);
-    height: 28px;
-    background: ta.pressed ? Theme.plate-raised : root.on ? root.tone.with-alpha(0.2) : Theme.plate;
+    callback held(bool);
+    min-width: max(44px, t.preferred-width + 16px);
+    height: root.key-h;
+    border-radius: 6px;
+    background: ta.pressed ? Theme.plate-raised : root.on ? root.tone.with-alpha(0.2) : ta.has-hover ? Theme.plate-raised.mix(Theme.plate, 0.5) : Theme.plate;
     border-width: 1px;
-    border-color: root.on ? root.tone : ta.has-hover ? Theme.bone-3 : Theme.rule;
+    border-color: root.on ? root.tone : Theme.rule;
+    Rectangle { x: 8px; y: 1px; width: parent.width - 16px; height: 2px; border-radius: 1px; background: root.on || ta.pressed ? root.tone : transparent; }
     t := Text {
         text: root.label;
         font-family: Theme.family; font-size: 10px; font-weight: 600; letter-spacing: 1.1px;
         color: root.on ? Theme.bone : Theme.bone-2;
         horizontal-alignment: center; vertical-alignment: center;
     }
-    ta := TouchArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+    ta := TipArea {
+        tooltip: root.tooltip; mouse-cursor: pointer;
+        clicked => { root.clicked(); }
+        pointer-event(ev) => {
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.down) { root.held(true); }
+            if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.up) { root.held(false); }
+        }
+    }
 }
 
+// A hot cue: a rounded key with its letter, lit in the cue colour when set.
 component HotCueKey inherits Rectangle {
     in property <PadView> pad;
     callback pressed(bool);
     property <color> tone: Theme.cue-color(root.pad.cue-slot >= 0 ? root.pad.cue-slot : root.pad.index);
-    height: 34px;
+    height: 30px;
+    min-width: 28px;
+    border-radius: 6px;
     background: root.pad.set ? root.tone.with-alpha(ta.pressed ? 0.5 : 0.24) : (ta.pressed ? Theme.plate-raised : Theme.plate);
     border-width: 1px;
     border-color: root.pad.set ? root.tone : Theme.rule;
     Text {
-        x: 8px; text: root.pad.caption;
-        font-family: Theme.family; font-size: 14px; font-weight: 600;
-        color: root.pad.set ? Theme.bone : Theme.bone-3; vertical-alignment: center;
+        text: root.pad.caption;
+        font-family: Theme.family; font-size: 13px; font-weight: 600;
+        color: root.pad.set ? Theme.bone : Theme.bone-3;
+        horizontal-alignment: center; vertical-alignment: center;
     }
-    Text {
-        x: 24px; width: parent.width - 28px; text: root.pad.sub;
-        font-family: Theme.family; font-size: 10px; color: Theme.bone-2;
-        vertical-alignment: center; overflow: elide;
-    }
-    ta := TouchArea {
+    ta := TipArea {
+        tooltip: root.pad.set ? root.pad.sub : @tr("Empty hot cue: press to set it");
         mouse-cursor: pointer;
         pointer-event(ev) => {
             if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.down) { root.pressed(true); }
@@ -101,20 +115,21 @@ component HotCueKey inherits Rectangle {
     }
 }
 
-// Large CUE / PLAY buttons with press and release (CUE previews while held).
+// Large round CUE / PLAY keys with press and release (CUE previews while held).
 component BigButton inherits Rectangle {
     in property <string> label;
     in property <bool> lit;
     in property <color> tone;
+    in property <length> size: 64px;
     callback pressed(bool);
-    width: 64px; height: 64px;
-    border-radius: 32px;
+    width: root.size; height: root.size;
+    border-radius: root.size / 2;
     background: ta.pressed ? root.tone.with-alpha(0.4) : root.lit ? root.tone.with-alpha(0.22) : Theme.plate;
     border-width: 2px;
     border-color: root.lit ? root.tone : Theme.rule-strong;
     Text {
         text: root.label;
-        font-family: Theme.family; font-size: 13px; font-weight: 600; letter-spacing: 1.4px;
+        font-family: Theme.family; font-size: 12px; font-weight: 600; letter-spacing: 1.4px;
         color: root.lit ? Theme.bone : Theme.bone-2;
         horizontal-alignment: center; vertical-alignment: center;
     }
@@ -124,6 +139,33 @@ component BigButton inherits Rectangle {
             if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.down) { root.pressed(true); }
             if (ev.button == PointerEventButton.left && ev.kind == PointerEventKind.up) { root.pressed(false); }
         }
+    }
+}
+
+// A small caption over a group of keys.
+component GroupCaption inherits Text {
+    font-family: Theme.family; font-size: 9px; font-weight: 600; letter-spacing: 1.2px;
+    color: Theme.bone-3; horizontal-alignment: center;
+}
+
+// One readout of the display: caption over a value.
+component DisplayValue inherits VerticalLayout {
+    in property <string> caption;
+    in property <string> value;
+    in property <string> value-label;
+    in property <length> font-size: 22px;
+    in property <string> template: "000.00";
+    in property <TextHorizontalAlignment> align: center;
+    spacing: 0;
+    alignment: center;
+    GroupCaption { text: root.caption; horizontal-alignment: root.align; }
+    Text {
+        accessible-role: text; accessible-label: root.value-label; accessible-value: root.value;
+        min-width: probe.preferred-width;
+        text: root.value == "" ? "—" : root.value;
+        font-family: Theme.family; font-size: root.font-size; font-weight: 600; color: Theme.bone;
+        horizontal-alignment: root.align;
+        probe := Text { visible: false; text: root.template; font-family: Theme.family; font-size: root.font-size; font-weight: 600; }
     }
 }
 
@@ -155,38 +197,48 @@ export component CdjPlayer inherits Rectangle {
     callback load();
     property <int> n: root.deck.deck;
     property <color> tone: Theme.deck-color(root.n);
+    // Short windows (laptop): a lower waveform and smaller CUE / PLAY.
+    in property <bool> short;
+    // Narrow windows: slimmer side columns so both players fit side by side.
+    in property <bool> narrow;
+    // One spacing for the whole player; the side columns share one width.
+    property <length> gap: 6px;
+    property <length> side: root.narrow ? 116px : 132px;
     accessible-role: groupbox;
     accessible-label: "deck\{root.n}.cdj";
     background: Theme.ground;
     clip: true;
 
     VerticalLayout {
-        padding: 8px; spacing: 6px;
-        // Header: deck, title / artist, key, master.
+        padding: 8px; spacing: root.gap;
+        // ── Display: deck, title / artist, key, master, browse ──
         HorizontalLayout {
             height: 30px; spacing: 10px;
             Text { text: root.n; font-family: Theme.family; font-size: 22px; font-weight: 600; color: root.tone; vertical-alignment: center; }
             VerticalLayout {
-                horizontal-stretch: 1;
+                horizontal-stretch: 1; alignment: center;
                 Text { text: root.deck.loaded || root.deck.loading ? root.deck.title : @tr("No track — browse and load"); font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; overflow: elide; }
                 Text { text: root.deck.artist; font-family: Theme.family; font-size: 11px; color: Theme.bone-2; overflow: elide; }
             }
-            Caps { text: root.deck.key; vertical-alignment: center; color: Theme.bone; }
-            Key {
-                accessible-label: "deck\{root.n}.cdj.browse"; accessible-role: button;
-                label: @tr("BROWSE"); on: Cdj.browse-deck == root.n;
-                tooltip: @tr("Browse the source and load a track, as on the player");
-                clicked => { Cdj.browse(root.n); }
-            }
             if root.deck.master: Caps { text: "MASTER"; vertical-alignment: center; color: Theme.attention; }
+            Caps { text: root.deck.key; vertical-alignment: center; color: Theme.bone; }
+            VerticalLayout {
+                alignment: center;
+                Key {
+                    accessible-label: "deck\{root.n}.cdj.browse"; accessible-role: button;
+                    key-h: 26px; label: @tr("BROWSE"); on: Cdj.browse-deck == root.n;
+                    tooltip: @tr("Browse the source and load a track, as on the player");
+                    clicked => { Cdj.browse(root.n); }
+                }
+            }
         }
+        // Zoomed waveform, the beat of the bar, the overview with cue marks.
         WaveLane {
-            height: 84px;
+            height: root.short ? 56px : 84px;
             deck: root.deck; motion: root.motion;
             zoom(d) => { root.zoom(d); }
             zoom-reset => { root.zoom-reset(); }
         }
-        // Beat of the bar under the waveform, as on a club player.
         BeatPosition {
             accessible-role: progress-indicator;
             accessible-label: "cdj\{root.n}.beat-position";
@@ -194,10 +246,10 @@ export component CdjPlayer inherits Rectangle {
             beat: root.deck.loaded ? Cdj.beat-in-bar[root.n - 1] : 0;
             tone: root.tone;
         }
-        // Overview with cue marks; tap to needle-search.
         Rectangle {
             accessible-role: slider; accessible-label: "deck\{root.n}.cdj.overview"; accessible-value: root.deck.progress;
-            height: 30px;
+            height: root.short ? 24px : 30px;
+            border-radius: 4px; clip: true;
             background: Theme.ground-band;
             Image { width: parent.width; height: parent.height; source: root.deck.overview; image-fit: fill; }
             Rectangle { x: 0; width: parent.width * root.deck.progress; height: parent.height; background: Theme.ground.with-alpha(0.55); }
@@ -213,88 +265,122 @@ export component CdjPlayer inherits Rectangle {
                 VerticalLayout { alignment: center; PlateButton { accessible-label: "deck\{root.n}.cdj.load"; accessible-role: button; compact: true; label: @tr("LOAD SELECTED"); tone: root.tone; clicked => { root.load(); } } }
             }
         }
+        // Display line: track search and cue call at the display, time and
+        // tempo in the middle and right, like the player's screen.
         HorizontalLayout {
-            spacing: 10px;
-            // Cue call, hot cues, loop and jump.
+            spacing: root.gap;
+            HorizontalLayout {
+                width: root.side; spacing: 4px;
+                VerticalLayout { alignment: center; Key {
+                    accessible-label: "deck\{root.n}.cdj.search-back"; accessible-role: button;
+                    horizontal-stretch: 1; min-width: 0; label: "◀◀"; tooltip: @tr("Search back while held");
+                    held(down) => { Cdj.search(root.n, down ? -4 : 0); }
+                } }
+                VerticalLayout { alignment: center; Key {
+                    accessible-label: "deck\{root.n}.cdj.search-fwd"; accessible-role: button;
+                    horizontal-stretch: 1; min-width: 0; label: "▶▶"; tooltip: @tr("Search forward while held");
+                    held(down) => { Cdj.search(root.n, down ? 4 : 0); }
+                } }
+            }
+            HorizontalLayout {
+                horizontal-stretch: 1; spacing: 4px; alignment: center;
+                VerticalLayout { alignment: center; Key { accessible-label: "deck\{root.n}.cdj.call-prev"; accessible-role: button; label: "◀ CALL"; tooltip: @tr("Previous memory cue"); clicked => { Cdj.action(root.n, "memory.prev"); } } }
+                DisplayValue { caption: DeckTime.label(); value: DeckTime.main(root.deck); value-label: "deck\{root.n}.cdj.time"; template: "-00:00.0"; }
+                VerticalLayout { alignment: center; Key { accessible-label: "deck\{root.n}.cdj.call-next"; accessible-role: button; label: "CALL ▶"; tooltip: @tr("Next memory cue"); clicked => { Cdj.action(root.n, "memory.next"); } } }
+            }
+            HorizontalLayout {
+                width: root.side; spacing: 8px; alignment: end;
+                DisplayValue { caption: "BPM"; value: root.deck.bpm; value-label: "deck\{root.n}.cdj.bpm"; template: "000.00"; font-size: root.narrow ? 18px : 22px; align: right; }
+                DisplayValue { caption: @tr("TEMPO"); value: root.deck.tempo; value-label: "deck\{root.n}.cdj.tempo-value"; template: "+00.0%"; font-size: 13px; align: right; }
+            }
+        }
+        // ── Controls: loop / jump and CUE / PLAY left, hot cues over the jog
+        // in the centre, tempo right ──
+        HorizontalLayout {
+            vertical-stretch: 1;
+            spacing: root.gap;
             VerticalLayout {
-                spacing: 5px; horizontal-stretch: 1;
-                Caps { text: @tr("HOT CUE"); }
-                HorizontalLayout { spacing: 3px; for p in root.deck.pads-left: HotCueKey { pad: p; horizontal-stretch: 1; pressed(down) => { Cdj.hot-cue(root.n, p.index, down); } } }
-                HorizontalLayout { spacing: 3px; for p in root.deck.pads-right: HotCueKey { pad: p; horizontal-stretch: 1; pressed(down) => { Cdj.hot-cue(root.n, p.index, down); } } }
+                width: root.side; spacing: root.gap;
+                GroupCaption { text: @tr("LOOP"); }
                 HorizontalLayout {
-                    spacing: 3px;
-                    Caps { text: @tr("CALL"); vertical-alignment: center; width: 40px; }
-                    Key { accessible-label: "deck\{root.n}.cdj.call-prev"; accessible-role: button; label: "◀"; tooltip: @tr("Previous memory cue"); clicked => { Cdj.action(root.n, "memory.prev"); } }
-                    Key { accessible-label: "deck\{root.n}.cdj.call-next"; accessible-role: button; label: "▶"; tooltip: @tr("Next memory cue"); clicked => { Cdj.action(root.n, "memory.next"); } }
+                    spacing: 4px;
+                    Key { accessible-label: "deck\{root.n}.cdj.loop-in"; accessible-role: button; horizontal-stretch: 1; label: @tr("IN"); on: root.deck.looping; clicked => { Cdj.action(root.n, "loop.in"); } }
+                    Key { accessible-label: "deck\{root.n}.cdj.loop-out"; accessible-role: button; horizontal-stretch: 1; label: @tr("OUT"); on: root.deck.looping; clicked => { Cdj.action(root.n, "loop.out"); } }
                 }
                 HorizontalLayout {
-                    spacing: 3px;
-                    Caps { text: @tr("LOOP"); vertical-alignment: center; width: 40px; }
-                    Key { accessible-label: "deck\{root.n}.cdj.loop-in"; accessible-role: button; label: @tr("IN"); on: root.deck.looping; clicked => { Cdj.action(root.n, "loop.in"); } }
-                    Key { accessible-label: "deck\{root.n}.cdj.loop-out"; accessible-role: button; label: @tr("OUT"); on: root.deck.looping; clicked => { Cdj.action(root.n, "loop.out"); } }
-                    Key { accessible-label: "deck\{root.n}.cdj.reloop"; accessible-role: button; label: @tr("RELOOP / EXIT"); clicked => { Cdj.action(root.n, "loop.exit"); } }
-                    Key { accessible-label: "deck\{root.n}.cdj.loop-4"; accessible-role: button; label: @tr("4 BEAT"); clicked => { Cdj.action(root.n, "loop.4"); } }
+                    spacing: 4px;
+                    Key { accessible-label: "deck\{root.n}.cdj.reloop"; accessible-role: button; horizontal-stretch: 1; label: @tr("RELOOP"); tooltip: @tr("Reloop / exit the loop"); clicked => { Cdj.action(root.n, "loop.exit"); } }
+                    Key { accessible-label: "deck\{root.n}.cdj.loop-4"; accessible-role: button; horizontal-stretch: 1; label: @tr("4 BEAT"); clicked => { Cdj.action(root.n, "loop.4"); } }
                 }
+                GroupCaption { text: @tr("BEAT JUMP"); }
                 HorizontalLayout {
-                    spacing: 3px;
-                    Caps { text: @tr("JUMP"); vertical-alignment: center; width: 40px; }
-                    Key { accessible-label: "deck\{root.n}.cdj.jump-back"; accessible-role: button; label: "◀ " + root.deck.jump-size; clicked => { Cdj.action(root.n, "jump.back"); } }
-                    Key { accessible-label: "deck\{root.n}.cdj.jump-fwd"; accessible-role: button; label: root.deck.jump-size + " ▶"; clicked => { Cdj.action(root.n, "jump.fwd"); } }
-                    HoldButton {
-                        accessible-label: "deck\{root.n}.cdj.search-back"; accessible-role: button;
-                        label: "◀◀"; size: 28px; tooltip: @tr("Search back while held");
-                        pressed => { Cdj.search(root.n, -4); } released => { Cdj.search(root.n, 0); }
-                    }
-                    HoldButton {
-                        accessible-label: "deck\{root.n}.cdj.search-fwd"; accessible-role: button;
-                        label: "▶▶"; size: 28px; tooltip: @tr("Search forward while held");
-                        pressed => { Cdj.search(root.n, 4); } released => { Cdj.search(root.n, 0); }
-                    }
+                    spacing: 4px;
+                    Key { accessible-label: "deck\{root.n}.cdj.jump-back"; accessible-role: button; horizontal-stretch: 1; label: "◀ " + root.deck.jump-size; clicked => { Cdj.action(root.n, "jump.back"); } }
+                    Key { accessible-label: "deck\{root.n}.cdj.jump-fwd"; accessible-role: button; horizontal-stretch: 1; label: root.deck.jump-size + " ▶"; clicked => { Cdj.action(root.n, "jump.fwd"); } }
                 }
-                Rectangle { vertical-stretch: 1; }
+                Rectangle { vertical-stretch: 1; min-height: 0; }
+                // CUE and PLAY, bottom left.
                 HorizontalLayout {
-                    spacing: 14px; alignment: start;
+                    spacing: root.gap; alignment: space-between;
                     BigButton {
                         accessible-label: "deck\{root.n}.cdj.cue"; accessible-role: button;
+                        size: root.short ? 54px : 62px;
                         label: "CUE"; tone: Theme.attention; lit: root.deck.loaded && !root.deck.playing;
                         pressed(down) => { Cdj.cue(root.n, down); }
                     }
                     BigButton {
                         accessible-label: "deck\{root.n}.cdj.play"; accessible-role: button;
+                        size: root.short ? 54px : 62px;
                         label: root.deck.playing ? "PAUSE" : "PLAY"; tone: Theme.live; lit: root.deck.playing;
                         pressed(down) => { if (down) { Cdj.action(root.n, "play"); } }
                     }
                 }
             }
-            // Jog display: remaining time, bar counter, phrase; centred
-            // between the hot cues and CUE / PLAY.
+            // Hot cues in a row over the jog, the jog centred under them.
             VerticalLayout {
-                alignment: center;
-                Jog {
-                    accessible-label: "deck\{root.n}.cdj.jog"; accessible-role: image;
-                    size: 170px;
-                    angle: root.deck.jog-angle; progress: root.deck.progress; playing: root.deck.playing; loaded: root.deck.loaded;
-                    tone: root.tone;
-                    top-text: root.deck.beat-pos;
-                    main-text: DeckTime.main(root.deck);
-                    sub-text: root.deck.phrase;
+                horizontal-stretch: 1; spacing: root.gap;
+                HorizontalLayout {
+                    spacing: 4px;
+                    for p in root.deck.pads-left: HotCueKey { pad: p; horizontal-stretch: 1; pressed(down) => { Cdj.hot-cue(root.n, p.index, down); } }
+                    for p in root.deck.pads-right: HotCueKey { pad: p; horizontal-stretch: 1; pressed(down) => { Cdj.hot-cue(root.n, p.index, down); } }
+                }
+                jog-room := Rectangle {
+                    vertical-stretch: 1;
+                    min-height: 110px;
+                    property <length> d: min(self.width, self.height);
+                    // A thin ring around the platter in the deck colour while it plays.
+                    Rectangle {
+                        x: (parent.width - parent.d) / 2; y: (parent.height - parent.d) / 2;
+                        width: parent.d; height: parent.d; border-radius: parent.d / 2;
+                        border-width: 2px;
+                        border-color: root.deck.playing ? root.tone.with-alpha(0.7) : Theme.rule;
+                    }
+                    Jog {
+                        accessible-label: "deck\{root.n}.cdj.jog"; accessible-role: image;
+                        size: parent.d - 10px;
+                        x: (parent.width - self.width) / 2; y: (parent.height - self.height) / 2;
+                        angle: root.deck.jog-angle; progress: root.deck.progress; playing: root.deck.playing; loaded: root.deck.loaded;
+                        tone: root.tone;
+                        top-text: root.deck.beat-pos;
+                        main-text: DeckTime.main(root.deck);
+                        sub-text: root.deck.phrase;
+                    }
                 }
             }
-            // Tempo: BPM, tempo %, range, master tempo, fader.
+            // Tempo: range and master tempo over the fader, right.
             VerticalLayout {
-                spacing: 4px; width: 92px;
-                Text {
-                    accessible-label: "deck\{root.n}.cdj.bpm"; accessible-role: text; accessible-value: self.text;
-                    text: root.deck.bpm; font-family: Theme.family; font-size: 26px; font-weight: 600; color: Theme.bone; horizontal-alignment: right;
-                }
-                Text { text: root.deck.tempo; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; horizontal-alignment: right; }
-                Key { accessible-label: "deck\{root.n}.cdj.tempo-range"; accessible-role: button; label: root.deck.tempo-range; tooltip: @tr("Tempo range"); clicked => { Cdj.tempo-range(root.n); } }
-                Key { accessible-label: "deck\{root.n}.cdj.master-tempo"; accessible-role: button; label: @tr("MASTER TEMPO"); on: root.deck.keylock; tone: Theme.live; clicked => { Cdj.action(root.n, "keylock"); } }
+                width: root.side; spacing: root.gap;
+                GroupCaption { text: @tr("TEMPO"); }
                 HorizontalLayout {
-                    alignment: end; vertical-stretch: 1;
+                    spacing: 4px;
+                    Key { accessible-label: "deck\{root.n}.cdj.tempo-range"; accessible-role: button; horizontal-stretch: 1; label: root.deck.tempo-range; tooltip: @tr("Tempo range"); clicked => { Cdj.tempo-range(root.n); } }
+                    Key { accessible-label: "deck\{root.n}.cdj.master-tempo"; accessible-role: button; horizontal-stretch: 1; label: "MT"; tooltip: @tr("Master tempo: the key stays when the tempo changes"); on: root.deck.keylock; tone: Theme.live; clicked => { Cdj.action(root.n, "keylock"); } }
+                }
+                HorizontalLayout {
+                    alignment: center; vertical-stretch: 1;
                     Fader {
                         accessible-label: "deck\{root.n}.cdj.tempo"; accessible-role: slider; accessible-value: root.deck.tempo;
-                        tone: root.tone; min-height: 120px;
+                        tone: root.tone; min-height: 90px;
                         value: (1 - root.deck.tempo-value) / 2;
                         tooltip: @tr("Tempo (up = slower, like a player)");
                         changed(v) => { Cdj.tempo(root.n, 1 - v * 2); }

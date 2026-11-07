@@ -725,3 +725,39 @@ fn remaining_time_follows_the_tempo() {
     assert_eq!(st.view.deck_time, "both");
     assert_eq!(crate::settings::Settings::from_json(&st.to_json()).view.deck_time, "both");
 }
+
+/// Deck switches stay as the DJ left them: master tempo and the tempo range
+/// switched on deck 1 survive loading another track and a restart on the
+/// same library; deck 2 keeps its own.
+#[test]
+fn deck_switches_survive_loads_and_restarts() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let (a, _) = ui.fx.tracks[0].clone();
+    let (b, title_b) = ui.fx.tracks[1].clone();
+    crate::decks::load_track(&ui.app, 0, a, None);
+    assert!(ui.wait_until(30.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].track == Some(a))));
+    // MT on and the ±16 % range on deck 1 (the screen keys).
+    ui.click("deck1.master-tempo");
+    ui.app.ui.invoke_deck_tempo_range(1);
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].keylock)));
+    let range = crate::engine::snapshot(&ui.app).unwrap().decks[0].tempo_range;
+    assert!(ui.wait_until(5.0, |u| u.app.state.borrow().settings.deck.decks[0].master_tempo), "remembered");
+    // A new track: MT and the range stay.
+    crate::decks::load_track(&ui.app, 0, b, None);
+    assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.title == title_b.as_str())));
+    ui.pump(200);
+    let s = crate::engine::snapshot(&ui.app).unwrap();
+    assert!(s.decks[0].keylock && s.decks[0].tempo_range == range, "kept on load");
+    assert!(!s.decks[1].keylock, "deck 2 keeps its own");
+    // Restart on the same library: the engine starts with them.
+    let Ui { app, fx, .. } = ui;
+    drop(app);
+    let ui = Ui::start(fx, (1440, 900), false);
+    perform(&ui);
+    assert!(
+        ui.wait_until(10.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].keylock && s.decks[0].tempo_range == range && !s.decks[1].keylock)),
+        "MT and range back after a restart"
+    );
+    assert_eq!(ui.get("deck1.master-tempo").accessible_checked(), Some(true));
+}

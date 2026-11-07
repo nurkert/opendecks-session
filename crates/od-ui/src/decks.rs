@@ -1620,6 +1620,23 @@ pub(crate) fn apply_hot_cue(
     cues
 }
 
+/// Tempo range and fader position (−1..1) that play a track of `track_bpm`
+/// at `target`: the current range if it reaches, else the smallest that
+/// does (WIDE goes from 0 to double speed). `None` when out of reach.
+pub(crate) fn tempo_for_bpm(track_bpm: f64, target: f64, current: TempoRange) -> Option<(TempoRange, f32)> {
+    if track_bpm <= 0.0 || !(1.0..=999.0).contains(&target) {
+        return None;
+    }
+    let pct = target / track_bpm - 1.0;
+    let fits = |r: TempoRange| pct.abs() <= r.fraction() + 1e-9;
+    let range = if fits(current) {
+        current
+    } else {
+        [TempoRange::Six, TempoRange::Ten, TempoRange::Sixteen, TempoRange::Wide].into_iter().find(|r| fits(*r))?
+    };
+    Some((range, (pct / range.fraction()) as f32))
+}
+
 /// New zoom after a scroll of `delta` logical pixels (up = closer): from
 /// 1 s to 32 s across the lane.
 pub(crate) fn zoom_by(zoom: f64, delta: f64) -> f64 {
@@ -2161,6 +2178,28 @@ pub(crate) fn wire(app: &Rc<App>) {
         };
         engine::deck_cmd(&a, d, cmd);
     }));
+    // A typed target BPM: the fader goes there (sync off), in the current
+    // range if it reaches, else the smallest range that does.
+    ui.on_deck_set_bpm(handler!(app, |a, d: i32, text: SharedString| {
+        engine::ensure_engine(&a);
+        let d = idx(d);
+        let Some(s) = deck_state(&a, d) else { return };
+        let target = text.trim().replace(',', ".").parse::<f64>().ok();
+        let track_bpm = if s.tempo > 0.0 { s.bpm / s.tempo } else { 0.0 };
+        match target.and_then(|t| tempo_for_bpm(track_bpm, t, s.tempo_range)) {
+            Some((range, fader)) => {
+                if s.sync {
+                    engine::deck_cmd(&a, d, DeckCommand::SetSync(false));
+                }
+                if range != s.tempo_range {
+                    engine::deck_cmd(&a, d, DeckCommand::SetTempoRange(range));
+                }
+                engine::deck_cmd(&a, d, DeckCommand::SetTempoFader(fader));
+                a.status(format!("Deck {}: {} BPM", d + 1, format::bpm(target, 2)));
+            }
+            None => a.status("Type a tempo the track can reach (half to double its BPM)"),
+        }
+    }));
     // Tempo range of the fader: ±6 → ±10 → ±16 → WIDE → ±6.
     ui.on_deck_tempo_range(handler!(app, |a, d: i32| {
         engine::ensure_engine(&a);
@@ -2243,6 +2282,20 @@ pub(crate) fn wire(app: &Rc<App>) {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn typed_bpm_picks_range_and_fader() {
+        use od_engine::TempoRange::*;
+        let (r, f) = tempo_for_bpm(120.0, 126.0, Ten).unwrap();
+        assert_eq!(r, Ten);
+        assert!((f - 0.5).abs() < 1e-6);
+        // +12 % does not fit ±10 %: the smallest range that does.
+        assert_eq!(tempo_for_bpm(120.0, 134.4, Ten).unwrap().0, Sixteen);
+        assert_eq!(tempo_for_bpm(120.0, 180.0, Six).unwrap().0, Wide);
+        assert!(tempo_for_bpm(120.0, 300.0, Ten).is_none(), "beyond double speed");
+        assert!(tempo_for_bpm(0.0, 120.0, Ten).is_none(), "no grid");
+    }
+
     use super::*;
 
     #[test]

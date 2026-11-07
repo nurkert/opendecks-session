@@ -388,9 +388,17 @@ export component Jog inherits Rectangle {
     in property <string> main-text;
     in property <string> sub-text;
     in property <length> size: 150px;
+    // The BPM in the centre can be typed (target tempo) and the tempo range
+    // under it clicked through.
+    in property <bool> editable;
+    // Accessible label prefix of the BPM field and the range key ("deck1").
+    in property <string> a11y-prefix;
     callback touched();
+    callback set-bpm(string);
+    callback range();
     width: root.size; height: root.size;
     property <length> r: root.size / 2;
+    property <bool> editing;
     // Platter.
     Rectangle {
         width: root.size; height: root.size; border-radius: root.r;
@@ -430,6 +438,33 @@ export component Jog inherits Rectangle {
         Text { text: root.sub-text; font-family: Theme.family; font-size: 11px; color: Theme.bone-2; horizontal-alignment: center; }
     }
     TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.touched(); } }
+    // Click the BPM: type the tempo you want (Return sets it, Esc cancels).
+    if root.editable && root.loaded && !root.editing: TipArea {
+        accessible-role: button;
+        accessible-label: root.a11y-prefix + ".bpm-set";
+        x: 24px; y: root.r - 16px; width: root.size - 48px; height: 30px;
+        tooltip: @tr("Click to type a BPM: the tempo fader goes there (the range widens if needed)");
+        mouse-cursor: text;
+        clicked => { root.editing = true; bpm-field.text = ""; bpm-field.focus-field(); }
+    }
+    // Click the tempo / range line: the next range (±6, ±10, ±16 %, WIDE).
+    if root.editable && !root.editing: TipArea {
+        accessible-role: button;
+        accessible-label: root.a11y-prefix + ".range-set";
+        x: 24px; y: root.r + 14px; width: root.size - 48px; height: 20px;
+        tooltip: @tr("Click for the next tempo range: ±6 %, ±10 %, ±16 %, WIDE");
+        mouse-cursor: pointer;
+        clicked => { root.range(); }
+    }
+    bpm-field := Field {
+        accessible-role: text-input;
+        accessible-label: root.a11y-prefix + ".bpm-input";
+        accessible-value: self.text;
+        visible: root.editing;
+        x: 22px; y: root.r - 16px; width: root.size - 44px; height: 32px;
+        placeholder: "BPM";
+        accepted(t) => { root.editing = false; root.set-bpm(t); }
+    }
 }
 
 // Round transport button (CUE / PLAY) drawn as a ring with a mark.

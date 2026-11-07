@@ -44,6 +44,26 @@ pub struct DeckSettings {
     pub auto_cue: bool,
     /// SYNC matches "beat" (tempo and phase) or "tempo" only.
     pub sync_mode: String,
+    /// Each deck's switches as the DJ last left them (decks 1–4): master
+    /// tempo and the tempo range survive track loads and restarts. Recorded
+    /// from the engine (`engine::remember_deck_switches`), whatever switched
+    /// them (screen, keys, controller).
+    pub decks: Vec<DeckMemory>,
+}
+
+/// The remembered switches of one deck.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct DeckMemory {
+    pub master_tempo: bool,
+    /// Tempo range ("six" … "wide"); empty = the default range above.
+    pub tempo_range: String,
+}
+
+impl Default for DeckMemory {
+    fn default() -> Self {
+        Self { master_tempo: false, tempo_range: String::new() }
+    }
 }
 
 impl Default for DeckSettings {
@@ -54,6 +74,7 @@ impl Default for DeckSettings {
             jog_mode: "vinyl".into(),
             auto_cue: true,
             sync_mode: "beat".into(),
+            decks: vec![DeckMemory::default(); 4],
         }
     }
 }
@@ -296,6 +317,10 @@ pub struct BrowserSettings {
     /// Widths (px) of columns the user dragged; the others keep their
     /// default (fixed, or a share of the free width).
     pub widths: std::collections::BTreeMap<String, f32>,
+    /// The ARTWORK column (added in 0.1) was put into a column choice made
+    /// before it existed, once. Missing in older settings = not yet.
+    #[serde(default)]
+    pub artwork_offered: bool,
 }
 
 impl Default for BrowserSettings {
@@ -306,6 +331,7 @@ impl Default for BrowserSettings {
             font_size: 14,
             line_spacing: "normal".into(),
             widths: Default::default(),
+            artwork_offered: true,
         }
     }
 }
@@ -463,6 +489,15 @@ impl Settings {
 
     /// Clamps values into their valid ranges.
     pub fn sanitized(mut self) -> Self {
+        // A column choice from before the ARTWORK column existed gets it once
+        // (in front, where covers sit); removing it afterwards sticks.
+        let b = &mut self.browser;
+        if !b.artwork_offered {
+            if !b.columns.is_empty() && !b.columns.iter().any(|c| c == "artwork") {
+                b.columns.insert(0, "artwork".into());
+            }
+            b.artwork_offered = true;
+        }
         let v = &mut self.view;
         if !(0.75..=2.0).contains(&v.scale) || !v.scale.is_finite() {
             v.scale = 1.0;
@@ -525,6 +560,12 @@ impl Settings {
         }
         if !SYNC_MODES.contains(&d.sync_mode.as_str()) {
             d.sync_mode = "beat".into();
+        }
+        d.decks.resize(4, DeckMemory::default());
+        for m in &mut d.decks {
+            if !m.tempo_range.is_empty() && !TEMPO_RANGES.contains(&m.tempo_range.as_str()) {
+                m.tempo_range.clear();
+            }
         }
         let m = &mut self.mixer;
         if !EQ_MODES.contains(&m.eq_mode.as_str()) {
@@ -780,6 +821,19 @@ pub fn library_path(flag: Option<PathBuf>) -> PathBuf {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn older_column_choice_gets_the_artwork_column_once() {
+        let old = r#"{"browser": {"columns": ["preview", "title", "bpm"]}}"#;
+        let s = Settings::from_json(old);
+        assert_eq!(s.browser.columns, ["artwork", "preview", "title", "bpm"]);
+        // Removed again by the user: stays removed.
+        let mut s = s;
+        s.browser.columns.remove(0);
+        let s = Settings::from_json(&s.to_json());
+        assert_eq!(s.browser.columns, ["preview", "title", "bpm"]);
+    }
+
     use super::*;
 
     #[test]
