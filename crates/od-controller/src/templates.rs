@@ -153,6 +153,8 @@ pub const ACTION_NAMES: &[&str] = &[
     "sampler.pad", "sampler.stop", "sampler.bank_next", "sampler.bank_prev", "sampler.volume",
     "sampler.cue",
     "recording.toggle",
+    "lighting.look", "lighting.strobe", "lighting.flash", "lighting.fog", "lighting.blackout",
+    "lighting.master", "lighting.cue_go", "lighting.cue_back", "lighting.mode",
 ];
 
 fn on_press(f: impl Fn(Option<u8>) -> ControlAction + Send + Sync + 'static) -> Producer {
@@ -415,6 +417,24 @@ pub fn parse_action(name: &str, args: &Table) -> Result<ActionTemplate, MappingE
         ),
         "sampler.cue" => (Button, on_press(|_| ControlAction::Sampler(SamplerAction::CueToggle))),
         "recording.toggle" => (Button, on_press(|_| ControlAction::RecordingToggle)),
+        "lighting.look" => {
+            let look = a.u8("look")?.min(5);
+            (Button, on_press(move |_| ControlAction::Lighting(LightingAction::Look(look))))
+        }
+        "lighting.strobe" => (Button, Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Strobe(v.pressed()))))),
+        "lighting.flash" => (Button, Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Flash(v.pressed()))))),
+        "lighting.fog" => (Button, Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Fog(v.pressed()))))),
+        "lighting.blackout" => (Button, on_press(|_| ControlAction::Lighting(LightingAction::BlackoutToggle))),
+        "lighting.master" => (Absolute, Box::new(|_, v| Some(ControlAction::Lighting(LightingAction::Master(v.unit()))))),
+        "lighting.cue_go" => (Button, on_press(|_| ControlAction::Lighting(LightingAction::CueGo))),
+        "lighting.cue_back" => (Button, on_press(|_| ControlAction::Lighting(LightingAction::CueBack))),
+        "lighting.mode" => {
+            let m = a.str("mode")?;
+            if !["auto", "easy", "pro"].contains(&m.as_str()) {
+                return Err(a.err(format!("unknown lighting mode `{m}` (auto, easy, pro)")));
+            }
+            (Button, on_press(move |_| ControlAction::Lighting(LightingAction::Mode(m.clone()))))
+        }
         _ => return Err(MappingError::UnknownAction(name.to_string())),
     };
     if name == "ignore" {
@@ -443,6 +463,10 @@ mod tests {
             if *n == "deck.pad_mode" {
                 args.insert("mode".into(), Value::String("hot_cue".into()));
             }
+            if *n == "lighting.mode" {
+                args.insert("mode".into(), Value::String("pro".into()));
+            }
+            args.insert("look".into(), Value::Integer(2));
             parse_action(n, &args).unwrap_or_else(|e| panic!("{n}: {e}"));
         }
     }
@@ -455,5 +479,18 @@ mod tests {
         let r = t.produce(Some(2), InputValue::Button { pressed: false, velocity: 0 });
         assert_eq!(r, Some(ControlAction::Deck { deck: 2, action: DeckAction::CueRelease }));
         assert_eq!(t.produce(None, InputValue::Button { pressed: true, velocity: 1 }), None);
+    }
+
+    #[test]
+    fn lighting_controls_map() {
+        let mut look = Table::new();
+        look.insert("look".into(), Value::Integer(3));
+        let t = parse_action("lighting.look", &look).unwrap();
+        assert_eq!(t.produce(None, InputValue::Button { pressed: true, velocity: 127 }), Some(ControlAction::Lighting(LightingAction::Look(3))));
+        let t = parse_action("lighting.strobe", &Table::new()).unwrap();
+        assert_eq!(t.produce(None, InputValue::Button { pressed: false, velocity: 0 }), Some(ControlAction::Lighting(LightingAction::Strobe(false))));
+        let mut bad = Table::new();
+        bad.insert("mode".into(), Value::String("disco".into()));
+        assert!(parse_action("lighting.mode", &bad).is_err());
     }
 }

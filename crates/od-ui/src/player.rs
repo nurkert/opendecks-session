@@ -65,8 +65,56 @@ pub(crate) fn grid_at_bpm(grid: &Beatgrid, bpm: f64, duration: f64) -> Beatgrid 
     g
 }
 
+/// A tempo marker (variable-tempo grid): from the beat nearest `at` on, the
+/// grid runs at `bpm` up to `end`, the beats before it stay as they are and
+/// the bar count carries on. A grid without beats starts at `at`.
+pub(crate) fn tempo_marker(grid: &Beatgrid, at: f64, bpm: f64, end: f64) -> Beatgrid {
+    let (keep, start, bar) = match grid.beats.iter().enumerate().min_by(|a, b| (a.1.time - at).abs().total_cmp(&(b.1.time - at).abs())) {
+        Some((i, b)) => (i, b.time, b.bar_position),
+        None => (0, at.max(0.0), 1),
+    };
+    let mut beats: Vec<od_core::Beat> = grid.beats[..keep].to_vec();
+    let period = 60.0 / bpm;
+    let (mut t, mut pos) = (start, bar.clamp(1, 4));
+    while t <= end {
+        beats.push(od_core::Beat { time: t, bpm, bar_position: pos });
+        t += period;
+        pos = pos % 4 + 1;
+    }
+    Beatgrid { beats, locked: grid.locked }
+}
+
+/// Tempo changes in a grid (beats whose tempo differs from the beat before).
+pub(crate) fn tempo_changes(grid: &Beatgrid) -> usize {
+    grid.beats.windows(2).filter(|w| (w[0].bpm - w[1].bpm).abs() > 0.005).count()
+}
+
+/// "+ MARKER" in the grid tools: the typed tempo from the cursor on.
+pub(crate) fn add_tempo_marker(app: &App, text: &str) {
+    let Some(bpm) = parse_bpm(text) else {
+        app.status("Type a tempo between 30 and 300 BPM");
+        return;
+    };
+    let duration = {
+        let st = app.state.borrow();
+        st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0)
+    };
+    edit_grid(app, |g, cursor| *g = tempo_marker(g, cursor, bpm, duration.max(cursor + 1.0)));
+    app.status(od_i18n::trf("Tempo marker: {} BPM from the cursor", &[&format!("{bpm:.2}")]));
+}
+
+#[cfg(test)]
+thread_local! {
+    /// Tests set the tap clock (seconds) instead of waiting in real time.
+    pub(crate) static TAP_CLOCK: std::cell::Cell<Option<f64>> = const { std::cell::Cell::new(None) };
+}
+
 /// Seconds since the first call (monotonic), for the tap tempo.
 fn now_secs() -> f64 {
+    #[cfg(test)]
+    if let Some(t) = TAP_CLOCK.with(|c| c.get()) {
+        return t;
+    }
     static START: std::sync::OnceLock<std::time::Instant> = std::sync::OnceLock::new();
     START.get_or_init(std::time::Instant::now).elapsed().as_secs_f64()
 }
@@ -686,6 +734,7 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_grid_lock(handler!(app, |a| edit_grid(&a, |g, _| g.locked = !g.locked)));
     ui.on_grid_tap(handler!(app, |a| tap(&a)));
     ui.on_grid_bpm(handler!(app, |a, t: SharedString| type_bpm(&a, t.as_str())));
+    ui.on_grid_marker(handler!(app, |a, t: SharedString| add_tempo_marker(&a, t.as_str())));
     ui.on_analyse_selected(handler!(app, |a| {
         if a.guard_read_only() {
             return;
@@ -784,6 +833,23 @@ mod tests {
         assert_eq!(parse_bpm("12"), None);
         assert_eq!(parse_bpm("fast"), None);
         assert_eq!(parse_bpm(""), None);
+    }
+
+    #[test]
+    fn tempo_markers_make_a_variable_grid() {
+        let g = Beatgrid::constant(120.0, 0.0, 1, 20.0);
+        // From the beat at 8.0 s (bar position 1) on: 100 BPM.
+        let v = tempo_marker(&g, 8.1, 100.0, 20.0);
+        assert!(v.beats.iter().filter(|b| b.time < 8.0).all(|b| b.bpm == 120.0), "beats before the marker kept");
+        let i = v.beats.iter().position(|b| (b.time - 8.0).abs() < 1e-9).unwrap();
+        assert_eq!((v.beats[i].bpm, v.beats[i].bar_position), (100.0, 1));
+        assert!((v.beats[i + 1].time - 8.6).abs() < 1e-9 && v.beats[i + 1].bar_position == 2);
+        assert_eq!(tempo_changes(&v), 1);
+        assert!((v.beat_position(8.6).unwrap() - (i as f64 + 1.0)).abs() < 1e-9, "beat positions follow the new tempo");
+        // A second marker later on.
+        let w = tempo_marker(&v, 14.0, 128.0, 20.0);
+        assert_eq!(tempo_changes(&w), 2);
+        assert!(tempo_marker(&Beatgrid::default(), 2.0, 90.0, 4.0).beats[0].time == 2.0);
     }
 
     #[test]

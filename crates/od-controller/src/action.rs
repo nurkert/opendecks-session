@@ -31,8 +31,29 @@ pub enum ControlAction {
     Browse(BrowseAction),
     Sampler(SamplerAction),
     RecordingToggle,
+    /// Light show controls (MIDI-mappable, SPEC §10.5).
+    Lighting(LightingAction),
     /// A physical control the mapping knows but deliberately ignores.
     Ignored,
+}
+
+/// Light show actions.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LightingAction {
+    /// Easy look `0..6` (static, pulse, chase, sweep, breathe, build).
+    Look(u8),
+    Strobe(bool),
+    Flash(bool),
+    Fog(bool),
+    BlackoutToggle,
+    /// Master dimmer 0..1.
+    Master(f32),
+    /// Pro cue stack.
+    CueGo,
+    CueBack,
+    /// "auto", "easy" or "pro".
+    Mode(String),
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]

@@ -107,9 +107,8 @@ pub(crate) fn controller(app: &App, action: &BrowseAction) {
                 let next = if app.ui.get_prepare_layout() == "browser" { "player" } else { "browser" };
                 crate::shell::set_prepare_layout(app, next);
             } else {
-                // Perform: a larger browser, then back.
-                let big = app.ui.get_upper_height() > 0.0 && app.ui.get_upper_height() <= ENLARGED_UPPER + 0.5;
-                app.ui.set_upper_height(if big { 0.0 } else { ENLARGED_UPPER });
+                // Perform: the browse layout (small decks, large browser) and back.
+                crate::decks::toggle_browse_layout(app);
             }
         }
         BrowseAction::Related => {
@@ -119,8 +118,6 @@ pub(crate) fn controller(app: &App, action: &BrowseAction) {
     }
 }
 
-/// Height of the deck area while the browser is enlarged (Perform, VIEW).
-pub(crate) const ENLARGED_UPPER: f32 = 220.0;
 
 #[cfg(test)]
 mod tests {

@@ -198,6 +198,12 @@ release.
 | `sampler.bank_next`, `sampler.bank_prev`, `sampler.cue` | press | | |
 | `sampler.volume` | absolute | | |
 | `recording.toggle` | press | | |
+| `lighting.look` | press | `look` (0–5: static, pulse, chase, sweep, breathe, build) | switches the light show to Easy with that look |
+| `lighting.strobe`, `lighting.flash`, `lighting.fog` | hold | | on while held |
+| `lighting.blackout` | press | | toggles blackout |
+| `lighting.master` | absolute | | master dimmer |
+| `lighting.cue_go`, `lighting.cue_back` | press | | Pro cue stack |
+| `lighting.mode` | press | `mode` (`auto`, `easy`, `pro`) | |
 | `ignore` | any | | `ControlAction::Ignored` (known control without a function) |
 
 In the application (`crates/od-ui/src/controller.rs`) every action above

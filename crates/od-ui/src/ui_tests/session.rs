@@ -8,7 +8,6 @@ use i_slint_backend_testing::ElementHandle;
 use od_library::NodeKind;
 use slint::ComponentHandle;
 use slint::platform::{Key, PointerEventButton, WindowEvent};
-use std::time::Duration;
 
 fn prefs(ui: &Ui, page: &str) -> crate::PreferencesWindow {
     ui.click("topbar.settings");
@@ -68,14 +67,14 @@ fn grid_editor_typed_bpm_and_tap_tempo() {
     // A typo leaves the grid alone.
     retype(&ui, "player1.grid.bpm", "fast");
     assert!((bpm(&ui) - 128.0).abs() < 0.01);
-    // TAP four times, half a second apart: about 120 BPM.
+    // TAP four times, half a second apart on the (injected) tap clock:
+    // 120 BPM, independent of how fast the machine runs the clicks.
     for i in 0..4 {
-        if i > 0 {
-            std::thread::sleep(Duration::from_millis(500));
-        }
+        crate::player::TAP_CLOCK.with(|c| c.set(Some(50.0 + 0.5 * i as f64)));
         ui.click("player1.grid.tap");
     }
-    assert!(ui.wait_until(5.0, |u| (bpm(u) - 120.0).abs() < 12.0), "tapped about 120 BPM, got {}", bpm(&ui));
+    crate::player::TAP_CLOCK.with(|c| c.set(None));
+    assert!(ui.wait_until(10.0, |u| (bpm(u) - 120.0).abs() < 0.01), "tapped 120 BPM, got {}", bpm(&ui));
     // Exact taps through the same path (no timing jitter).
     for t in [100.0, 100.5, 101.0, 101.5] {
         crate::player::tap_at(&ui.app, t);

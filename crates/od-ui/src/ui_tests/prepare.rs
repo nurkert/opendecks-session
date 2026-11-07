@@ -260,7 +260,7 @@ fn controller_browses_tree_and_list() {
     go(B::Press { shifted: false });
     assert!(ui.wait_until(30.0, |u| deck_title(u, 1) == title), "press loads deck 1, got `{}`", deck_title(&ui, 1));
     go(B::ViewToggle);
-    assert_eq!(ui.app.ui.get_upper_height(), crate::browser::navigate::ENLARGED_UPPER, "Perform: VIEW enlarges the browser");
+    assert_eq!(slint::ComponentHandle::global::<crate::PerformLayout>(&ui.app.ui).get_layout(), "browse", "Perform: VIEW switches to the browse layout");
 }
 
 fn prefs_el(w: &crate::PreferencesWindow, label: &str) -> i_slint_backend_testing::ElementHandle {
@@ -444,4 +444,31 @@ fn music_library_xml_import() {
     let (_, row) = ui.by_value("browser.tree.node", "Sunday").expect("the playlist is in the opened folder");
     ui.click_el(&row);
     assert!(ui.wait_until(5.0, |u| u.by_value("browser.row", "From Music").is_some()), "it lists the track");
+}
+
+/// Variable-tempo grid: + MARKER in the grid tools puts the typed tempo on
+/// the grid from the beat at the cursor on; the beats before keep theirs.
+#[test]
+fn tempo_marker_in_the_grid_editor() {
+    let ui = Ui::open((1440, 900));
+    let id = ui.fx.tracks[0].0;
+    ui.click_el(&ui.by_value("browser.row", &ui.fx.tracks[0].1.clone()).unwrap().1);
+    crate::player::type_bpm(&ui.app, "120");
+    ui.click("player1.tab.grid");
+    assert!(ui.has("player1.grid.marker"));
+    ui.app.ui.invoke_seek(0.5);
+    ui.pump(50);
+    let cursor = ui.app.state.borrow().player.cursor;
+    let field = ui.get("player1.grid.bpm");
+    ui.double_click_el(&field);
+    ui.key(slint::platform::Key::End);
+    for _ in 0..8 {
+        ui.key(slint::platform::Key::Backspace);
+    }
+    ui.type_text("100");
+    ui.click("player1.grid.marker");
+    let grid = ui.fx.lib().beatgrid(id).unwrap().unwrap();
+    assert_eq!(crate::player::tempo_changes(&grid), 1, "one tempo change");
+    assert!(grid.beats.iter().filter(|b| b.time < cursor - 0.3).all(|b| (b.bpm - 120.0).abs() < 1e-6), "before the cursor: 120");
+    assert!(grid.beats.iter().filter(|b| b.time > cursor + 0.3).all(|b| (b.bpm - 100.0).abs() < 1e-6), "after it: 100");
 }

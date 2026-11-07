@@ -17,7 +17,7 @@ export { ColumnView, ColumnChoice, FilterView, MyTagChip, SuggestionRow }
 import { DeviceLine } from "devices.slint";
 import { SetFlow } from "flow.slint";
 import { PerformView } from "perform.slint";
-import { LightingView, Lighting, LightFixtureView, LightGroupView } from "lighting.slint";
+import { LightingView, Lighting, LightFixtureView, LightGroupView, LightingWindow } from "lighting.slint";
 import { Cdj, CdjStep, CdjItem } from "cdj.slint";
 export { Cdj, CdjStep, CdjItem }
 import { Mic } from "mic.slint";
@@ -33,7 +33,7 @@ import { FxSlots } from "fx.slint";
 export { FxSlots }
 import { MixerParts, PerformLayout } from "perform.slint";
 export { MixerParts, PerformLayout }
-export { Lighting, LightFixtureView, LightGroupView }
+export { Lighting, LightFixtureView, LightGroupView, LightingWindow }
 import { PreferencesWindow, KeyRow } from "preferences.slint";
 import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget } from "structs.slint";
 
@@ -353,6 +353,7 @@ export component AppWindow inherits Window {
     callback grid-lock();
     callback grid-tap();
     callback grid-bpm(string);
+    callback grid-marker(string);
     callback analyse-selected();
     callback toggle-preview();
     callback flow-select(int);
@@ -568,6 +569,7 @@ export component AppWindow inherits Window {
                 grid-lock => { root.grid-lock(); }
                 grid-tap => { root.grid-tap(); }
                 grid-bpm(t) => { root.grid-bpm(t); }
+                grid-marker(t) => { root.grid-marker(t); }
                 analyse => { root.analyse-selected(); }
                 toggle-preview => { root.toggle-preview(); }
                 jump-start => { root.jump-start(); }

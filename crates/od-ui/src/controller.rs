@@ -161,6 +161,7 @@ fn handle_action(app: &App, action: ControlAction) {
         ControlAction::HeadphoneLevel(v) => engine::send(app, Command::Mixer(MixerCommand::SetHeadphoneLevel(v))),
         ControlAction::Browse(b) => browser::navigate::controller(app, &b),
         ControlAction::RecordingToggle => recorder::toggle_from_controller(app),
+        ControlAction::Lighting(l) => crate::lighting::controller(app, l),
         ControlAction::BoothLevel(v) => engine::send(app, Command::Mixer(MixerCommand::SetBoothLevel(v))),
         ControlAction::MasterCue => {
             let on = engine::snapshot(app).map(|s| s.master_cue).unwrap_or(false);

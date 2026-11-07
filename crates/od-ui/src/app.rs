@@ -60,6 +60,8 @@ pub struct App {
     pub(crate) update: RefCell<update::UpdateRuntime>,
     /// DMX rig and show (SPEC §10.5).
     pub(crate) lighting: RefCell<crate::lighting::LightingRuntime>,
+    /// The LIGHTING view detached into its own window.
+    pub(crate) lighting_window: RefCell<Option<crate::LightingWindow>>,
     /// CDJ practice mode checklist (SPEC §10.3c).
     pub(crate) cdj: RefCell<crate::cdj::CdjRuntime>,
     /// Microphone / aux input.
@@ -96,6 +98,7 @@ impl App {
             held: RefCell::new(Vec::new()),
             update: RefCell::new(update::UpdateRuntime::default()),
             lighting: RefCell::new(lighting),
+            lighting_window: RefCell::new(None),
             cdj: RefCell::new(crate::cdj::CdjRuntime::default()),
             mic: RefCell::new(crate::mic::MicRuntime::default()),
             engine: RefCell::new(engine::EngineHost::default()),

@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 176 DONE (85 %), 16 PARTIAL, 3 ENGINE-ONLY, 11 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 189 DONE (92 %), 7 PARTIAL, 1 ENGINE-ONLY, 9 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -39,12 +39,12 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 |---|---|---|---|---|
 | Collection table with sortable columns | DONE | `ui/table.slint` header cells; `app.rs::sort_key` (title, artist, genre, BPM, key, time, rating, date added) | 2 |  |
 | Column choice (album, label, comment, colour, date added, play count, bitrate, My Tag, …) | DONE | `browser/columns.rs`, `ui/table.slint`; Header right-click or the columns button opens the column menu (preview, title, artist, album, genre, label, comment, My Tag, colour, BPM, key, time, year, date added, play count, bitrate, rating); the choice is stored in the settings (`browser.columns`); "Default columns" resets | 3 | P2 |
-| Artwork in browser / deck | PARTIAL | Stored (`schema.sql` `artwork`, `tracks.rs::artwork`) and exported to sticks (`pdb/rows.rs`); not shown in the UI | — | P3 |
+| Artwork in browser / deck | DONE | `crates/od-ui/src/browser/mod.rs::artwork_image`, `ui/info.slint`; Stored (`schema.sql` `artwork`) and exported to sticks (`pdb/rows.rs`); shown as a thumbnail in the info panel and next to the title of the Prepare player (deck artwork is part of the deck header) | 1 | P3 |
 | Tree: folders, playlists, smart lists, sets | DONE | `nodes.rs::create_node/rename_node/delete_node`; `app.rs` `on_create_node`, `on_rename_node`, `on_delete_node` | 2 |  |
 | Reorder tree nodes (drag) | DONE | `nodes.rs::move_node`, `browser/mod.rs::node_dropped`; Drag a list or folder in the tree onto a folder (moves into it) or onto another list (moves before it); undoable | 2 | P2 |
 | Add tracks to playlist | DONE | `app.rs` `on_add_to_node` | 1 |  |
 | Reorder playlist / set entries | DONE | `nodes.rs::move_entries`, `browser/mod.rs::reorder_rows`; Drag rows (with the selection) between rows of a playlist or set sorted by #; one undo step | 1 | **P1** |
-| Drag and drop (table → tree, Finder → library) | PARTIAL | `ui/drag.slint`, `ui/rail.slint`; Rows drag onto decks, the Prepare player, playlists / sets / the tag list in the tree and between rows of a playlist; tree nodes drag onto folders. Not yet: files dragged in from Finder / the file manager | 2 | **P1** |
+| Drag and drop (table → tree, Finder → library) | DONE | `ui/app.slint`, `crates/od-ui/src/import.rs::files_dropped`, `ui/drag.slint`; Rows drag onto decks, the Prepare players, playlists / sets / the tag list in the tree and between rows of a playlist; tree nodes drag onto folders. Files and folders from Finder / the file manager: dropped on the window they join the collection and the open playlist or set; in Perform a file dropped on a deck loads there. Slint's `DropArea` takes OS drops where the backend delivers them (UI test via the testing backend); the winit backend of Slint 1.18 does not yet, so `import::wire_native_drop` also takes winit `DroppedFile` events (no drop position there: collection and open list) | 4 | **P1** |
 | Search | DONE | `tracks.rs::search`; `app.rs` `on_search` | 2 |  |
 | Filter (BPM range, key, rating, My Tag, relative to master deck) | DONE | `browser/filter.rs`, `ui/filter.slint`; Filter bar under the header (filter button, ⌘J): BPM range, key compatible with the master deck, BPM within ±% of the master deck (double / half time count; without a loaded deck the selected track is the reference), minimum rating, one My Tag value; CLEAR. Smart lists keep the full rule language | 4 | P2 |
 | Rating (stars) | DONE | `tracks.rs::set_tags`; Five cells per row, click to rate (click again clears); also in the row context menu. Verified by clicking in the running app | 1 | **P1** |
@@ -64,18 +64,18 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Import folder / files | DONE | `app.rs` `on_import_folder`, `od-cli import` | — |  |
 | rekordbox library + stick migration | DONE | `od-import-rekordbox`, `od-ui/src/import.rs` | 7 |  |
 | rekordbox preferences and keyboard shortcuts migration | DONE | `crates/od-import-rekordbox/src/settings.rs`, `crates/od-ui/src/import.rs::import_rekordbox_settings`; File ▸ Import rekordbox Preferences and Shortcuts and Preferences > Advanced: view, analysis, recording, deck and mixer values are applied; shortcuts are taken where they do not collide; `od-cli rekordbox-settings` reports the mapping; (SPEC §7) | 5 |  |
-| rekordbox XML / iTunes library import-export (compatibility) | PARTIAL | `crates/od-ui/src/import.rs::export_xml`, `crates/od-ui/src/import.rs::import_xml`; File ▸ Import / Export Library XML (rekordbox-compatible), also `od-cli xml-export` / `xml-import`; an iTunes / Music library import does not exist yet | 3 | P3 |
+| rekordbox XML / iTunes library import-export (compatibility) | DONE | `crates/od-ui/src/import.rs::export_xml`, `crates/od-ui/src/import.rs::import_xml`; File ▸ Import / Export Library XML (rekordbox-compatible), also `od-cli xml-export` / `xml-import`; File ▸ Import Music / iTunes Library XML reads a `Library.xml` export (tracks with tags and rating, playlist folders; built-in lists skipped) | 6 | P3 |
 | Missing files / relocate | DONE | `relocate.rs::check_missing/find_relocations`; `on_find_moved_files` | 1 |  |
 | Consolidate | DONE | `relocate.rs::consolidate`, `crates/od-ui/src/import.rs::consolidate`; File ▸ Consolidate Library copies every track into <folder>/<Artist>/ in the background and points the library at the copies; originals stay | 2 |  |
 | Undo/redo with history | DONE (beyond the usual) | `journal.rs`; Cmd-Z / Shift-Cmd-Z in `app.rs::key` | 3 |  |
 | Sets with transition notes and flow view | DONE (own) | `sets.rs::set_flow`, `on_set_transition_note`, `ui/flow.slint` | 3 |  |
 | Set backup tracks / planned start | DONE | `nodes.rs::set_entry_backups/set_set_meta`, `crates/od-ui/src/browser/mod.rs::set_backups`; Set view: planned start field; backups of the selected position are taken from the tag list (BACKUPS FROM TAG LIST) or cleared | 1 |  |
 | Keyboard shortcuts for Prepare | DONE | `keymap.rs::registry`, `commands.rs::run`, `docs/keyboard.md`; One command registry (177 actions, conventional DJ-software defaults for decks 1/2); Preferences > Keyboard rebinds with conflict detection, reset, TOML import/export | 4 | P2 |
-| Browse from controller | PARTIAL | Rotate / press / back handled (`handle_action` `BrowseAction`); tree navigation, view toggle, shift-sort and related dropped | 1 | P2 |
+| Browse from controller | DONE | `crates/od-ui/src/browser/navigate.rs`; `browser::navigate`: BACK moves the encoder into the tree, turning steps through the lists (⇧ by eight), a press opens a folder / steps into it or moves into the track list; there turning steps rows, a press loads into a free deck, ⇧-press adds to the tag list; VIEW toggles the full browser (Prepare) or the Perform browse layout; RELATED opens the related tracks. The tree marks the encoder focus | 3 | P2 |
 | Explorer: browse folders on disk and play directly | DONE | `crates/od-ui/src/explorer.rs::ExplorerState::rows`, `crates/od-ui/src/explorer.rs::open_folder`, `crates/od-ui/ui/sidebar.slint::ExplorerItem`; User-added roots (persisted in library meta) as a nested folder tree of any depth: sub-folders are listed lazily on expand/select, each probed one level so only expandable folders get a mark; hidden and player data folders are skipped. Selecting a folder expands it and lists its audio files; (SPEC §5.5; UX §2.2) | 5 |  |
 | Explorer: "Include subfolders" lists the files of a folder and all its sub-folders | DONE (beyond rekordbox) | `crates/od-ui/src/explorer.rs::list_files`, `crates/od-ui/src/explorer.rs::set_recursive`, `crates/od-ui/ui/app.slint`; Toggle in the folder list header (persisted as `explorer.recursive`); rekordbox lists only the folder itself. Depth-first, each folder by name, symlink loops followed once, capped at 32 levels / 20 000 files; (SPEC §5.5) | 3 |  |
 | Explorer: loading a file adds it to the collection and analyses it in the background | DONE | `crates/od-ui/src/explorer.rs::start_import`, `crates/od-ui/src/explorer.rs::poll`; Loading a file from the Explorer adds it to the collection in the background (`workers::import_file`) and loads it; the flow test asserts the deck and the collection; (SPEC §5.5) | 1 |  |
-| Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings) | PARTIAL | `crates/od-ui/ui/rail.slint`; Rail with sections exists; Explorer, Histories, Related and Tag list sources missing; (UX §1.6, §4 P4.9) | — | P2 |
+| Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings) | DONE | `crates/od-ui/ui/sidebar.slint`; 38 px rail left of the tree in the familiar source order (Collection, Playlists, Related, Sampler, Explorer, Devices, Histories, Recordings, Tag list): each opens its source or scrolls the tree to it and marks the open one; Sampler opens the sampler panel in Perform; (UX §1.6, §4 P4.9) | 1 | P2 |
 | Re-orderable columns and multi-sort | DONE | `browser/columns.rs`, `browser/tracks.rs::sort_rows`; Drag a header cell onto another column to move it there; ⇧-click adds (or reverses) up to three secondary sort columns, shown with their rank; order and secondary sort persist in the settings; (SPEC §5.5) | 3 | P3 |
 | Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | DONE | `crates/od-ui/src/decks.rs::free_deck`; Double-click / activate loads into a free deck, drag a row onto a deck, context menu Load to deck ▸ Deck n, controller load; all driven through the window by UI tests; (UX §2.1) | 3 |  |
 | Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | PARTIAL | List and Explorer rows onto decks and the Prepare player (drag ghost, deck highlight), UI-tested (drag a row onto deck 2 loads it). Missing: drop from Finder; (SPEC §5.5) | 2 | **P1** |
@@ -91,7 +91,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
 | BPM + beatgrid incl. downbeats | DONE | `od-analysis/src/tempo.rs::detect_beatgrid`; background worker `od-ui/src/workers.rs` | 6 |  |
-| Variable-tempo grid | PARTIAL | Model supports it (`od-core/src/beatgrid.rs`); editor only rebuilds constant grids (`on_grid_scale`) | 1 | P3 |
+| Variable-tempo grid | DONE | `od-core/src/beatgrid.rs`, `crates/od-ui/src/player.rs::tempo_marker`; Grid tools: + MARKER sets the typed BPM from the beat at the cursor on (beats before keep their tempo, the bar count carries on); several markers make a variable-tempo grid | 3 | P3 |
 | Grid editor: shift, ×2/÷2, set downbeat, lock | DONE | `app.rs` `on_grid_shift/on_grid_scale/on_grid_downbeat/on_grid_lock` | 3 |  |
 | Grid editor: tap tempo, type BPM | DONE | `crates/od-ui/src/player.rs::tap`, `crates/od-ui/src/player.rs::type_bpm`; GRID tab: BPM field (Return sets a constant grid at that tempo, keeping the first downbeat) and TAP (from the fourth tap; key B); a locked grid is not changed | 4 |  |
 | BPM analysis range setting | DONE | Preferences ▸ Analysis BPM range (`preferences.rs` `bpm_range`) feeds the tempo analysis fold range | 1 | P3 |
@@ -212,7 +212,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Part mute toggles in UI | DONE | `on_deck_stem` → `SetStemLevel` | 2 |  |
 | Stem levels / part isolator knobs | DONE | Part keys on each deck: click mutes, the wheel sets the level (level line under the key); FLX10 part isolator knobs drive the same levels (mapping marked verify until checked on hardware) | 2 | **P1** |
 | Stem buttons on the controller | ENGINE-ONLY | `DeckAction::StemMuteToggle` exists; FLX10 part buttons mapped to `ignore` (`flx10.toml` "Mix point / part buttons") (controller coverage) | — | **P1** |
-| Separate ahead of time (Prepare, batch) | PARTIAL | `od-cli stems`; UI only separates on load | — | P2 |
+| Separate ahead of time (Prepare, batch) | DONE | `crates/od-ui/src/stems_batch.rs`; Row menu Separate parts and ⌥⌘⇧S queue the selected tracks on a background separation worker writing into the decks' stem cache; the status line reports progress and the result. Also `od-cli stems` | 2 | P2 |
 | Separation model downloaded once on demand, nothing leaves the machine | DONE | `crates/od-stems/src/model.rs`; (SPEC §10.3) | 1 |  |
 | Deck shows separation progress; stem controls visible (dimmed) while separating | DONE | Separation is queued on load; the stem strip shows SPLIT and the progress in percent; the part keys stay in place, disabled until parts exist (flow test); (SPEC §10.3; UX §2.4) | 2 | P2 |
 | Raspberry Pi plays parts separated on the desktop | DONE | The native sync copies cached parts to /OPENDECKS/stems on the stick (and prunes stale ones); tracks loaded from a stick read their parts from there, so the Pi plays parts separated on the desktop; (SPEC §10.3) | 2 | P2 |
@@ -252,8 +252,8 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Device registry, formats, assigned content, rebuild, eject | DONE | `app.rs` `on_register_volume/on_set_device_*/on_rebuild_device/on_eject_device` | 4 |  |
 | Browse / play from a stick | DONE | `on_open_device`, read-only library | 1 |  |
 | OpenDecks native stick format | DONE | `od-format-native` | 3 |  |
-| `exportExt.pdb` (My Tag on players) | MISSING | `pdb/mod.rs` comment: not written | — | P3 |
-| Player settings on stick (`MYSETTING`) | MISSING | SPEC §8.5: defaults or omitted | — | P3 |
+| `exportExt.pdb` (My Tag on players) | MISSING | `pdb/mod.rs`; Not written: the exportExt.pdb table layouts (My Tag tables) are only partly described in public documentation; writing it needs a documented layout or verification against a player | — | P3 |
+| Player settings on stick (`MYSETTING`) | DONE | `od-format-pioneer/src/mysetting.rs`, `od-devices/src/pioneer.rs::player_settings`; `/PIONEER/MYSETTING.DAT` written on every Pioneer sync from the deck defaults (quantize, auto cue, tempo range, jog mode, language), layout as documented by pyrekordbox (104-byte header, 40-byte body, CRC-16/XMODEM over header and body); other settings get the documented defaults. MYSETTING2 / DJMMYSETTING are not written | 6 | P3 |
 | Device Library Plus / OneLibrary | MISSING, deferred to M6 | SPEC §8.5 / §15 M6: OneLibrary (`exportLibrary.db`) export comes later; tracked, not counted | — | P3 |
 | Pro DJ Link (network export) | MISSING, deferred to M6 | SPEC §10.3b "Pro DJ Link (later)", §15 M6; tracked, not counted | — | P3 |
 
@@ -268,8 +268,8 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Deck defaults (tempo range, quantize, sync mode, jog mode, auto cue) | PARTIAL | `crates/od-ui/src/preferences.rs::deck_defaults`, `crates/od-ui/src/preferences.rs::apply_engine_settings`; Preferences > Controller > Decks: tempo range, quantize, jog mode and auto cue are stored and sent to every deck at once and when audio starts. Sync mode shows the one mode the engine has (beat sync: tempo + phase); a tempo-only sync mode needs od-engine support | 3 | P2 |
 | Controller LED feedback | DONE | `perform.rs::feedback` (play, cue, sync, master, key lock, slip, loop, pads, VU) | 3 |  |
 | Soft takeover | DONE | `od-controller/src/takeover.rs` | 4 |  |
-| MIDI learn / MIDI monitor | ENGINE-ONLY | `od-controller/src/learn.rs`, `examples/midi_monitor.rs`; no UI | 4 | P3 |
-| FLX10 utility settings (jog ring, fader start, USB input …) | ENGINE-ONLY | `od-controller/src/flx10_settings.rs`; no UI (SPEC M4) | 3 | P3 |
+| MIDI learn / MIDI monitor | DONE | `crates/od-ui/src/midi_tools.rs`, `od-controller/src/learn.rs`; Preferences ▸ Controller: MIDI monitor (raw messages with the mapping hits) and MIDI learn (action, deck, the learned control described and as a mapping entry; ADD TO MY MAPPING writes it to the own mapping file, checked to load) | 7 | P3 |
+| FLX10 utility settings (jog ring, fader start, USB input …) | PARTIAL | `crates/od-ui/src/midi_tools.rs`, `od-controller/src/flx10_settings.rs`; Preferences ▸ Controller ▸ DDJ-FLX10: fader start, REC OUT, jog display time, slip flashing, SLIP button, hot cue indicator, jog ring colour, USB boost; stored, with the control transfers shown. WRITE TO DDJ-FLX10 sends them over USB only in builds with the `flx10-usb` feature (libusb, off by default); USB input routing has no UI yet | 5 | P3 |
 | Audio output on macOS (CoreAudio) | DONE | `crates/od-audio-io/src/output.rs`; (SPEC §10.4) | 1 |  |
 | Linux audio: PipeWire / JACK, ALSA direct on the Pi | PARTIAL | `crates/od-audio-io/src/devices.rs`; Host selection exists; no automated test per backend; (SPEC §10.4) | — | P2 |
 | DDJ-FLX10 mapping (4 decks, LEDs) | DONE | `mappings/pioneer/ddj-flx10.toml`; (SPEC §9.1) | 3 |  |
@@ -280,12 +280,12 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
-| Edit mode (track editing / remix) | MISSING | Track edit / remix mode. SPEC §1 does not exclude it, so it counts as in scope: implement it or amend SPEC §1 with a reason | — | P3 |
+| Edit mode (track editing / remix) | MISSING | Not implemented. Proposal (owner decision, SPEC §1): exclude — the track edit / remix mode is a waveform audio editor (cutting, re-arranging and rendering new files), outside the scope of a library / performance app; recordings are already cut into tracks, and loops / cues cover in-set edits | — | P3 |
 | Prepare / Perform mode switch that keeps loaded tracks | DONE | `crates/od-ui/src/shell.rs`; (SPEC §3.1) | — |  |
 | Perform layouts: 2 / 4 decks horizontal and vertical, Browse | DONE | 2 and 4 decks in three layouts (persisted): standard (lanes across the top), vertical (Alt+V: upright lanes with zoom keys above the mixer) and Browse (Alt+B: header, overview and parts per deck, browser enlarged); (SPEC §10.1; UX §1.4) | 5 | P2 |
-| Prepare layouts: 1 player, 2 players, dual, simple, full browser | PARTIAL | `crates/od-ui/src/shell.rs::set_prepare_layout`; Player and browser, and full browser (top-bar switch, View menu, ⌥⌘4 / ⌥⌘5, persisted); 2 players, dual and simple layouts missing; (UX §1.7) | 2 | P2 |
-| Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording | PARTIAL | FX and SAMPLER toggles in the top bar (UI test); Mix Point Link, Mixer and Recording toggles missing; (UX §1.2, §2.8) | 1 | P2 |
-| Mix Point Link (mix in / mix out points between decks) | MISSING | (UX §1.5; SPEC §16.3) | — | P3 |
+| Prepare layouts: 1 player, 2 players, dual, simple, full browser | DONE | `crates/od-ui/src/shell.rs::set_prepare_layout`; Player and browser, 2 players (full player plus a compact second player), dual (two compact players side by side), simple (one compact player) and full browser: top-bar switch, View menu, ⌥⌘4–⌥⌘8, persisted. Player 2 takes the selected track (LOAD) or a dragged row and plays on the preview deck; (UX §1.7) | 3 | P2 |
+| Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording | PARTIAL | FX, MIX POINT, SAMPLER, MIXER and REC in the top bar (stored). MIXER hides the mixer column, MIX POINT shows the Mix Point Link panel, REC shows / hides the recording bar in Prepare. Missing: in Perform, REC does not yet hide the recording section of the global bar (PerformView needs a `show-rec` input); (UX §1.2, §2.8) | 2 | P2 |
+| Mix Point Link (mix in / mix out points between decks) | DONE | `crates/od-ui/src/mpl.rs`, `crates/od-ui/ui/mpl.slint`; MIX POINT panel above the waveforms: MIX IN / MIX OUT at the edited deck's playhead (stored per track), ◀ ▶ through the points (memory cues and mix points), EDIT switches the deck, LINK starts the waiting deck from its mix-in point when the playing deck passes its mix-out point; (UX §1.5; SPEC §16.3) | 5 | P3 |
 | Draggable splitters with persisted sizes, double-click reset | DONE | `crates/od-ui/src/shell.rs`; Upper/lower and sidebar splitters: drag, persisted across restarts, double-click reset (UI test). Per-layout sizes and waveform-zone collapse / expand are not there; (SPEC §12; UX §2.6) | 2 |  |
 | Status band: analysis / sync state, list summary (tracks, time, size) | DONE | `crates/od-ui/src/shell.rs`; Activity (analysis progress) at the left, the last message, and the open list summary (tracks, time, size, selection) at the right; (SPEC §12; UX §1.6) | 3 |  |
 | UI scaling 0.75–2.0 without clipping | DONE | `crates/od-ui/src/app.rs::App::new`; Preferences > View > UI scale 75–200 % (applies after a restart); the view test checks the Prepare view at every scale on a 2560×1600 display for clipping and overlap; (SPEC §12, §16.4) | 3 |  |
@@ -303,8 +303,8 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Fixture library (OFL), patch, groups, moving heads / bars / PARs / strobes / lasers / fog | DONE | Built-in PAR / mover / bar / strobe / blinder / laser / fog types and Open Fixture Library files (IMPORT FIXTURE FILE… or od-cli), patch with groups and overlap checks; (SPEC §10.5) | 6 | P2 |
 | Automatic light show from beat, phrase, energy and the mix (crossfade-aware) | DONE | AUTO follows phrase, beat and energy; looks of both decks blend by their share of the mix; phrase changes crossfade over one bar; the LIGHTING view and the Perform strip show what it follows; (SPEC §10.5) | 5 | P2 |
 | Easy manual mode: scene pads, dimmer, strobe, blackout, tap/sync, controller pad mode | DONE | EASY: look pads, colour swatches, master dimmer, BLACKOUT, FLASH / STROBE / FOG hold, TAP tempo when no deck plays; LIGHTING pad mode on the decks (and the controller pads): A–F looks, G strobe, H flash; (SPEC §10.5) | 4 | P2 |
-| Pro mode: programmer, effects engine, cue stacks, per-track lighting cues, MIDI mapping | PARTIAL | PRO: program / colour / attribute effect (sine, saw, square, random on dimmer, pan, tilt with phase spread, beat-synced) and an XY pan / tilt programmer per group, cue stack with GO / BACK / STORE and beat fades, lighting cues per track (engine); timeline and MIDI mapping of lighting controls are missing; (SPEC §10.5) | 3 | P2 |
-| LIGHTING tab, split view in Perform, detachable window, 2D visualiser | PARTIAL | LIGHTING tab (topbar, View menu, Alt+3) with RIG \| STAGE (live 2D visualiser) \| SHOW, and a lighting strip inside Perform (LIGHT, Alt+K); a detachable window is missing; (SPEC §10.5) | 3 | P2 |
+| Pro mode: programmer, effects engine, cue stacks, per-track lighting cues, MIDI mapping | DONE | PRO: program / colour / attribute effect (sine, saw, square, random on dimmer, pan, tilt; phase spread; beat-synced) and an XY pan / tilt programmer per group; cue stack with GO / BACK / STORE and beat fades; track cue timeline (cues stored at bars of the track you hear, recalled whenever it plays); every lighting control MIDI-mappable (`lighting.*` mapping actions); (SPEC §10.5) | 6 | P2 |
+| LIGHTING tab, split view in Perform, detachable window, 2D visualiser | DONE | LIGHTING tab (topbar, View menu, Alt+3) with RIG \| STAGE (live 2D visualiser) \| SHOW, a lighting strip inside Perform (LIGHT, Alt+K) and a detachable LIGHTING window for a second screen (WINDOW); (SPEC §10.5) | 4 | P2 |
 
 ## 14. Video, DVS, streaming, cloud
 
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 176 |
-| PARTIAL | 16 |
-| ENGINE-ONLY | 3 |
-| MISSING | 11 |
+| DONE | 189 |
+| PARTIAL | 7 |
+| ENGINE-ONLY | 1 |
+| MISSING | 9 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |

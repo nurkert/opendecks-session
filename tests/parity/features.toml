@@ -186,11 +186,13 @@ id = "browser-artwork"
 area = "browser"
 name = "Artwork in browser / deck"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P3"
-tests = []
-evidence = ["tracks.rs::artwork", "pdb/rows.rs"]
-note = "Stored (`schema.sql` `artwork`, `tracks.rs::artwork`) and exported to sticks (`pdb/rows.rs`); not shown in the UI"
+tests = [
+  "od-ui::ui_tests::prepare::artwork_in_info_panel_and_player",
+]
+evidence = ["crates/od-ui/src/browser/mod.rs::artwork_image", "ui/info.slint"]
+note = "Stored (`schema.sql` `artwork`) and exported to sticks (`pdb/rows.rs`); shown as a thumbnail in the info panel and next to the title of the Prepare player (deck artwork is part of the deck header)"
 
 [[feature]]
 id = "browser-tree-nodes"
@@ -249,14 +251,16 @@ id = "browser-drag-and-drop"
 area = "browser"
 name = "Drag and drop (table → tree, Finder → library)"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P1"
 tests = [
   "od-ui::ui_tests::browser::drag_rows_to_tree_and_reorder",
   "od-ui::ui_tests::features::drag_row_onto_deck_loads_it",
+  "od-ui::ui_tests::prepare::files_dropped_from_the_file_manager",
+  "od-ui::ui_tests::prepare::dropped_audio_expands_folders_and_skips_other_files",
 ]
-evidence = ["ui/drag.slint", "ui/rail.slint"]
-note = "Rows drag onto decks, the Prepare player, playlists / sets / the tag list in the tree and between rows of a playlist; tree nodes drag onto folders. Not yet: files dragged in from Finder / the file manager"
+evidence = ["ui/app.slint", "crates/od-ui/src/import.rs::files_dropped", "ui/drag.slint"]
+note = "Rows drag onto decks, the Prepare players, playlists / sets / the tag list in the tree and between rows of a playlist; tree nodes drag onto folders. Files and folders from Finder / the file manager: dropped on the window they join the collection and the open playlist or set; in Perform a file dropped on a deck loads there. Slint's `DropArea` takes OS drops where the backend delivers them (UI test via the testing backend); the winit backend of Slint 1.18 does not yet, so `import::wire_native_drop` also takes winit `DroppedFile` events (no drop position there: collection and open list)"
 
 [[feature]]
 id = "browser-search"
@@ -519,15 +523,18 @@ id = "browser-xml-itunes-exchange"
 area = "browser"
 name = "rekordbox XML / iTunes library import-export (compatibility)"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P3"
 tests = [
   "od-import-rekordbox::xml::tests::export_then_import_keeps_tracks_cues_grid_and_playlists",
   "od-import-rekordbox::xml::tests::helpers_round_trip",
   "od-ui::ui_tests::session::library_xml_export_and_import",
+  "od-import-rekordbox::itunes::tests::plist_values",
+  "od-import-rekordbox::itunes::tests::imports_tracks_and_playlist_folders",
+  "od-ui::ui_tests::prepare::music_library_xml_import",
 ]
 evidence = ["crates/od-ui/src/import.rs::export_xml", "crates/od-ui/src/import.rs::import_xml"]
-note = "File ▸ Import / Export Library XML (rekordbox-compatible), also `od-cli xml-export` / `xml-import`; an iTunes / Music library import does not exist yet"
+note = "File ▸ Import / Export Library XML (rekordbox-compatible), also `od-cli xml-export` / `xml-import`; File ▸ Import Music / iTunes Library XML reads a `Library.xml` export (tracks with tags and rating, playlist folders; built-in lists skipped)"
 
 [[feature]]
 id = "browser-relocate"
@@ -617,13 +624,15 @@ id = "browser-controller-browse"
 area = "browser"
 name = "Browse from controller"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
   "od-controller::mappings::browser_and_load",
+  "od-ui::ui_tests::prepare::controller_browses_tree_and_list",
+  "od-ui::browser::navigate::tests::tree_steps_clamp_at_the_ends",
 ]
-evidence = ["handle_action"]
-note = "Rotate / press / back handled (`handle_action` `BrowseAction`); tree navigation, view toggle, shift-sort and related dropped"
+evidence = ["crates/od-ui/src/browser/navigate.rs"]
+note = "`browser::navigate`: BACK moves the encoder into the tree, turning steps through the lists (⇧ by eight), a press opens a folder / steps into it or moves into the track list; there turning steps rows, a press loads into a free deck, ⇧-press adds to the tag list; VIEW toggles the full browser (Prepare) or the Perform browse layout; RELATED opens the related tracks. The tree marks the encoder focus"
 
 [[feature]]
 id = "browser-explorer"
@@ -676,11 +685,13 @@ id = "browser-source-rail"
 area = "browser"
 name = "Source rail switching the tree (Collection, Playlists, Related, Explorer, Devices, Histories, Recordings)"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
-tests = []
-evidence = ["crates/od-ui/ui/rail.slint"]
-note = "Rail with sections exists; Explorer, Histories, Related and Tag list sources missing"
+tests = [
+  "od-ui::ui_tests::prepare::source_rail_switches_sources",
+]
+evidence = ["crates/od-ui/ui/sidebar.slint"]
+note = "38 px rail left of the tree in the familiar source order (Collection, Playlists, Related, Sampler, Explorer, Devices, Histories, Recordings, Tag list): each opens its source or scrolls the tree to it and marks the open one; Sampler opens the sampler panel in Perform"
 spec = "UX §1.6, §4 P4.9"
 
 [[feature]]
@@ -816,13 +827,15 @@ id = "analysis-variable-grid"
 area = "analysis"
 name = "Variable-tempo grid"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P3"
 tests = [
   "od-core::beatgrid::tests::beat_position_roundtrip",
+  "od-ui::player::tests::tempo_markers_make_a_variable_grid",
+  "od-ui::ui_tests::prepare::tempo_marker_in_the_grid_editor",
 ]
-evidence = ["od-core/src/beatgrid.rs", "on_grid_scale"]
-note = "Model supports it (`od-core/src/beatgrid.rs`); editor only rebuilds constant grids (`on_grid_scale`)"
+evidence = ["od-core/src/beatgrid.rs", "crates/od-ui/src/player.rs::tempo_marker"]
+note = "Grid tools: + MARKER sets the typed BPM from the beat at the cursor on (beats before keep their tempo, the bar count carries on); several markers make a variable-tempo grid"
 
 [[feature]]
 id = "analysis-grid-editor"
@@ -2068,10 +2081,14 @@ id = "stems-batch-prepare"
 area = "stems"
 name = "Separate ahead of time (Prepare, batch)"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
-tests = []
-note = "`od-cli stems`; UI only separates on load"
+tests = [
+  "od-ui::ui_tests::prepare::separate_parts_for_selected_tracks",
+  "od-ui::stems_batch::tests::batch_messages",
+]
+evidence = ["crates/od-ui/src/stems_batch.rs"]
+note = "Row menu Separate parts and ⌥⌘⇧S queue the selected tracks on a background separation worker writing into the decks' stem cache; the status line reports progress and the result. Also `od-cli stems`"
 
 [[feature]]
 id = "stems-model-download"
@@ -2425,17 +2442,25 @@ status = "missing"
 prio = "P3"
 tests = []
 evidence = ["pdb/mod.rs"]
-note = "`pdb/mod.rs` comment: not written"
+note = "Not written: the exportExt.pdb table layouts (My Tag tables) are only partly described in public documentation; writing it needs a documented layout or verification against a player"
 
 [[feature]]
 id = "export-mysetting"
 area = "export"
 name = "Player settings on stick (`MYSETTING`)"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "SPEC §8.5: defaults or omitted"
+tests = [
+  "od-format-pioneer::mysetting::tests::crc16_xmodem_check_value",
+  "od-format-pioneer::mysetting::tests::file_layout_matches_the_documentation",
+  "od-format-pioneer::mysetting::tests::settings_land_on_their_bytes",
+  "od-import-rekordbox::settings::tests::written_mysetting_reads_back",
+  "od-devices::pioneer::tests::writes_mysetting_from_the_library_settings",
+  "od-ui::settings::tests::stick_player_settings_follow_the_deck_defaults",
+]
+evidence = ["od-format-pioneer/src/mysetting.rs", "od-devices/src/pioneer.rs::player_settings"]
+note = "`/PIONEER/MYSETTING.DAT` written on every Pioneer sync from the deck defaults (quantize, auto cue, tempo range, jog mode, language), layout as documented by pyrekordbox (104-byte header, 40-byte body, CRC-16/XMODEM over header and body); other settings get the documented defaults. MYSETTING2 / DJMMYSETTING are not written"
 
 [[feature]]
 id = "export-onelibrary"
@@ -2570,31 +2595,36 @@ id = "ctrl-midi-learn-monitor"
 area = "preferences"
 name = "MIDI learn / MIDI monitor"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P3"
 tests = [
   "od-controller::learn::tests::learns_note_button",
   "od-controller::learn::tests::learns_14bit_fader",
   "od-controller::learn::tests::learns_relative_jog",
   "od-controller::mappings::monitor_shows_decoded_hits",
+  "od-ui::midi_tools::tests::monitor_lines_and_learning_from_the_stream",
+  "od-ui::midi_tools::tests::learned_entries_make_a_loadable_mapping_file",
+  "od-ui::ui_tests::prepare::controller_page_monitor_learn_and_flx10",
 ]
-evidence = ["od-controller/src/learn.rs", "examples/midi_monitor.rs"]
-note = "`od-controller/src/learn.rs`, `examples/midi_monitor.rs`; no UI"
+evidence = ["crates/od-ui/src/midi_tools.rs", "od-controller/src/learn.rs"]
+note = "Preferences ▸ Controller: MIDI monitor (raw messages with the mapping hits) and MIDI learn (action, deck, the learned control described and as a mapping entry; ADD TO MY MAPPING writes it to the own mapping file, checked to load)"
 
 [[feature]]
 id = "ctrl-flx10-utility"
 area = "preferences"
 name = "FLX10 utility settings (jog ring, fader start, USB input …)"
 scope = "in"
-status = "engine-only"
+status = "partial"
 prio = "P3"
 tests = [
   "od-controller::flx10_settings::tests::vendor_defaults_encode",
   "od-controller::flx10_settings::tests::simple_settings_match_recovered_constants",
   "od-controller::flx10_settings::tests::usb_input_audio_matches_vendor_table",
+  "od-ui::midi_tools::tests::flx10_preferences_encode_like_the_vendor_defaults",
+  "od-ui::ui_tests::prepare::controller_page_monitor_learn_and_flx10",
 ]
-evidence = ["od-controller/src/flx10_settings.rs"]
-note = "`od-controller/src/flx10_settings.rs`; no UI (SPEC M4)"
+evidence = ["crates/od-ui/src/midi_tools.rs", "od-controller/src/flx10_settings.rs"]
+note = "Preferences ▸ Controller ▸ DDJ-FLX10: fader start, REC OUT, jog display time, slip flashing, SLIP button, hot cue indicator, jog ring colour, USB boost; stored, with the control transfers shown. WRITE TO DDJ-FLX10 sends them over USB only in builds with the `flx10-usb` feature (libusb, off by default); USB input routing has no UI yet"
 
 [[feature]]
 id = "audio-coreaudio"
@@ -2670,7 +2700,7 @@ scope = "in"
 status = "missing"
 prio = "P3"
 tests = []
-note = "Track edit / remix mode. SPEC §1 does not exclude it, so it counts as in scope: implement it or amend SPEC §1 with a reason"
+note = "Not implemented. Proposal (owner decision, SPEC §1): exclude — the track edit / remix mode is a waveform audio editor (cutting, re-arranging and rendering new files), outside the scope of a library / performance app; recordings are already cut into tracks, and loops / cues cover in-set edits"
 
 [[feature]]
 id = "shell-mode-switch"
@@ -2704,14 +2734,15 @@ id = "shell-prepare-layouts"
 area = "shell"
 name = "Prepare layouts: 1 player, 2 players, dual, simple, full browser"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
   "od-ui::ui_tests::session::view_menu_layouts_and_panels",
   "od-ui::shell::tests::layouts_cycle",
+  "od-ui::ui_tests::prepare::prepare_layouts_two_dual_and_simple",
 ]
 evidence = ["crates/od-ui/src/shell.rs::set_prepare_layout"]
-note = "Player and browser, and full browser (top-bar switch, View menu, ⌥⌘4 / ⌥⌘5, persisted); 2 players, dual and simple layouts missing"
+note = "Player and browser, 2 players (full player plus a compact second player), dual (two compact players side by side), simple (one compact player) and full browser: top-bar switch, View menu, ⌥⌘4–⌥⌘8, persisted. Player 2 takes the selected track (LOAD) or a dragged row and plays on the preview deck"
 spec = "UX §1.7"
 
 [[feature]]
@@ -2723,19 +2754,28 @@ status = "partial"
 prio = "P2"
 tests = [
   "od-ui::ui_tests::features::panel_toggles_show_panels",
+  "od-ui::ui_tests::prepare::top_bar_mixer_rec_and_mix_point_toggles",
 ]
 spec = "UX §1.2, §2.8"
-note = "FX and SAMPLER toggles in the top bar (UI test); Mix Point Link, Mixer and Recording toggles missing"
+note = "FX, MIX POINT, SAMPLER, MIXER and REC in the top bar (stored). MIXER hides the mixer column, MIX POINT shows the Mix Point Link panel, REC shows / hides the recording bar in Prepare. Missing: in Perform, REC does not yet hide the recording section of the global bar (PerformView needs a `show-rec` input)"
 
 [[feature]]
 id = "shell-mix-point-link"
 area = "shell"
 name = "Mix Point Link (mix in / mix out points between decks)"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
+tests = [
+  "od-ui::mpl::tests::crossing_the_mix_out_point",
+  "od-ui::mpl::tests::stepping_between_points",
+  "od-ui::mpl::tests::mix_points_round_trip_in_the_library",
+  "od-ui::ui_tests::prepare::mix_point_link_starts_the_next_deck",
+  "od-ui::ui_tests::prepare::top_bar_mixer_rec_and_mix_point_toggles",
+]
+evidence = ["crates/od-ui/src/mpl.rs", "crates/od-ui/ui/mpl.slint"]
 spec = "UX §1.5; SPEC §16.3"
+note = "MIX POINT panel above the waveforms: MIX IN / MIX OUT at the edited deck's playhead (stored per track), ◀ ▶ through the points (memory cues and mix points), EDIT switches the deck, LINK starts the waiting deck from its mix-in point when the playing deck passes its mix-out point"
 
 [[feature]]
 id = "shell-splitters"
@@ -3000,26 +3040,30 @@ id = "lighting-pro"
 area = "lighting"
 name = "Pro mode: programmer, effects engine, cue stacks, per-track lighting cues, MIDI mapping"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-ui::ui_tests::stage::lighting_track_cue_timeline",
+  "od-ui::ui_tests::stage::lighting_reacts_to_mapped_controls",
+  "od-controller::templates::tests::lighting_controls_map",
   "od-lighting::show::tests::effects_spread_across_a_group_on_the_beat",
   "od-ui::ui_tests::stage::lighting_pro_effect_xy_and_fog",
   "od-lighting::show::tests::pro_cue_stack_and_track_cues",
 ]
 spec = "SPEC §10.5"
-note = "PRO: program / colour / attribute effect (sine, saw, square, random on dimmer, pan, tilt with phase spread, beat-synced) and an XY pan / tilt programmer per group, cue stack with GO / BACK / STORE and beat fades, lighting cues per track (engine); timeline and MIDI mapping of lighting controls are missing"
+note = "PRO: program / colour / attribute effect (sine, saw, square, random on dimmer, pan, tilt; phase spread; beat-synced) and an XY pan / tilt programmer per group; cue stack with GO / BACK / STORE and beat fades; track cue timeline (cues stored at bars of the track you hear, recalled whenever it plays); every lighting control MIDI-mappable (`lighting.*` mapping actions)"
 [[feature]]
 id = "lighting-views"
 area = "lighting"
 name = "LIGHTING tab, split view in Perform, detachable window, 2D visualiser"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-ui::ui_tests::stage::lighting_detaches_into_its_own_window",
   "od-ui::ui_tests::stage::lighting_view_patches_and_controls_the_show",
   "od-ui::lighting::tests::stage_and_status",
   "od-ui::ui_tests::stage::lighting_strip_in_perform",
 ]
 spec = "SPEC §10.5"
-note = "LIGHTING tab (topbar, View menu, Alt+3) with RIG | STAGE (live 2D visualiser) | SHOW, and a lighting strip inside Perform (LIGHT, Alt+K); a detachable window is missing"
+note = "LIGHTING tab (topbar, View menu, Alt+3) with RIG | STAGE (live 2D visualiser) | SHOW, a lighting strip inside Perform (LIGHT, Alt+K) and a detachable LIGHTING window for a second screen (WINDOW)"

@@ -93,6 +93,12 @@ export global Lighting {
     callback group-position(int, float, float);
     callback group-position-clear(int);
     callback import-ofl();
+    callback detach();
+    // Lighting cues of the track you hear (Pro): title and rows.
+    in property <string> timeline-title;
+    in property <[string]> timeline;
+    callback timeline-add();
+    callback timeline-delete(int);
 }
 
 component SectionTitle inherits HorizontalLayout {
@@ -427,6 +433,24 @@ component ShowPanel inherits VerticalLayout {
             }
         }
         HLine { }
+        Caps { text: @tr("TRACK CUES"); }
+        Text { text: Lighting.timeline-title == "" ? @tr("Play a track to store lighting cues with it.") : Lighting.timeline-title; font-family: Theme.family; font-size: 12px; color: Theme.bone-2; overflow: elide; }
+        for t[ti] in Lighting.timeline: Rectangle {
+            accessible-label: "lighting.timeline" + ti; accessible-role: list-item; accessible-value: t;
+            height: 22px;
+            HorizontalLayout {
+                padding-left: 8px; spacing: 6px;
+                Text { text: t; font-family: Theme.family; font-size: 12px; color: Theme.bone; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
+                PlateButton { accessible-label: "lighting.timeline" + ti + ".delete"; accessible-role: button; compact: true; glyph: "close"; width: 30px; tooltip: @tr("Remove this track cue"); clicked => { Lighting.timeline-delete(ti); } }
+            }
+        }
+        PlateButton {
+            accessible-label: "lighting.timeline.add"; accessible-role: button;
+            compact: true; label: @tr("CUE AT PLAYHEAD"); enabled: Lighting.timeline-title != "" && Lighting.cues.length > 0;
+            tooltip: @tr("The current cue starts at this bar whenever the track plays");
+            clicked => { Lighting.timeline-add(); }
+        }
+        HLine { }
         Caps { text: @tr("CUE STACK"); }
         for c[ci] in Lighting.cues: Rectangle {
             accessible-label: "lighting.cue" + ci; accessible-role: list-item; accessible-value: c;
@@ -458,6 +482,7 @@ component ShowPanel inherits VerticalLayout {
 }
 
 export component LightingView inherits Rectangle {
+    in property <bool> detachable: true;
     accessible-label: "lighting.view"; accessible-role: groupbox;
     background: Theme.ground;
     HorizontalLayout {
@@ -468,8 +493,14 @@ export component LightingView inherits Rectangle {
             padding: 10px; spacing: 8px;
             HorizontalLayout {
                 height: 22px;
+                spacing: 8px;
                 SectionTitle { text: @tr("STAGE"); }
                 Rectangle { horizontal-stretch: 1; }
+                if root.detachable: PlateButton {
+                    accessible-label: "lighting.detach"; accessible-role: button;
+                    compact: true; label: @tr("WINDOW"); tooltip: @tr("Open the lighting in its own window (second screen)");
+                    clicked => { Lighting.detach(); }
+                }
                 Caps {
                     accessible-label: "lighting.status"; accessible-role: text; accessible-value: self.text;
                     text: Lighting.status; color: Theme.attention; vertical-alignment: center;
@@ -527,4 +558,13 @@ export component LightingStrip inherits Rectangle {
         }
     }
     HLine { y: parent.height - 1px; tone: Theme.rule; }
+}
+
+// The LIGHTING view on its own (detached window, second screen).
+export component LightingWindow inherits Window {
+    title: "OpenDecks Session — Lighting";
+    preferred-width: 1280px;
+    preferred-height: 720px;
+    background: Theme.ground;
+    LightingView { detachable: false; }
 }

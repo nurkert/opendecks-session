@@ -3,7 +3,7 @@
 Every user action of OpenDecks Session is a command in one registry
 (`crates/od-ui/src/keymap.rs`) with an id, a default binding per platform
 and optional user bindings (SPEC §12.2). The registry currently holds
-**241 actions**; every one has a default binding, and no two defaults
+**242 actions**; every one has a default binding, and no two defaults
 collide where they apply (checked by tests, together with this table).
 
 ## Changing bindings
@@ -104,6 +104,7 @@ Perform). Text fields keep the keys they type.
 | Show / hide Mix Point Link | `perform.mpl.panel` | Perform | `⌥⌘P` | `Alt+P` |
 | Import a library XML (rekordbox-compatible) | `library.import.xml` | both | `⌥⇧⌘X` | `Alt+Shift+X` |
 | Export the library as XML (rekordbox-compatible) | `library.export.xml` | both | `⌥⌘X` | `Alt+X` |
+| Import a Music / iTunes library XML | `library.import.itunes` | both | `⌥⇧⌘M` | `Alt+Shift+M` |
 | Export a library archive | `library.export.archive` | both | `⌥⌘A` | `Alt+A` |
 | Restore a library archive | `library.restore.archive` | both | `⌥⇧⌘A` | `Alt+Shift+A` |
 | Consolidate the library | `library.consolidate` | both | `⌥⌘C` | `Alt+C` |

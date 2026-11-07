@@ -383,6 +383,8 @@ pub struct LightingRuntime {
     sent: [Option<od_core::TrackId>; MAX_DECKS],
     tracks: Vec<Option<TrackLight>>,
     fixtures: Rows<LightFixtureView>,
+    /// The track you hear and its playhead beat (for track cues).
+    focus: Option<(od_core::TrackId, f64, String)>,
 }
 
 impl LightingRuntime {
@@ -402,6 +404,7 @@ impl LightingRuntime {
             sent: [None; MAX_DECKS],
             tracks: vec![None; MAX_DECKS],
             fixtures: Rows::default(),
+            focus: None,
         };
         rt.apply_outputs();
         rt
@@ -432,23 +435,7 @@ impl LightingRuntime {
 
 fn refresh(app: &App) {
     let rt = app.lighting.borrow();
-    let g = app.ui.global::<crate::Lighting>();
     let s = &rt.config.settings;
-    g.set_enabled(rt.config.enabled);
-    g.set_mode(match s.mode {
-        Mode::Auto => "auto",
-        Mode::Easy => "easy",
-        Mode::Pro => "pro",
-    }
-    .into());
-    g.set_master(s.master);
-    g.set_blackout(s.blackout);
-    g.set_flash(rt.momentary.flash);
-    g.set_strobe(rt.momentary.strobe);
-    g.set_fog(rt.momentary.fog);
-    g.set_tap_bpm(rt.tap_bpm.map(|b| format!("{b:.0}")).unwrap_or_default().into());
-    g.set_easy_program(program_index(Some(s.easy_program)));
-    g.set_easy_color(swatch_index(s.easy_color));
     let groups: Vec<LightGroupView> = rt
         .config
         .patch
@@ -468,9 +455,9 @@ fn refresh(app: &App) {
             }
         })
         .collect();
-    g.set_groups(ModelRc::new(VecModel::from(groups)));
+    let groups = ModelRc::new(VecModel::from(groups));
     let cues: Vec<SharedString> = s.cues.iter().map(|c| SharedString::from(c.name.as_str())).collect();
-    g.set_cues(ModelRc::new(VecModel::from(cues)));
+    let cues = ModelRc::new(VecModel::from(cues));
     let outputs: Vec<String> = rt
         .config
         .outputs
@@ -484,11 +471,79 @@ fn refresh(app: &App) {
             format!("U{} → {to}", u + 1)
         })
         .collect();
-    g.set_output_text(if outputs.is_empty() { "No output set".into() } else { outputs.join(" · ").into() });
-    g.set_rig_path(rt.path.display().to_string().into());
+    let (timeline_title, timeline) = timeline_rows(&rt);
+    let timeline = ModelRc::new(VecModel::from(timeline));
+    let output_text: SharedString = if outputs.is_empty() { "No output set".into() } else { outputs.join(" · ").into() };
+    each(app, |g| {
+        g.set_enabled(rt.config.enabled);
+        g.set_mode(
+            match s.mode {
+                Mode::Auto => "auto",
+                Mode::Easy => "easy",
+                Mode::Pro => "pro",
+            }
+            .into(),
+        );
+        g.set_master(s.master);
+        g.set_blackout(s.blackout);
+        g.set_flash(rt.momentary.flash);
+        g.set_strobe(rt.momentary.strobe);
+        g.set_fog(rt.momentary.fog);
+        g.set_tap_bpm(rt.tap_bpm.map(|b| format!("{b:.0}")).unwrap_or_default().into());
+        g.set_easy_program(program_index(Some(s.easy_program)));
+        g.set_easy_color(swatch_index(s.easy_color));
+        g.set_groups(groups.clone());
+        g.set_cues(cues.clone());
+        g.set_output_text(output_text.clone());
+        g.set_rig_path(rt.path.display().to_string().into());
+        g.set_timeline_title(timeline_title.clone());
+        g.set_timeline(timeline.clone());
+    });
     // Rows also when no frame arrives (engine stopped): the rig list.
     let looks = rt.runner.snapshot.lock().map(|s| s.looks.clone()).unwrap_or_default();
     rt.fixtures.sync(fixture_views(&rt.config.patch, &looks), |_, _| false);
+}
+
+/// Title and rows ("BAR 17 → Drop") of the focused track's lighting cues.
+fn timeline_rows(rt: &LightingRuntime) -> (SharedString, Vec<SharedString>) {
+    let Some((id, _, title)) = &rt.focus else { return (SharedString::new(), Vec::new()) };
+    let s = &rt.config.settings;
+    let mut cues = s.track_cues.get(&id.0).cloned().unwrap_or_default();
+    cues.sort_by_key(|c| c.beat);
+    let rows = cues
+        .iter()
+        .map(|c| {
+            let name = s.cues.get(c.cue).map(|x| x.name.as_str()).unwrap_or("?");
+            SharedString::from(format!("BAR {} → {name}", c.beat / 4 + 1))
+        })
+        .collect();
+    (title.clone().into(), rows)
+}
+
+/// Runs `f` on the Lighting state of the main window and, when it is open,
+/// the detached LIGHTING window.
+fn each(app: &App, f: impl Fn(&crate::Lighting<'_>)) {
+    f(&app.ui.global::<crate::Lighting>());
+    if let Some(w) = app.lighting_window.borrow().as_ref() {
+        f(&w.global::<crate::Lighting>());
+    }
+}
+
+/// Opens the LIGHTING view in its own window (second screen).
+pub(crate) fn detach(app: &Rc<App>) {
+    if let Some(w) = app.lighting_window.borrow().as_ref() {
+        let _ = w.show();
+        return;
+    }
+    let Ok(w) = crate::LightingWindow::new() else { return };
+    {
+        let st = app.state.borrow();
+        crate::shell::apply_theme(&w.global::<crate::Theme>(), &st.settings, st.config.lite);
+    }
+    wire_global(app, &w.global::<crate::Lighting>());
+    let _ = w.show();
+    *app.lighting_window.borrow_mut() = Some(w);
+    refresh(app);
 }
 
 fn edit(app: &App, f: impl FnOnce(&mut LightingRuntime)) {
@@ -501,7 +556,13 @@ fn edit(app: &App, f: impl FnOnce(&mut LightingRuntime)) {
 }
 
 pub(crate) fn wire(app: &Rc<App>) {
-    let g = app.ui.global::<crate::Lighting>();
+    wire_global(app, &app.ui.global::<crate::Lighting>());
+    refresh(app);
+}
+
+/// Binds models and callbacks of one window's Lighting state.
+fn wire_global(app: &Rc<App>, g: &crate::Lighting<'_>) {
+    g.on_detach(handler!(app, |a| detach(&a)));
     g.set_fixtures(app.lighting.borrow().fixtures.handle());
     g.set_programs(ModelRc::new(VecModel::from(
         Program::ALL.iter().map(|p| SharedString::from(program_label(*p))).collect::<Vec<_>>(),
@@ -622,12 +683,35 @@ pub(crate) fn wire(app: &Rc<App>) {
         let name = if name.trim().is_empty() { format!("Cue {}", s.cues.len() + 1) } else { name.to_string() };
         s.cues.push(LightCue { name, groups: s.groups.clone(), fade_beats: 4.0 });
     })));
+    g.on_timeline_add(handler!(app, |a| {
+        let cue = app_active_cue(&a);
+        edit(&a, |rt| {
+            let Some((id, beat, _)) = rt.focus.clone() else { return };
+            if rt.config.settings.cues.is_empty() {
+                return;
+            }
+            // On the bar: the cue starts where the bar the playhead is in starts.
+            let bar = (beat.max(0.0) / 4.0).floor() as u32 * 4;
+            let list = rt.config.settings.track_cues.entry(id.0).or_default();
+            list.retain(|c| c.beat != bar);
+            list.push(od_lighting::TrackCue { beat: bar, cue: cue.min(rt.config.settings.cues.len() - 1) });
+            list.sort_by_key(|c| c.beat);
+        })
+    }));
+    g.on_timeline_delete(handler!(app, |a, i: i32| edit(&a, |rt| {
+        let Some((id, _, _)) = rt.focus.clone() else { return };
+        if let Some(list) = rt.config.settings.track_cues.get_mut(&id.0) {
+            list.sort_by_key(|c| c.beat);
+            if (i as usize) < list.len() {
+                list.remove(i as usize);
+            }
+        }
+    })));
     g.on_cue_delete(handler!(app, |a, i: i32| edit(&a, |rt| {
         if (i as usize) < rt.config.settings.cues.len() {
             rt.config.settings.cues.remove(i as usize);
         }
     })));
-    refresh(app);
 }
 
 fn momentary(app: &App, f: impl FnOnce(&mut Momentary)) {
@@ -667,6 +751,33 @@ pub(crate) fn pad(app: &App, index: usize, pressed: bool) {
         6 => momentary(app, |m| m.strobe = pressed),
         7 => momentary(app, |m| m.flash = pressed),
         _ => {}
+    }
+}
+
+/// The cue the stack shows as current (0 when none).
+fn app_active_cue(app: &App) -> usize {
+    app.ui.global::<crate::Lighting>().get_active_cue().max(0) as usize
+}
+
+/// A mapped controller / MIDI input for the light show.
+pub(crate) fn controller(app: &App, a: od_controller::action::LightingAction) {
+    use od_controller::action::LightingAction as L;
+    match a {
+        L::Look(i) => pad(app, i as usize, true),
+        L::Strobe(on) => momentary(app, |m| m.strobe = on),
+        L::Flash(on) => momentary(app, |m| m.flash = on),
+        L::Fog(on) => momentary(app, |m| m.fog = on),
+        L::BlackoutToggle => edit(app, |rt| rt.config.settings.blackout = !rt.config.settings.blackout),
+        L::Master(v) => edit(app, |rt| rt.config.settings.master = v.clamp(0.0, 1.0)),
+        L::CueGo => cue_step(app, true),
+        L::CueBack => cue_step(app, false),
+        L::Mode(m) => edit(app, |rt| {
+            rt.config.settings.mode = match m.as_str() {
+                "easy" => Mode::Easy,
+                "pro" => Mode::Pro,
+                _ => Mode::Auto,
+            }
+        }),
     }
 }
 
@@ -780,7 +891,27 @@ pub(crate) fn frame(app: &App, state: Option<&EngineState>) {
         rt.runner.track(d, light);
     }
     app.lighting.borrow().runner.engine(state);
-    let visible = app.ui.get_mode() == "lighting" || (app.ui.get_mode() == "perform" && app.ui.global::<crate::Lighting>().get_panel());
+    // The track you hear, for the Pro track cues.
+    let focus = (0..state.decks_count.min(MAX_DECKS))
+        .filter(|&d| state.decks[d].playing && state.decks[d].track.is_some())
+        .max_by(|&a, &b| state.channels[a].gain_to_master.total_cmp(&state.channels[b].gain_to_master))
+        .or_else(|| (0..state.decks_count.min(MAX_DECKS)).find(|&d| state.decks[d].track.is_some()))
+        .and_then(|d| state.decks[d].track.map(|t| (d, t)));
+    let changed = {
+        let mut rt = app.lighting.borrow_mut();
+        let new = focus.map(|(d, t)| {
+            let title = app.decks.borrow().loaded(d).map(|m| m.title.clone()).unwrap_or_default();
+            (t, state.decks[d].beat, title)
+        });
+        let changed = rt.focus.as_ref().map(|f| f.0) != new.as_ref().map(|f| f.0);
+        rt.focus = new;
+        changed
+    };
+    if changed {
+        refresh(app);
+    }
+    let window = app.lighting_window.borrow().as_ref().is_some_and(|w| w.window().is_visible());
+    let visible = window || app.ui.get_mode() == "lighting" || (app.ui.get_mode() == "perform" && app.ui.global::<crate::Lighting>().get_panel());
     if visible {
         let decks = music(state, &app.lighting.borrow().tracks);
         refresh_stage(app, &decks);
@@ -794,11 +925,14 @@ fn refresh_stage(app: &App, decks: &[DeckMusic]) {
         a.color == b.color && a.intensity == b.intensity && a.beam_x == b.beam_x && a.beam_y == b.beam_y && a.strobe == b.strobe
             && a.name == b.name && a.role != "bar"
     });
-    let g = app.ui.global::<crate::Lighting>();
-    g.set_status(status_text(rt.config.settings.mode, decks).into());
-    if let Some(c) = rt.runner.active_cue() {
-        g.set_active_cue(c as i32);
-    }
+    let status: SharedString = status_text(rt.config.settings.mode, decks).into();
+    let cue = rt.runner.active_cue();
+    each(app, |g| {
+        g.set_status(status.clone());
+        if let Some(c) = cue {
+            g.set_active_cue(c as i32);
+        }
+    });
 }
 
 #[cfg(test)]
