@@ -267,6 +267,7 @@ pub(crate) fn wire(app: &Rc<App>) {
     wire_tooltips(app, &ui.global::<crate::TooltipState>());
     apply_panels(app);
     crate::mpl::wire(app);
+    crate::preferences::store_stick_settings(app);
     ui.on_select_section(handler!(app, |a, s: SharedString| {
         a.ui.set_section(s.clone());
         match s.as_str() {
@@ -289,6 +290,10 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_key_released(handler!(app, |a, text: SharedString| crate::commands::release(&a, text.as_str())));
     ui.on_open_preferences(handler!(app, |a| crate::preferences::open(&a)));
     ui.on_cycle_layout(handler!(app, |a| {
+        if a.ui.get_mode() == "perform" {
+            crate::decks::cycle_perform_layout(&a);
+            return;
+        }
         let next = next_layout(a.ui.get_prepare_layout().as_str());
         set_prepare_layout(&a, next);
     }));

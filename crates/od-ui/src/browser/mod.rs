@@ -861,6 +861,12 @@ pub(crate) fn set_tag_field(t: &mut od_core::TrackTags, field: &str, value: &str
     }
 }
 
+/// The cover art of `track` as a square thumbnail of `size` px.
+pub(crate) fn artwork_image(lib: &od_library::Library, track: TrackId, size: u32) -> Option<slint::Image> {
+    let (data, _) = lib.artwork(track).ok().flatten()?;
+    crate::render::artwork_thumbnail(&data, size)
+}
+
 /// Fills the info panel from the current track.
 pub(crate) fn refresh_info(app: &App) {
     let st = app.state.borrow();
@@ -882,6 +888,15 @@ pub(crate) fn refresh_info(app: &App) {
         path: st.resolve(&t.path).display().to_string().into(),
         added: t.date_added.clone().into(),
         plays: t.play_count.to_string().into(),
+        has_artwork: false,
+        artwork: Default::default(),
+    });
+    let info = info.map(|mut i| {
+        if let Some(img) = st.player.current.and_then(|id| artwork_image(st.src(), id, 264)) {
+            i.has_artwork = true;
+            i.artwork = img;
+        }
+        i
     });
     app.ui.set_track_info(info.unwrap_or_default());
 }

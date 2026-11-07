@@ -104,7 +104,7 @@ pub(crate) fn controller(app: &App, action: &BrowseAction) {
             if kiosk {
                 app.ui.set_browser_open(!app.ui.get_browser_open());
             } else if app.ui.get_mode() == "prepare" {
-                let next = crate::shell::next_layout(app.ui.get_prepare_layout().as_str());
+                let next = if app.ui.get_prepare_layout() == "browser" { "player" } else { "browser" };
                 crate::shell::set_prepare_layout(app, next);
             } else {
                 // Perform: a larger browser, then back.

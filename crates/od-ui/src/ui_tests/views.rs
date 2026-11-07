@@ -72,6 +72,14 @@ fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String> {
     match id {
         "perform.2deck-horizontal" | "panel.recording" => perform(2),
         "perform.4deck-horizontal" => perform(4),
+        "perform.2deck-vertical" | "perform.4deck-vertical" => {
+            perform(if id.starts_with("perform.4") { 4 } else { 2 });
+            slint::ComponentHandle::global::<crate::PerformLayout>(w).set_layout("vertical".into());
+        }
+        "perform.browse" => {
+            perform(2);
+            slint::ComponentHandle::global::<crate::PerformLayout>(w).set_layout("browse".into());
+        }
         "lighting" => {
             if kiosk {
                 return Err("Lighting is not part of the kiosk".into());
@@ -100,6 +108,24 @@ fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String> {
             }
             prepare_library();
             w.invoke_row_clicked(0, false, false);
+        }
+        "prepare.2-players" | "prepare.dual-player" | "prepare.simple-player" | "prepare.full-browser" | "prepare.recording-bar" => {
+            if kiosk {
+                return Err("Prepare is not part of the kiosk".into());
+            }
+            prepare_library();
+            w.invoke_row_clicked(0, false, false);
+            let layout = match id {
+                "prepare.2-players" => "view.layout.two",
+                "prepare.dual-player" => "view.layout.dual",
+                "prepare.simple-player" => "view.layout.simple",
+                "prepare.full-browser" => "view.layout.browser",
+                _ => "view.layout.player",
+            };
+            w.invoke_menu_action(layout.into());
+            if id == "prepare.recording-bar" && !w.get_rec_panel() {
+                w.invoke_menu_action("view.panel.rec".into());
+            }
         }
         "browser.collection" => {
             prepare_library();

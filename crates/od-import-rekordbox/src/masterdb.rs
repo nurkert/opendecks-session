@@ -258,6 +258,7 @@ pub(crate) fn read(conn: &Connection, rb_dir: &Path, with_smart: bool) -> Result
             label: text(r, 6)?,
             color,
             source: DataSource::Imported,
+            active: false,
         };
         lib.tracks[ti].db_cues.get_or_insert_with(Vec::new).push(cue);
         lib.db_cue_count += 1;

@@ -89,7 +89,8 @@ CREATE TABLE cue (
     loop_end REAL,
     label    TEXT    NOT NULL DEFAULT '',
     color    TEXT,
-    source   TEXT    NOT NULL
+    source   TEXT    NOT NULL,
+    active   INTEGER NOT NULL DEFAULT 0   -- active loop (schema 3)
 );
 CREATE INDEX cue_track ON cue (track_id);
 

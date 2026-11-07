@@ -54,6 +54,38 @@ pub(crate) struct Loaded {
     source: TrackSource,
 }
 
+/// Perform layouts in the order of the top bar's layout button.
+pub(crate) const PERFORM_LAYOUTS: [&str; 3] = ["standard", "vertical", "browse"];
+
+const META_PERFORM_LAYOUT: &str = "ui.perform-layout";
+
+/// Sets and remembers the Perform layout.
+pub(crate) fn set_perform_layout(app: &App, layout: &str) {
+    let layout = if PERFORM_LAYOUTS.contains(&layout) { layout } else { "standard" };
+    app.ui.global::<crate::PerformLayout>().set_layout(layout.into());
+    app.ui.set_upper_height(0.0);
+    let _ = app.state.borrow_mut().lib.set_meta(META_PERFORM_LAYOUT, layout);
+}
+
+/// Next Perform layout (standard → vertical → browse → standard).
+pub(crate) fn cycle_perform_layout(app: &App) {
+    let cur = app.ui.global::<crate::PerformLayout>().get_layout();
+    let i = PERFORM_LAYOUTS.iter().position(|l| *l == cur.as_str()).unwrap_or(0);
+    set_perform_layout(app, PERFORM_LAYOUTS[(i + 1) % PERFORM_LAYOUTS.len()]);
+}
+
+/// Perform layout: vertical waveforms on / off.
+pub(crate) fn toggle_vertical_layout(app: &App) {
+    let cur = app.ui.global::<crate::PerformLayout>().get_layout();
+    set_perform_layout(app, if cur == "vertical" { "standard" } else { "vertical" });
+}
+
+/// Perform layout: standard ↔ Browse (decks reduced, the browser gets the room).
+pub(crate) fn toggle_browse_layout(app: &App) {
+    let cur = app.ui.global::<crate::PerformLayout>().get_layout();
+    set_perform_layout(app, if cur == "browse" { "standard" } else { "browse" });
+}
+
 /// "SPLIT 42%" while parts are separated (fraction 0..1), "SPLIT…" at the start.
 pub(crate) fn split_text(progress: Option<f32>) -> String {
     match progress {
@@ -167,7 +199,7 @@ impl Default for Decks {
 #[derive(Default)]
 struct LaneScroll {
     /// What the tiles were rendered for: track, span (ms), size, phrases.
-    key: Option<(TrackId, i64, u32, u32, bool, bool)>,
+    key: Option<(TrackId, i64, u32, u32, bool, bool, bool)>,
     tiles: HashMap<i64, Image>,
     first: Option<i64>,
     sent_pos: f64,
@@ -186,6 +218,8 @@ struct ScrollIn<'a> {
     width: u32,
     height: u32,
     phrases: bool,
+    /// Tiles turned for the vertical lanes.
+    vertical: bool,
     now: Instant,
 }
 
@@ -200,7 +234,7 @@ impl LaneScroll {
             *self = Self::default();
             return Some(LaneMotion::default());
         };
-        let key = (m.id, (i.span * 1000.0).round() as i64, i.width, i.height, i.phrases, crate::appearance::is_light());
+        let key = (m.id, (i.span * 1000.0).round() as i64, i.width, i.height, i.phrases, crate::appearance::is_light(), i.vertical);
         let mut force = !self.loaded;
         if self.key != Some(key) {
             self.key = Some(key);
@@ -221,7 +255,8 @@ impl LaneScroll {
             self.tiles.retain(|k, _| (first..first + 3).contains(k));
             for k in first..first + 3 {
                 self.tiles.entry(k).or_insert_with(|| {
-                    render::detail_tile(&m.waveform, &m.grid, if i.phrases { &m.phrases } else { &[] }, k as f64 * i.span, i.span, i.width, i.height)
+                    let tile = render::detail_tile(&m.waveform, &m.grid, if i.phrases { &m.phrases } else { &[] }, k as f64 * i.span, i.span, i.width, i.height);
+                    if i.vertical { render::transpose(&tile) } else { tile }
                 });
             }
             self.first = Some(first);
@@ -900,9 +935,16 @@ pub(crate) fn project(app: &App, state: &EngineState) {
     let mut guard = app.decks.borrow_mut();
     let d = &mut *guard;
     let count = d.deck_count;
-    let height = ((if count > 2 { 64.0 } else { 110.0 }) * scale) as u32;
-    // Waveform area of a lane: the window minus the numeral gutter.
-    let lane_width = ((app.ui.window().size().width as f32 / scale - 44.0).max(200.0) * scale) as u32;
+    let vertical = app.ui.global::<crate::PerformLayout>().get_layout() == "vertical";
+    let (lane_width, height) = if vertical {
+        // Vertical lanes: the length runs down the deck row, the thickness
+        // is one column above the mixer.
+        let len = ((app.ui.window().size().height as f32 / scale * 0.42).max(200.0) * scale) as u32;
+        (len, ((if count > 2 { 56.0 } else { 84.0 }) * scale) as u32)
+    } else {
+        // Waveform area of a lane: the window minus the numeral gutter.
+        (((app.ui.window().size().width as f32 / scale - 44.0).max(200.0) * scale) as u32, ((if count > 2 { 64.0 } else { 110.0 }) * scale) as u32)
+    };
     let now = Instant::now();
     if d.views.all.len() != count {
         d.views.resize(count);
@@ -929,7 +971,7 @@ pub(crate) fn project(app: &App, state: &EngineState) {
         // tempo-fader step).
         let span = ((DETAIL_SPAN * d.zoom[i] * s.tempo.max(0.25)) * 100.0).round() / 100.0;
         let speed = if s.playing && !s.scratching { s.speed } else { 0.0 };
-        let input = ScrollIn { meta, position: s.position, speed, span, width: lane_width, height, phrases: show_phrases, now };
+        let input = ScrollIn { meta, position: s.position, speed, span, width: lane_width, height, phrases: show_phrases, vertical, now };
         if let Some(row) = d.scroll[i].update(&input) {
             d.motion.set_row_data(i, row);
         }
@@ -1349,6 +1391,10 @@ pub(crate) fn stem_of_ui(name: &str) -> Option<od_engine::Stem> {
 pub(crate) fn wire(app: &Rc<App>) {
     let zoom = crate::preferences::default_deck_zoom(&app.state.borrow().settings);
     app.decks.borrow_mut().zoom = [zoom; DECKS];
+    let layout = app.state.borrow().lib.meta(META_PERFORM_LAYOUT).ok().flatten();
+    if let Some(l) = layout.filter(|l| PERFORM_LAYOUTS.contains(&l.as_str())) {
+        app.ui.global::<crate::PerformLayout>().set_layout(l.into());
+    }
     let ui = &app.ui;
     ui.set_lane_motion(ModelRc::from(app.decks.borrow().motion.clone()));
     ui.on_deck_zoom(handler!(app, |a, d: i32, delta: f32| {

@@ -13,7 +13,7 @@ import { DeckView, CueMark, HotCueSlot, ChannelView, PhraseMark, LaneMotion, FxU
 import { FxPanel, ColorFxSelector, ChoiceList } from "fx.slint";
 import { SamplerPanel } from "sampler.slint";
 import { SamplerPadView, SamplerView } from "structs.slint";
-import { WaveLane } from "wave.slint";
+import { WaveLane, VerticalLane } from "wave.slint";
 import { MicControls } from "mic.slint";
 import { RecStrip } from "rec.slint";
 import { LightingStrip, Lighting } from "lighting.slint";
@@ -468,6 +468,8 @@ export component DeckPanel inherits Rectangle {
     callback beat-jump-step(bool);
     callback load();
 
+    // Browse layout: header, overview and stem strip only.
+    in property <bool> browse;
     property <color> tone: Theme.deck-color(root.deck.deck);
     property <length> pad-h: root.touch-size ? (root.compact ? 34px : 40px) : 30px;
     property <length> ctl-h: root.touch-size ? 34px : 26px;
@@ -582,7 +584,7 @@ export component DeckPanel inherits Rectangle {
         }
 
         // ── Full deck, outer → inner: pads | loop | CUE / PLAY | platter | state | tempo ──
-        if !root.compact && !root.mirror: HorizontalLayout {
+        if !root.browse && !root.compact && !root.mirror: HorizontalLayout {
             spacing: 12px;
             PadColumns { deck: root.deck; pad-h: root.pad-h; pad(i, d) => { root.pad(i, d); } pad-alt(i) => { root.pad-alt(i); } mode-step(d) => { root.pad-mode-step(d); } mode-set(i) => { root.pad-mode-set(i); } param(d) => { root.pad-param(d); } }
             LoopColumn { deck: root.deck; ctl-h: root.ctl-h; loop(b) => { root.loop(b); } loop-exit => { root.loop-exit(); } loop-scale(f) => { root.loop-scale(f); } beat-jump-step(f) => { root.beat-jump-step(f); } }
@@ -599,7 +601,7 @@ export component DeckPanel inherits Rectangle {
             StateColumn { deck: root.deck; ctl-h: root.ctl-h; slip => { root.slip(); } quantize => { root.quantize(); } keylock => { root.keylock(); } }
             TempoColumn { deck: root.deck; tempo(v) => { root.tempo(v); } }
         }
-        if !root.compact && root.mirror: HorizontalLayout {
+        if !root.browse && !root.compact && root.mirror: HorizontalLayout {
             spacing: 12px;
             TempoColumn { deck: root.deck; tempo(v) => { root.tempo(v); } }
             StateColumn { deck: root.deck; ctl-h: root.ctl-h; slip => { root.slip(); } quantize => { root.quantize(); } keylock => { root.keylock(); } }
@@ -618,7 +620,7 @@ export component DeckPanel inherits Rectangle {
         }
 
         // ── Compact deck (four decks / small screens) ──
-        if root.compact: HorizontalLayout {
+        if !root.browse && root.compact: HorizontalLayout {
             spacing: 4px;
             Transport { accessible-role: button; accessible-label: "deck\{root.deck.deck}.cue"; kind: "cue"; tone: Theme.attention; size: root.touch-size ? 44px : 34px; clicked => { root.cue(); } }
             Transport { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.deck.playing; accessible-label: "deck\{root.deck.deck}.play"; kind: "play"; on: root.deck.playing; tone: Theme.live; size: root.touch-size ? 44px : 34px; clicked => { root.toggle-play(); } }
@@ -644,6 +646,13 @@ export component DeckPanel inherits Rectangle {
     VLine { x: root.mirror ? parent.width - 3px : 0; y: 0; height: parent.height; weight: 3px; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
     DropZone { width: parent.width; height: parent.height; id: root.deck.deck; tone: root.tone; }
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+}
+
+// Perform layout: "standard", "vertical" (waveforms upright above the
+// mixer) or "browse" (decks reduced to header, overview and stem strip; the
+// browser gets the room).
+export global PerformLayout {
+    in-out property <string> layout: "standard";
 }
 
 // STEM per mixer channel: switches the channel's EQ knobs to part
@@ -944,7 +953,7 @@ export component PerformView inherits Rectangle {
         if Cdj.enabled: CdjSteps { }
         // Zoomed waveforms; they take any spare height. In CDJ practice
         // mode each player screen carries its own.
-        if !Cdj.enabled: VerticalLayout {
+        if !Cdj.enabled && PerformLayout.layout == "standard": VerticalLayout {
         vertical-stretch: 1;
         for d[i] in root.decks: WaveLane {
             accessible-role: groupbox;
@@ -980,6 +989,7 @@ export component PerformView inherits Rectangle {
                     }
                     if !Cdj.enabled: DeckPanel {
                     deck: d;
+                    browse: PerformLayout.layout == "browse";
                     compact: root.tight || root.narrow || root.decks.length > 2;
                     touch-size: root.touch-size;
                     key-column: root.width >= 1000px;
@@ -1010,9 +1020,45 @@ export component PerformView inherits Rectangle {
                 }
             }
             VLine { weight: 1px; tone: Theme.rule; }
+            VerticalLayout {
+            horizontal-stretch: 0;
+            spacing: 0;
+            if PerformLayout.layout == "vertical" && !Cdj.enabled: HorizontalLayout {
+                accessible-role: groupbox; accessible-label: "wave.vertical";
+                height: root.tight ? 200px : 280px;
+                spacing: 0;
+                VerticalLayout {
+                    width: 24px; spacing: 2px; alignment: start;
+                    for z[k] in [{ id: "zoom-in", label: "+", d: 120 }, { id: "zoom-reset", label: "RST", d: 0 }, { id: "zoom-out", label: "−", d: -120 }]: Rectangle {
+                        accessible-role: button; accessible-label: "wave." + z.id;
+                        height: 24px;
+                        background: zt.has-hover ? Theme.plate-raised : Theme.plate;
+                        Text { text: z.label; font-family: Theme.family; font-size: 10px; color: Theme.bone-2; horizontal-alignment: center; vertical-alignment: center; }
+                        zt := TouchArea {
+                            clicked => {
+                                if (z.d == 0) {
+                                    root.zoom-reset(1); root.zoom-reset(2); root.zoom-reset(3); root.zoom-reset(4);
+                                } else {
+                                    root.zoom(1, z.d); root.zoom(2, z.d); root.zoom(3, z.d); root.zoom(4, z.d);
+                                }
+                            }
+                        }
+                    }
+                }
+                for d[i] in root.decks: VerticalLane {
+                    accessible-role: groupbox;
+                    accessible-label: "wave.lane\{d.deck}";
+                    horizontal-stretch: 1;
+                    min-width: 48px;
+                    deck: d;
+                    motion: root.lane-motion[d.deck - 1];
+                    zoom(delta) => { root.zoom(d.deck, delta); }
+                    zoom-reset => { root.zoom-reset(d.deck); }
+                }
+            }
             mixer := MixerPanel {
-                visible: root.show-mixer;
-                width: root.show-mixer ? self.preferred-width : 0px;
+                visible: root.show-mixer && PerformLayout.layout != "browse";
+                width: root.show-mixer && PerformLayout.layout != "browse" ? self.preferred-width : 0px;
                 horizontal-stretch: 0;
                 compact: root.tight || root.narrow || root.decks.length > 2;
                 channels: root.channels;
@@ -1024,6 +1070,7 @@ export component PerformView inherits Rectangle {
                 color-fx: root.color-fx;
                 color-fx-select(i) => { root.color-fx-select(i); }
                 color-fx-step(d) => { root.color-fx-step(d); }
+            }
             }
             if root.show-mixer: VLine { weight: 1px; tone: Theme.rule; }
             VerticalLayout {
@@ -1043,6 +1090,7 @@ export component PerformView inherits Rectangle {
                     }
                     if !Cdj.enabled: DeckPanel {
                     deck: d;
+                    browse: PerformLayout.layout == "browse";
                     mirror: true;
                     compact: root.tight || root.narrow || root.decks.length > 2;
                     touch-size: root.touch-size;
@@ -1074,7 +1122,7 @@ export component PerformView inherits Rectangle {
                 }
             }
         }
-        GlobalBar {
+        if PerformLayout.layout != "browse": GlobalBar {
             centre-width: root.show-mixer ? mixer.width : 240px;
             touch-size: root.touch-size;
             crossfader: root.crossfader;

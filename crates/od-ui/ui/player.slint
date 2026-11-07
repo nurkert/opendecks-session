@@ -58,6 +58,8 @@ export global CueEdit {
     callback color(int, int);
     callback move-to-cursor(int);
     callback to-hot(int);
+    // Active loop on / off (loops).
+    callback active(int);
     callback delete(int);
 }
 
@@ -75,6 +77,9 @@ export component PreparePlayer inherits Rectangle {
     in property <bool> read-only;
     in property <image> overview;
     in property <image> detail;
+    // Cover art thumbnail (empty: none).
+    in property <bool> has-artwork;
+    in property <image> artwork;
     in property <[CueMark]> cues;
     in property <[PhraseMark]> phrases;
     in property <[HotCueSlot]> hot-cues;
@@ -134,6 +139,10 @@ export component PreparePlayer inherits Rectangle {
                 height: 34px;
                 padding-left: 12px; padding-right: 12px;
                 spacing: 18px;
+                if root.has-artwork && root.has-track: Image {
+                    accessible-role: image; accessible-label: "player1.artwork";
+                    y: 4px; width: 26px; height: 26px; source: root.artwork; image-fit: cover;
+                }
                 Text {
                     accessible-role: text;
                     accessible-label: "player1.title";
@@ -338,6 +347,14 @@ export component PreparePlayer inherits Rectangle {
                         compact: true; label: @tr("→ HOT"); horizontal-stretch: 1;
                         tooltip: @tr("Make this memory cue a hot cue on the first free pad");
                         clicked => { CueEdit.to-hot(root.selected-cue); }
+                    }
+                    if root.selected-cue >= 0 && root.selected-cue < root.cues.length && root.cues[root.selected-cue].is-loop: PlateButton {
+                        accessible-label: "player1.cue-list.active"; accessible-role: button;
+                        accessible-checkable: true; accessible-checked: root.cues[root.selected-cue].active;
+                        compact: true; label: @tr("ACTIVE"); horizontal-stretch: 1;
+                        active: root.cues[root.selected-cue].active; tone: Theme.attention;
+                        tooltip: @tr("Active loop: the loop engages by itself when playback reaches it");
+                        clicked => { CueEdit.active(root.selected-cue); }
                     }
                     PlateButton {
                         accessible-label: "player1.cue-list.delete"; accessible-role: button;

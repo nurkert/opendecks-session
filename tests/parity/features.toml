@@ -2687,13 +2687,16 @@ id = "shell-perform-layouts"
 area = "shell"
 name = "Perform layouts: 2 / 4 decks horizontal and vertical, Browse"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-ui::ui_tests::perform::vertical_layout_turns_the_lanes",
+  "od-ui::render::tests::transposed_tiles_run_top_to_bottom",
+  "od-ui::ui_tests::perform::browse_layout_reduces_the_decks",
   "od-ui::ui_tests::features::perform_two_and_four_decks",
   "od-ui::ui_tests::views::view_completeness_desktop",
 ]
-note = "2 and 4 decks; vertical layouts and Browse missing"
+note = "2 and 4 decks in three layouts (persisted): standard (lanes across the top), vertical (Alt+V: upright lanes with zoom keys above the mixer) and Browse (Alt+B: header, overview and parts per deck, browser enlarged)"
 spec = "SPEC §10.1; UX §1.4"
 
 [[feature]]

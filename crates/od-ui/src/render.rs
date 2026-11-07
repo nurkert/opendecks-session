@@ -271,6 +271,22 @@ pub fn detail_tile(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64
     draw_detail(w, grid, phrases, start, span, None, width, height)
 }
 
+/// A tile turned for the vertical lanes: time runs top to bottom, the
+/// waveform's amplitude spreads left and right.
+pub fn transpose(img: &Image) -> Image {
+    let Some(src) = img.to_rgba8() else { return img.clone() };
+    let (w, h) = (src.width(), src.height());
+    let mut out = SharedPixelBuffer::<Rgba8Pixel>::new(h, w);
+    let from = src.as_slice();
+    let to = out.make_mut_slice();
+    for y in 0..h {
+        for x in 0..w {
+            to[(x * h + (h - 1 - y)) as usize] = from[(y * w + x) as usize];
+        }
+    }
+    Image::from_rgba8(out)
+}
+
 #[allow(clippy::too_many_arguments)]
 fn draw_detail(w: &Waveform, grid: &Beatgrid, phrases: &[Phrase], start: f64, span: f64, dim_before: Option<f64>, width: u32, height: u32) -> Image {
     let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(width.max(1), height.max(1));
@@ -472,5 +488,18 @@ mod tests {
         let blue = px(1);
         assert!(blue[2] > blue[0], "blue style: {blue:?}");
         assert_ne!(px(0), rgb);
+    }
+
+    #[test]
+    fn transposed_tiles_run_top_to_bottom() {
+        let mut buf = SharedPixelBuffer::<Rgba8Pixel>::new(3, 2);
+        // Mark the first column (time 0) red.
+        for y in 0..2 {
+            buf.make_mut_slice()[(y * 3) as usize] = Rgba8Pixel { r: 255, g: 0, b: 0, a: 255 };
+        }
+        let t = transpose(&Image::from_rgba8(buf)).to_rgba8().unwrap();
+        assert_eq!((t.width(), t.height()), (2, 3));
+        assert!(t.as_slice()[..2].iter().all(|p| p.r == 255), "time 0 is the top row");
+        assert!(t.as_slice()[2..].iter().all(|p| p.r == 0));
     }
 }

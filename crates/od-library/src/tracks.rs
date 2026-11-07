@@ -168,7 +168,7 @@ pub(crate) fn get_track(conn: &Connection, id: TrackId) -> Result<TrackRecord> {
 
 pub(crate) fn read_cues(conn: &Connection, id: TrackId) -> Result<Vec<Cue>> {
     let mut stmt = conn.prepare_cached(
-        "SELECT kind, slot, start, loop_end, label, color, source FROM cue
+        "SELECT kind, slot, start, loop_end, label, color, source, active FROM cue
          WHERE track_id = ?1 ORDER BY kind, slot, start",
     )?;
     let rows = stmt.query_map([id.0], |r| {
@@ -183,6 +183,7 @@ pub(crate) fn read_cues(conn: &Connection, id: TrackId) -> Result<Vec<Cue>> {
             label: r.get(4)?,
             color: color.as_deref().and_then(CueColor::from_hex),
             source: DataSource::parse(&source).unwrap_or(DataSource::Manual),
+            active: r.get::<_, i64>(7)? != 0,
         })
     })?;
     Ok(rows.collect::<rusqlite::Result<_>>()?)
@@ -191,8 +192,8 @@ pub(crate) fn read_cues(conn: &Connection, id: TrackId) -> Result<Vec<Cue>> {
 pub(crate) fn write_cues(conn: &Connection, id: TrackId, cues: &[Cue]) -> Result<()> {
     conn.execute("DELETE FROM cue WHERE track_id = ?1", [id.0])?;
     let mut stmt = conn.prepare_cached(
-        "INSERT INTO cue (track_id, kind, slot, start, loop_end, label, color, source)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+        "INSERT INTO cue (track_id, kind, slot, start, loop_end, label, color, source, active)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
     )?;
     for c in cues {
         let (kind, slot) = match c.kind {
@@ -207,7 +208,8 @@ pub(crate) fn write_cues(conn: &Connection, id: TrackId, cues: &[Cue]) -> Result
             c.loop_end,
             c.label,
             c.color.map(|c| c.to_hex()),
-            c.source.as_str()
+            c.source.as_str(),
+            (c.active && c.loop_end.is_some()) as i64
         ])?;
     }
     Ok(())

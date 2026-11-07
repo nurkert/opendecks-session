@@ -961,6 +961,7 @@ fn make_cue(
         label,
         color,
         source: DataSource::Imported,
+        active: false,
     }
 }
 

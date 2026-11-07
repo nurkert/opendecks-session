@@ -130,6 +130,7 @@ pub(crate) fn cue_marks(cues: &[Cue], duration: f64, with_time: bool) -> Vec<Cue
             pos: (c.start / duration) as f32,
             end: (c.loop_end.unwrap_or(c.start) / duration) as f32,
             is_loop: c.is_loop(),
+            active: c.active && c.is_loop(),
             time: if with_time { format::cue_time(c.start).into() } else { Default::default() },
             label: c.label.clone().into(),
             tone: cue_tone(c.color),
@@ -161,6 +162,8 @@ pub(crate) enum CueEditOp {
     Color(usize),
     MoveTo(f64),
     ToHot,
+    /// Active loop on / off (loops only).
+    ToggleActive,
     Delete,
 }
 
@@ -188,6 +191,12 @@ pub(crate) fn apply_cue_edit(cues: &mut Vec<Cue>, index: usize, op: CueEditOp) -
                 return false;
             }
             cues[index].kind = CueKind::Hot(free);
+        }
+        CueEditOp::ToggleActive => {
+            if !cues[index].is_loop() {
+                return false;
+            }
+            cues[index].active = !cues[index].active;
         }
         CueEditOp::Delete => {
             cues.remove(index);
@@ -629,6 +638,7 @@ pub(crate) fn wire(app: &Rc<App>) {
     }));
     ce.on_to_hot(handler!(app, |a, i: i32| cue_edit(&a, i, "Memory cue made a hot cue", CueEditOp::ToHot)));
     ce.on_delete(handler!(app, |a, i: i32| cue_edit(&a, i, "Cue removed", CueEditOp::Delete)));
+    ce.on_active(handler!(app, |a, i: i32| cue_edit(&a, i, "Active loop changed", CueEditOp::ToggleActive)));
     ui.on_seek(handler!(app, |a, p: f32| move_cursor(&a, |st| {
         let id = st.player.current;
         let d = id.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
@@ -707,6 +717,10 @@ mod tests {
         assert!(apply_cue_edit(&mut cues, 1, CueEditOp::ToHot));
         assert_eq!(cues[1].kind, CueKind::Hot(1), "first free pad");
         assert!(!apply_cue_edit(&mut cues, 0, CueEditOp::ToHot), "already a hot cue");
+        assert!(apply_cue_edit(&mut cues, 2, CueEditOp::ToggleActive));
+        assert!(cues[2].active, "a loop becomes an active loop");
+        assert!(!apply_cue_edit(&mut cues, 0, CueEditOp::ToggleActive), "a plain cue cannot be active");
+        assert!(cue_marks(&cues, 60.0, false)[2].active);
         assert!(apply_cue_edit(&mut cues, 2, CueEditOp::Delete));
         assert_eq!(cues.len(), 2);
         assert!(!apply_cue_edit(&mut cues, 9, CueEditOp::Delete));

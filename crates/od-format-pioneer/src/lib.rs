@@ -18,8 +18,10 @@
 //!
 //! * [`pdb`] reads and writes `/PIONEER/rekordbox/export.pdb`.
 //! * [`anlz`] reads and writes `ANLZ0000.DAT`, `.EXT` and `.2EX`.
+//! * [`mysetting`] writes `/PIONEER/MYSETTING.DAT` (player preferences).
 
 pub mod anlz;
+pub mod mysetting;
 pub mod pdb;
 
 mod bytes;

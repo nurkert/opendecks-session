@@ -6,6 +6,7 @@ import { VLine, HLine } from "lines.slint";
 import { Caps, PlateButton, Glyph, TipArea } from "controls.slint";
 import { Cdj } from "cdj.slint";
 import { Lighting } from "lighting.slint";
+import { PerformLayout } from "perform.slint";
 
 component ModeTab inherits Rectangle {
     in property <string> label;
@@ -125,6 +126,15 @@ export component TopBar inherits Rectangle {
             accessible-item-selectable: true; accessible-item-selected: self.current;
             label: @tr("LIGHTING"); tooltip: @tr("Lighting: DMX rig and light show"); command: "mode.lighting"; current: root.mode == "lighting"; clicked => { root.set-mode("lighting"); } }
         Rectangle { width: 24px; }
+        if root.mode == "perform" && !root.kiosk: PanelToggle {
+            accessible-label: "topbar.layout"; accessible-role: button;
+            accessible-value: PerformLayout.layout;
+            label: PerformLayout.layout == "browse" ? @tr("BROWSE") : PerformLayout.layout == "vertical" ? @tr("VERTICAL") : @tr("DECKS");
+            on: PerformLayout.layout != "standard";
+            tooltip: @tr("Next Perform layout: standard, vertical waveforms, browse");
+            clicked => { root.cycle-layout(); }
+        }
+        if root.mode == "perform" && !root.kiosk: Rectangle { width: 12px; }
         if root.mode == "prepare" && !root.kiosk: PanelToggle {
             accessible-label: "topbar.layout"; accessible-role: button;
             accessible-value: root.prepare-layout;

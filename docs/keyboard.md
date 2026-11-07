@@ -3,7 +3,7 @@
 Every user action of OpenDecks Session is a command in one registry
 (`crates/od-ui/src/keymap.rs`) with an id, a default binding per platform
 and optional user bindings (SPEC §12.2). The registry currently holds
-**239 actions**; every one has a default binding, and no two defaults
+**241 actions**; every one has a default binding, and no two defaults
 collide where they apply (checked by tests, together with this table).
 
 ## Changing bindings
@@ -292,6 +292,8 @@ Perform). Text fields keep the keys they type.
 | Show / hide the Beat FX panel | `perform.fx.panel` | Perform | `⌥⌘F` | `Alt+F` |
 | CDJ practice mode on / off | `perform.cdj` | Perform | `⌥⌘J` | `Alt+J` |
 | Show / hide the lighting strip | `perform.light.panel` | Perform | `⌥⌘K` | `Alt+K` |
+| Browse layout on / off | `perform.layout.browse` | Perform | `⌥⌘B` | `Alt+B` |
+| Vertical waveforms on / off | `perform.layout.vertical` | Perform | `⌥⌘V` | `Alt+V` |
 | FX 1 on / off | `fx1.on` | Perform | `⇧Z` | `Shift+Z` |
 | FX 1: next effect | `fx1.next` | Perform | `⇧X` | `Shift+X` |
 | FX 1: shorter beat | `fx1.beat.down` | Perform | `⇧C` | `Shift+C` |

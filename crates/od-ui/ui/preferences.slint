@@ -356,7 +356,7 @@ export component PreferencesWindow inherits Window {
                 // ── Audio ──
                 if root.page == "audio": Flickable {
                     vertical-stretch: 1;
-                    viewport-width: self.width;
+                    content-width: self.width;
                     VerticalLayout {
                         width: parent.width;
                         alignment: start;
@@ -378,7 +378,7 @@ export component PreferencesWindow inherits Window {
                 // ── View ──
                 if root.page == "view": Flickable {
                     vertical-stretch: 1;
-                    viewport-width: self.width;
+                    content-width: self.width;
                     VerticalLayout {
                         width: parent.width;
                         alignment: start;
@@ -416,7 +416,7 @@ export component PreferencesWindow inherits Window {
                 // ── Analysis ──
                 if root.page == "analysis": Flickable {
                     vertical-stretch: 1;
-                    viewport-width: self.width;
+                    content-width: self.width;
                     VerticalLayout {
                         width: parent.width;
                         alignment: start;
@@ -434,7 +434,7 @@ export component PreferencesWindow inherits Window {
                 // ── Controller ──
                 if root.page == "controller": Flickable {
                     vertical-stretch: 1;
-                    viewport-width: self.width;
+                    content-width: self.width;
                     VerticalLayout {
                         width: parent.width;
                         alignment: start;
@@ -562,7 +562,7 @@ export component PreferencesWindow inherits Window {
                             accessible-role: list;
                             accessible-label: "prefs.keyboard.shortcut-list";
                             y: 1px; height: parent.height - 1px;
-                            viewport-y <=> root.key-scroll;
+                            content-y <=> root.key-scroll;
                             init => { root.key-view-height = self.height; }
                             changed height => { root.key-view-height = self.height; }
                             VerticalLayout {
@@ -623,7 +623,7 @@ export component PreferencesWindow inherits Window {
                 // ── Recording ──
                 if root.page == "recording": Flickable {
                     vertical-stretch: 1;
-                    viewport-width: self.width;
+                    content-width: self.width;
                     VerticalLayout {
                         width: parent.width;
                         alignment: start;
@@ -661,7 +661,7 @@ export component PreferencesWindow inherits Window {
                 // ── Advanced ──
                 if root.page == "advanced": Flickable {
                     vertical-stretch: 1;
-                    viewport-width: self.width;
+                    content-width: self.width;
                     VerticalLayout {
                         width: parent.width;
                         alignment: start;

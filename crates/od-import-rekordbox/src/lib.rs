@@ -42,6 +42,7 @@
 //!   empty content hash) so that playlists, cues and grids survive; they are
 //!   listed in [`ImportReport::missing_files`].
 
+pub mod itunes;
 pub mod xml;
 mod masterdb;
 mod model;

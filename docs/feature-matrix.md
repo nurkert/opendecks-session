@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 175 DONE (85 %), 17 PARTIAL, 3 ENGINE-ONLY, 11 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 176 DONE (85 %), 16 PARTIAL, 3 ENGINE-ONLY, 11 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -282,7 +282,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 |---|---|---|---|---|
 | Edit mode (track editing / remix) | MISSING | Track edit / remix mode. SPEC §1 does not exclude it, so it counts as in scope: implement it or amend SPEC §1 with a reason | — | P3 |
 | Prepare / Perform mode switch that keeps loaded tracks | DONE | `crates/od-ui/src/shell.rs`; (SPEC §3.1) | — |  |
-| Perform layouts: 2 / 4 decks horizontal and vertical, Browse | PARTIAL | 2 and 4 decks; vertical layouts and Browse missing; (SPEC §10.1; UX §1.4) | 2 | P2 |
+| Perform layouts: 2 / 4 decks horizontal and vertical, Browse | DONE | 2 and 4 decks in three layouts (persisted): standard (lanes across the top), vertical (Alt+V: upright lanes with zoom keys above the mixer) and Browse (Alt+B: header, overview and parts per deck, browser enlarged); (SPEC §10.1; UX §1.4) | 5 | P2 |
 | Prepare layouts: 1 player, 2 players, dual, simple, full browser | PARTIAL | `crates/od-ui/src/shell.rs::set_prepare_layout`; Player and browser, and full browser (top-bar switch, View menu, ⌥⌘4 / ⌥⌘5, persisted); 2 players, dual and simple layouts missing; (UX §1.7) | 2 | P2 |
 | Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording | PARTIAL | FX and SAMPLER toggles in the top bar (UI test); Mix Point Link, Mixer and Recording toggles missing; (UX §1.2, §2.8) | 1 | P2 |
 | Mix Point Link (mix in / mix out points between decks) | MISSING | (UX §1.5; SPEC §16.3) | — | P3 |
@@ -322,8 +322,8 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 175 |
-| PARTIAL | 17 |
+| DONE | 176 |
+| PARTIAL | 16 |
 | ENGINE-ONLY | 3 |
 | MISSING | 11 |
 | deferred (in scope, later milestone) | 2 |

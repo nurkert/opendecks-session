@@ -179,3 +179,40 @@ fn sequence_call_stores_and_recalls() {
     crate::decks::pad_alt(&ui.app, 0, 0);
     assert!(ui.app.sampler.sequences.borrow()[0].is_none());
 }
+
+/// Browse layout: decks keep header, overview and parts; jog, pads,
+/// waveform lanes, mixer and global bar give their room to the browser.
+#[test]
+fn browse_layout_reduces_the_decks() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    assert!(ui.has("deck1.play") && ui.has("wave.lane1"));
+    crate::decks::toggle_browse_layout(&ui.app);
+    ui.pump(200);
+    assert!(ui.has("deck1.title") && ui.has("deck1.overview") && ui.has("deck1.stem.vocal"));
+    assert!(!ui.has("deck1.play") && !ui.has("wave.lane1") && !ui.has("global.xfader"));
+    crate::decks::toggle_browse_layout(&ui.app);
+    ui.pump(200);
+    assert!(ui.has("deck1.play") && ui.has("global.xfader"));
+}
+
+/// Vertical layout: the lanes stand upright above the mixer, with zoom keys.
+#[test]
+fn vertical_layout_turns_the_lanes() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    crate::decks::toggle_vertical_layout(&ui.app);
+    ui.pump(300);
+    assert!(ui.has("wave.vertical") && ui.has("wave.lane1") && ui.has("wave.zoom-in"));
+    let lane = Rect::of(&ui.get("wave.lane1"));
+    assert!(lane.h > lane.w, "upright lane: {}×{}", lane.w, lane.h);
+    let mixer = Rect::of(&ui.get("mixer.ch1.trim"));
+    assert!(lane.bottom() <= mixer.y + 1.0, "lanes above the mixer");
+    let before = ui.app.decks.borrow().zoom[0];
+    ui.click("wave.zoom-in");
+    assert!(ui.app.decks.borrow().zoom[0] < before, "zoom in");
+    crate::decks::cycle_perform_layout(&ui.app);
+    assert_eq!(slint::ComponentHandle::global::<crate::PerformLayout>(&ui.app.ui).get_layout(), "browse");
+    crate::decks::cycle_perform_layout(&ui.app);
+    assert_eq!(slint::ComponentHandle::global::<crate::PerformLayout>(&ui.app.ui).get_layout(), "standard");
+}

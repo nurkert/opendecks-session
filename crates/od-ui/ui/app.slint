@@ -31,8 +31,8 @@ export { MiniView }
 export { CueEdit }
 import { FxSlots } from "fx.slint";
 export { FxSlots }
-import { MixerParts } from "perform.slint";
-export { MixerParts }
+import { MixerParts, PerformLayout } from "perform.slint";
+export { MixerParts, PerformLayout }
 export { Lighting, LightFixtureView, LightGroupView }
 import { PreferencesWindow, KeyRow } from "preferences.slint";
 import { TreeRow, TrackRow, CueMark, HotCueSlot, DeviceRow, VolumeRow, FlowPoint, DeckView, ChannelView, PhraseMark, ExplorerRow, LaneMotion, MenuTarget } from "structs.slint";
@@ -437,6 +437,7 @@ export component AppWindow inherits Window {
             MenuSeparator { }
             MenuItem { title: @tr("Import Library XML (rekordbox-compatible)…"); activated => { root.menu-action("library.import.xml"); } }
             MenuItem { title: @tr("Export Library XML (rekordbox-compatible)…"); activated => { root.menu-action("library.export.xml"); } }
+            MenuItem { title: @tr("Import Music / iTunes Library XML…"); activated => { root.menu-action("library.import.itunes"); } }
             MenuSeparator { }
             MenuItem { title: @tr("Export Library Archive…"); activated => { root.menu-action("library.export.archive"); } }
             MenuItem { title: @tr("Restore Library Archive…"); activated => { root.menu-action("library.restore.archive"); } }
@@ -456,6 +457,12 @@ export component AppWindow inherits Window {
                 MenuItem { title: @tr("Dual Player"); checkable: true; checked: root.prepare-layout == "dual"; activated => { root.menu-action("view.layout.dual"); } }
                 MenuItem { title: @tr("Simple Player"); checkable: true; checked: root.prepare-layout == "simple"; activated => { root.menu-action("view.layout.simple"); } }
                 MenuItem { title: @tr("Full Browser"); checkable: true; checked: root.prepare-layout == "browser"; activated => { root.menu-action("view.layout.browser"); } }
+            }
+            Menu {
+                title: @tr("Perform Layout");
+                MenuItem { title: @tr("Standard"); checkable: true; checked: PerformLayout.layout == "standard"; activated => { root.menu-action("perform.layout.set.standard"); } }
+                MenuItem { title: @tr("Vertical Waveforms"); checkable: true; checked: PerformLayout.layout == "vertical"; activated => { root.menu-action("perform.layout.set.vertical"); } }
+                MenuItem { title: @tr("Browse"); checkable: true; checked: PerformLayout.layout == "browse"; activated => { root.menu-action("perform.layout.set.browse"); } }
             }
             MenuSeparator { }
             MenuItem { title: @tr("Info Panel"); checkable: true; checked: root.info-open; activated => { root.menu-action("view.panel.info"); } }
@@ -525,7 +532,7 @@ export component AppWindow inherits Window {
             upper := VerticalLayout {
             vertical-stretch: root.kiosk ? 1 : 0;
             preferred-height: root.mode == "prepare" && root.prepare-layout == "browser" ? 0px : root.upper-height > 0 ? root.upper-height
-                : (root.mode == "prepare" ? (root.prepare-layout == "two" ? 400px : root.prepare-layout == "dual" ? 150px : root.prepare-layout == "simple" ? 120px : 280px) : 560px);
+                : (root.mode == "prepare" ? (root.prepare-layout == "two" ? 400px : root.prepare-layout == "dual" ? 150px : root.prepare-layout == "simple" ? 120px : 280px) : PerformLayout.layout == "browse" ? 220px : 560px);
             if root.mode == "prepare" && (root.prepare-layout == "player" || root.prepare-layout == "two"): PreparePlayer {
                 phrases: root.show-phrases ? root.track-phrases : [];
                 info-width: root.sidebar-width;
@@ -544,6 +551,8 @@ export component AppWindow inherits Window {
                 read-only: root.read-only;
                 overview: root.track-overview;
                 detail: root.track-detail;
+                has-artwork: root.track-info.has-artwork;
+                artwork: root.track-info.artwork;
                 cues: root.track-cues;
                 hot-cues: root.hot-cues;
                 cursor: root.cursor;

@@ -112,6 +112,10 @@ pub(crate) fn library_action(app: &App, id: &str) {
             return;
         }
         "library.import.rekordbox-settings" => import_rekordbox_settings(app, None),
+        "library.import.itunes" => {
+            let Some(f) = rfd::FileDialog::new().set_title(od_i18n::tr("Import a Music / iTunes library")).add_filter("XML", &["xml"]).pick_file() else { return };
+            import_itunes(app, &f)
+        }
         _ => return,
     };
     app.status(message);
@@ -141,6 +145,28 @@ pub(crate) fn import_xml(app: &App, path: &Path) -> String {
             m
         }
         Err(e) => od_i18n::trf("XML import failed: {}", &[&e]),
+    };
+    app.refresh_library();
+    m
+}
+
+/// Reads an iTunes / Music library export (`Library.xml`): tracks with
+/// their tags and the playlists (in a folder of their own).
+pub(crate) fn import_itunes(app: &App, path: &Path) -> String {
+    if app.state.borrow().read_only() {
+        app.state.borrow_mut().browser.stick = None;
+    }
+    let r = od_import_rekordbox::itunes::import_itunes(&mut app.state.borrow_mut().lib, path);
+    let m = match r {
+        Ok(r) => {
+            let _ = app.analysis.wake.send(());
+            let mut m = od_i18n::trf("Imported {} tracks and {} playlists from the Music library", &[&r.tracks, &r.playlists]);
+            if !r.missing.is_empty() {
+                m.push_str(&od_i18n::trf(" · {} files not found", &[&r.missing.len()]));
+            }
+            m
+        }
+        Err(e) => od_i18n::trf("Music library import failed: {}", &[&e]),
     };
     app.refresh_library();
     m

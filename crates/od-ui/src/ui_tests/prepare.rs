@@ -394,3 +394,54 @@ fn prepare_layouts_two_dual_and_simple() {
     ui.click("topbar.layout");
     assert_eq!(ui.app.ui.get_prepare_layout(), "player");
 }
+
+/// Artwork: a track's cover art shows in the info panel and next to the
+/// title in the Prepare player.
+#[test]
+fn artwork_in_info_panel_and_player() {
+    let fx = Fixture::new();
+    {
+        let mut png = Vec::new();
+        let img = image::RgbaImage::from_pixel(64, 64, image::Rgba([200, 40, 40, 255]));
+        image::DynamicImage::ImageRgba8(img).write_to(&mut std::io::Cursor::new(&mut png), image::ImageFormat::Png).unwrap();
+        let lib = fx.lib();
+        lib.conn().execute("INSERT INTO artwork (track_id, media_type, data) VALUES (?1, 'image/png', ?2)", (fx.tracks[1].0 .0, png)).unwrap();
+    }
+    let ui = Ui::start(fx, (1440, 900), false);
+    ui.app.ui.set_info_open(true);
+    ui.click_el(&ui.by_value("browser.row", &ui.fx.tracks[0].1.clone()).unwrap().1);
+    assert!(!ui.has("info.artwork") && !ui.has("player1.artwork"), "no art, no image");
+    ui.click_el(&ui.by_value("browser.row", &ui.fx.tracks[1].1.clone()).unwrap().1);
+    assert!(ui.has("info.artwork") && ui.has("player1.artwork"), "the cover shows");
+    let size = ui.app.ui.get_track_info().artwork.size();
+    assert_eq!((size.width, size.height), (264, 264), "a square thumbnail");
+}
+
+/// File ▸ Import Music / iTunes Library XML: the tracks of the export and
+/// its playlist appear in the tree (in their own folder).
+#[test]
+fn music_library_xml_import() {
+    let ui = Ui::open((1440, 900));
+    let song = new_wav(&ui, "Library Song.wav", 720.0);
+    let loc = od_import_rekordbox::xml::location(&song).replace("file://localhost", "file://");
+    let xml = ui.fx.root.join("Library.xml");
+    std::fs::write(
+        &xml,
+        format!(
+            "<?xml version=\"1.0\"?><plist version=\"1.0\"><dict><key>Tracks</key><dict><key>7</key><dict>\
+             <key>Track ID</key><integer>7</integer><key>Name</key><string>From Music</string><key>Location</key><string>{loc}</string>\
+             </dict></dict><key>Playlists</key><array><dict><key>Name</key><string>Sunday</string>\
+             <key>Playlist Items</key><array><dict><key>Track ID</key><integer>7</integer></dict></array></dict></array></dict></plist>"
+        ),
+    )
+    .unwrap();
+    let m = crate::import::import_itunes(&ui.app, &xml);
+    assert!(m.contains("1 tracks") && m.contains("1 playlists"), "{m}");
+    let folder = ui.fx.lib().all_nodes().unwrap().into_iter().find(|n| n.name == od_import_rekordbox::itunes::IMPORT_FOLDER).expect("import folder");
+    assert!(ui.by_value("browser.tree.node", od_import_rekordbox::itunes::IMPORT_FOLDER).is_some(), "the folder is in the tree");
+    ui.app.ui.invoke_toggle_node(folder.id.0 as i32);
+    ui.pump(100);
+    let (_, row) = ui.by_value("browser.tree.node", "Sunday").expect("the playlist is in the opened folder");
+    ui.click_el(&row);
+    assert!(ui.wait_until(5.0, |u| u.by_value("browser.row", "From Music").is_some()), "it lists the track");
+}

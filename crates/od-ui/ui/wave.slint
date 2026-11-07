@@ -76,3 +76,49 @@ export component WaveLane inherits Rectangle {
     }
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
 }
+
+// The same lane turned for the vertical layouts: time runs downwards, the
+// playhead is the horizontal line in the middle, the deck numeral on top.
+export component VerticalLane inherits Rectangle {
+    in property <DeckView> deck;
+    in property <LaneMotion> motion;
+    callback zoom(float);
+    callback zoom-reset();
+    property <color> tone: Theme.deck-color(root.deck.deck);
+    property <length> gutter: 26px;
+    property <length> area: root.height - root.gutter;
+    property <duration> base-tick;
+    changed motion => { root.base-tick = animation-tick(); }
+    property <float> now: root.motion.rate == 0 ? root.motion.pos : root.motion.pos + root.motion.rate * ((animation-tick() - root.base-tick) / 1ms);
+    property <float> top-t: root.now - root.motion.span / 2;
+    background: Theme.ground-band;
+    clip: true;
+    if root.motion.loaded: Image { y: root.gutter + (root.motion.t0 - root.top-t) / root.motion.span * root.area; height: root.area; width: parent.width; source: root.motion.tile0; image-fit: fill; }
+    if root.motion.loaded: Image { y: root.gutter + (root.motion.t1 - root.top-t) / root.motion.span * root.area; height: root.area; width: parent.width; source: root.motion.tile1; image-fit: fill; }
+    if root.motion.loaded: Image { y: root.gutter + (root.motion.t2 - root.top-t) / root.motion.span * root.area; height: root.area; width: parent.width; source: root.motion.tile2; image-fit: fill; }
+    // Played audio above the playhead is veiled.
+    if root.motion.loaded: Rectangle { y: root.gutter; height: root.area / 2; width: parent.width; background: Theme.ground.with-alpha(0.45); }
+    Rectangle {
+        x: 0; y: 0; height: root.gutter; width: parent.width;
+        background: Theme.ground;
+        HLine { y: 0; tone: root.tone; form: root.deck.master ? "double" : "solid"; }
+        Text {
+            text: root.deck.deck;
+            font-family: Theme.family; font-size: 15px; font-weight: 600; color: root.tone;
+            horizontal-alignment: center; vertical-alignment: center;
+        }
+    }
+    Rectangle {
+        y: root.gutter + root.area / 2 - 1px; height: 2px; width: parent.width;
+        background: root.deck.loaded ? Theme.bone : Theme.rule-strong;
+    }
+    TouchArea {
+        y: root.gutter; height: root.area;
+        scroll-event(e) => {
+            root.zoom(e.delta-y / 1px);
+            accept
+        }
+        double-clicked => { root.zoom-reset(); }
+    }
+    VLine { x: parent.width - 1px; height: parent.height; weight: 1px; tone: Theme.rule; }
+}

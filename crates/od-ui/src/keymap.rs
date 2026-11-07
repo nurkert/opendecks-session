@@ -416,6 +416,7 @@ fn build() -> Vec<Action> {
     b.add_split("perform.mpl.panel", "Show / hide Mix Point Link", None, g, Perform, &["Mod+Alt+P"], &["Alt+P"]);
     b.add_split("library.import.xml", "Import a library XML (rekordbox-compatible)", None, g, Global, &["Mod+Alt+Shift+X"], &["Alt+Shift+X"]);
     b.add_split("library.export.xml", "Export the library as XML (rekordbox-compatible)", None, g, Global, &["Mod+Alt+X"], &["Alt+X"]);
+    b.add_split("library.import.itunes", "Import a Music / iTunes library XML", None, g, Global, &["Mod+Alt+Shift+M"], &["Alt+Shift+M"]);
     b.add_split("library.export.archive", "Export a library archive", None, g, Global, &["Mod+Alt+A"], &["Alt+A"]);
     b.add_split("library.restore.archive", "Restore a library archive", None, g, Global, &["Mod+Alt+Shift+A"], &["Alt+Shift+A"]);
     b.add_split("library.consolidate", "Consolidate the library", None, g, Global, &["Mod+Alt+C"], &["Alt+C"]);
@@ -616,6 +617,8 @@ fn build() -> Vec<Action> {
     b.add_split("perform.fx.panel", "Show / hide the Beat FX panel", None, g, Perform, &["Mod+Alt+F"], &["Alt+F"]);
     b.add_split("perform.cdj", "CDJ practice mode on / off", None, g, Perform, &["Mod+Alt+J"], &["Alt+J"]);
     b.add_split("perform.light.panel", "Show / hide the lighting strip", None, g, Perform, &["Mod+Alt+K"], &["Alt+K"]);
+    b.add_split("perform.layout.browse", "Browse layout on / off", None, g, Perform, &["Mod+Alt+B"], &["Alt+B"]);
+    b.add_split("perform.layout.vertical", "Vertical waveforms on / off", None, g, Perform, &["Mod+Alt+V"], &["Alt+V"]);
     struct Unit {
         on: &'static str,
         next: &'static str,

@@ -104,6 +104,8 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "perform.quantize" => ui.invoke_deck_quantize(1),
         "perform.fx.panel" => crate::fx::toggle_panel(app),
         "perform.cdj" => crate::cdj::toggle(app),
+        "perform.layout.browse" => crate::decks::toggle_browse_layout(app),
+        "perform.layout.vertical" => crate::decks::toggle_vertical_layout(app),
         "perform.light.panel" => {
             let g = slint::ComponentHandle::global::<crate::Lighting>(ui);
             g.set_panel(!g.get_panel());
@@ -197,11 +199,13 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
         "view.panel.rec" => shell::toggle_panel(app, "rec"),
         "browser.duplicates" => browser::open_duplicates(app),
         "browser.stems" => crate::stems_batch::separate_selected(app),
-        "library.export.xml" | "library.import.xml" | "library.export.archive" | "library.restore.archive" | "library.consolidate" | "library.import.rekordbox-settings" => {
+        "library.export.xml" | "library.import.xml" | "library.export.archive" | "library.restore.archive" | "library.consolidate" | "library.import.rekordbox-settings" | "library.import.itunes" => {
             crate::import::library_action(app, id)
         }
         _ => {
-            if let Some(l) = id.strip_prefix("player.hotcue.clear.") {
+            if let Some(l) = id.strip_prefix("perform.layout.set.") {
+                crate::decks::set_perform_layout(app, l);
+            } else if let Some(l) = id.strip_prefix("player.hotcue.clear.") {
                 ui.invoke_remove_hot_cue(slot(l));
             } else if let Some(l) = id.strip_prefix("player.hotcue.") {
                 ui.invoke_hot_cue(slot(l));

@@ -35,7 +35,7 @@ use std::cell::Cell;
 use std::path::{Path, PathBuf};
 
 /// Version 2 adds the `my_tag` table.
-pub const SCHEMA_VERSION: i64 = 2;
+pub const SCHEMA_VERSION: i64 = 3;
 
 #[derive(Debug, thiserror::Error)]
 pub enum LibraryError {
@@ -164,6 +164,11 @@ impl Library {
                  );
                  CREATE INDEX IF NOT EXISTS my_tag_value ON my_tag (category, value);",
             )?;
+        }
+        // Version 3: active loops (a fresh schema already has the column).
+        let has_active: i64 = tx.query_row("SELECT COUNT(*) FROM pragma_table_info('cue') WHERE name = 'active'", [], |r| r.get(0))?;
+        if has_active == 0 {
+            tx.execute_batch("ALTER TABLE cue ADD COLUMN active INTEGER NOT NULL DEFAULT 0;")?;
         }
         tx.execute("UPDATE meta SET value = ?1 WHERE key = 'schema_version'", [SCHEMA_VERSION.to_string()])?;
         tx.commit()?;
@@ -304,8 +309,31 @@ mod tests {
             conn.execute("INSERT INTO meta (key, value) VALUES ('schema_version', '1')", []).unwrap();
         }
         let lib = Library::open(&p).unwrap();
-        assert_eq!(lib.schema_version().unwrap(), 2);
+        assert_eq!(lib.schema_version().unwrap(), SCHEMA_VERSION);
         assert!(lib.my_tag_catalog().unwrap().is_empty());
+    }
+
+    #[test]
+    fn migrates_version_2_to_3_active_loops() {
+        let dir = tempfile::tempdir().unwrap();
+        let p = dir.path().join("library.sqlite");
+        {
+            let conn = Connection::open(&p).unwrap();
+            // A version 2 cue table has no `active` column.
+            let old = include_str!("schema.sql").replace(",\n    active   INTEGER NOT NULL DEFAULT 0   -- active loop (schema 3)", "");
+            assert!(!old.contains("active   INTEGER"));
+            conn.execute_batch(&old).unwrap();
+            conn.execute("INSERT INTO meta (key, value) VALUES ('schema_version', '2')", []).unwrap();
+        }
+        let mut lib = Library::open(&p).unwrap();
+        assert_eq!(lib.schema_version().unwrap(), 3);
+        let t = crate::test_util::track(&mut lib, "Looped", Some(120.0), None);
+        let looped = od_core::Cue { loop_end: Some(12.0), active: true, ..od_core::Cue::memory(8.0) };
+        let plain = od_core::Cue { active: true, ..od_core::Cue::memory(20.0) };
+        lib.set_cues(t, vec![looped, plain]).unwrap();
+        let back = lib.cues(t).unwrap();
+        assert!(back.iter().any(|c| c.start == 8.0 && c.active), "an active loop keeps its flag");
+        assert!(back.iter().any(|c| c.start == 20.0 && !c.active), "only loops can be active");
     }
 
     #[test]

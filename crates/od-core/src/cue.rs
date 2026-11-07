@@ -30,6 +30,10 @@ pub struct Cue {
     pub label: String,
     pub color: Option<CueColor>,
     pub source: DataSource,
+    /// Active loop: a stored loop that engages by itself when playback
+    /// reaches it (loops only).
+    #[serde(default)]
+    pub active: bool,
 }
 
 impl Cue {
@@ -41,6 +45,7 @@ impl Cue {
             label: String::new(),
             color: None,
             source: DataSource::Manual,
+            active: false,
         }
     }
 

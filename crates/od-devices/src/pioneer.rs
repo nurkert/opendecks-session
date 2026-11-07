@@ -15,6 +15,50 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::path::{Path, PathBuf};
 
 const PDB_PATH: &str = "PIONEER/rekordbox/export.pdb";
+const MYSETTING_PATH: &str = "PIONEER/MYSETTING.DAT";
+/// Library meta key with the player preferences for sticks (JSON of
+/// [`StickPlayerSettings`]), kept up to date by the app.
+pub const MYSETTING_META: &str = "pioneer.mysetting";
+
+/// Player preferences written to sticks (`MYSETTING.DAT`).
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct StickPlayerSettings {
+    pub quantize: bool,
+    pub auto_cue: bool,
+    pub master_tempo: bool,
+    /// "six", "ten", "sixteen" or "wide".
+    pub tempo_range: String,
+    pub jog_vinyl: bool,
+    /// "en" or "de".
+    pub language: String,
+}
+
+impl Default for StickPlayerSettings {
+    fn default() -> Self {
+        Self { quantize: true, auto_cue: true, master_tempo: false, tempo_range: "ten".into(), jog_vinyl: true, language: "en".into() }
+    }
+}
+
+/// The stored preferences (or the defaults) as `MYSETTING.DAT` values.
+pub fn player_settings(meta: Option<&str>) -> od_format_pioneer::mysetting::PlayerSettings {
+    use od_format_pioneer::mysetting::{Language, PlayerSettings, TempoRange};
+    let s: StickPlayerSettings = meta.and_then(|j| serde_json::from_str(j).ok()).unwrap_or_default();
+    PlayerSettings {
+        quantize: s.quantize,
+        auto_cue: s.auto_cue,
+        master_tempo: s.master_tempo,
+        tempo_range: match s.tempo_range.as_str() {
+            "six" => TempoRange::Six,
+            "sixteen" => TempoRange::Sixteen,
+            "wide" => TempoRange::Wide,
+            _ => TempoRange::Ten,
+        },
+        jog_vinyl: s.jog_vinyl,
+        language: if s.language.starts_with("de") { Language::German } else { Language::English },
+        ..PlayerSettings::default()
+    }
+}
 
 /// A change made on the stick outside OpenDecks, waiting for the user.
 #[derive(Clone, Debug, PartialEq)]
@@ -248,6 +292,9 @@ impl PioneerWriter {
         let today = lib.now().map_err(|e| e.to_string())?.get(..10).unwrap_or_default().to_string();
         let db = ExportDatabase { tracks: export_tracks, playlists, history, export_date: today };
         od_format_native::write_atomic(&stick_file(ctx.root, PDB_PATH), &db.to_pdb_bytes()).map_err(|e| e.to_string())?;
+        // 4. Player preferences (`MYSETTING.DAT`) from the library's settings.
+        let my = player_settings(lib.meta(MYSETTING_META).ok().flatten().as_deref());
+        od_format_native::write_atomic(&stick_file(ctx.root, MYSETTING_PATH), &od_format_pioneer::mysetting::to_bytes(&my)).map_err(|e| e.to_string())?;
 
         state.tracks = new_state_tracks;
         state.save(ctx.root).map_err(|e| e.to_string())
@@ -317,6 +364,22 @@ mod tests {
         sync_device(lib, dev, stick, &mut writers, &SyncOptions::default(), &AtomicBool::new(false), |_| {})
             .unwrap()
             .proposals
+    }
+
+    /// Sync writes `MYSETTING.DAT` from the library's player settings.
+    #[test]
+    fn writes_mysetting_from_the_library_settings() {
+        let (_dir, mut lib, stick, _id, dev) = setup();
+        sync(&mut lib, dev, &stick);
+        let b = std::fs::read(stick.join(MYSETTING_PATH)).unwrap();
+        assert_eq!(b, od_format_pioneer::mysetting::to_bytes(&player_settings(None)), "defaults without stored settings");
+        let s = StickPlayerSettings { quantize: false, tempo_range: "wide".into(), language: "de".into(), ..Default::default() };
+        lib.set_meta(MYSETTING_META, &serde_json::to_string(&s).unwrap()).unwrap();
+        sync(&mut lib, dev, &stick);
+        let b = std::fs::read(stick.join(MYSETTING_PATH)).unwrap();
+        // Data bytes are 1-based from offset 104: quantize 11, language 13, tempo range 37.
+        assert_eq!((b[104 + 10], b[104 + 12], b[104 + 36]), (0x80, 0x83, 0x83));
+        assert_eq!(u16::from_le_bytes([b[144], b[145]]), od_format_pioneer::mysetting::crc16_xmodem(&b[..144]));
     }
 
     #[test]

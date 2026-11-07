@@ -142,6 +142,20 @@ pub struct ControllerSettings {
     pub flx10: Flx10Prefs,
 }
 
+/// The player preferences sticks carry, as the JSON the Pioneer sync reads
+/// (`od_devices::pioneer::StickPlayerSettings`).
+pub(crate) fn stick_player_settings(s: &Settings) -> String {
+    let p = od_devices::pioneer::StickPlayerSettings {
+        quantize: s.deck.quantize,
+        auto_cue: s.deck.auto_cue,
+        master_tempo: false,
+        tempo_range: s.deck.tempo_range.clone(),
+        jog_vinyl: s.deck.jog_mode != "bend",
+        language: s.language(),
+    };
+    serde_json::to_string(&p).unwrap_or_default()
+}
+
 /// DDJ-FLX10 utility settings (`midi_tools::flx10_settings`). The defaults
 /// are the vendor utility's defaults.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -614,6 +628,19 @@ pub fn library_path(flag: Option<PathBuf>) -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn stick_player_settings_follow_the_deck_defaults() {
+        let mut s = Settings::default();
+        s.deck.quantize = false;
+        s.deck.tempo_range = "sixteen".into();
+        s.deck.jog_mode = "bend".into();
+        s.view.language = "de".into();
+        let p = od_devices::pioneer::player_settings(Some(&stick_player_settings(&s)));
+        assert!(!p.quantize && !p.jog_vinyl && p.auto_cue);
+        assert_eq!(p.tempo_range, od_format_pioneer::mysetting::TempoRange::Sixteen);
+        assert_eq!(p.language, od_format_pioneer::mysetting::Language::German);
+    }
 
     #[test]
     fn json_round_trip() {

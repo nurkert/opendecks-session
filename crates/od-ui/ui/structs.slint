@@ -141,6 +141,8 @@ export struct CueMark {
     pos: float,
     end: float,
     is-loop: bool,
+    // Active loop: engages by itself when playback reaches it.
+    active: bool,
     time: string,
     label: string,
     // Stored cue colour; transparent = the slot's line colour.

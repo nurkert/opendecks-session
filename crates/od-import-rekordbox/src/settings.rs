@@ -1662,6 +1662,28 @@ mod tests {
         assert!(toml.contains("\"browser.load.deck1\" = [\"`\", \"Space\"]\n"));
     }
 
+    /// What OpenDecks writes to sticks reads back with this reader.
+    #[test]
+    fn written_mysetting_reads_back() {
+        use od_format_pioneer::mysetting::{self, Language, PlayerSettings};
+        let my = PlayerSettings {
+            quantize: false,
+            auto_cue: false,
+            master_tempo: true,
+            tempo_range: mysetting::TempoRange::Sixteen,
+            language: Language::German,
+            ..Default::default()
+        };
+        let f = SettingsFiles { mysetting: Some(mysetting::to_bytes(&my)), ..Default::default() };
+        let (s, r) = parse(&f);
+        assert!(r.unmapped_files.is_empty(), "{:?}", r.unmapped_files);
+        assert_eq!(s.quantize, Some(false));
+        assert_eq!(s.auto_cue, [Some(false); 4]);
+        assert_eq!(s.master_tempo, [Some(true); 4]);
+        assert_eq!(s.tempo_range, [Some(TempoRange::Sixteen); 4]);
+        assert_eq!(s.language.as_deref(), Some("de"));
+    }
+
     #[test]
     fn my_settings_files() {
         // MYSETTING.DAT: quantize on, auto cue level -48 dB, German,
