@@ -4915,3 +4915,63 @@ msgctxt "XfAssignGrid"
 msgid "Crossfader: deck to side B (again: through)"
 msgstr "Crossfader: Deck auf Seite B (erneut: durch)"
 
+
+msgctxt "FxUnit"
+msgid "{} BEATS"
+msgstr "{} BEATS"
+
+msgctxt "KioskDeck"
+msgid "Click: mute / unmute · wheel: level"
+msgstr "Klick: stumm / laut · Mausrad: Pegel"
+
+msgctxt "KioskDeck"
+msgid "Key shift: down / up a semitone — click the value to reset"
+msgstr "Key Shift: einen Halbton tiefer / höher — Wert anklicken zum Zurücksetzen"
+
+msgctxt "KioskDeck"
+msgid "Key sync: match the key of the master deck"
+msgstr "Key Sync: an die Tonart des Master-Decks anpassen"
+
+msgctxt "KioskDeck"
+msgid "LOAD SELECTED"
+msgstr "AUSWAHL LADEN"
+
+msgctxt "KioskDeck"
+msgid "Master deck: the others sync to it"
+msgstr "Master-Deck: die anderen synchronisieren sich darauf"
+
+msgctxt "KioskDeck"
+msgid "Not loaded"
+msgstr "Nicht geladen"
+
+msgctxt "KioskDeck"
+msgid "The channel's EQ knobs control the parts: HI vocals, MID inst, LOW drums"
+msgstr "Die EQ-Regler des Kanals steuern die Parts: HI Vocals, MID Instrumente, LOW Drums"
+
+msgctxt "SamplerPanel"
+msgid "LOAD"
+msgstr "LADEN"
+
+msgctxt "TopBar"
+msgid "Appearance: dark, light or system"
+msgstr "Darstellung: dunkel, hell oder System"
+
+msgctxt "TopBar"
+msgid "CDJ practice"
+msgstr "CDJ-Übung"
+
+msgctxt "TopBar"
+msgid "More"
+msgstr "Mehr"
+
+msgctxt "TopBar"
+msgid "The mixer is on the controller"
+msgstr "Der Mixer ist am Controller"
+
+msgctxt "TopBar"
+msgid "VERT"
+msgstr "VERT"
+
+msgctxt "TopBar"
+msgid "Work mode"
+msgstr "Arbeitsmodus"

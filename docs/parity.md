@@ -222,6 +222,43 @@ where text fits, contrast ≥ 4.5:1 (large text ≥ 3:1), no horizontal window
 scroll, fixed band heights with the browser absorbing growth, disabled
 controls dimmed in place, scales 0.75–2.0, and no modal dialog in Perform.
 
+## Kiosk exemptions (controller-first layout)
+
+The kiosk (800×480, 44 px targets) is operated mainly through the
+controller (SPEC §3.3), so its touch layout shows what the controller
+cannot show or do and leaves out what the controller carries physically. A
+view lists these per group, only for the `kiosk` size:
+
+```toml
+[[view.kiosk]]
+omit = ["mixer.ch1.trim", "mixer.ch1.fader"]
+reason = "The channel strips of the controller's mixer"
+# shown_in = "perform.browse"   # only for elements shown on another kiosk screen
+```
+
+Rules (checked by `features_toml_is_valid`, applied by the view test):
+
+- Only elements the controller carries may be omitted: mixer channel strips
+  (trim, EQ, cue, fader), headphone knobs, crossfader and its assign,
+  master level, pads and pad modes, the loop section, the tempo fader and its
+  range, the Beat FX level / beat keys / channel select, Colour FX, sampler
+  pads. Each group names the hardware control in `reason`.
+- Never omitted: track info (number, artwork, title, artist), waveforms and
+  overviews, BPM / key / time read-outs, the platter read-out, SYNC /
+  MASTER, CUE / PLAY, part mutes, load, record, settings, the clock, MIDI and
+  stick state, the browser list. Such elements may only move to another
+  kiosk screen: `shown_in` names the kiosk view that checks them (the
+  decks screen lists the browser through `perform.browse`).
+- Views that are not part of the kiosk (Prepare, Preferences) drop `kiosk`
+  from `sizes` with a note; the kiosk boots into Perform (SPEC §3.3).
+
+The touch layout itself turns on with the kiosk configuration (or a window
+no taller than 480 px): `Theme.touch` raises every key to 44 px, the top
+bar condenses (mode key, panel switches, settings, meter, clock, the rest in
+⋯), decks become `KioskDeck` (header, overview with part mutes, transport
+row), the browse screen has a two-column 44 px source rail, 44 px rows,
+headers and tree items.
+
 ## Becoming the CI gate
 
 Today CI runs `parity check` in a non-blocking job (`parity` in

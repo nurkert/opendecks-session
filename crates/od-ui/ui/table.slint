@@ -273,9 +273,9 @@ component TrackLine inherits Rectangle {
     }
 
     HorizontalLayout {
-        padding-left: 16px;
-        padding-right: 36px;
-        spacing: 12px;
+        padding-left: Theme.touch ? 46px : 16px;
+        padding-right: Theme.touch ? 52px : 36px;
+        spacing: Theme.touch ? 6px : 12px;
         Cell {
             width: Columns.pos;
             text: root.show-position ? root.item.position : "";
@@ -380,7 +380,7 @@ export component TrackTable inherits Rectangle {
     VerticalLayout {
         header := Rectangle {
             accessible-label: "browser.header"; accessible-role: groupbox;
-            height: 30px;
+            height: Theme.touch ? 44px : 30px;
             column-menu := ContextMenuArea {
                 Menu {
                     for c in root.column-choices: MenuItem {
@@ -394,9 +394,9 @@ export component TrackTable inherits Rectangle {
                 }
             }
             HorizontalLayout {
-                padding-left: 16px;
-                padding-right: 36px;
-                spacing: 12px;
+                padding-left: Theme.touch ? 46px : 16px;
+                padding-right: Theme.touch ? 52px : 36px;
+                spacing: Theme.touch ? 6px : 12px;
                 HeaderCell {
                     accessible-label: "browser.header.position"; accessible-role: button;
                     width: Columns.pos;
@@ -430,10 +430,10 @@ export component TrackTable inherits Rectangle {
             Rectangle {
                 accessible-label: "browser.header.filter"; accessible-role: button;
                 accessible-checkable: true; accessible-checked: root.filter-open;
-                x: 0; y: 3px; width: 24px; height: 24px;
+                x: 0; y: (parent.height - self.height) / 2; width: Theme.target; height: Theme.target;
                 background: ft.has-hover ? Theme.plate : transparent;
                 Path {
-                    x: 6px; y: 7px; width: 12px; height: 10px;
+                    x: (parent.width - 12px) / 2; y: (parent.height - 10px) / 2; width: 12px; height: 10px;
                     viewbox-width: 12; viewbox-height: 10;
                     commands: "M 0 1 L 12 1 M 2 5 L 10 5 M 4.5 9 L 7.5 9";
                     stroke: root.filter.active ? Theme.attention : root.filter-open ? Theme.bone : Theme.bone-3;
@@ -443,10 +443,10 @@ export component TrackTable inherits Rectangle {
             }
             Rectangle {
                 accessible-label: "browser.header.columns"; accessible-role: button;
-                x: parent.width - 30px; y: 3px; width: 24px; height: 24px;
+                x: parent.width - Theme.target - 6px; y: (parent.height - self.height) / 2; width: Theme.target; height: Theme.target;
                 background: ct.has-hover ? Theme.plate : transparent;
                 Path {
-                    x: 6px; y: 7px; width: 12px; height: 10px;
+                    x: (parent.width - 12px) / 2; y: (parent.height - 10px) / 2; width: 12px; height: 10px;
                     viewbox-width: 12; viewbox-height: 10;
                     commands: "M 0.5 0 L 0.5 10 M 4.5 0 L 4.5 10 M 8.5 0 L 8.5 10 M 11.5 0 L 11.5 10";
                     stroke: Theme.bone-3;

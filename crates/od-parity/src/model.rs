@@ -190,6 +190,50 @@ pub struct View {
     pub note: String,
     #[serde(rename = "region")]
     pub regions: Vec<Region>,
+    /// Kiosk (controller-first layout, SPEC §3.3): required elements that
+    /// the controller carries physically and the 800×480 touch layout
+    /// leaves out, each group with its reason. Only for the `kiosk` size.
+    #[serde(default, rename = "kiosk")]
+    pub kiosk_omit: Vec<KioskOmit>,
+}
+
+impl View {
+    /// Whether `label` is left out at size `size` (kiosk exemptions).
+    pub fn omitted_at(&self, size: &str, label: &str) -> bool {
+        size == KIOSK_SIZE && self.kiosk_omit.iter().any(|k| k.omit.iter().any(|l| l == label))
+    }
+}
+
+/// Size id of the kiosk (Raspberry Pi touch screen).
+pub const KIOSK_SIZE: &str = "kiosk";
+
+/// Labels a kiosk exemption may never name: what the controller cannot
+/// show or do (track info, waveforms, read-outs, the browser list, load,
+/// sync / master, record, settings, stick state). Matched against the part
+/// after the scope (`deck1.title` → `title`) and against whole labels.
+pub const KIOSK_NEVER_OMIT: &[&str] = &[
+    "number", "artwork", "title", "artist", "bpm", "key", "time-remaining", "time-elapsed", "overview", "beat-sync", "master",
+    "cue", "play", "load", "platter", "stem.vocal", "stem.inst", "stem.drums", "stem.bass",
+];
+pub const KIOSK_NEVER_OMIT_LABELS: &[&str] = &[
+    "wave.lane1", "wave.lane2", "wave.lane3", "wave.lane4", "wave.playhead", "browser.rows", "browser.list-title", "browser.search",
+    "browser.target", "rec.toggle", "rec.time", "rec.meter", "topbar.settings", "topbar.status.midi", "topbar.clock",
+    "browser.tree.devices", "browser.tree.device-sync", "status.activity", "status.summary",
+];
+
+/// One group of kiosk exemptions of a view.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct KioskOmit {
+    pub omit: Vec<String>,
+    /// Why the touch layout leaves these out (which hardware control
+    /// carries them, or which kiosk screen shows them).
+    pub reason: String,
+    /// The kiosk view that shows these elements instead (another screen of
+    /// the kiosk, e.g. the browse screen); required for elements the
+    /// controller cannot carry ([`KIOSK_NEVER_OMIT`]).
+    #[serde(default)]
+    pub shown_in: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

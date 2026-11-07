@@ -59,49 +59,58 @@ component DeckPoints inherits HorizontalLayout {
 }
 
 export component MplPanel inherits Rectangle {
-    height: 40px;
+    // Kiosk: 44 px keys on one line, the points of the decks on the next.
+    height: Theme.touch ? 84px : 40px;
     background: Theme.ground-band;
+    VerticalLayout {
+    padding-left: 12px; padding-right: 12px; padding-top: Theme.touch ? 3px : 7px; padding-bottom: Theme.touch ? 3px : 7px;
+    spacing: 4px;
     HorizontalLayout {
-        padding-left: 12px; padding-right: 12px; padding-top: 7px; padding-bottom: 7px;
         spacing: 6px;
         PlateButton {
-            accessible-label: "mpl.mix-in"; accessible-role: button; horizontal-stretch: 0; compact: true;
+            accessible-label: "mpl.mix-in"; accessible-role: button; horizontal-stretch: 0; compact: !Theme.touch; tall: Theme.touch;
             label: @tr("MIX IN"); tone: Theme.live;
             tooltip: @tr("Set the mix-in point of the edited deck at its playhead");
             clicked => { Mpl.act("mix-in"); }
         }
         PlateButton {
-            accessible-label: "mpl.mix-out"; accessible-role: button; horizontal-stretch: 0; compact: true;
+            accessible-label: "mpl.mix-out"; accessible-role: button; horizontal-stretch: 0; compact: !Theme.touch; tall: Theme.touch;
             label: @tr("MIX OUT"); tone: Theme.fault;
             tooltip: @tr("Set the mix-out point of the edited deck at its playhead");
             clicked => { Mpl.act("mix-out"); }
         }
         PlateButton {
-            accessible-label: "mpl.prev"; accessible-role: button; horizontal-stretch: 0; compact: true; glyph: "prev";
+            accessible-label: "mpl.prev"; accessible-role: button; horizontal-stretch: 0; compact: !Theme.touch; tall: Theme.touch; glyph: "prev";
             tooltip: @tr("Edited deck: back to the previous point");
             clicked => { Mpl.act("prev"); }
         }
         PlateButton {
-            accessible-label: "mpl.next"; accessible-role: button; horizontal-stretch: 0; compact: true; glyph: "next";
+            accessible-label: "mpl.next"; accessible-role: button; horizontal-stretch: 0; compact: !Theme.touch; tall: Theme.touch; glyph: "next";
             tooltip: @tr("Edited deck: on to the next point");
             clicked => { Mpl.act("next"); }
         }
         PlateButton {
-            accessible-label: "mpl.edit"; accessible-role: button; accessible-value: Mpl.edit-deck; horizontal-stretch: 0; compact: true;
+            accessible-label: "mpl.edit"; accessible-role: button; accessible-value: Mpl.edit-deck; horizontal-stretch: 0; compact: !Theme.touch; tall: Theme.touch;
             label: @tr("EDIT DECK {}", Mpl.edit-deck); tone: Theme.deck-color(Mpl.edit-deck);
             tooltip: @tr("Switch the deck the points are set on");
             clicked => { Mpl.act("edit"); }
         }
         PlateButton {
             accessible-label: "mpl.link"; accessible-role: button; accessible-checkable: true; accessible-checked: Mpl.link;
-            horizontal-stretch: 0; compact: true;
+            horizontal-stretch: 0; compact: !Theme.touch; tall: Theme.touch;
             label: "LINK"; active: Mpl.link; tone: Theme.attention;
             tooltip: Mpl.link ? @tr("Stop linking the mix points") : @tr("Link: the other deck starts from its mix-in point when this one reaches its mix-out point");
             clicked => { Mpl.act("link"); }
         }
         Rectangle { width: 10px; }
+        if !Theme.touch: HorizontalLayout { spacing: 6px; for d in Mpl.decks: DeckPoints { d: d; editing: d.deck == Mpl.edit-deck; } }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    if Theme.touch: HorizontalLayout {
+        spacing: 16px;
         for d in Mpl.decks: DeckPoints { d: d; editing: d.deck == Mpl.edit-deck; }
         Rectangle { horizontal-stretch: 1; }
+    }
     }
     HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
 }

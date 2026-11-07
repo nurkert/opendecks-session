@@ -59,7 +59,7 @@ export component TreeItem inherits Rectangle {
     callback add();
     // Something was dropped after dragging this node: DragState.target.
     callback dropped(int);
-    height: 26px;
+    height: Theme.touch ? 44px : 26px;
     background: touch.has-hover ? Theme.plate : transparent;
     // Library nodes can be dragged to a new place in the tree.
     property <bool> draggable: root.labelled && root.item.id >= 0;

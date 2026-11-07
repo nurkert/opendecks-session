@@ -90,6 +90,9 @@ export global Theme {
     out property <length> rail-x: 28px;
     // Raised to touch size in kiosk mode.
     in-out property <length> row-height: 28px;
+    // Touch layout (kiosk, 800 × 480): every key at least 44 px.
+    in-out property <bool> touch;
+    out property <length> target: root.touch ? 44px : 24px;
 
     // Deck n (1-based) to its emission line.
     public pure function deck-color(deck: int) -> color {

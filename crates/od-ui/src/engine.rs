@@ -210,6 +210,11 @@ fn frame(app: &App) {
     if app.ui.get_narrow_screen() != narrow {
         app.ui.set_narrow_screen(narrow);
     }
+    // Touch layout: the kiosk, or a window as short as the kiosk screen.
+    let touch = app.state.borrow().config.kiosk || (app.ui.window().size().height as f32 / scale) <= 480.0;
+    if app.ui.global::<crate::Theme>().get_touch() != touch {
+        app.ui.global::<crate::Theme>().set_touch(touch);
+    }
     let short = (app.ui.window().size().height as f32 / scale) < 860.0;
     if app.ui.get_short_screen() != short {
         app.ui.set_short_screen(short);

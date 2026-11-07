@@ -363,7 +363,7 @@ fn check_view(view: &View, size: &Size) -> ViewResult {
     if let Err(reason) = open_view(&ui, view, kiosk) {
         res.reason = reason;
         for r in &view.regions {
-            for l in &r.elements {
+            for l in r.elements.iter().filter(|l| !view.omitted_at(&size.id, l)) {
                 res.elements.push(ElementResult { label: l.clone(), ..Default::default() });
             }
         }
@@ -394,7 +394,13 @@ fn check_view(view: &View, size: &Size) -> ViewResult {
         (found, Rect { x: 0.0, y: 0.0, w, h })
     };
     for region in &view.regions {
-        check_region(region, &found, &window, size, &mut res);
+        // Kiosk: elements the controller carries are not on the touch screen.
+        let kept: Vec<String> = region.elements.iter().filter(|l| !view.omitted_at(&size.id, l)).cloned().collect();
+        if kept.is_empty() {
+            continue;
+        }
+        let region = Region { elements: kept, ..region.clone() };
+        check_region(&region, &found, &window, size, &mut res);
     }
     res
 }

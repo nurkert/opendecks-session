@@ -310,8 +310,8 @@ fn mode_switch_keeps_loaded_decks() {
 }
 
 /// Kiosk: the Raspberry Pi configuration opens in Perform on the browse
-/// screen (nothing is loaded yet) with touch-sized rows; DECKS leads to the
-/// decks with touch-sized transport keys.
+/// screen (nothing is loaded yet) with touch-sized rows and source keys;
+/// DECKS leads to the decks with touch-sized transport keys.
 #[test]
 fn kiosk_opens_perform_with_touch_targets() {
     let ui = Ui::start(Fixture::new(), (800, 480), true);
@@ -319,7 +319,9 @@ fn kiosk_opens_perform_with_touch_targets() {
     assert!(ui.app.ui.get_kiosk());
     assert_eq!(ui.app.ui.get_mode(), "perform", "the kiosk starts in Perform");
     assert!(ui.app.ui.get_browser_open(), "on the browse screen");
-    assert!(!ui.has("browser.tree"), "no sidebar on the small screen");
+    let rail = Rect::of(&ui.get("browser.rail.collection"));
+    assert!(rail.w >= 44.0 && rail.h >= 44.0, "the source rail has touch keys: {rail:?}");
+    assert!(ui.app.ui.global::<crate::Theme>().get_touch(), "touch layout");
     assert_eq!(ui.app.ui.global::<crate::Theme>().get_row_height(), 44.0, "touch rows");
     ui.click("browser.decks");
     assert!(!ui.app.ui.get_browser_open());

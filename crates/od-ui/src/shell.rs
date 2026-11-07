@@ -88,6 +88,7 @@ pub(crate) fn list_summary(count: usize, seconds: f64, bytes: u64, selected: usi
 pub(crate) fn setup_window(ui: &AppWindow, config: &AppConfig, settings: &Settings) {
     apply_language(&settings.language());
     ui.set_kiosk(config.kiosk);
+    ui.global::<crate::Theme>().set_touch(config.kiosk);
     apply_theme(&ui.global::<crate::Theme>(), settings, config.lite);
     ui.set_show_phrases(settings.view.phrases);
     ui.set_show_phrases_overview(settings.view.phrases_overview);

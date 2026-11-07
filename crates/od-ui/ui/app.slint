@@ -475,7 +475,8 @@ export component AppWindow inherits Window {
     // shortcuts still work). Preferences open with ⌘, / Ctrl+, as users
     // expect; every other shortcut goes through the configurable keymap.
     MenuBar {
-        visible: Platform.os == OperatingSystemType.macos;
+        // Not in the kiosk (full screen on the Pi, no menu bar).
+        visible: Platform.os == OperatingSystemType.macos && !root.kiosk;
         Menu {
             title: @tr("File");
             MenuItem { title: @tr("Preferences…"); shortcut: @keys(Control + ","); activated => { root.open-preferences(); } }
@@ -590,9 +591,11 @@ export component AppWindow inherits Window {
 
             // ── Upper half: player (Prepare) or decks + mixer (Perform) ──
             upper := VerticalLayout {
-            vertical-stretch: root.kiosk ? 1 : 0;
+            // Kiosk: the decks take the screen, except in the BROWSE layout
+            // where the browser below gets the room.
+            vertical-stretch: root.kiosk && !(root.mode == "perform" && PerformLayout.layout == "browse") ? 1 : 0;
             preferred-height: root.mode == "prepare" && root.prepare-layout == "browser" ? 0px : root.upper-height > 0 ? root.upper-height
-                : (root.mode == "prepare" ? (root.prepare-layout == "two" ? 400px : root.prepare-layout == "dual" ? 150px : root.prepare-layout == "simple" ? 60px : 280px) : PerformLayout.layout == "browse" ? 220px : 560px + (PerformLayout.layout == "standard" ? (PerformLayout.wave-size == 2 ? 140px : PerformLayout.wave-size == 0 ? -40px : 0px) : 0px));
+                : (root.mode == "prepare" ? (root.prepare-layout == "two" ? 400px : root.prepare-layout == "dual" ? 150px : root.prepare-layout == "simple" ? 60px : 280px) : PerformLayout.layout == "browse" ? (root.kiosk ? 0px : 220px) : 560px + (PerformLayout.layout == "standard" ? (PerformLayout.wave-size == 2 ? 140px : PerformLayout.wave-size == 0 ? -40px : 0px) : 0px));
             if root.mode == "prepare" && (root.prepare-layout == "player" || root.prepare-layout == "two"): PreparePlayer {
                 phrases: root.show-phrases-overview ? root.track-phrases : [];
                 info-width: root.sidebar-width;
@@ -642,7 +645,7 @@ export component AppWindow inherits Window {
                 act(w) => { root.player-act(w); }
             }
             // Mix Point Link above the waveforms (top bar MIX POINT).
-            if root.mode == "perform" && root.mpl-panel && !root.kiosk: MplPanel { }
+            if root.mode == "perform" && root.mpl-panel: MplPanel { }
             if root.mode == "prepare" && root.prepare-layout == "two": MiniPlayer {
                 index: 2; view: root.mini2;
                 seek(p) => { root.mini-seek(2, p); }
@@ -662,7 +665,9 @@ export component AppWindow inherits Window {
                 act(w) => { root.mini-act(1, w); }
             }
             if root.mode == "lighting": LightingView { vertical-stretch: 1; }
-            if root.mode == "perform" && !(root.kiosk && root.browser-open): PerformView {
+            // Kiosk: the browse screen replaces the decks, except in the
+            // BROWSE layout (decks reduced, the browser below).
+            if root.mode == "perform" && (!(root.kiosk && root.browser-open) || PerformLayout.layout == "browse"): PerformView {
                 vertical-stretch: 1;
                 show-rec: root.rec-panel;
                 decks: root.decks;
@@ -768,12 +773,12 @@ export component AppWindow inherits Window {
             }
 
             // ── Lower half: the browser ──
-            if !root.kiosk || root.browser-open: HorizontalLayout {
+            if !root.kiosk || root.browser-open || (root.mode == "perform" && PerformLayout.layout == "browse"): HorizontalLayout {
                 vertical-stretch: 1;
                 // The source rail needs its nine sources at the 24 px minimum.
                 min-height: root.kiosk ? 180px : 218px;
-                if !root.kiosk: Sidebar {
-                    width: root.sidebar-width;
+                Sidebar {
+                    width: root.kiosk ? 190px : root.sidebar-width;
                     tree: root.tree;
                     selected-node: root.selected-node;
                     section: root.section;
@@ -815,8 +820,9 @@ export component AppWindow inherits Window {
                     browse-focus: root.browse-focus == "tree";
                     open-sampler => { root.menu-action("browser.source.sampler"); }
                 }
-                if !root.kiosk: Splitter {
+                Splitter {
                     accessible-label: "browser.splitter"; accessible-role: slider;
+                    thickness: Theme.target;
                     horizontal: false;
                     tooltip: @tr("Drag to resize, double-click to reset");
                     dragged(d) => { root.sidebar-width = clamp(root.sidebar-width + d, 180px, 480px); }
@@ -824,25 +830,19 @@ export component AppWindow inherits Window {
                 }
                 VerticalLayout {
                     horizontal-stretch: 1;
-                    padding-left: root.kiosk ? 14px : 4px;
+                    padding-left: 4px;
                     padding-right: 12px;
                     padding-top: 8px;
                     spacing: 8px;
 
                     // List header: title, count, search and list actions.
                     if root.section == "library": HorizontalLayout {
-                        spacing: 10px;
+                        spacing: root.kiosk ? 6px : 10px;
                         height: root.kiosk ? 44px : 32px;
-                        if root.kiosk: PlateButton {
-                            horizontal-stretch: 0; compact: true; tall: true;
-                            accessible-label: "browser.decks"; accessible-role: button;
-                            label: @tr("DECKS"); tone: Theme.w486; tooltip: @tr("Back to the decks");
-                            clicked => { root.browser-open = false; }
-                        }
                         title := TextInput {
                             accessible-label: "browser.list-title"; accessible-role: text-input;
                             accessible-value: self.text; accessible-read-only: self.read-only;
-                            width: min(self.preferred-width + 8px, 360px);
+                            width: min(self.preferred-width + 8px, root.kiosk ? 120px : 360px);
                             text: root.node-title;
                             read-only: root.node-kind == "all" || root.node-kind == "explorer" || root.node-kind == "related" || root.node-kind == "history" || root.node-kind == "taglist" || root.read-only;
                             font-family: Theme.family; font-size: 18px; font-weight: 600;
@@ -851,11 +851,12 @@ export component AppWindow inherits Window {
                             single-line: true;
                             accepted => { root.rename-node(self.text); keys.focus(); }
                         }
-                        Caps { accessible-label: "browser.list-sub"; accessible-role: text; accessible-value: root.node-sub; text: root.node-sub; vertical-alignment: center; }
+                        // The kiosk shows the list summary in the status band only.
+                        if !root.kiosk: Caps { accessible-label: "browser.list-sub"; accessible-role: text; accessible-value: root.node-sub; text: root.node-sub; vertical-alignment: center; }
                         Rectangle { horizontal-stretch: 1; }
                         if root.node-kind == "all" && root.missing-count > 0 && !root.kiosk: PlateButton { accessible-label: "browser.find-moved"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("FIND {} MOVED FILES", root.missing-count); tone: Theme.fault; tooltip: @tr("Search a folder for tracks whose files have moved"); command: "browser.find.moved"; clicked => { root.find-moved-files(); } }
                         if root.node-kind == "all" && !root.kiosk: PlateButton { accessible-label: "browser.add-music"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("ADD MUSIC"); glyph: "plus"; tone: Theme.live; tooltip: @tr("Add a music folder"); command: "browser.add.music"; clicked => { root.import-folder(); } }
-                        if root.node-kind == "explorer": LineToggle {
+                        if root.node-kind == "explorer" && !root.kiosk: LineToggle {
                             accessible-label: "browser.recursive"; accessible-role: checkbox;
                             accessible-checkable: true; accessible-checked: self.checked;
                             horizontal-stretch: 0;
@@ -863,7 +864,7 @@ export component AppWindow inherits Window {
                             checked <=> root.explorer-recursive;
                             toggled(v) => { root.explorer-set-recursive(v); }
                         }
-                        if root.node-kind == "related": HorizontalLayout {
+                        if root.node-kind == "related" && !root.kiosk: HorizontalLayout {
                             spacing: 4px;
                             for d[i] in ["master", "1", "2", "3", "4"]: PlateButton {
                                 accessible-label: i == 0 ? "browser.related.master" : "browser.related.deck\{i}"; accessible-role: button;
@@ -893,10 +894,12 @@ export component AppWindow inherits Window {
                             clicked => { root.load-target = Math.mod(root.load-target + 1, max(2, root.decks.length) + 1); }
                         }
                         // Row density of the list (Preferences > View > Line spacing).
-                        if !root.kiosk: PlateButton {
+                        PlateButton {
                             accessible-label: "browser.density"; accessible-role: button;
                             accessible-value: root.density;
-                            horizontal-stretch: 0; compact: true;
+                            horizontal-stretch: 0; compact: !root.kiosk; tall: root.kiosk;
+                            // The touch screen keeps its 44 px rows.
+                            enabled: !root.kiosk;
                             label: root.density == "compact" ? @tr("COMPACT") : root.density == "roomy" ? @tr("ROOMY") : @tr("NORMAL");
                             tooltip: @tr("Row spacing of the list: compact, normal, roomy — click for the next");
                             clicked => { root.cycle-density(); }
@@ -912,6 +915,21 @@ export component AppWindow inherits Window {
                             placeholder: @tr("SEARCH  ⌘F");
                             text <=> root.search-text;
                             edited(t) => { root.search(t); }
+                        }
+                    }
+                    // Kiosk: the deck the related list follows, on its own line.
+                    if root.section == "library" && root.node-kind == "related" && root.kiosk: HorizontalLayout {
+                        spacing: 4px;
+                        height: 44px;
+                        alignment: start;
+                        for d[i] in ["master", "1", "2", "3", "4"]: PlateButton {
+                            accessible-label: i == 0 ? "browser.related.master" : "browser.related.deck\{i}"; accessible-role: button;
+                            accessible-checkable: true; accessible-checked: root.related-source == d;
+                            horizontal-stretch: 0; tall: true;
+                            label: i == 0 ? @tr("MASTER") : d;
+                            active: root.related-source == d; tone: Theme.w546;
+                            tooltip: i == 0 ? @tr("Tracks that fit after the master deck") : @tr("Tracks that fit after deck {}", d);
+                            clicked => { root.related-source-set(d); }
                         }
                     }
                     if root.section == "library" && root.node-kind == "smart": VerticalLayout {
@@ -1016,7 +1034,7 @@ export component AppWindow inherits Window {
                         toggle-filter => { root.toggle-filter(); }
                         filter-edit(f, v) => { root.filter-edit(f, v); }
                     }
-                    if root.section == "library" && root.sub-browser-open && !root.kiosk: SubBrowserPane {
+                    if root.section == "library" && root.sub-browser-open: SubBrowserPane {
                         height: 210px;
                         tree-width: min(root.sidebar-width, 240px);
                     }
@@ -1126,31 +1144,37 @@ export component AppWindow inherits Window {
                         Rectangle { vertical-stretch: 1; }
                     }
                 }
-                if root.my-tag-open && !root.kiosk && root.section == "library": MyTagPanel {
+                if root.my-tag-open && root.section == "library": MyTagPanel {
                     chips: root.my-tag-chips;
                     selection-count: root.selection-count;
                     read-only: root.read-only;
                     toggle(c, v) => { root.my-tag-toggle(c, v); }
                     add(t) => { root.my-tag-add(t); }
                 }
-                if root.related-open && !root.kiosk && root.section == "library": SuggestionPanel {
+                if root.related-open && root.section == "library": SuggestionPanel {
                     rows: root.suggestions;
                     reference: root.suggestion-reference;
                     activated(id) => { root.suggestion-activated(id); }
                     open-list => { root.suggestion-open(); }
                 }
-                if root.info-open && !root.kiosk && root.section == "library": InfoPanel {
+                if root.info-open && root.section == "library": InfoPanel {
                     accessible-label: "info.panel"; accessible-role: groupbox;
                     info: root.track-info;
                     edit(f, v) => { root.info-edit(f, v); }
                 }
                 // Right panel strip: the panels beside the list.
-                if !root.kiosk: HorizontalLayout {
+                HorizontalLayout {
                     VLine { weight: 1px; tone: Theme.rule; }
                     VerticalLayout {
-                        width: 38px;
-                        padding-top: 8px;
+                        width: root.kiosk ? 44px : 38px;
+                        padding-top: root.kiosk ? 0px : 8px;
                         spacing: 0px;
+                        // Kiosk browse screen: back to the decks.
+                        if root.kiosk && root.browser-open && PerformLayout.layout != "browse": RailItem {
+                            accessible-label: "browser.decks"; label: @tr("DECKS"); tone: Theme.w486;
+                            tooltip: @tr("Back to the decks");
+                            clicked => { root.browser-open = false; }
+                        }
                         RailItem {
                             accessible-label: "browser.panel.my-tag"; label: @tr("MYTAG"); tone: Theme.w436;
                             current: root.my-tag-open;

@@ -18,16 +18,16 @@ component Heading inherits Rectangle {
     // Accessible label of the heading text (test hook).
     in property <string> heading-label;
     callback act();
-    height: 30px;
+    height: Theme.touch ? 44px : 30px;
     Caps {
         accessible-label: root.heading-label;
-        x: 12px; y: 3px; height: 24px; vertical-alignment: center; text: root.label; color: Theme.bone-2; font-weight: 600;
+        x: 12px; y: 3px; height: Theme.target; vertical-alignment: center; text: root.label; color: Theme.bone-2; font-weight: 600;
     }
     if root.action != "": Rectangle {
         accessible-label: root.action-label; accessible-role: button;
-        x: parent.width - 32px; y: 3px; width: 24px; height: 24px;
+        x: parent.width - Theme.target - 8px; y: 3px; width: Theme.target; height: Theme.target;
         background: t.has-hover && root.action-enabled ? Theme.plate : transparent;
-        Glyph { x: 7px; y: 7px; width: 10px; height: 10px; kind: root.action; tone: root.action-enabled ? Theme.bone-2 : Theme.bone-3.with-alpha(0.5); }
+        Glyph { x: (parent.width - 10px) / 2; y: (parent.height - 10px) / 2; width: 10px; height: 10px; kind: root.action; tone: root.action-enabled ? Theme.bone-2 : Theme.bone-3.with-alpha(0.5); }
         t := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.action-enabled; mouse-cursor: root.action-enabled ? pointer : default; clicked => { root.act(); } }
     }
 }
@@ -84,7 +84,7 @@ component DeviceItem inherits Rectangle {
     touch := TouchArea { clicked => { root.open(); } }
     if root.device.connected: Rectangle {
         accessible-label: "browser.tree.device\{root.index}.sync"; accessible-role: button;
-        x: parent.width - 56px; y: 12px; width: 22px; height: 22px;
+        x: parent.width - 2 * Theme.target - 12px; y: (parent.height - self.height) / 2; width: Theme.target; height: Theme.target;
         background: s.has-hover ? Theme.plate : transparent;
         border-width: 1px; border-color: s.has-hover ? Theme.live : transparent;
         Glyph { x: 6px; y: 6px; width: 10px; height: 10px; kind: "sync"; tone: Theme.live; }
@@ -92,7 +92,7 @@ component DeviceItem inherits Rectangle {
     }
     if root.device.connected: Rectangle {
         accessible-label: "browser.tree.device\{root.index}.eject"; accessible-role: button;
-        x: parent.width - 30px; y: 12px; width: 22px; height: 22px;
+        x: parent.width - Theme.target - 8px; y: (parent.height - self.height) / 2; width: Theme.target; height: Theme.target;
         background: e.has-hover ? Theme.plate : transparent;
         border-width: 1px; border-color: e.has-hover ? Theme.bone-3 : transparent;
         Glyph { x: 6px; y: 6px; width: 10px; height: 10px; kind: "eject"; tone: Theme.bone-2; }
@@ -119,7 +119,7 @@ component ExplorerItem inherits Rectangle {
     callback clicked();
     callback toggled();
     callback remove();
-    height: 26px;
+    height: Theme.touch ? 44px : 26px;
     background: touch.has-hover ? Theme.plate : transparent;
     if root.selected: Rectangle {
         x: 0; y: parent.height / 2 - 1px; width: 8px; height: 2px;
@@ -177,8 +177,10 @@ export component RailItem inherits Rectangle {
     accessible-role: button;
     accessible-checkable: true;
     accessible-checked: root.current;
-    // Shrinks to the 24 px minimum target when the browser pane is short.
-    min-height: 24px; preferred-height: 32px; max-height: 32px;
+    // Shrinks to the 24 px minimum target when the browser pane is short;
+    // 44 px keys on the touch screen.
+    min-height: Theme.target; preferred-height: Theme.touch ? 44px : 32px; max-height: Theme.touch ? 44px : 32px;
+    min-width: Theme.touch ? 44px : 0px;
     background: touch.has-hover ? Theme.plate : transparent;
     Rectangle {
         x: 0; y: 4px; width: root.current ? 3px : 1px; height: parent.height - 8px;
@@ -241,63 +243,75 @@ export component Sidebar inherits Rectangle {
     in property <bool> browse-focus;
     background: Theme.ground;
 
+    property <[{ a11y: string, label: string, tone: color, tip: string }]> rail-items: [
+        { a11y: "browser.rail.collection", label: @tr("ALL"), tone: Theme.w486, tip: @tr("Collection: every track") },
+        { a11y: "browser.rail.playlists", label: @tr("LISTS"), tone: Theme.attention, tip: @tr("Playlists, sets and smart lists") },
+        { a11y: "browser.rail.related", label: @tr("REL"), tone: Theme.w546, tip: @tr("Related tracks: what fits after the master deck") },
+        { a11y: "browser.rail.sampler", label: @tr("SMPL"), tone: Theme.w656, tip: @tr("Sampler: open the sampler panel in Perform") },
+        { a11y: "browser.rail.explorer", label: @tr("FILES"), tone: Theme.bone-2, tip: @tr("Explorer: folders on disk") },
+        { a11y: "browser.rail.devices", label: "USB", tone: Theme.live, tip: @tr("Devices: USB sticks") },
+        { a11y: "browser.rail.histories", label: @tr("HIST"), tone: Theme.bone-2, tip: @tr("Histories: every session you played") },
+        { a11y: "browser.rail.recordings", label: "REC", tone: Theme.w656, tip: @tr("Recordings: your mixes") },
+        { a11y: "browser.rail.tag-list", label: @tr("TAG"), tone: Theme.attention, tip: @tr("Tag list: tracks collected for later") },
+    ];
+    // The open source of the rail.
+    function rail-current(i: int) -> bool {
+        if (i == 0) { return root.section == "library" && root.selected-node == -1 && root.node-kind == "all"; }
+        if (i == 1) { return root.section == "library" && root.selected-node >= 0; }
+        if (i == 2) { return root.section == "library" && root.selected-node == -4; }
+        if (i == 4) { return root.section == "library" && root.node-kind == "explorer"; }
+        if (i == 5) { return root.section == "devices" || root.node-kind == "stick"; }
+        if (i == 6) { return root.section == "library" && root.node-kind == "history"; }
+        if (i == 7) { return root.section == "recordings"; }
+        if (i == 8) { return root.section == "library" && root.selected-node == -3; }
+        return false;
+    }
+    // A source of the rail: opens it or scrolls the tree to it.
+    function rail-click(i: int) {
+        if (i == 0) { root.reveal(coll-h.y); root.select-node(-1); }
+        if (i == 1) { root.reveal(pl-h.y); }
+        if (i == 2) { root.reveal(rel-h.y); root.select-node(-4); }
+        if (i == 3) { root.open-sampler(); }
+        if (i == 4) { root.explorer-open-roots(); root.reveal(ex-h.y); }
+        if (i == 5) { root.reveal(dev-h.y); }
+        if (i == 6) { root.reveal(hist-h.y); }
+        if (i == 7) { root.reveal(rec-h.y); root.select-section("recordings"); }
+        if (i == 8) { root.reveal(tag-h.y); root.select-node(-3); }
+    }
+
     // Scrolls the tree so that `y` (a heading's position) is at the top.
+    property <length> tree-row: Theme.touch ? 44px : 26px;
     function reveal(y: length) {
         tree.content-y = -max(0px, min(y, tree.content-height - tree.height));
     }
 
     HorizontalLayout {
-      // Source rail (UX §1.6 order, without the streaming and cloud sources).
-      VerticalLayout {
+      // Source rail (UX §1.6 order, without the streaming and cloud sources);
+      // on the touch screen two 44 px keys a row.
+      if !Theme.touch: VerticalLayout {
         width: 38px;
         padding-top: 0px;
         spacing: 0px;
-        RailItem {
-            accessible-label: "browser.rail.collection"; label: @tr("ALL"); tone: Theme.w486;
-            tooltip: @tr("Collection: every track"); current: root.section == "library" && root.selected-node == -1 && root.node-kind == "all";
-            clicked => { root.reveal(coll-h.y); root.select-node(-1); }
-        }
-        RailItem {
-            accessible-label: "browser.rail.playlists"; label: @tr("LISTS"); tone: Theme.attention;
-            tooltip: @tr("Playlists, sets and smart lists"); current: root.section == "library" && root.selected-node >= 0;
-            clicked => { root.reveal(pl-h.y); }
-        }
-        RailItem {
-            accessible-label: "browser.rail.related"; label: @tr("REL"); tone: Theme.w546;
-            tooltip: @tr("Related tracks: what fits after the master deck"); current: root.section == "library" && root.selected-node == -4;
-            clicked => { root.reveal(rel-h.y); root.select-node(-4); }
-        }
-        RailItem {
-            accessible-label: "browser.rail.sampler"; label: @tr("SMPL"); tone: Theme.w656;
-            tooltip: @tr("Sampler: open the sampler panel in Perform");
-            clicked => { root.open-sampler(); }
-        }
-        RailItem {
-            accessible-label: "browser.rail.explorer"; label: @tr("FILES"); tone: Theme.bone-2;
-            tooltip: @tr("Explorer: folders on disk"); current: root.section == "library" && root.node-kind == "explorer";
-            clicked => { root.explorer-open-roots(); root.reveal(ex-h.y); }
-        }
-        RailItem {
-            accessible-label: "browser.rail.devices"; label: "USB"; tone: Theme.live;
-            tooltip: @tr("Devices: USB sticks"); current: root.section == "devices" || root.node-kind == "stick";
-            clicked => { root.reveal(dev-h.y); }
-        }
-        RailItem {
-            accessible-label: "browser.rail.histories"; label: @tr("HIST"); tone: Theme.bone-2;
-            tooltip: @tr("Histories: every session you played"); current: root.section == "library" && root.node-kind == "history";
-            clicked => { root.reveal(hist-h.y); }
-        }
-        RailItem {
-            accessible-label: "browser.rail.recordings"; label: "REC"; tone: Theme.w656;
-            tooltip: @tr("Recordings: your mixes"); current: root.section == "recordings"; command: "section.recordings";
-            clicked => { root.reveal(rec-h.y); root.select-section("recordings"); }
-        }
-        RailItem {
-            accessible-label: "browser.rail.tag-list"; label: @tr("TAG"); tone: Theme.attention;
-            tooltip: @tr("Tag list: tracks collected for later"); current: root.section == "library" && root.selected-node == -3;
-            clicked => { root.reveal(tag-h.y); root.select-node(-3); }
+        for it[i] in root.rail-items: RailItem {
+            accessible-label: it.a11y; label: it.label; tone: it.tone; tooltip: it.tip;
+            command: i == 7 ? "section.recordings" : "";
+            current: root.rail-current(i);
+            clicked => { root.rail-click(i); }
         }
         Rectangle { vertical-stretch: 1; min-height: 0px; }
+      }
+      if Theme.touch: VerticalLayout {
+        width: 88px;
+        alignment: start;
+        GridLayout {
+            spacing: 0px;
+            for it[i] in root.rail-items: RailItem {
+                row: Math.floor(i / 2); col: Math.mod(i, 2);
+                accessible-label: it.a11y; label: it.label; tone: it.tone; tooltip: it.tip;
+                current: root.rail-current(i);
+                clicked => { root.rail-click(i); }
+            }
+        }
       }
       VLine { weight: 1px; tone: Theme.rule; }
       VerticalLayout {
@@ -308,7 +322,7 @@ export component Sidebar inherits Rectangle {
             Field {
                 accessible-label: "browser.tree.filter"; accessible-role: text-input;
                 accessible-value: self.text; accessible-placeholder-text: self.placeholder;
-                height: 26px;
+                height: Theme.touch ? 44px : 26px;
                 placeholder: @tr("FILTER LISTS");
                 tone: Theme.attention;
                 edited(t) => { root.tree-filter(t); }
@@ -328,7 +342,7 @@ export component Sidebar inherits Rectangle {
                     label: "browser.tree.all";
                     labelled: r.kind == "all";
                     visible: r.kind == "all";
-                    height: r.kind == "all" ? 26px : 0px;
+                    height: r.kind == "all" ? root.tree-row : 0px;
                     item: r;
                     selected: root.selected-node == r.id && root.section == "library";
                     can-add: false;
@@ -338,7 +352,7 @@ export component Sidebar inherits Rectangle {
                 for r in root.tree: TreeItem {
                     labelled: r.kind != "all" && r.kind != "stick" && r.id > -100;
                     visible: r.kind != "all" && r.kind != "stick" && r.id > -100;
-                    height: r.kind != "all" && r.kind != "stick" && r.id > -100 ? 26px : 0px;
+                    height: r.kind != "all" && r.kind != "stick" && r.id > -100 ? root.tree-row : 0px;
                     item: r;
                     selected: root.selected-node == r.id && root.section == "library";
                     can-add: root.can-add;
@@ -402,7 +416,7 @@ export component Sidebar inherits Rectangle {
                 for r in root.tree: TreeItem {
                     labelled: r.kind == "stick" || r.id <= -1000000;
                     visible: r.kind == "stick" || r.id <= -1000000;
-                    height: r.kind == "stick" || r.id <= -1000000 ? 26px : 0px;
+                    height: r.kind == "stick" || r.id <= -1000000 ? root.tree-row : 0px;
                     item: r;
                     selected: root.selected-node == r.id && root.section == "library";
                     can-add: false;
@@ -439,7 +453,7 @@ export component Sidebar inherits Rectangle {
                         accessible-role: spinbox;
                         accessible-label: "browser.tree.years";
                         accessible-value: root.history-year;
-                        size: 24px; font-size: 11px; template: "0000";
+                        size: Theme.target; font-size: 11px; template: "0000";
                         value: root.history-year == "" ? "—" : root.history-year;
                         enabled: root.history-year-count > 1;
                         tooltip: @tr("Year of the sessions shown: earlier / later");
@@ -463,7 +477,7 @@ export component Sidebar inherits Rectangle {
                     accessible-label: "browser.tree.recordings"; accessible-role: list-item;
                     accessible-value: root.recordings-count;
                     accessible-item-selectable: true; accessible-item-selected: root.section == "recordings";
-                    height: 26px;
+                    height: root.tree-row;
                     background: rt.has-hover ? Theme.ground-band : transparent;
                     if root.section == "recordings": Rectangle { x: 0; y: parent.height / 2 - 1px; width: 8px; height: 2px; background: Theme.attention; }
                     Glyph { x: 18px; y: 8px; width: 10px; height: 10px; kind: "play"; tone: Theme.w656; }

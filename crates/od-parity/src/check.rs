@@ -287,6 +287,43 @@ fn check_views(v: &ViewsFile, f: &FeaturesFile, ui_labels: &BTreeSet<String>, r:
                 all_labels.insert(label.clone());
             }
         }
+        // Kiosk exemptions: only for views shown at the kiosk size, only
+        // labels of the view, each group with a reason, never what the
+        // controller cannot do.
+        for k in &view.kiosk_omit {
+            if !view.sizes.is_empty() && !view.sizes.iter().any(|s| s == crate::model::KIOSK_SIZE) {
+                r.errors.push(format!("view `{}`: kiosk exemptions but the view is not shown at the kiosk size", view.id));
+            }
+            if k.reason.trim().is_empty() || k.omit.is_empty() {
+                r.errors.push(format!("view `{}`: a kiosk exemption needs labels and a reason", view.id));
+            }
+            for label in &k.omit {
+                if !in_view.contains(label.as_str()) {
+                    r.errors.push(format!("view `{}`: kiosk exemption `{label}` is not a required element", view.id));
+                }
+                let part = label.split_once('.').map(|(_, p)| p).unwrap_or(label);
+                let never = crate::model::KIOSK_NEVER_OMIT.contains(&part) || crate::model::KIOSK_NEVER_OMIT_LABELS.contains(&label.as_str());
+                if never && k.shown_in.is_empty() {
+                    r.errors.push(format!("view `{}`: `{label}` must stay on the kiosk screen (the controller cannot show or do it)", view.id));
+                }
+            }
+            // Shown on another kiosk screen: that view must require them at
+            // the kiosk size.
+            if !k.shown_in.is_empty() {
+                match v.views.iter().find(|o| o.id == k.shown_in) {
+                    None => r.errors.push(format!("view `{}`: kiosk `shown_in` names an unknown view `{}`", view.id, k.shown_in)),
+                    Some(o) => {
+                        let at_kiosk = o.sizes.is_empty() || o.sizes.iter().any(|s| s == crate::model::KIOSK_SIZE);
+                        for label in &k.omit {
+                            let there = o.regions.iter().any(|r| r.elements.contains(label)) && !o.omitted_at(crate::model::KIOSK_SIZE, label);
+                            if !at_kiosk || !there {
+                                r.errors.push(format!("view `{}`: `{label}` is not checked at the kiosk size in `{}`", view.id, k.shown_in));
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
     r.view_labels = all_labels.len();
     r.labels_in_ui = all_labels.intersection(ui_labels).count();

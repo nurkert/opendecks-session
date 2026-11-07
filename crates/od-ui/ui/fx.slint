@@ -93,13 +93,14 @@ component FxUnit inherits Rectangle {
     // parameter, the unit readout, AUTO, TAP and ON. PART and the release
     // effects sit on a second line.
     VerticalLayout {
-        padding-left: 14px; padding-right: 14px; padding-top: 6px; padding-bottom: 6px;
+        padding-left: 14px; padding-right: 14px; padding-top: Theme.touch ? 2px : 6px; padding-bottom: Theme.touch ? 2px : 6px;
         spacing: 4px;
         HorizontalLayout {
             spacing: 8px;
             alignment: start;
-            // Assign: 1 2 S 3 4 M (channels that are not shown stay, dimmed).
-            VerticalLayout {
+            // Assign: 1 2 S 3 4 M (channels that are not shown stay, dimmed);
+            // the kiosk leaves it to the controller's channel select.
+            if !Theme.touch: VerticalLayout {
                 alignment: center;
                 HorizontalLayout {
                     spacing: 2px;
@@ -121,7 +122,7 @@ component FxUnit inherits Rectangle {
                 Toggle {
                     accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.multi;
                     accessible-label: "fx.unit\{root.u.unit}.menu";
-                    size: 24px; width: 30px; label: root.u.multi ? "×3" : "×1"; on: root.u.multi; tone: root.tone;
+                    size: Theme.target; width: Theme.touch ? 44px : 30px; label: root.u.multi ? "×3" : "×1"; on: root.u.multi; tone: root.tone;
                     tooltip: @tr("Single effect or three effects in a chain");
                     clicked => { FxSlots.multi(root.u.unit); }
                 }
@@ -133,14 +134,20 @@ component FxUnit inherits Rectangle {
                     accessible-role: combobox;
                     accessible-label: "fx.unit\{root.u.unit}.slot1.type";
                     accessible-value: self.value;
-                    size: 24px; arrow: 18px; font-size: 10px;
+                    size: Theme.target; arrow: 18px; font-size: 10px;
                     value: FxNames.beat[root.u.kind]; template: "VINYL BRAKE"; lit: root.u.on; tone: root.tone;
                     tooltip: @tr("Beat FX: previous / next effect — click the name for the list");
                     command: "fx" + root.u.unit + ".next";
                     step(d) => { root.kind-step(d); }
                     value-clicked => { kinds.show(); }
                 }
-                HorizontalLayout {
+                // Kiosk: level and beat keys are the controller's; the beat
+                // length shows.
+                if Theme.touch: Text {
+                    accessible-role: text; accessible-label: "fx.unit\{root.u.unit}.slot1.beats"; accessible-value: root.u.beats;
+                    text: @tr("{} BEATS", root.u.beats); font-family: Theme.family; font-size: 10px; font-weight: 600; color: Theme.bone-2; horizontal-alignment: center;
+                }
+                if !Theme.touch: HorizontalLayout {
                     spacing: 4px;
                     Knob {
                         accessible-role: slider;
@@ -173,7 +180,7 @@ component FxUnit inherits Rectangle {
                             accessible-role: combobox;
                             accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.type";
                             accessible-value: self.value;
-                            horizontal-stretch: 1; size: 24px; arrow: 18px; font-size: 10px;
+                            horizontal-stretch: 1; size: Theme.target; arrow: 18px; font-size: 10px;
                             value: FxNames.beat[sl.kind]; template: "PING PONG"; lit: sl.on; tone: root.tone;
                             tooltip: @tr("Effect of this slot");
                             step(d) => { FxSlots.kind-step(root.u.unit, sl.slot, d); }
@@ -181,11 +188,15 @@ component FxUnit inherits Rectangle {
                         Toggle {
                             accessible-role: checkbox; accessible-checkable: true; accessible-checked: sl.on;
                             accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.on";
-                            size: 24px; width: 30px; label: "ON"; on: sl.on; tone: root.tone;
+                            size: Theme.target; width: Theme.touch ? 44px : 30px; label: "ON"; on: sl.on; tone: root.tone;
                             clicked => { FxSlots.on(root.u.unit, sl.slot); }
                         }
                     }
-                    HorizontalLayout {
+                    if Theme.touch: Text {
+                        accessible-role: text; accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats"; accessible-value: sl.beats;
+                        text: @tr("{} BEATS", sl.beats); font-family: Theme.family; font-size: 10px; font-weight: 600; color: Theme.bone-2; horizontal-alignment: center;
+                    }
+                    if !Theme.touch: HorizontalLayout {
                         spacing: 4px;
                         Knob {
                             accessible-role: slider;
@@ -240,14 +251,14 @@ component FxUnit inherits Rectangle {
                     Toggle {
                         accessible-role: button;
                         accessible-label: "fx.unit\{root.u.unit}.auto";
-                        size: 24px; label: "AUTO"; on: !root.u.tapped; tone: Theme.live;
+                        size: Theme.target; min-w: Theme.target; label: "AUTO"; on: !root.u.tapped; tone: Theme.live;
                         tooltip: @tr("AUTO: the effect follows the deck tempo again");
                         clicked => { FxSlots.auto(root.u.unit); }
                     }
                     Toggle {
                         accessible-role: button;
                         accessible-label: "fx.unit\{root.u.unit}.tap";
-                        size: 24px; label: "TAP"; on: root.u.tapped; tone: Theme.w486;
+                        size: Theme.target; min-w: Theme.target; label: "TAP"; on: root.u.tapped; tone: Theme.w486;
                         tooltip: @tr("Tap the tempo of the effect; AUTO returns to the deck tempo");
                         command: "fx" + root.u.unit + ".tap";
                         clicked => { root.tap(); }
@@ -255,7 +266,7 @@ component FxUnit inherits Rectangle {
                     Toggle {
                         accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.on;
                         accessible-label: "fx.unit\{root.u.unit}.on";
-                        size: 24px; width: 40px; label: "ON"; on: root.u.on; tone: root.tone;
+                        size: Theme.target; width: Theme.touch ? 44px : 40px; label: "ON"; on: root.u.on; tone: root.tone;
                         tooltip: @tr("Beat FX on / off");
                         command: "fx" + root.u.unit + ".on";
                         clicked => { root.on(); }
@@ -309,29 +320,51 @@ export component FxPanel inherits Rectangle {
     // Side by side while both units show one effect; one unit per line
     // once a unit chains three.
     property <bool> stack: root.units.length > 1 && (root.units[0].multi || root.units[1].multi);
-    GridLayout {
-        spacing: 0;
-        for u[i] in root.units: HorizontalLayout {
-            row: root.stack ? i : 0;
-            col: root.stack ? 0 : i;
-            horizontal-stretch: 1;
+    VerticalLayout {
+        if !root.stack: HorizontalLayout {
             spacing: 0;
-            if i > 0 && !root.stack: VLine { weight: 1px; tone: Theme.rule; }
-            FxUnit {
+            for u[i] in root.units: HorizontalLayout {
                 horizontal-stretch: 1;
-                u: u;
-                channels: root.channels;
-                narrow: root.width < 1320px;
-                tiny: root.width < 1000px;
-                kind(k) => { root.kind(u.unit, k); }
-                kind-step(d) => { root.kind-step(u.unit, d); }
-                beats-step(d) => { root.beats-step(u.unit, d); }
-                target(t) => { root.target(u.unit, t); }
-                level(v) => { root.level(u.unit, v); }
-                param(v) => { root.param(u.unit, v); }
-                on => { root.on(u.unit); }
-                tap => { root.tap(u.unit); }
-                release(k, p) => { root.release(u.unit, k, p); }
+                spacing: 0;
+                if i > 0: VLine { weight: 1px; tone: Theme.rule; }
+                FxUnit {
+                    horizontal-stretch: 1;
+                    u: u;
+                    channels: root.channels;
+                    narrow: root.width < 1320px;
+                    tiny: root.width < 1000px;
+                    kind(k) => { root.kind(u.unit, k); }
+                    kind-step(d) => { root.kind-step(u.unit, d); }
+                    beats-step(d) => { root.beats-step(u.unit, d); }
+                    target(t) => { root.target(u.unit, t); }
+                    level(v) => { root.level(u.unit, v); }
+                    param(v) => { root.param(u.unit, v); }
+                    on => { root.on(u.unit); }
+                    tap => { root.tap(u.unit); }
+                    release(k, p) => { root.release(u.unit, k, p); }
+                }
+            }
+        }
+        if root.stack: VerticalLayout {
+            spacing: 0;
+            for u[i] in root.units: HorizontalLayout {
+                spacing: 0;
+                FxUnit {
+                    horizontal-stretch: 1;
+                    u: u;
+                    channels: root.channels;
+                    narrow: root.width < 1320px;
+                    tiny: root.width < 1000px;
+                    kind(k) => { root.kind(u.unit, k); }
+                    kind-step(d) => { root.kind-step(u.unit, d); }
+                    beats-step(d) => { root.beats-step(u.unit, d); }
+                    target(t) => { root.target(u.unit, t); }
+                    level(v) => { root.level(u.unit, v); }
+                    param(v) => { root.param(u.unit, v); }
+                    on => { root.on(u.unit); }
+                    tap => { root.tap(u.unit); }
+                    release(k, p) => { root.release(u.unit, k, p); }
+                }
             }
         }
     }

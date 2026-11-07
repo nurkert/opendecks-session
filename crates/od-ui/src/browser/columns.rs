@@ -121,8 +121,14 @@ pub(crate) fn shift_sort(then: &[SortSpec], primary: &str, column: &str, default
 pub(crate) fn refresh(app: &App) {
     let st = app.state.borrow();
     // A folder of the Explorer: the reduced set that files on disk carry.
-    let ids = if st.explorer.open.is_some() { EXPLORER_COLUMNS.iter().map(|s| s.to_string()).collect() } else { sanitize(&st.settings.browser.columns) };
+    // The touch screen leaves out TIME there (room for 44 px header keys).
+    let ids: Vec<String> = if st.explorer.open.is_some() {
+        EXPLORER_COLUMNS.iter().filter(|c| !(st.config.kiosk && **c == "time")).map(|s| s.to_string()).collect()
+    } else {
+        sanitize(&st.settings.browser.columns)
+    };
     let b = &st.browser;
+    let kiosk = st.config.kiosk;
     let then = &st.settings.browser.sort_then;
     let views: Vec<ColumnView> = ids
         .iter()
@@ -136,7 +142,9 @@ pub(crate) fn refresh(app: &App) {
             ColumnView {
                 id: c.id.into(),
                 title: od_i18n::tr(c.title).into(),
-                width: c.width,
+                // The touch screen keeps the preview narrow (room for the
+                // 44 px wide header keys).
+                width: if kiosk && c.id == "preview" { 60.0 } else { c.width },
                 stretch: c.stretch,
                 right: c.right,
                 sort: c.sort.into(),

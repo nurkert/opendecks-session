@@ -76,7 +76,7 @@ export component PlateButton inherits Rectangle {
     callback clicked();
 
     in property <bool> tall: false;
-    min-width: lbl.preferred-width + (glyph != "" ? 22px : 0px) + 30px;
+    min-width: max(root.tall ? 44px : 0px, lbl.preferred-width + (glyph != "" ? 22px : 0px) + 30px);
     height: tall ? 44px : compact ? 26px : 32px;
     background: touch.pressed && enabled ? Theme.plate-raised : touch.has-hover && enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : Theme.plate;
     animate background { duration: Theme.motion ? 90ms : 0ms; }
@@ -283,8 +283,10 @@ export component Toggle inherits Rectangle {
     in property <color> tone: Theme.attention;
     in property <bool> enabled: true;
     in property <length> size: 26px;
+    // Smallest width (44 px touch keys).
+    in property <length> min-w: 0px;
     callback clicked();
-    min-width: t.preferred-width + 20px;
+    min-width: max(root.min-w, t.preferred-width + 20px);
     height: root.size;
     background: root.on ? root.tone.with-alpha(0.2) : touch.pressed ? Theme.plate-raised : touch.has-hover && root.enabled ? Theme.plate-raised.mix(Theme.plate, 0.5) : Theme.plate;
     border-width: 1px;
