@@ -59,10 +59,14 @@ pub enum PadMode {
     KeyShift,
     /// Slicer: the pads play eight slices of a beat-aligned domain.
     Slicer,
+    /// Parts: A–D mute / unmute vocals, inst, drums, bass; E–H solo them.
+    Stems,
+    /// The first eight memory cues, in track order.
+    MemoryCue,
 }
 
 impl PadMode {
-    pub const ALL: [PadMode; 9] = [
+    pub const ALL: [PadMode; 11] = [
         PadMode::HotCue,
         PadMode::BeatLoop,
         PadMode::BeatJump,
@@ -72,6 +76,8 @@ impl PadMode {
         PadMode::Keyboard,
         PadMode::KeyShift,
         PadMode::Slicer,
+        PadMode::Stems,
+        PadMode::MemoryCue,
     ];
 
     pub fn name(self) -> &'static str {
@@ -85,6 +91,8 @@ impl PadMode {
             PadMode::Keyboard => "keyboard",
             PadMode::KeyShift => "key_shift",
             PadMode::Slicer => "slicer",
+            PadMode::Stems => "stems",
+            PadMode::MemoryCue => "memory_cue",
         }
     }
 

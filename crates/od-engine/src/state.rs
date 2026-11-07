@@ -11,7 +11,7 @@ use crate::command::{
     BeatFxKind, ColorFxKind, CrossfaderCurve, FxTarget, JogMode, PadFxPreset, ReleaseFxKind,
     SampleMode, TempoRange, XfAssign,
 };
-use crate::config::{BEAT_FX_UNITS, HOT_CUE_BANKS, HOT_CUES, MAX_DECKS, SAMPLER_TOTAL};
+use crate::config::{BEAT_FX_SLOTS, BEAT_FX_UNITS, HOT_CUE_BANKS, HOT_CUES, MAX_DECKS, SAMPLER_TOTAL};
 use crate::dsp::meter::MeterReading;
 use crate::track::HotCue;
 
@@ -230,6 +230,9 @@ pub struct EngineState {
     /// Tempo of the sync master (or the last known), BPM.
     pub master_bpm: f64,
     pub beat_fx: [BeatFxState; BEAT_FX_UNITS],
+    /// Slots 1 and 2 of each unit (multi mode).
+    pub beat_fx_slots: [[BeatFxState; BEAT_FX_SLOTS - 1]; BEAT_FX_UNITS],
+    pub beat_fx_multi: [bool; BEAT_FX_UNITS],
     /// All sampler slots, `bank * SAMPLER_SLOTS + pad`.
     pub sampler: [SamplerSlotState; SAMPLER_TOTAL],
     pub sequencer: SequencerState,
@@ -266,6 +269,8 @@ impl Default for EngineState {
             master_deck: None,
             master_bpm: 120.0,
             beat_fx: [BeatFxState::default(); BEAT_FX_UNITS],
+            beat_fx_slots: [[BeatFxState::default(); BEAT_FX_SLOTS - 1]; BEAT_FX_UNITS],
+            beat_fx_multi: [false; BEAT_FX_UNITS],
             sampler: [SamplerSlotState::default(); SAMPLER_TOTAL],
             sequencer: SequencerState::default(),
             audible: AudibleState::default(),

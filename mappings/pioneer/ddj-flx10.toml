@@ -552,25 +552,33 @@ lsb = 0x2F
 channel = "deck"
 action = "mixer.eq_low"
 
-# Part isolator variants of the EQ knobs (stems; out of scope for v1).
+# Part isolator variants of the EQ knobs (the controller sends these while
+# its EQ knobs are switched to part isolation): HI = vocals, MID = inst,
+# LOW = drums.
 [[input]]
-name = "Part isolator"
+name = "Part isolator vocals"
 cc = 0x08
 lsb = 0x28
 channel = "deck"
-action = "ignore"
+action = "deck.stem_level"
+args = { stem = "vocals" }
+verify = true
 [[input]]
-name = "Part isolator"
+name = "Part isolator inst"
 cc = 0x0C
 lsb = 0x2C
 channel = "deck"
-action = "ignore"
+action = "deck.stem_level"
+args = { stem = "inst" }
+verify = true
 [[input]]
-name = "Part isolator"
+name = "Part isolator drums"
 cc = 0x10
 lsb = 0x30
 channel = "deck"
-action = "ignore"
+action = "deck.stem_level"
+args = { stem = "drums" }
+verify = true
 
 [[input]]
 name = "Channel fader"

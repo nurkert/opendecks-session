@@ -165,6 +165,13 @@ fn process_never_allocates() {
             Command::Input(InputCommand::SetCue(true)),
         ],
         vec![Command::Input(InputCommand::Detach)],
+        vec![
+            Command::SetBeatFxMulti(0, true),
+            Command::BeatFxSlot { unit: 0, slot: 1, cmd: BeatFxCommand::SetKind(BeatFxKind::Flanger) },
+            Command::BeatFxSlot { unit: 0, slot: 1, cmd: BeatFxCommand::SetOn(true) },
+            Command::BeatFxSlot { unit: 0, slot: 2, cmd: BeatFxCommand::SetKind(BeatFxKind::Reverb) },
+            Command::BeatFxSlot { unit: 0, slot: 2, cmd: BeatFxCommand::SetOn(true) },
+        ],
         vec![Command::Deck(0, DeckCommand::AutoLoop { beats: 1.0 / 8.0 })],
         vec![
             Command::Deck(0, DeckCommand::SetSlip(true)),

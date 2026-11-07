@@ -620,3 +620,13 @@ fn monitor_shows_decoded_hits() {
     assert!(evs[2].to_string().contains("[unverified]"));
     assert_eq!(mon.snapshot().len(), 2); // bounded log
 }
+
+#[test]
+fn flx10_part_isolator_drives_stem_levels() {
+    let mut s = flx10();
+    // Deck 1 (channel 0): HI part knob fully left = vocals muted, centre = full.
+    let a = feed(&mut s, &[[0xB0, 0x08, 0x00], [0xB0, 0x28, 0x00]]);
+    assert!(a.iter().any(|x| matches!(x, ControlAction::Deck { deck: 1, action: DeckAction::StemLevel { stem: StemPart::Vocals, level } } if *level == 0.0)), "{a:?}");
+    let a = feed(&mut s, &[[0xB1, 0x10, 0x40], [0xB1, 0x30, 0x00]]);
+    assert!(a.iter().any(|x| matches!(x, ControlAction::Deck { deck: 2, action: DeckAction::StemLevel { stem: StemPart::Drums, level } } if *level >= 0.99)), "{a:?}");
+}

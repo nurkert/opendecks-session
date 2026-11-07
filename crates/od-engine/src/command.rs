@@ -21,6 +21,11 @@ pub enum Command {
     Mixer(MixerCommand),
     /// A command for Beat FX unit `0..BEAT_FX_UNITS`.
     BeatFx(usize, BeatFxCommand),
+    /// Effect slot 1 or 2 of a Beat FX unit in multi mode (slot 0 is
+    /// addressed by [`Command::BeatFx`]). The target follows slot 0.
+    BeatFxSlot { unit: usize, slot: usize, cmd: BeatFxCommand },
+    /// Multi mode of a Beat FX unit: three effects in a chain.
+    SetBeatFxMulti(usize, bool),
     /// Pad FX of mixer channel `0..decks` (an FX unit of its own per
     /// channel, independent of the two Beat FX units).
     PadFx(usize, PadFxCommand),

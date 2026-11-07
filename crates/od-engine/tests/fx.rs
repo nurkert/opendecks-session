@@ -486,3 +486,32 @@ fn booth_output_and_master_cue() {
     let st = rig.state();
     assert!(st.master_cue && (st.booth_level - 0.5).abs() < 1e-6);
 }
+
+/// Multi mode: slot 1's echo only sounds while the unit is in multi mode,
+/// and follows the unit's insert point.
+#[test]
+fn multi_mode_chains_three_slots() {
+    let run = |multi: bool| {
+        let mut rig = Rig::new(2);
+        rig.deck(0, DeckCommand::Load(burst_track(1, 10.0, 2 * BEAT)));
+        rig.deck(0, DeckCommand::Play);
+        // Slot 0 stays off; slot 1 is an echo on.
+        let slot = |rig: &mut Rig, cmd| rig.send(Command::BeatFxSlot { unit: 0, slot: 1, cmd });
+        slot(&mut rig, BeatFxCommand::SetKind(BeatFxKind::Echo));
+        slot(&mut rig, BeatFxCommand::SetBeats(1.0));
+        slot(&mut rig, BeatFxCommand::SetLevel(1.0));
+        slot(&mut rig, BeatFxCommand::SetOn(true));
+        fx(&mut rig, 0, BeatFxCommand::SetTarget(FxTarget::Channel(0)));
+        rig.send(Command::SetBeatFxMulti(0, multi));
+        let out = render_frames(&mut rig, 5 * BEAT);
+        let st = rig.state();
+        (rms(&out, 0, 3 * BEAT, 2400), st)
+    };
+    let (off, _) = run(false);
+    let (on, st) = run(true);
+    assert!(off < 1e-4, "slot 1 is silent outside multi mode: {off}");
+    assert!(on > 0.05, "slot 1 echoes in multi mode: {on}");
+    assert!(st.beat_fx_multi[0]);
+    assert!(st.beat_fx_slots[0][0].on && st.beat_fx_slots[0][0].kind == BeatFxKind::Echo);
+    assert_eq!(st.beat_fx_slots[0][0].target, FxTarget::Channel(0), "slots follow the unit's target");
+}

@@ -4,8 +4,8 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::beatfx::{BeatClock, FxUnit};
-use crate::command::{Command, CrossfaderCurve, DeckCommand, FxTarget, MixerCommand};
-use crate::config::{BEAT_FX_UNITS, EngineConfig, MAX_SENDERS};
+use crate::command::{BeatFxCommand, Command, CrossfaderCurve, DeckCommand, FxTarget, MixerCommand};
+use crate::config::{BEAT_FX_SLOTS, BEAT_FX_UNITS, EngineConfig, MAX_SENDERS};
 use crate::deck::{Deck, SyncTarget};
 use crate::dsp::limiter::Limiter;
 use crate::dsp::meter::Meter;
@@ -238,7 +238,9 @@ pub struct EngineProcessor {
 
     decks: Vec<Deck>,
     channels: Vec<Channel>,
+    /// Beat FX slots, `unit * BEAT_FX_SLOTS + slot`.
     beat_fx: Vec<FxUnit>,
+    beat_fx_multi: [bool; BEAT_FX_UNITS],
     pad_fx: Vec<FxUnit>,
     sampler: Sampler,
     input: crate::input::AuxInput,
@@ -309,7 +311,8 @@ impl EngineProcessor {
             channels: (0..n)
                 .map(|i| Channel::new(sr, 0x9E37_79B9 ^ (i as u32 + 1)))
                 .collect(),
-            beat_fx: (0..BEAT_FX_UNITS)
+            beat_fx_multi: [false; BEAT_FX_UNITS],
+            beat_fx: (0..BEAT_FX_UNITS * BEAT_FX_SLOTS)
                 .map(|_| FxUnit::new(sr, BEAT_FX_SECONDS, FxTarget::Master))
                 .collect(),
             pad_fx: (0..n)
@@ -461,8 +464,24 @@ impl EngineProcessor {
                 }
             },
             Command::BeatFx(u, c) => {
-                if let Some(unit) = self.beat_fx.get_mut(u) {
-                    unit.apply(c);
+                if u < BEAT_FX_UNITS {
+                    if let BeatFxCommand::SetTarget(t) = c {
+                        // The slots of a unit share its insert point.
+                        for s in 1..BEAT_FX_SLOTS {
+                            self.beat_fx[u * BEAT_FX_SLOTS + s].apply(BeatFxCommand::SetTarget(t));
+                        }
+                    }
+                    self.beat_fx[u * BEAT_FX_SLOTS].apply(c);
+                }
+            }
+            Command::BeatFxSlot { unit, slot, cmd } => {
+                if unit < BEAT_FX_UNITS && (1..BEAT_FX_SLOTS).contains(&slot) && !matches!(cmd, BeatFxCommand::SetTarget(_)) {
+                    self.beat_fx[unit * BEAT_FX_SLOTS + slot].apply(cmd);
+                }
+            }
+            Command::SetBeatFxMulti(u, on) => {
+                if u < BEAT_FX_UNITS {
+                    self.beat_fx_multi[u] = on;
                 }
             }
             Command::PadFx(ch, c) => {
@@ -601,8 +620,9 @@ impl EngineProcessor {
             ch.update_gains(auto_gain, xf);
             let ch_clock = clocks[i];
             ch.process_pre(buf, &ch_clock);
-            for unit in self.beat_fx.iter_mut() {
-                if unit.target() == FxTarget::Channel(i) {
+            for (k, unit) in self.beat_fx.iter_mut().enumerate() {
+                let live = k % BEAT_FX_SLOTS == 0 || self.beat_fx_multi[k / BEAT_FX_SLOTS];
+                if live && unit.target() == FxTarget::Channel(i) {
                     unit.process(buf, &ch_clock);
                 }
             }
@@ -646,8 +666,9 @@ impl EngineProcessor {
         // Mic / aux after the decks and sampler (talkover ducks them).
         self.input
             .process(&mut self.input_buf[..len], master_buf, cue_buf);
-        for unit in self.beat_fx.iter_mut() {
-            if unit.target() == FxTarget::Master {
+        for (k, unit) in self.beat_fx.iter_mut().enumerate() {
+            let live = k % BEAT_FX_SLOTS == 0 || self.beat_fx_multi[k / BEAT_FX_SLOTS];
+            if live && unit.target() == FxTarget::Master {
                 unit.process(master_buf, &clock);
             }
         }
@@ -744,9 +765,13 @@ impl EngineProcessor {
         s.quantize = self.quantize;
         s.master_deck = self.master;
         s.master_bpm = self.master_bpm;
-        for (i, u) in self.beat_fx.iter().enumerate() {
-            s.beat_fx[i] = u.state();
+        for u in 0..BEAT_FX_UNITS {
+            s.beat_fx[u] = self.beat_fx[u * BEAT_FX_SLOTS].state();
+            for k in 1..BEAT_FX_SLOTS {
+                s.beat_fx_slots[u][k - 1] = self.beat_fx[u * BEAT_FX_SLOTS + k].state();
+            }
         }
+        s.beat_fx_multi = self.beat_fx_multi;
         s.sampler = self.sampler.state();
         s.sequencer = self.sampler.sequencer();
         s.input = self.input.state();

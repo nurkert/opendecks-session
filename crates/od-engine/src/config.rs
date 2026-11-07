@@ -65,5 +65,7 @@ pub const SEQ_STEPS: usize = 16;
 pub const SLICER_SLICES: usize = 8;
 /// Number of Beat FX units.
 pub const BEAT_FX_UNITS: usize = 2;
+/// Effect slots of a Beat FX unit in multi mode (slot 0 is the unit itself).
+pub const BEAT_FX_SLOTS: usize = 3;
 /// Maximum number of additional command senders (see [`crate::Engine::new_sender`]).
 pub const MAX_SENDERS: usize = 8;
