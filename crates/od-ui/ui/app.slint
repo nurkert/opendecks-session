@@ -596,6 +596,7 @@ export component AppWindow inherits Window {
             if root.mode == "lighting": LightingView { vertical-stretch: 1; }
             if root.mode == "perform" && !(root.kiosk && root.browser-open): PerformView {
                 vertical-stretch: 1;
+                show-rec: root.rec-panel;
                 decks: root.decks;
                 lane-motion: root.lane-motion;
                 zoom(d, delta) => { root.deck-zoom(d, delta); }

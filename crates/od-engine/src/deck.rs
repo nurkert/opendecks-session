@@ -75,6 +75,7 @@ pub(crate) struct Deck {
     tempo_fader: f32,
     tempo_range: TempoRange,
     sync: bool,
+    sync_mode: crate::command::SyncMode,
     /// Tempo factor imposed by sync while following a master.
     sync_tempo: Option<f64>,
     sync_snap_pending: bool,
@@ -166,6 +167,7 @@ impl Deck {
             tempo_fader: 0.0,
             tempo_range: TempoRange::default(),
             sync: false,
+            sync_mode: crate::command::SyncMode::Beat,
             sync_tempo: None,
             sync_snap_pending: false,
             phase_correction: 0.0,
@@ -547,6 +549,7 @@ impl Deck {
                     self.hot_bank = b;
                 }
             }
+            DeckCommand::SetSyncMode(m) => self.sync_mode = m,
             DeckCommand::Censor(on) => {
                 self.censor_left = None;
                 self.set_censor(on)
@@ -1272,6 +1275,7 @@ impl Deck {
                 let bending = self.bend != 0.0 || self.jog_bend != 0.0 || self.jog_touched;
                 if t.playing
                     && self.playing
+                    && self.sync_mode == crate::command::SyncMode::Beat
                     && !bending
                     && !self.reverse
                     && let Some(my_beat) = self.beat_at(self.pos)

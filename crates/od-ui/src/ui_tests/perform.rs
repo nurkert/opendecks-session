@@ -216,3 +216,16 @@ fn vertical_layout_turns_the_lanes() {
     crate::decks::cycle_perform_layout(&ui.app);
     assert_eq!(slint::ComponentHandle::global::<crate::PerformLayout>(&ui.app.ui).get_layout(), "standard");
 }
+
+/// REC off in the top bar hides the recording section of the global bar.
+#[test]
+fn rec_toggle_hides_the_recording_section() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    ui.app.ui.set_rec_panel(true);
+    ui.pump(100);
+    assert!(ui.has("rec.toggle") && ui.has("rec.time"));
+    ui.app.ui.set_rec_panel(false);
+    ui.pump(100);
+    assert!(!ui.has("rec.toggle") && !ui.has("rec.time"));
+}

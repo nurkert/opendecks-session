@@ -782,6 +782,7 @@ component GlobalBar inherits Rectangle {
     in property <bool> recording;
     in property <string> recording-time;
     in property <bool> touch-size;
+    in property <bool> show-rec: true;
     callback set-crossfader(float);
     callback set-master-level(float);
     callback set-headphone-mix(float);
@@ -816,9 +817,9 @@ component GlobalBar inherits Rectangle {
             Caps { text: @tr("MASTER OUT"); vertical-alignment: center; }
             Knob { label: ""; size: 20px; minimum: 0; maximum: 1; default-value: 1; value: root.master-level; tone: Theme.attention; changed(v) => { root.set-master-level(v); } }
             Rectangle { width: 10px; }
-            RecStrip { tall: root.touch-size; }
+            if root.show-rec: RecStrip { tall: root.touch-size; }
             // Recording, one click away.
-            Rectangle {
+            if root.show-rec: Rectangle {
                 width: 30px;
                 accessible-role: checkbox;
                 accessible-checkable: true;
@@ -832,7 +833,7 @@ component GlobalBar inherits Rectangle {
                 }
                 rt := TouchArea { mouse-cursor: pointer; clicked => { root.toggle-recording(); } }
             }
-            Text {
+            if root.show-rec: Text {
                 accessible-role: text;
                 accessible-label: "rec.time";
                 accessible-value: self.text;
@@ -896,6 +897,8 @@ export component PerformView inherits Rectangle {
     in property <bool> tight;
     in property <bool> touch-size;
     in property <bool> show-mixer: true;
+    // REC section in the global bar (top bar REC toggle).
+    in property <bool> show-rec: true;
     // Too narrow for the full deck layout: decks go compact.
     property <bool> narrow: root.width < 1300px;
     in property <bool> recording;
@@ -1124,6 +1127,7 @@ export component PerformView inherits Rectangle {
         }
         if PerformLayout.layout != "browse": GlobalBar {
             centre-width: root.show-mixer ? mixer.width : 240px;
+            show-rec: root.show-rec;
             touch-size: root.touch-size;
             crossfader: root.crossfader;
             master-level: root.master-level;

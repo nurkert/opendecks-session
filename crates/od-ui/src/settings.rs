@@ -42,11 +42,13 @@ pub struct DeckSettings {
     pub jog_mode: String,
     /// Auto cue: a loaded track waits at its first sound / first memory cue.
     pub auto_cue: bool,
+    /// SYNC matches "beat" (tempo and phase) or "tempo" only.
+    pub sync_mode: String,
 }
 
 impl Default for DeckSettings {
     fn default() -> Self {
-        Self { tempo_range: "ten".into(), quantize: true, jog_mode: "vinyl".into(), auto_cue: true }
+        Self { tempo_range: "ten".into(), quantize: true, jog_mode: "vinyl".into(), auto_cue: true, sync_mode: "beat".into() }
     }
 }
 
@@ -72,6 +74,7 @@ impl Default for MixerSettings {
 
 pub const TEMPO_RANGES: [&str; 4] = ["six", "ten", "sixteen", "wide"];
 pub const JOG_MODES: [&str; 2] = ["vinyl", "bend"];
+pub const SYNC_MODES: [&str; 2] = ["beat", "tempo"];
 pub const EQ_MODES: [&str; 2] = ["isolator", "classic"];
 pub const FADER_CURVES: [&str; 3] = ["linear", "smooth", "sharp"];
 pub const CROSSFADER_CURVES: [&str; 3] = ["constant_power", "linear", "cut"];
@@ -432,6 +435,9 @@ impl Settings {
         }
         if !JOG_MODES.contains(&d.jog_mode.as_str()) {
             d.jog_mode = "vinyl".into();
+        }
+        if !SYNC_MODES.contains(&d.sync_mode.as_str()) {
+            d.sync_mode = "beat".into();
         }
         let m = &mut self.mixer;
         if !EQ_MODES.contains(&m.eq_mode.as_str()) {

@@ -203,6 +203,7 @@ export component PreferencesWindow inherits Window {
     in property <int> tempo-range;
     in property <bool> deck-quantize;
     in property <int> jog-mode;
+    in property <int> sync-mode;
     in property <bool> auto-cue;
     in property <int> eq-mode;
     in property <int> fader-curve;
@@ -444,6 +445,7 @@ export component PreferencesWindow inherits Window {
                         Row { label: @tr("Quantize"); Switch { accessible-label: "prefs.controller.quantize"; label: @tr("Quantize cues, loops and jumps to the beat"); on: root.deck-quantize; toggled(v) => { root.flag("deck.quantize", v); } } }
                         Row { label: @tr("Sync"); Choice { accessible-label: "prefs.controller.sync-mode"; options: [@tr("BEAT SYNC (TEMPO + PHASE)")]; selected: 0; } }
                         Row { label: @tr("Jog wheel"); Choice { accessible-label: "prefs.controller.jog-mode"; options: [@tr("VINYL"), @tr("PITCH BEND")]; selected: root.jog-mode; picked(i) => { root.choose("deck.jog-mode", i); } } }
+                        Row { label: @tr("Sync"); Choice { accessible-label: "prefs.controller.sync-mode"; options: [@tr("BEAT"), @tr("TEMPO ONLY")]; selected: root.sync-mode; picked(i) => { root.choose("deck.sync-mode", i); } } }
                         Row { label: @tr("Auto cue"); Switch { accessible-label: "prefs.controller.auto-cue"; label: @tr("A loaded track waits at its first sound"); on: root.auto-cue; toggled(v) => { root.flag("deck.auto-cue", v); } } }
                         Heading { text: @tr("Mixer"); }
                         Row { label: @tr("EQ"); Choice { accessible-label: "prefs.controller.eq-mode"; options: [@tr("ISOLATOR"), @tr("CLASSIC EQ")]; selected: root.eq-mode; picked(i) => { root.choose("mixer.eq-mode", i); } } }

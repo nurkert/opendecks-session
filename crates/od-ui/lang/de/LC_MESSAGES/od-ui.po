@@ -4318,3 +4318,13 @@ msgstr "CUE AM PLAYHEAD"
 msgctxt "ShowPanel"
 msgid "The current cue starts at this bar whenever the track plays"
 msgstr "Der aktuelle Cue startet bei diesem Takt, wann immer der Track läuft"
+
+#: ui/preferences.slint
+msgctxt "PreferencesWindow"
+msgid "BEAT"
+msgstr "BEAT"
+
+#: ui/preferences.slint
+msgctxt "PreferencesWindow"
+msgid "TEMPO ONLY"
+msgstr "NUR TEMPO"

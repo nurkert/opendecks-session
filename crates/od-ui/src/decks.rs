@@ -86,6 +86,11 @@ pub(crate) fn toggle_browse_layout(app: &App) {
     set_perform_layout(app, if cur == "browse" { "standard" } else { "browse" });
 }
 
+/// The track's active loop (a saved loop marked active), if any.
+pub(crate) fn active_loop(cues: &[od_core::Cue]) -> Option<(f64, f64)> {
+    cues.iter().filter(|c| c.active).find_map(|c| c.loop_end.map(|e| (c.start, e)))
+}
+
 /// "SPLIT 42%" while parts are separated (fraction 0..1), "SPLIT…" at the start.
 pub(crate) fn split_text(progress: Option<f32>) -> String {
     match progress {
@@ -394,6 +399,7 @@ pub(crate) fn receive_prepared(app: &App) {
         let Some(meta) = meta else { continue };
         let title = meta.title.clone();
         let musical_key = meta.musical_key;
+        let active_loop = active_loop(&meta.source.cues);
         if needs_stems && deck != PREVIEW_DECK {
             request_stems(app, meta.id, &meta.source);
         }
@@ -401,6 +407,8 @@ pub(crate) fn receive_prepared(app: &App) {
         crate::browser::refresh_tracks(app);
         engine::deck_cmd(app, deck, DeckCommand::Load(pr.data));
         engine::deck_cmd(app, deck, DeckCommand::SetTrackKey(musical_key));
+        // An active loop engages when the playhead reaches it.
+        engine::deck_cmd(app, deck, DeckCommand::SetActiveLoop(active_loop));
         if let Some(t) = play_from {
             engine::deck_cmd(app, deck, DeckCommand::Seek { seconds: t });
             engine::deck_cmd(app, deck, DeckCommand::Play);
@@ -1601,6 +1609,14 @@ mod tests {
         assert_ne!(a, WaveKey::new(t, 10.01, 8.0, 800, 100));
         assert_ne!(a, WaveKey::new(t, 10.0, 8.08, 800, 100));
         assert_ne!(a, WaveKey::new(t, 10.0, 8.0, 801, 100));
+    }
+
+    #[test]
+    fn active_loop_comes_from_the_marked_cue() {
+        let mut l = od_core::Cue { loop_end: Some(36.0), ..od_core::Cue::memory(32.0) };
+        assert_eq!(active_loop(std::slice::from_ref(&l)), None);
+        l.active = true;
+        assert_eq!(active_loop(&[od_core::Cue::memory(1.0), l]), Some((32.0, 36.0)));
     }
 
     #[test]

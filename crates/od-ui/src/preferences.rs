@@ -74,7 +74,8 @@ pub(crate) fn deck_defaults(s: &Settings) -> Vec<DeckCommand> {
         _ => TempoRange::Ten,
     };
     let jog = if s.deck.jog_mode == "bend" { JogMode::Bend } else { JogMode::Vinyl };
-    vec![DeckCommand::SetTempoRange(range), DeckCommand::SetJogMode(jog), DeckCommand::SetAutoCue(s.deck.auto_cue)]
+    let sync = if s.deck.sync_mode == "tempo" { od_engine::SyncMode::Tempo } else { od_engine::SyncMode::Beat };
+    vec![DeckCommand::SetTempoRange(range), DeckCommand::SetJogMode(jog), DeckCommand::SetAutoCue(s.deck.auto_cue), DeckCommand::SetSyncMode(sync)]
 }
 
 /// Mixer settings (Preferences > Controller > Mixer) for `channels`
@@ -144,6 +145,7 @@ fn apply_engine_key(app: &App, key: &str) {
         ("deck.tempo-range", Command::Deck(_, DeckCommand::SetTempoRange(_))) => true,
         ("deck.jog-mode", Command::Deck(_, DeckCommand::SetJogMode(_))) => true,
         ("deck.auto-cue", Command::Deck(_, DeckCommand::SetAutoCue(_))) => true,
+        ("deck.sync-mode", Command::Deck(_, DeckCommand::SetSyncMode(_))) => true,
         ("deck.quantize", Command::SetQuantize(_)) => true,
         ("mixer.eq-mode", Command::Channel(_, ChannelCommand::SetEqMode(_))) => true,
         ("mixer.fader-curve", Command::Channel(_, ChannelCommand::SetFaderCurve(_))) => true,
@@ -284,6 +286,7 @@ pub(crate) fn refresh(app: &App) {
         w.set_tempo_range(index_of(&TEMPO_RANGES, &s.deck.tempo_range.as_str()));
         w.set_deck_quantize(s.deck.quantize);
         w.set_jog_mode(index_of(&JOG_MODES, &s.deck.jog_mode.as_str()));
+        w.set_sync_mode(index_of(&crate::settings::SYNC_MODES, &s.deck.sync_mode.as_str()));
         w.set_auto_cue(s.deck.auto_cue);
         w.set_eq_mode(index_of(&EQ_MODES, &s.mixer.eq_mode.as_str()));
         w.set_fader_curve(index_of(&FADER_CURVES, &s.mixer.fader_curve.as_str()));
@@ -747,6 +750,7 @@ fn choose(app: &App, key: &str, i: i32) {
         "view.line-spacing" => change(app, |s| s.browser.line_spacing = LINE_SPACINGS.get(i).unwrap_or(&"normal").to_string()),
         "deck.tempo-range" => change_engine(app, key, |s| s.deck.tempo_range = TEMPO_RANGES.get(i).unwrap_or(&"ten").to_string()),
         "deck.jog-mode" => change_engine(app, key, |s| s.deck.jog_mode = JOG_MODES.get(i).unwrap_or(&"vinyl").to_string()),
+        "deck.sync-mode" => change_engine(app, key, |s| s.deck.sync_mode = crate::settings::SYNC_MODES.get(i).unwrap_or(&"beat").to_string()),
         "mixer.eq-mode" => change_engine(app, key, |s| s.mixer.eq_mode = EQ_MODES.get(i).unwrap_or(&"isolator").to_string()),
         "mixer.fader-curve" => change_engine(app, key, |s| s.mixer.fader_curve = FADER_CURVES.get(i).unwrap_or(&"smooth").to_string()),
         "mixer.crossfader-curve" => change_engine(app, key, |s| s.mixer.crossfader_curve = CROSSFADER_CURVES.get(i).unwrap_or(&"constant_power").to_string()),
@@ -1032,21 +1036,23 @@ mod tests {
     fn engine_settings_cover_every_deck_and_channel() {
         let mut s = Settings::default();
         let cmds = engine_settings(&s, 4);
-        // 3 per deck, quantize, 3 per channel, crossfader curve.
-        assert_eq!(cmds.len(), 4 * 3 + 1 + 4 * 3 + 1);
+        // 4 per deck, quantize, 3 per channel, crossfader curve.
+        assert_eq!(cmds.len(), 4 * 4 + 1 + 4 * 3 + 1);
+        assert!(cmds.iter().any(|c| matches!(c, Command::Deck(0, DeckCommand::SetSyncMode(od_engine::SyncMode::Beat)))));
         assert!(cmds.iter().any(|c| matches!(c, Command::SetQuantize(true))));
         assert!(cmds.iter().any(|c| matches!(c, Command::Deck(3, DeckCommand::SetTempoRange(TempoRange::Ten)))));
         assert!(cmds.iter().any(|c| matches!(c, Command::Channel(0, ChannelCommand::SetEqMode(EqMode::Isolator)))));
         s.deck.tempo_range = "wide".into();
         s.deck.jog_mode = "bend".into();
         s.deck.auto_cue = false;
+        s.deck.sync_mode = "tempo".into();
         s.mixer.eq_mode = "classic".into();
         s.mixer.fader_curve = "sharp".into();
         s.mixer.crossfader_curve = "cut".into();
         s.mixer.auto_gain = false;
         assert_eq!(
             format!("{:?}", deck_defaults(&s)),
-            format!("{:?}", vec![DeckCommand::SetTempoRange(TempoRange::Wide), DeckCommand::SetJogMode(JogMode::Bend), DeckCommand::SetAutoCue(false)])
+            format!("{:?}", vec![DeckCommand::SetTempoRange(TempoRange::Wide), DeckCommand::SetJogMode(JogMode::Bend), DeckCommand::SetAutoCue(false), DeckCommand::SetSyncMode(od_engine::SyncMode::Tempo)])
         );
         let m = mixer_settings(&s, 2);
         assert!(m.iter().any(|c| matches!(c, Command::Channel(1, ChannelCommand::SetEqMode(EqMode::Classic)))));

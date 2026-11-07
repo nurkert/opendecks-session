@@ -1093,10 +1093,14 @@ id = "cues-active-loop"
 area = "cues"
 name = "Active loop (auto-engaged saved loop)"
 scope = "in"
-status = "missing"
+status = "done"
 prio = "P3"
-tests = []
-note = "—"
+tests = [
+  "od-ui::decks::tests::active_loop_comes_from_the_marked_cue",
+  "od-ui::player::tests::cue_list_edits",
+  "od-library::tests::migrates_version_2_to_3_active_loops",
+]
+note = "ACTIVE in the cue editor marks a saved loop; it is stored (library schema 3) and engages by itself when the playhead reaches it (`DeckCommand::SetActiveLoop` on load)"
 
 [[feature]]
 id = "cues-colours"
@@ -2551,15 +2555,17 @@ id = "prefs-deck-defaults"
 area = "preferences"
 name = "Deck defaults (tempo range, quantize, sync mode, jog mode, auto cue)"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-engine::render::tempo_sync_matches_bpm_but_leaves_the_phase",
+  "od-ui::preferences::tests::engine_settings_cover_every_deck_and_channel",
   "od-ui::preferences::tests::engine_settings_cover_every_deck_and_channel",
   "od-ui::settings::tests::json_round_trip",
   "od-ui::ui_tests::session::deck_and_mixer_defaults_reach_the_engine",
 ]
 evidence = ["crates/od-ui/src/preferences.rs::deck_defaults", "crates/od-ui/src/preferences.rs::apply_engine_settings"]
-note = "Preferences > Controller > Decks: tempo range, quantize, jog mode and auto cue are stored and sent to every deck at once and when audio starts. Sync mode shows the one mode the engine has (beat sync: tempo + phase); a tempo-only sync mode needs od-engine support"
+note = "Preferences > Controller > Decks: tempo range, quantize, sync mode (beat or tempo only), jog mode and auto cue, stored and sent to every deck when audio starts and on change"
 
 [[feature]]
 id = "ctrl-led-feedback"
@@ -2750,14 +2756,15 @@ id = "shell-panel-toggles"
 area = "shell"
 name = "Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-ui::ui_tests::perform::rec_toggle_hides_the_recording_section",
   "od-ui::ui_tests::features::panel_toggles_show_panels",
   "od-ui::ui_tests::prepare::top_bar_mixer_rec_and_mix_point_toggles",
 ]
 spec = "UX §1.2, §2.8"
-note = "FX, MIX POINT, SAMPLER, MIXER and REC in the top bar (stored). MIXER hides the mixer column, MIX POINT shows the Mix Point Link panel, REC shows / hides the recording bar in Prepare. Missing: in Perform, REC does not yet hide the recording section of the global bar (PerformView needs a `show-rec` input)"
+note = "FX, MIX POINT, SAMPLER, MIXER and REC in the top bar (stored): MIXER hides the mixer column, MIX POINT shows the Mix Point Link panel, REC shows or hides the recording section, plus CDJ and LIGHT"
 
 [[feature]]
 id = "shell-mix-point-link"

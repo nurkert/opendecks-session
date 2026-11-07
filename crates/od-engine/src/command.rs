@@ -78,6 +78,16 @@ impl std::fmt::Debug for InputCommand {
     }
 }
 
+/// What beat sync matches.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SyncMode {
+    /// Tempo and beat phase.
+    #[default]
+    Beat,
+    /// Tempo only; the DJ keeps the phase by hand.
+    Tempo,
+}
+
 /// Tempo fader range (± percent).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum TempoRange {
@@ -180,8 +190,10 @@ pub enum DeckCommand {
     /// Musical key of the loaded track (from analysis/library), used by key
     /// sync. Reset to `None` by `Load`.
     SetTrackKey(Option<od_core::MusicalKey>),
-    /// Beat sync to the master deck (BPM and phase).
+    /// Beat sync to the master deck (BPM and phase, see [`SyncMode`]).
     SetSync(bool),
+    /// Tempo-only or beat sync.
+    SetSyncMode(SyncMode),
     /// Temporary relative speed offset, e.g. ±0.04 while a nudge button is
     /// held; 0.0 to release.
     SetPitchBend(f32),

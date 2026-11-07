@@ -4,7 +4,7 @@
 
 Snapshot: 2026-11-06, from a read of the source tree.
 
-**Summary:** 213 features; 206 in scope: 189 DONE (92 %), 7 PARTIAL, 1 ENGINE-ONLY, 9 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
+**Summary:** 213 features; 206 in scope: 192 DONE (93 %), 5 PARTIAL, 1 ENGINE-ONLY, 8 MISSING; 2 deferred to a later milestone; 5 out of scope (SPEC §1).
 
 The list covers the professional feature set a DJ expects when preparing music and performing
 with a controller such as the DDJ-FLX10 / DDJ-FLX4 (SPEC §1, §5.5, §10, §11, §12). Behaviour,
@@ -116,7 +116,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Memory cues: call prev/next (Perform) | DONE | `MemoryCueJump` via controller | — |  |
 | Memory cue set/delete from controller | DONE | `decks.rs::memory_cue`; `deck.memory_cue_set` / `_delete` edit the library cue list (one undo step) and update the deck without a gap | 1 | **P1** |
 | Saved loops (memory/hot-cue loops) | DONE | Loop hot cues and memory loops (MEMORY while a loop plays) are stored with their loop end; the Prepare cue editor moves loops keeping their length; import / export / playback carry them | 3 | **P1** |
-| Active loop (auto-engaged saved loop) | MISSING | — | — | P3 |
+| Active loop (auto-engaged saved loop) | DONE | ACTIVE in the cue editor marks a saved loop; it is stored (library schema 3) and engages by itself when the playhead reaches it (`DeckCommand::SetActiveLoop` on load) | 3 | P3 |
 | Cue colours | DONE | Eight cue colours in the cue editor; shown on overviews, the cue list, Prepare pads and the Perform hot cue pads | 3 | **P1** |
 | Cue comments / labels | DONE | Double-click a cue in the list, type the name, Return; names show on pads and in the list | 2 | **P1** |
 | Auto cue on load (first memory cue / first beat) | DONE | `DeckCommand::Load` behaviour (`command.rs` doc, `deck.rs`) | — |  |
@@ -265,7 +265,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Audio device, buffer size, output routing | DONE | `engine.rs::audio_config`, `preferences.rs::refresh`; Preferences > Audio: output device (automatic = controller interface), buffer 64–1024, sample rate, headphones auto / 3-4 / off; applies when audio next starts | 2 | **P1** |
 | Language, key notation, colour-blind, high contrast, motion | DONE | `preferences.rs::apply_live`, `shell.rs::apply_theme`; Preferences > View, applied live in both windows; UI scale (75–200 %) after restart | 3 | **P1** |
 | Waveform options (zoom default, phrase display) | DONE | `settings.rs::ViewSettings`, `crates/od-ui/src/preferences.rs::default_deck_zoom`; Phrase display on/off (live, Prepare and Perform); waveform zoom default (4/8/16/32 s) for the Prepare player and the decks; waveform colour 3-band / blue / RGB read by the renderer | 3 | P2 |
-| Deck defaults (tempo range, quantize, sync mode, jog mode, auto cue) | PARTIAL | `crates/od-ui/src/preferences.rs::deck_defaults`, `crates/od-ui/src/preferences.rs::apply_engine_settings`; Preferences > Controller > Decks: tempo range, quantize, jog mode and auto cue are stored and sent to every deck at once and when audio starts. Sync mode shows the one mode the engine has (beat sync: tempo + phase); a tempo-only sync mode needs od-engine support | 3 | P2 |
+| Deck defaults (tempo range, quantize, sync mode, jog mode, auto cue) | DONE | `crates/od-ui/src/preferences.rs::deck_defaults`, `crates/od-ui/src/preferences.rs::apply_engine_settings`; Preferences > Controller > Decks: tempo range, quantize, sync mode (beat or tempo only), jog mode and auto cue, stored and sent to every deck when audio starts and on change | 5 | P2 |
 | Controller LED feedback | DONE | `perform.rs::feedback` (play, cue, sync, master, key lock, slip, loop, pads, VU) | 3 |  |
 | Soft takeover | DONE | `od-controller/src/takeover.rs` | 4 |  |
 | MIDI learn / MIDI monitor | DONE | `crates/od-ui/src/midi_tools.rs`, `od-controller/src/learn.rs`; Preferences ▸ Controller: MIDI monitor (raw messages with the mapping hits) and MIDI learn (action, deck, the learned control described and as a mapping entry; ADD TO MY MAPPING writes it to the own mapping file, checked to load) | 7 | P3 |
@@ -284,7 +284,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Prepare / Perform mode switch that keeps loaded tracks | DONE | `crates/od-ui/src/shell.rs`; (SPEC §3.1) | — |  |
 | Perform layouts: 2 / 4 decks horizontal and vertical, Browse | DONE | 2 and 4 decks in three layouts (persisted): standard (lanes across the top), vertical (Alt+V: upright lanes with zoom keys above the mixer) and Browse (Alt+B: header, overview and parts per deck, browser enlarged); (SPEC §10.1; UX §1.4) | 5 | P2 |
 | Prepare layouts: 1 player, 2 players, dual, simple, full browser | DONE | `crates/od-ui/src/shell.rs::set_prepare_layout`; Player and browser, 2 players (full player plus a compact second player), dual (two compact players side by side), simple (one compact player) and full browser: top-bar switch, View menu, ⌥⌘4–⌥⌘8, persisted. Player 2 takes the selected track (LOAD) or a dragged row and plays on the preview deck; (UX §1.7) | 3 | P2 |
-| Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording | PARTIAL | FX, MIX POINT, SAMPLER, MIXER and REC in the top bar (stored). MIXER hides the mixer column, MIX POINT shows the Mix Point Link panel, REC shows / hides the recording bar in Prepare. Missing: in Perform, REC does not yet hide the recording section of the global bar (PerformView needs a `show-rec` input); (UX §1.2, §2.8) | 2 | P2 |
+| Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording | DONE | FX, MIX POINT, SAMPLER, MIXER and REC in the top bar (stored): MIXER hides the mixer column, MIX POINT shows the Mix Point Link panel, REC shows or hides the recording section, plus CDJ and LIGHT; (UX §1.2, §2.8) | 3 | P2 |
 | Mix Point Link (mix in / mix out points between decks) | DONE | `crates/od-ui/src/mpl.rs`, `crates/od-ui/ui/mpl.slint`; MIX POINT panel above the waveforms: MIX IN / MIX OUT at the edited deck's playhead (stored per track), ◀ ▶ through the points (memory cues and mix points), EDIT switches the deck, LINK starts the waiting deck from its mix-in point when the playing deck passes its mix-out point; (UX §1.5; SPEC §16.3) | 5 | P3 |
 | Draggable splitters with persisted sizes, double-click reset | DONE | `crates/od-ui/src/shell.rs`; Upper/lower and sidebar splitters: drag, persisted across restarts, double-click reset (UI test). Per-layout sizes and waveform-zone collapse / expand are not there; (SPEC §12; UX §2.6) | 2 |  |
 | Status band: analysis / sync state, list summary (tracks, time, size) | DONE | `crates/od-ui/src/shell.rs`; Activity (analysis progress) at the left, the last message, and the open list summary (tracks, time, size, selection) at the right; (SPEC §12; UX §1.6) | 3 |  |
@@ -322,10 +322,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 
 | Status | Rows |
 |---|---|
-| DONE | 189 |
-| PARTIAL | 7 |
+| DONE | 192 |
+| PARTIAL | 5 |
 | ENGINE-ONLY | 1 |
-| MISSING | 9 |
+| MISSING | 8 |
 | deferred (in scope, later milestone) | 2 |
 | OUT-OF-SCOPE | 5 |
 | **Total** | **213** |

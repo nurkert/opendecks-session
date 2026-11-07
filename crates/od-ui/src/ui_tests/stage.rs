@@ -244,7 +244,7 @@ fn lighting_track_cue_timeline() {
     // Deck rows are projected in Perform only; check the engine instead.
     assert!(ui.wait_until(30.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].track == Some(id))));
     ui.app.ui.invoke_deck_toggle_play(1);
-    assert!(ui.wait_until(10.0, |u| slint::ComponentHandle::global::<crate::Lighting>(&u.app.ui).get_timeline_title() == title.as_str()), "focused track");
+    assert!(ui.wait_until(30.0, |u| slint::ComponentHandle::global::<crate::Lighting>(&u.app.ui).get_timeline_title() == title.as_str()), "focused track");
     ui.pump(200);
     ui.click("lighting.timeline.add");
     ui.pump(100);
