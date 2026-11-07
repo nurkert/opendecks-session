@@ -738,18 +738,23 @@ fn deck_switches_survive_loads_and_restarts() {
     crate::decks::load_track(&ui.app, 0, a, None);
     assert!(ui.wait_until(30.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].track == Some(a))));
     // MT on and the ±16 % range on deck 1 (the screen keys).
+    let before = crate::engine::snapshot(&ui.app).unwrap().decks[0].tempo_range;
     ui.click("deck1.master-tempo");
     ui.app.ui.invoke_deck_tempo_range(1);
-    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app).is_some_and(|s| s.decks[0].keylock)));
+    // Both reach the engine (a frame or two later).
+    assert!(ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app)
+        .is_some_and(|s| s.decks[0].keylock && s.decks[0].tempo_range != before)));
     let range = crate::engine::snapshot(&ui.app).unwrap().decks[0].tempo_range;
     assert!(ui.wait_until(5.0, |u| u.app.state.borrow().settings.deck.decks[0].master_tempo), "remembered");
     // A new track: MT and the range stay.
     crate::decks::load_track(&ui.app, 0, b, None);
     assert!(ui.wait_until(30.0, |u| super::flows::deck_views(u).first().is_some_and(|d| d.title == title_b.as_str())));
-    ui.pump(200);
-    let s = crate::engine::snapshot(&ui.app).unwrap();
-    assert!(s.decks[0].keylock && s.decks[0].tempo_range == range, "kept on load");
-    assert!(!s.decks[1].keylock, "deck 2 keeps its own");
+    assert!(
+        ui.wait_until(5.0, |u| crate::engine::snapshot(&u.app)
+            .is_some_and(|s| s.decks[0].track == Some(b) && s.decks[0].keylock && s.decks[0].tempo_range == range)),
+        "kept on load"
+    );
+    assert!(!crate::engine::snapshot(&ui.app).unwrap().decks[1].keylock, "deck 2 keeps its own");
     // Restart on the same library: the engine starts with them.
     let Ui { app, fx, .. } = ui;
     drop(app);
