@@ -3,6 +3,7 @@
 
 mod columns;
 mod filter;
+pub(crate) mod navigate;
 mod sources;
 mod tracks;
 mod tree;
@@ -57,6 +58,8 @@ pub(crate) struct BrowserState {
     pub related_track: Option<TrackId>,
     /// History sessions in sidebar order.
     pub histories: Vec<String>,
+    /// The controller's browse encoder works in the tree (else the list).
+    pub focus_tree: bool,
 }
 
 /// Sources that are not library nodes.
@@ -93,6 +96,7 @@ impl Default for BrowserState {
             related_source: "master".into(),
             related_track: None,
             histories: Vec::new(),
+            focus_tree: false,
         }
     }
 }

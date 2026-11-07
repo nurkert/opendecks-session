@@ -16,6 +16,8 @@ pub struct Look {
     pub strobe: f32,
     /// Per-cell colour × intensity for bars (empty = use `color`).
     pub pixels: Vec<[f32; 3]>,
+    /// Fog output on (fog machines only).
+    pub fog: bool,
 }
 
 impl Default for Look {
@@ -27,6 +29,7 @@ impl Default for Look {
             tilt: 0.5,
             strobe: 0.0,
             pixels: Vec::new(),
+            fog: false,
         }
     }
 }
@@ -49,6 +52,7 @@ impl Look {
             pan: mix(self.pan, other.pan),
             tilt: mix(self.tilt, other.tilt),
             strobe: if t < 0.5 { self.strobe } else { other.strobe },
+            fog: if t < 0.5 { self.fog } else { other.fog },
             pixels: (0..n)
                 .map(|i| {
                     let (a, b) = (px(self, i), px(other, i));
@@ -126,6 +130,13 @@ pub fn render_fixture(fixture: &Patched, look: &Look, universe: &mut Universe) {
             ChannelKind::PixelGreen(n) => byte(pixel(n)[1]),
             ChannelKind::PixelBlue(n) => byte(pixel(n)[2]),
             ChannelKind::Fixed(v) => v,
+            ChannelKind::Fog => {
+                if look.fog {
+                    255
+                } else {
+                    0
+                }
+            }
         };
     }
 }

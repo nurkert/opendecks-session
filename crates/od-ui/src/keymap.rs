@@ -408,6 +408,9 @@ fn build() -> Vec<Action> {
     b.add_split("view.panel.info", "Show / hide the info panel", None, g, Global, &["Mod+Alt+I"], &["Alt+I"]);
     b.add_split("view.panel.related", "Show / hide related tracks", None, g, Global, &["Mod+Alt+E"], &["Alt+E"]);
     b.add_split("view.panel.my-tag", "Show / hide My Tag", None, g, Global, &["Mod+Alt+G"], &["Alt+G"]);
+    b.add_split("view.panel.rec", "Show / hide the recording section", None, g, Global, &["Mod+Alt+Shift+R"], &["Alt+Shift+R"]);
+    b.add_split("perform.mixer.panel", "Show / hide the mixer", None, g, Perform, &["Mod+Alt+M"], &["Alt+M"]);
+    b.add_split("perform.mpl.panel", "Show / hide Mix Point Link", None, g, Perform, &["Mod+Alt+P"], &["Alt+P"]);
     b.add_split("library.import.xml", "Import a library XML (rekordbox-compatible)", None, g, Global, &["Mod+Alt+Shift+X"], &["Alt+Shift+X"]);
     b.add_split("library.export.xml", "Export the library as XML (rekordbox-compatible)", None, g, Global, &["Mod+Alt+X"], &["Alt+X"]);
     b.add_split("library.export.archive", "Export a library archive", None, g, Global, &["Mod+Alt+A"], &["Alt+A"]);

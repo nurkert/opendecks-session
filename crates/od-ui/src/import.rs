@@ -245,3 +245,128 @@ fn apply_keymap(app: &App, toml_text: &str) -> usize {
     }
     taken
 }
+
+// ── Files dropped from Finder / the file manager ────────────────────────
+
+/// The audio files among dropped paths: files with a supported extension
+/// and every audio file below a dropped folder, in drop order, each once.
+pub(crate) fn dropped_audio(paths: &[std::path::PathBuf]) -> Vec<std::path::PathBuf> {
+    let mut out: Vec<std::path::PathBuf> = Vec::new();
+    for p in paths {
+        let found = if p.is_dir() {
+            crate::workers::scan(p)
+        } else if p.is_file() && od_core::AudioFormat::is_supported_extension(p) {
+            vec![p.clone()]
+        } else {
+            Vec::new()
+        };
+        for f in found {
+            if !out.contains(&f) {
+                out.push(f);
+            }
+        }
+    }
+    out
+}
+
+/// The list dropped files also go into: the open playlist or set of the
+/// library (not a stick, the Explorer or a virtual list).
+pub(crate) fn drop_list(app: &App) -> Option<od_library::NodeId> {
+    let st = app.state.borrow();
+    if st.read_only() || st.explorer.open.is_some() || st.browser.special.is_some() {
+        return None;
+    }
+    st.browser.node.filter(|n| st.lib.node(*n).is_ok_and(|n| matches!(n.kind, od_library::NodeKind::Playlist | od_library::NodeKind::Set)))
+}
+
+/// Files dropped on the window: onto a deck (`deck` 1-based) the first file
+/// is added to the collection and loaded there; anywhere else every audio
+/// file (folders included) is added to the collection and to the open
+/// playlist or set, in the background.
+pub(crate) fn files_dropped(app: &App, paths: Vec<std::path::PathBuf>, deck: i32) {
+    let files = dropped_audio(&paths);
+    if files.is_empty() {
+        app.status("No audio files in what was dropped");
+        return;
+    }
+    if deck >= 1 {
+        let d = (deck as usize - 1).min(crate::decks::DECKS - 1);
+        crate::explorer::import_and_load(app, files[0].clone(), d);
+        return;
+    }
+    let list = drop_list(app);
+    let library = app.state.borrow().config.library_path.clone();
+    let (tx, wake) = (app.worker_tx.clone(), app.analysis.wake.clone());
+    app.status(od_i18n::trf("Adding {} dropped file(s)…", &[&files.len()]));
+    std::thread::spawn(move || {
+        let (added, failed) = match od_library::Library::open(&library) {
+            Ok(mut lib) => add_files(&mut lib, &files, list),
+            Err(e) => {
+                let _ = tx.send(WorkerEvent::Message(format!("Cannot open library: {e}")));
+                return;
+            }
+        };
+        let _ = tx.send(WorkerEvent::ImportFinished { added, failed });
+        let _ = wake.send(());
+    });
+}
+
+/// Adds `files` to the collection (known paths are kept) and, when `list`
+/// is given, appends them to that list in order. Returns (added, failed).
+pub(crate) fn add_files(lib: &mut od_library::Library, files: &[std::path::PathBuf], list: Option<od_library::NodeId>) -> (usize, usize) {
+    let (mut added, mut failed) = (0, 0);
+    let mut ids = Vec::new();
+    for f in files {
+        let known = lib.track_by_path(f).ok().flatten().map(|t| t.id);
+        match known.map(Ok).unwrap_or_else(|| crate::workers::import_file(lib, f).inspect(|_| added += 1)) {
+            Ok(id) => ids.push(id),
+            Err(e) => {
+                failed += 1;
+                tracing::warn!(path = %f.display(), error = %e, "dropped file not added");
+            }
+        }
+    }
+    if let (Some(n), false) = (list, ids.is_empty()) {
+        if let Err(e) = lib.add_to_node(n, &ids, None) {
+            tracing::warn!(error = %e, "dropped files not added to the list");
+        }
+    }
+    (added, failed)
+}
+
+/// Native file drops (winit: Finder / the file manager). The OS reports one
+/// event per file; they are collected and handled together. Platforms whose
+/// Slint backend delivers OS drops to `DropArea` use that path instead.
+pub(crate) fn wire_native_drop(app: &std::rc::Rc<App>) {
+    use slint::winit_030::{WinitWindowAccessor, winit::event::WindowEvent};
+    let pending: std::rc::Rc<std::cell::RefCell<Vec<std::path::PathBuf>>> = Default::default();
+    let weak = std::rc::Rc::downgrade(app);
+    let timer = std::rc::Rc::new(slint::Timer::default());
+    app.ui.window().on_winit_window_event(move |_, event| {
+        match event {
+            WindowEvent::HoveredFile(_) => {
+                if let Some(a) = weak.upgrade() {
+                    a.ui.set_file_drag(true);
+                }
+            }
+            WindowEvent::HoveredFileCancelled => {
+                if let Some(a) = weak.upgrade() {
+                    a.ui.set_file_drag(false);
+                }
+            }
+            WindowEvent::DroppedFile(path) => {
+                pending.borrow_mut().push(path.clone());
+                let (weak, pending) = (weak.clone(), pending.clone());
+                timer.start(slint::TimerMode::SingleShot, std::time::Duration::from_millis(120), move || {
+                    let paths = std::mem::take(&mut *pending.borrow_mut());
+                    if let Some(a) = weak.upgrade() {
+                        a.ui.set_file_drag(false);
+                        files_dropped(&a, paths, 0);
+                    }
+                });
+            }
+            _ => {}
+        }
+        slint::winit_030::EventResult::Propagate
+    });
+}

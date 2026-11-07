@@ -153,8 +153,8 @@ global PadLetters {
 
 // Pad modes, in selector order (ids as in DeckView.pad-mode).
 global PadModes {
-    out property <[string]> ids: ["hot_cue", "pad_fx1", "beat_jump", "sampler", "keyboard", "key_shift", "beat_loop", "slicer", "stems", "memory_cue"];
-    out property <[string]> names: [@tr("HOT CUE"), @tr("PAD FX"), @tr("BEAT JUMP"), @tr("SAMPLER"), @tr("KEYBOARD"), @tr("KEY SHIFT"), @tr("BEAT LOOP"), @tr("SLICER"), @tr("STEMS"), @tr("MEMORY CUE")];
+    out property <[string]> ids: ["hot_cue", "pad_fx1", "beat_jump", "sampler", "keyboard", "key_shift", "beat_loop", "slicer", "stems", "memory_cue", "lighting"];
+    out property <[string]> names: [@tr("HOT CUE"), @tr("PAD FX"), @tr("BEAT JUMP"), @tr("SAMPLER"), @tr("KEYBOARD"), @tr("KEY SHIFT"), @tr("BEAT LOOP"), @tr("SLICER"), @tr("STEMS"), @tr("MEMORY CUE"), @tr("LIGHTING")];
     public pure function index(id: string) -> int {
         if (id == "pad_fx1" || id == "pad_fx2") { return 1; }
         if (id == "beat_jump") { return 2; }
@@ -165,6 +165,7 @@ global PadModes {
         if (id == "slicer") { return 7; }
         if (id == "stems") { return 8; }
         if (id == "memory_cue") { return 9; }
+        if (id == "lighting") { return 10; }
         return 0;
     }
     // Pad colour of a mode (hot cues use their cue colours).
@@ -177,6 +178,7 @@ global PadModes {
         if (id == "slicer") { return Theme.w486; }
         if (id == "stems") { return Theme.w656; }
         if (id == "memory_cue") { return Theme.bone; }
+        if (id == "lighting") { return Theme.w589; }
         return Theme.bone-2;
     }
 }
@@ -190,7 +192,7 @@ export component DeckPad inherits Rectangle {
     in property <string> mode;
     callback press(bool);
     callback alt();
-    property <color> tone: root.p.cue-slot >= 0 ? Theme.cue-color(root.p.cue-slot) : PadModes.tone(root.mode);
+    property <color> tone: root.p.cue-slot >= 0 ? Theme.cue-tone(root.p.cue-slot, root.p.tone) : PadModes.tone(root.mode);
     property <bool> down: touch.pressed;
     height: 30px;
     background: root.p.lit || root.down
@@ -565,9 +567,9 @@ export component DeckPanel inherits Rectangle {
         // Stem strip, toward the mixer.
         HorizontalLayout {
             spacing: 4px;
-            if root.mirror || root.compact: Caps { text: root.deck.stems-busy ? @tr("SPLIT…") : "MUTE"; font-size: 10px; vertical-alignment: center; color: root.deck.stems-busy ? Theme.attention : Theme.bone-3; }
+            if root.mirror || root.compact: Caps { text: root.deck.stems-busy ? root.deck.split-text : "MUTE"; font-size: 10px; vertical-alignment: center; color: root.deck.stems-busy ? Theme.attention : Theme.bone-3; }
             if !root.mirror && !root.compact: Rectangle { horizontal-stretch: 1; }
-            if !root.mirror && !root.compact: Caps { text: root.deck.stems-busy ? @tr("SPLIT…") : "MUTE"; font-size: 10px; vertical-alignment: center; color: root.deck.stems-busy ? Theme.attention : Theme.bone-3; }
+            if !root.mirror && !root.compact: Caps { text: root.deck.stems-busy ? root.deck.split-text : "MUTE"; font-size: 10px; vertical-alignment: center; color: root.deck.stems-busy ? Theme.attention : Theme.bone-3; }
             StemKey { deck: root.deck.deck; stem: "vocal"; label: "VOCAL"; muted: root.deck.mute-vocal; level: root.deck.level-vocal; tone: Theme.w546; enabled: root.deck.stems-available; toggle => { root.stem("vocal"); } set-level(v) => { root.stem-level("vocal", v); } }
             StemKey { deck: root.deck.deck; stem: "inst"; label: "INST"; muted: root.deck.mute-inst; level: root.deck.level-inst; tone: Theme.w656; enabled: root.deck.stems-available; toggle => { root.stem("inst"); } set-level(v) => { root.stem-level("inst", v); } }
             StemKey { deck: root.deck.deck; stem: "drums"; label: "DRUMS"; muted: root.deck.mute-drums; level: root.deck.level-drums; tone: Theme.w486; enabled: root.deck.stems-available; toggle => { root.stem("drums"); } set-level(v) => { root.stem-level("drums", v); } }

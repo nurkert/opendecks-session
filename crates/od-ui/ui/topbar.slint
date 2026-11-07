@@ -70,6 +70,14 @@ export component TopBar inherits Rectangle {
     in property <bool> sampler-panel;
     callback toggle-fx-panel();
     callback toggle-sampler-panel();
+    // Mixer column, Mix Point Link panel (Perform) and the recording
+    // section / bar (both modes).
+    in property <bool> mixer-panel: true;
+    in property <bool> mpl-panel;
+    in property <bool> rec-panel: true;
+    callback toggle-mixer-panel();
+    callback toggle-mpl-panel();
+    callback toggle-rec-panel();
     callback set-mode(string);
     callback toggle-recording();
     callback undo();
@@ -127,7 +135,6 @@ export component TopBar inherits Rectangle {
             clicked => { root.cycle-layout(); }
         }
         if root.mode == "prepare" && !root.kiosk: Rectangle { width: 12px; }
-        Caps { text: root.status; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
         if root.show-panels: PanelToggle {
             accessible-label: "topbar.toggle.cdj"; accessible-role: button;
             accessible-checkable: true; accessible-checked: self.on;
@@ -154,6 +161,15 @@ export component TopBar inherits Rectangle {
         }
         if root.show-panels: Rectangle { width: 6px; }
         if root.show-panels: PanelToggle {
+            accessible-label: "topbar.toggle.mpl"; accessible-role: button;
+            accessible-checkable: true; accessible-checked: self.on;
+            label: @tr("MIX POINT"); on: root.mpl-panel;
+            tooltip: root.mpl-panel ? @tr("Hide Mix Point Link") : @tr("Mix Point Link: set where the next track comes in and the current one goes out");
+            command: "perform.mpl.panel";
+            clicked => { root.toggle-mpl-panel(); }
+        }
+        if root.show-panels: Rectangle { width: 6px; }
+        if root.show-panels: PanelToggle {
             accessible-label: "topbar.toggle.sampler"; accessible-role: button;
             accessible-checkable: true; accessible-checked: self.on;
             label: @tr("SAMPLER"); on: root.sampler-panel;
@@ -161,7 +177,30 @@ export component TopBar inherits Rectangle {
             command: "perform.sampler.panel";
             clicked => { root.toggle-sampler-panel(); }
         }
-        if root.show-panels: Rectangle { width: 10px; }
+        if root.show-panels: Rectangle { width: 6px; }
+        if root.show-panels: PanelToggle {
+            accessible-label: "topbar.toggle.mixer"; accessible-role: button;
+            accessible-checkable: true; accessible-checked: self.on;
+            label: @tr("MIXER"); on: root.mixer-panel;
+            tooltip: root.mixer-panel ? @tr("Hide the mixer: the decks meet in the centre") : @tr("Show the mixer between the decks");
+            command: "perform.mixer.panel";
+            clicked => { root.toggle-mixer-panel(); }
+        }
+        if root.show-panels: Rectangle { width: 6px; }
+        // Recording section (Perform) / recording bar (Prepare); while
+        // recording it shows the elapsed time.
+        if !root.kiosk: PanelToggle {
+            accessible-label: "topbar.toggle.rec"; accessible-role: button;
+            accessible-checkable: true; accessible-checked: self.on;
+            accessible-value: root.recording ? root.recording-time : "";
+            label: root.recording ? @tr("REC {}", root.recording-time) : "REC";
+            on: root.rec-panel;
+            tooltip: root.rec-panel ? @tr("Hide the recording section") : @tr("Show the recording section: level, meter and the record button");
+            command: "view.panel.rec";
+            clicked => { root.toggle-rec-panel(); }
+        }
+        Rectangle { width: 10px; }
+        Caps { text: root.status; vertical-alignment: center; horizontal-stretch: 1; overflow: elide; }
         // Appearance: moon (dark), sun (light), half disc (follow system);
         // a click moves on to the next mode.
         Rectangle {
@@ -202,8 +241,8 @@ export component TopBar inherits Rectangle {
         }
         Rectangle { width: 8px; }
         // Recording: always one click away, as on the hardware.
-        if root.show-record || root.recording: Rectangle {
-            accessible-label: "topbar.toggle.rec"; accessible-role: button;
+        if root.kiosk && (root.show-record || root.recording): Rectangle {
+            accessible-label: "topbar.record"; accessible-role: button;
             accessible-checkable: true; accessible-checked: root.recording;
             accessible-value: root.recording ? root.recording-time : "";
             width: rec.preferred-width + 44px;

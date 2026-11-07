@@ -16,8 +16,8 @@ pub use fixture::{ChannelKind, FixtureDef, FixtureRole, Patch, Patched};
 pub use output::{Output, OutputKind, Universe};
 pub use render::{Look, render, render_fixture};
 pub use show::{
-    DeckMusic, GroupSettings, LightCue, Mode, Momentary, Program, Show, ShowSettings, TrackCue,
-    hsv, hue_for_key,
+    Attr, DeckMusic, Effect, GroupSettings, LightCue, Mode, Momentary, Program, Show, ShowSettings,
+    TrackCue, Wave, hsv, hue_for_key,
 };
 
 #[derive(Debug, thiserror::Error)]

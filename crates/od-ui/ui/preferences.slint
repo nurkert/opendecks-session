@@ -7,6 +7,7 @@ import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
 import { Caps, PlateButton, Field, Glyph, TipArea } from "controls.slint";
 import { TooltipLayer } from "tooltip.slint";
+import { ComboBox } from "std-widgets.slint";
 
 export struct KeyRow {
     // Empty for group headers.
@@ -219,6 +220,26 @@ export component PreferencesWindow inherits Window {
     in property <[string]> controllers;
     in property <[string]> mappings;
     in property <string> mapping-file;
+    // MIDI monitor and learn.
+    in property <bool> midi-monitor;
+    in property <[string]> midi-lines;
+    in property <bool> learn-active;
+    in property <[string]> learn-actions;
+    in property <int> learn-action;
+    in property <int> learn-deck;
+    in property <string> learn-result;
+    in property <string> learn-entry;
+    in property <string> learn-file;
+    // DDJ-FLX10 utility settings.
+    in property <int> flx10-fader-start;
+    in property <int> flx10-rec-out;
+    in property <int> flx10-time-mode;
+    in property <bool> flx10-slip-flashing;
+    in property <int> flx10-slip-led;
+    in property <bool> flx10-virtual-deck;
+    in property <int> flx10-jog-ring;
+    in property <int> flx10-boost;
+    in property <string> flx10-wire;
     in property <bool> mapping-pending;
 
     // Keyboard.
@@ -442,6 +463,67 @@ export component PreferencesWindow inherits Window {
                             if root.mapping-file != "": Button { a11y-label: "prefs.controller.mapping-clear"; label: @tr("REMOVE"); tone: Theme.fault; tooltip: @tr("Use only the built-in mappings"); clicked => { root.act("mapping.clear"); } }
                         }
                         Note { text: @tr("A mapping file (TOML, see docs/controller-mappings.md) is loaded in addition to the built-in mappings and wins for its device."); }
+
+                        Heading { text: @tr("MIDI monitor"); }
+                        Row {
+                            label: @tr("Monitor");
+                            Switch { accessible-label: "prefs.controller.midi-monitor"; label: @tr("Show every MIDI message and what it does"); on: root.midi-monitor; toggled(v) => { root.flag("midi.monitor", v); } }
+                            Rectangle { horizontal-stretch: 1; }
+                            Button { a11y-label: "prefs.controller.midi-clear"; label: @tr("CLEAR"); tooltip: @tr("Empty the monitor"); clicked => { root.act("midi.clear"); } }
+                        }
+                        if root.midi-monitor: Rectangle {
+                            accessible-role: list; accessible-label: "prefs.controller.midi-log";
+                            accessible-value: root.midi-lines.length;
+                            height: 160px;
+                            background: Theme.ground-band;
+                            Flickable {
+                                content-height: max(self.height, root.midi-lines.length * 18px + 8px);
+                                content-y: min(0px, self.height - self.content-height);
+                                VerticalLayout {
+                                    padding: 4px; alignment: start;
+                                    for l in root.midi-lines: Text { height: 18px; text: l; font-family: "Menlo"; font-size: 11px; color: Theme.bone-2; overflow: elide; }
+                                }
+                            }
+                            if root.midi-lines.length == 0: Note { text: @tr("Move a control on your controller."); horizontal-alignment: center; vertical-alignment: center; }
+                        }
+                        Heading { text: @tr("MIDI learn"); }
+                        Row {
+                            label: @tr("Action");
+                            ComboBox { accessible-label: "prefs.controller.learn-action"; horizontal-stretch: 1; model: root.learn-actions; current-index: root.learn-action; selected => { root.choose("learn.action", self.current-index); } }
+                        }
+                        Row { label: @tr("Deck / channel"); Choice { accessible-label: "prefs.controller.learn-deck"; options: [@tr("NONE"), "1", "2", "3", "4"]; selected: root.learn-deck; picked(i) => { root.choose("learn.deck", i); } } }
+                        Row {
+                            label: @tr("Control");
+                            Text {
+                                accessible-role: text; accessible-label: "prefs.controller.learn-result"; accessible-value: self.text;
+                                horizontal-stretch: 1;
+                                text: root.learn-result != "" ? root.learn-result : root.learn-active ? @tr("Move or press the control now …") : @tr("Press LEARN, then move the control");
+                                font-family: Theme.family; font-size: 14px; color: root.learn-result != "" ? Theme.bone : Theme.bone-3; vertical-alignment: center; overflow: elide;
+                            }
+                            Button { a11y-label: "prefs.controller.learn"; label: root.learn-active ? @tr("STOP") : @tr("LEARN"); tone: Theme.attention; tooltip: @tr("Listen for the next control you move"); clicked => { root.act(root.learn-active ? "learn.stop" : "learn.start"); } }
+                            Button { a11y-label: "prefs.controller.learn-save"; label: @tr("ADD TO MY MAPPING"); tone: Theme.live; tooltip: @tr("Write the learned control into your own mapping file"); clicked => { root.act("learn.save"); } }
+                        }
+                        if root.learn-entry != "": Text {
+                            accessible-role: text; accessible-label: "prefs.controller.learn-entry"; accessible-value: self.text;
+                            text: root.learn-entry; font-family: "Menlo"; font-size: 11px; color: Theme.bone-2; wrap: word-wrap;
+                        }
+                        Note { text: @tr("Learned controls go into {} and are used from the next start.", root.learn-file); }
+
+                        Heading { text: "DDJ-FLX10"; }
+                        Row { label: @tr("Fader start"); Choice { accessible-label: "prefs.controller.flx10-fader-start"; options: [@tr("OFF"), @tr("ON"), @tr("ON + SYNC")]; selected: root.flx10-fader-start; picked(i) => { root.choose("flx10.fader-start", i); } } }
+                        Row { label: @tr("REC OUT"); Choice { accessible-label: "prefs.controller.flx10-rec-out"; options: [@tr("WITH MIC"), @tr("WITHOUT MIC")]; selected: root.flx10-rec-out; picked(i) => { root.choose("flx10.rec-out", i); } } }
+                        Row { label: @tr("Jog display time"); Choice { accessible-label: "prefs.controller.flx10-time-mode"; options: [@tr("REMAINING"), @tr("ELAPSED")]; selected: root.flx10-time-mode; picked(i) => { root.choose("flx10.time-mode", i); } } }
+                        Row { label: @tr("Slip"); Switch { accessible-label: "prefs.controller.flx10-slip-flashing"; label: @tr("Flash the jog ring while slip is on"); on: root.flx10-slip-flashing; toggled(v) => { root.flag("flx10.slip-flashing", v); } } }
+                        Row { label: @tr("SLIP button"); Choice { accessible-label: "prefs.controller.flx10-slip-led"; options: [@tr("LIT"), @tr("BLINKING")]; selected: root.flx10-slip-led; picked(i) => { root.choose("flx10.slip-led", i); } } }
+                        Row { label: @tr("Hot cue indicator"); Switch { accessible-label: "prefs.controller.flx10-virtual-deck"; label: @tr("Show hot cues on the jog display"); on: root.flx10-virtual-deck; toggled(v) => { root.flag("flx10.virtual-deck", v); } } }
+                        Row { label: @tr("Jog ring colour"); Choice { accessible-label: "prefs.controller.flx10-jog-ring"; options: [@tr("MODE 1"), @tr("MODE 2"), @tr("MODE 3")]; selected: root.flx10-jog-ring; picked(i) => { root.choose("flx10.jog-ring", i); } } }
+                        Row { label: @tr("USB output boost"); Choice { accessible-label: "prefs.controller.flx10-boost"; options: ["0 dB", "+3 dB", "+6 dB", "+9 dB", "+12 dB", "+15 dB"]; selected: root.flx10-boost; picked(i) => { root.choose("flx10.boost", i); } } }
+                        Row {
+                            label: "";
+                            Button { a11y-label: "prefs.controller.flx10-apply"; label: @tr("WRITE TO DDJ-FLX10"); tone: Theme.live; tooltip: @tr("Send these settings to the connected DDJ-FLX10 over USB"); clicked => { root.act("flx10.apply"); } }
+                            Rectangle { horizontal-stretch: 1; }
+                        }
+                        Note { accessible-role: text; accessible-label: "prefs.controller.flx10-wire"; accessible-value: self.text; text: root.flx10-wire; font-family: "Menlo"; }
                     }
                 }
 

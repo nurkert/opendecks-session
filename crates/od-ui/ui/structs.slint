@@ -220,6 +220,8 @@ export struct PadView {
     lit: bool,
     // Hot cue slot for the cue colour, -1 for the pad mode's colour.
     cue-slot: int,
+    // Stored cue colour (transparent = the slot colour).
+    tone: color,
 }
 
 export struct DeckView {
@@ -265,6 +267,8 @@ export struct DeckView {
     // Stems (part mute): true = muted.
     stems-available: bool,
     stems-busy: bool,
+    // Separation progress, e.g. "SPLIT 42%".
+    split-text: string,
     mute-vocal: bool,
     mute-inst: bool,
     mute-drums: bool,

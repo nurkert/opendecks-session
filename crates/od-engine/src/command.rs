@@ -516,6 +516,8 @@ pub enum FxTarget {
     #[default]
     Master,
     Channel(usize),
+    /// The sampler output (before it joins the master).
+    Sampler,
 }
 
 #[derive(Clone, Copy, Debug)]

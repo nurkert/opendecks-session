@@ -34,6 +34,12 @@ export struct LightGroupView {
     program: int,
     // Index into `swatches`, -1 = colour from the track.
     color: int,
+    // Index into `effects` (0 = none).
+    effect: int,
+    // Fixed position (pan / tilt 0..1), or -1 = from the program.
+    pan: float,
+    tilt: float,
+    has-movers: bool,
 }
 
 export global Lighting {
@@ -46,6 +52,10 @@ export global Lighting {
     in-out property <bool> blackout;
     in property <bool> flash;
     in property <bool> strobe;
+    in property <bool> fog;
+    in property <[string]> effects;
+    // Tapped tempo for the lights when no deck plays ("" = 120 BPM).
+    in property <string> tap-bpm;
     in property <[LightFixtureView]> fixtures;
     in property <[LightGroupView]> groups;
     in property <[string]> programs;
@@ -77,6 +87,12 @@ export global Lighting {
     callback cue-back();
     callback cue-store(string);
     callback cue-delete(int);
+    callback fog-held(bool);
+    callback tap();
+    callback group-effect(int, int);
+    callback group-position(int, float, float);
+    callback group-position-clear(int);
+    callback import-ofl();
 }
 
 component SectionTitle inherits HorizontalLayout {
@@ -244,6 +260,12 @@ component RigPanel inherits VerticalLayout {
         }
     }
     Caps { text: Lighting.output-text; overflow: elide; color: Theme.bone-3; }
+    PlateButton {
+        accessible-label: "lighting.rig.import-ofl"; accessible-role: button;
+        compact: true; label: @tr("IMPORT FIXTURE FILE…");
+        tooltip: @tr("Patch a fixture from an Open Fixture Library file (.json)");
+        clicked => { Lighting.import-ofl(); }
+    }
     Rectangle { vertical-stretch: 1; }
 }
 
@@ -308,6 +330,22 @@ component ShowPanel inherits VerticalLayout {
                 pressed => { Lighting.strobe-held(true); }
                 released => { Lighting.strobe-held(false); }
             }
+            HorizontalLayout {
+                spacing: 6px;
+                HoldButton {
+                    accessible-label: "lighting.fog"; accessible-role: button;
+                    label: @tr("FOG"); on: Lighting.fog; size: 30px; tone: Theme.w486; horizontal-stretch: 1;
+                    tooltip: @tr("Fog machines on while held");
+                    pressed => { Lighting.fog-held(true); }
+                    released => { Lighting.fog-held(false); }
+                }
+                PlateButton {
+                    accessible-label: "lighting.tap"; accessible-role: button;
+                    label: Lighting.tap-bpm == "" ? @tr("TAP") : "TAP " + Lighting.tap-bpm; horizontal-stretch: 1;
+                    tooltip: @tr("Tap the tempo for the lights when no deck plays");
+                    clicked => { Lighting.tap(); }
+                }
+            }
         }
     }
     HLine { }
@@ -351,6 +389,42 @@ component ShowPanel inherits VerticalLayout {
                 }
             }
             Swatches { current: g.color; chosen(i) => { Lighting.group-color(gi, i); } }
+            HorizontalLayout {
+                spacing: 6px;
+                PlateButton {
+                    accessible-label: "lighting.pro.group" + gi + ".effect"; accessible-role: button;
+                    compact: true; horizontal-stretch: 1;
+                    label: "FX: " + Lighting.effects[g.effect];
+                    tooltip: @tr("Attribute effect: click for the next one");
+                    clicked => { Lighting.group-effect(gi, Math.mod(g.effect + 1, Lighting.effects.length)); }
+                }
+                // Pan / tilt programmer: drag in the square; double-click frees it.
+                if g.has-movers: Rectangle {
+                    accessible-label: "lighting.pro.group" + gi + ".xy"; accessible-role: slider;
+                    width: 54px; height: 54px;
+                    background: Theme.plate; border-width: 1px; border-color: Theme.rule;
+                    Rectangle { x: parent.width / 2; width: 1px; background: Theme.rule; }
+                    Rectangle { y: parent.height / 2; height: 1px; background: Theme.rule; }
+                    if g.pan >= 0: Rectangle {
+                        x: g.pan * (parent.width - 8px); y: (1 - g.tilt) * (parent.height - 8px);
+                        width: 8px; height: 8px; border-radius: 4px; background: Theme.attention;
+                    }
+                    xy := TouchArea {
+                        mouse-cursor: crosshair;
+                        pointer-event(ev) => {
+                            if (ev.kind == PointerEventKind.down) {
+                                Lighting.group-position(gi, clamp(self.mouse-x / self.width, 0, 1), clamp(1 - self.mouse-y / self.height, 0, 1));
+                            }
+                        }
+                        moved => {
+                            if (self.pressed) {
+                                Lighting.group-position(gi, clamp(self.mouse-x / self.width, 0, 1), clamp(1 - self.mouse-y / self.height, 0, 1));
+                            }
+                        }
+                        double-clicked => { Lighting.group-position-clear(gi); }
+                    }
+                }
+            }
         }
         HLine { }
         Caps { text: @tr("CUE STACK"); }

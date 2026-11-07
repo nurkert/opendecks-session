@@ -14,7 +14,7 @@ use std::time::{Duration, Instant};
 use od_core::{MusicalKey, Phrase, PhraseMood};
 use od_engine::{DeckState, EngineState, MAX_DECKS};
 use od_lighting::{
-    DeckMusic, FixtureDef, FixtureRole, LightCue, Lighting, Look, Mode, Momentary, OutputKind, Patch, Patched, Program,
+    Attr, Effect, Wave, DeckMusic, FixtureDef, FixtureRole, LightCue, Lighting, Look, Mode, Momentary, OutputKind, Patch, Patched, Program,
     RigConfig, Show, ShowSettings, Universe, hue_for_key,
 };
 use slint::{Color, ComponentHandle, ModelRc, SharedString, VecModel};
@@ -86,6 +86,7 @@ enum Msg {
     Settings(ShowSettings),
     Momentary(Momentary),
     Output(u16, od_lighting::OutputKind),
+    TapBpm(Option<f64>),
     ClearOutputs,
     Cue(Option<usize>),
     Stop,
@@ -137,6 +138,10 @@ impl Runner {
         let _ = self.tx.send(Msg::ClearOutputs);
     }
 
+    pub fn tap_bpm(&self, bpm: Option<f64>) {
+        let _ = self.tx.send(Msg::TapBpm(bpm));
+    }
+
     /// Selects a Pro cue (Go / Back).
     pub fn cue(&self, cue: Option<usize>) {
         let _ = self.tx.send(Msg::Cue(cue));
@@ -177,6 +182,7 @@ fn run(rx: Receiver<Msg>, mut rig: Lighting, snapshot: Arc<Mutex<Snapshot>>) {
                 }
             }
             Ok(Msg::ClearOutputs) => rig.clear_outputs(),
+            Ok(Msg::TapBpm(b)) => rig.show.tap_bpm = b,
             Ok(Msg::Cue(c)) => rig.show.manual_cue = c,
             Ok(Msg::Stop) | Err(mpsc::RecvTimeoutError::Disconnected) => return,
             Err(mpsc::RecvTimeoutError::Timeout) => {}
@@ -231,6 +237,28 @@ fn swatch_index(c: Option<[f32; 3]>) -> i32 {
 
 fn program_index(p: Option<Program>) -> i32 {
     p.and_then(|p| Program::ALL.iter().position(|x| *x == p)).map_or(-1, |i| i as i32)
+}
+
+/// Effect presets of the Pro group FX key (index 0 = none).
+pub const EFFECTS: [(&str, Option<(Attr, Wave, f32)>); 8] = [
+    ("NONE", None),
+    ("DIM SINE", Some((Attr::Dimmer, Wave::Sine, 2.0))),
+    ("DIM SQUARE", Some((Attr::Dimmer, Wave::Square, 1.0))),
+    ("DIM RANDOM", Some((Attr::Dimmer, Wave::Random, 0.5))),
+    ("PAN SINE", Some((Attr::Pan, Wave::Sine, 4.0))),
+    ("PAN SAW", Some((Attr::Pan, Wave::Saw, 2.0))),
+    ("TILT SINE", Some((Attr::Tilt, Wave::Sine, 4.0))),
+    ("TILT SQUARE", Some((Attr::Tilt, Wave::Square, 2.0))),
+];
+
+/// The effect of preset `i`: full depth, phase spread over the group.
+pub fn effect_preset(i: usize) -> Option<Effect> {
+    EFFECTS.get(i).and_then(|(_, e)| *e).map(|(attr, wave, beats)| Effect { attr, wave, beats, depth: if attr == Attr::Dimmer { 1.0 } else { 0.6 }, spread: 0.25 })
+}
+
+/// Preset index of a stored effect (0 when none or custom).
+pub fn effect_index(e: Option<Effect>) -> i32 {
+    (0..EFFECTS.len()).find(|&i| effect_preset(i) == e).unwrap_or(0) as i32
 }
 
 /// The rig file of a library.
@@ -346,6 +374,8 @@ pub fn status_text(mode: Mode, decks: &[DeckMusic]) -> String {
 /// UI side of the lighting: the rig file, the runner and the view rows.
 pub struct LightingRuntime {
     pub config: RigConfig,
+    taps: crate::fx::TapTempo,
+    tap_bpm: Option<f64>,
     path: PathBuf,
     runner: Runner,
     momentary: Momentary,
@@ -364,6 +394,8 @@ impl LightingRuntime {
         let runner = Runner::start(config.patch.clone(), config.settings.clone());
         let rt = Self {
             config,
+            taps: Default::default(),
+            tap_bpm: None,
             path,
             runner,
             momentary: Momentary::default(),
@@ -413,6 +445,8 @@ fn refresh(app: &App) {
     g.set_blackout(s.blackout);
     g.set_flash(rt.momentary.flash);
     g.set_strobe(rt.momentary.strobe);
+    g.set_fog(rt.momentary.fog);
+    g.set_tap_bpm(rt.tap_bpm.map(|b| format!("{b:.0}")).unwrap_or_default().into());
     g.set_easy_program(program_index(Some(s.easy_program)));
     g.set_easy_color(swatch_index(s.easy_color));
     let groups: Vec<LightGroupView> = rt
@@ -422,7 +456,16 @@ fn refresh(app: &App) {
         .into_iter()
         .map(|name| {
             let gs = s.groups.get(&name).cloned().unwrap_or_default();
-            LightGroupView { name: name.into(), program: program_index(gs.program), color: swatch_index(gs.color) }
+            let has_movers = rt.config.patch.fixtures.iter().any(|f| f.group == name && f.def.role() == FixtureRole::Mover);
+            LightGroupView {
+                name: name.into(),
+                program: program_index(gs.program),
+                color: swatch_index(gs.color),
+                effect: effect_index(gs.effect),
+                pan: gs.pan.unwrap_or(-1.0),
+                tilt: gs.tilt.unwrap_or(-1.0),
+                has_movers,
+            }
         })
         .collect();
     g.set_groups(ModelRc::new(VecModel::from(groups)));
@@ -534,6 +577,44 @@ pub(crate) fn wire(app: &Rc<App>) {
             Err(e) => a.status(format!("Lighting: {e}")),
         }
     }));
+    g.set_effects(ModelRc::new(VecModel::from(EFFECTS.iter().map(|(n, _)| SharedString::from(*n)).collect::<Vec<_>>())));
+    g.on_fog_held(handler!(app, |a, on: bool| momentary(&a, |m| m.fog = on)));
+    g.on_tap(handler!(app, |a| {
+        let t = TAP_EPOCH.with(|e| e.elapsed().as_secs_f64());
+        let bpm = a.lighting.borrow_mut().taps.tap(t);
+        if let Some(b) = bpm {
+            let mut rt = a.lighting.borrow_mut();
+            rt.tap_bpm = Some(b as f64);
+            rt.runner.tap_bpm(Some(b as f64));
+        }
+        refresh(&a);
+    }));
+    g.on_group_effect(handler!(app, |a, gi: i32, ei: i32| edit(&a, |rt| {
+        if let Some(name) = rt.config.patch.groups().get(gi as usize) {
+            rt.config.settings.groups.entry(name.clone()).or_default().effect = effect_preset(ei.max(0) as usize);
+        }
+    })));
+    g.on_group_position(handler!(app, |a, gi: i32, x: f32, y: f32| edit(&a, |rt| {
+        if let Some(name) = rt.config.patch.groups().get(gi as usize) {
+            let g = rt.config.settings.groups.entry(name.clone()).or_default();
+            g.pan = Some(x.clamp(0.0, 1.0));
+            g.tilt = Some(y.clamp(0.0, 1.0));
+        }
+    })));
+    g.on_group_position_clear(handler!(app, |a, gi: i32| edit(&a, |rt| {
+        if let Some(name) = rt.config.patch.groups().get(gi as usize) {
+            let g = rt.config.settings.groups.entry(name.clone()).or_default();
+            g.pan = None;
+            g.tilt = None;
+        }
+    })));
+    g.on_import_ofl(handler!(app, |a| {
+        let Some(path) = rfd::FileDialog::new().set_title(od_i18n::tr("Fixture file (Open Fixture Library)")).add_filter("JSON", &["json"]).pick_file() else { return };
+        match import_ofl(&mut a.lighting.borrow_mut().config.patch, &path) {
+            Ok(_) => edit(&a, |_| {}),
+            Err(e) => a.status(format!("Lighting: {e}")),
+        }
+    }));
     g.on_cue_go(handler!(app, |a| cue_step(&a, true)));
     g.on_cue_back(handler!(app, |a| cue_step(&a, false)));
     g.on_cue_store(handler!(app, |a, name: SharedString| edit(&a, |rt| {
@@ -569,6 +650,59 @@ fn cue_step(app: &App, forward: bool) {
     let next = if active < 0 { if forward { 0 } else { n - 1 } } else if forward { (active + 1) % n } else { (active + n - 1) % n };
     app.ui.global::<crate::Lighting>().set_active_cue(next);
     app.lighting.borrow().runner.cue(Some(next as usize));
+}
+
+thread_local! {
+    static TAP_EPOCH: std::time::Instant = std::time::Instant::now();
+}
+
+/// A Lighting pad (controller or screen): A–F pick the easy look, G / H
+/// strobe and flash while held.
+pub(crate) fn pad(app: &App, index: usize, pressed: bool) {
+    match index {
+        0..=5 if pressed => edit(app, |rt| {
+            rt.config.settings.mode = Mode::Easy;
+            rt.config.settings.easy_program = crate::pads::LIGHT_LOOKS[index];
+        }),
+        6 => momentary(app, |m| m.strobe = pressed),
+        7 => momentary(app, |m| m.flash = pressed),
+        _ => {}
+    }
+}
+
+/// Lit state of the Lighting pads.
+pub(crate) fn light_pads(app: &App, rows: &mut [crate::PadView]) {
+    let rt = app.lighting.borrow();
+    for r in rows.iter_mut() {
+        let i = r.index as usize;
+        r.lit = match i {
+            0..=5 => rt.config.settings.mode == Mode::Easy && rt.config.settings.easy_program == crate::pads::LIGHT_LOOKS[i],
+            6 => rt.momentary.strobe,
+            _ => rt.momentary.flash,
+        };
+    }
+}
+
+/// Patches a fixture from an Open Fixture Library file (first mode), named
+/// after the model; the manufacturer is the file's folder (OFL layout).
+pub fn import_ofl(patch: &mut Patch, path: &std::path::Path) -> Result<usize, od_lighting::Error> {
+    let json = std::fs::read_to_string(path).map_err(|e| od_lighting::Error::Fixture(e.to_string()))?;
+    let maker = path.parent().and_then(|p| p.file_name()).map(|n| n.to_string_lossy().into_owned()).unwrap_or_default();
+    let def = FixtureDef::from_ofl(&json, &maker, None)?;
+    let len = def.channels.len() as u16;
+    let (universe, address) = (0..16u16)
+        .find_map(|u| patch.next_free(u, len).map(|a| (u, a)))
+        .ok_or_else(|| od_lighting::Error::Patch("no free DMX address".into()))?;
+    let group = match def.role() {
+        FixtureRole::Mover => "Movers",
+        FixtureRole::Bar => "Bars",
+        FixtureRole::Wash => "Wash",
+        FixtureRole::Effect => "Effects",
+    }
+    .to_string();
+    let n = patch.fixtures.iter().filter(|f| f.def.model == def.model).count() + 1;
+    let name = format!("{} {n}", def.model);
+    patch.add(Patched { name, def, universe, address, group, invert_pan: false })
 }
 
 /// Patches a built-in fixture type at the next free address (pure on the patch).
@@ -771,5 +905,23 @@ mod tests {
             assert!(Instant::now() < deadline, "no chorus frame rendered");
             std::thread::sleep(Duration::from_millis(10));
         }
+    }
+
+    #[test]
+    fn effect_presets_round_trip_and_ofl_import() {
+        for i in 0..EFFECTS.len() {
+            assert_eq!(effect_index(effect_preset(i)), i as i32);
+        }
+        assert_eq!(effect_preset(0), None);
+        let dir = tempfile::tempdir().unwrap();
+        let maker = dir.path().join("acme");
+        std::fs::create_dir_all(&maker).unwrap();
+        let file = maker.join("spot.json");
+        std::fs::write(&file, r#"{"name":"Spot 60","availableChannels":{"Pan":{"capability":{"type":"Pan"}},"Tilt":{"capability":{"type":"Tilt"}},"Dimmer":{"capability":{"type":"Intensity"}}},"modes":[{"name":"3ch","channels":["Pan","Tilt","Dimmer"]}]}"#).unwrap();
+        let mut patch = Patch::default();
+        import_ofl(&mut patch, &file).unwrap();
+        import_ofl(&mut patch, &file).unwrap();
+        assert_eq!(patch.fixtures[1].name, "Spot 60 2");
+        assert_eq!((patch.fixtures[1].address, patch.fixtures[0].group.as_str(), patch.fixtures[0].def.manufacturer.as_str()), (4, "Movers", "acme"));
     }
 }

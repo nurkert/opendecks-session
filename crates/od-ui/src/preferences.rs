@@ -34,6 +34,10 @@ pub(crate) struct Prefs {
     pub message: String,
     /// Output devices offered on the Audio page (names).
     pub devices: Vec<String>,
+    /// MIDI monitor and learn (Controller page).
+    pub midi: crate::midi_tools::MidiTools,
+    /// Polls the MIDI monitor while it or learn runs.
+    midi_timer: slint::Timer,
 }
 
 impl Default for Prefs {
@@ -48,6 +52,8 @@ impl Default for Prefs {
             selected: None,
             message: String::new(),
             devices: Vec::new(),
+            midi: Default::default(),
+            midi_timer: slint::Timer::default(),
         }
     }
 }
@@ -301,6 +307,31 @@ pub(crate) fn refresh(app: &App) {
         w.set_mappings(strings(crate::controller::mapping_names()));
         w.set_mapping_file(s.controller.mapping_file.clone().into());
         w.set_mapping_pending(s.controller.mapping_file != started.controller.mapping_file);
+        // MIDI monitor / learn and the FLX10 settings.
+        {
+            use crate::midi_tools as mt;
+            let p = app.prefs.borrow();
+            let m = &p.midi;
+            w.set_midi_monitor(m.monitoring);
+            w.set_midi_lines(strings(m.lines.iter().cloned().collect()));
+            w.set_learn_active(m.learning);
+            w.set_learn_actions(strings(od_controller::templates::ACTION_NAMES.iter().map(|a| a.to_string()).collect()));
+            w.set_learn_action(m.action as i32);
+            w.set_learn_deck(m.deck as i32);
+            w.set_learn_result(m.suggestion.as_ref().map(mt::describe).unwrap_or_default().into());
+            w.set_learn_entry(m.entry().unwrap_or_default().into());
+            w.set_learn_file(learn_file(&st).display().to_string().into());
+            let f = &s.controller.flx10;
+            w.set_flx10_fader_start(index_of(&mt::FADER_STARTS, &f.fader_start.as_str()));
+            w.set_flx10_rec_out(index_of(&mt::REC_OUTS, &f.rec_out.as_str()));
+            w.set_flx10_time_mode(index_of(&mt::TIME_MODES, &f.time_mode.as_str()));
+            w.set_flx10_slip_flashing(f.slip_flashing);
+            w.set_flx10_slip_led(index_of(&mt::SLIP_LEDS, &f.slip_led.as_str()));
+            w.set_flx10_virtual_deck(f.virtual_deck);
+            w.set_flx10_jog_ring((f.jog_ring.clamp(1, 3) - 1) as i32);
+            w.set_flx10_boost(index_of(&mt::BOOSTS, &f.boost_db));
+            w.set_flx10_wire(mt::flx10_wire_text(f).into());
+        }
         // Recording.
         w.set_rec_format(index_of(&["wav", "flac", "wav+mp3"], &s.recording.format.as_str()));
         w.set_rec_folder(s.recordings_dir().display().to_string().into());
@@ -334,6 +365,83 @@ pub(crate) fn refresh(app: &App) {
     drop(st);
     refresh_updates(app);
     refresh_keys(app);
+}
+
+/// The mapping file learned controls are written to: the own mapping
+/// file, else `mappings/learned.toml` next to the library.
+fn learn_file(st: &crate::state::AppState) -> PathBuf {
+    let own = &st.settings.controller.mapping_file;
+    if own.is_empty() { crate::midi_tools::default_learn_file(&st.config.library_path) } else { PathBuf::from(own) }
+}
+
+/// Starts or stops polling the MIDI monitor.
+fn midi_stream(app: &Rc<App>) {
+    {
+        let mut p = app.prefs.borrow_mut();
+        if p.midi.monitor.is_none() {
+            p.midi.monitor = crate::controller::monitor(app);
+        }
+        if p.midi.monitor.is_none() && (p.midi.monitoring || p.midi.learning) {
+            drop(p);
+            app.status("No controller layer running — connect a controller and restart");
+        }
+    }
+    let run = {
+        let p = app.prefs.borrow();
+        p.midi.monitoring || p.midi.learning
+    };
+    let weak = Rc::downgrade(app);
+    let p = app.prefs.borrow();
+    if run && !p.midi_timer.running() {
+        p.midi_timer.start(slint::TimerMode::Repeated, std::time::Duration::from_millis(60), move || {
+            let Some(a) = weak.upgrade() else { return };
+            let changed = a.prefs.borrow_mut().midi.poll();
+            if changed {
+                refresh(&a);
+            }
+        });
+    } else if !run {
+        p.midi_timer.stop();
+    }
+}
+
+/// Controller page tools: the MIDI monitor, MIDI learn and the FLX10.
+pub(crate) fn midi_act(app: &Rc<App>, what: &str) {
+    match what {
+        "midi.on" | "midi.off" => app.prefs.borrow_mut().midi.set_monitoring(what == "midi.on"),
+        "midi.clear" => app.prefs.borrow_mut().midi.lines.clear(),
+        "learn.start" => app.prefs.borrow_mut().midi.start_learn(),
+        "learn.stop" => app.prefs.borrow_mut().midi.stop_learn(),
+        "learn.save" => {
+            let (entry, port) = {
+                let p = app.prefs.borrow();
+                (p.midi.entry(), p.midi.learn_port.clone())
+            };
+            let Some(entry) = entry else {
+                app.status("Learn a control first");
+                return;
+            };
+            let (path, own) = {
+                let st = app.state.borrow();
+                (learn_file(&st), st.settings.controller.mapping_file.clone())
+            };
+            match crate::midi_tools::save_entry(&path, &port, &entry) {
+                Ok(()) => {
+                    if own.is_empty() {
+                        let f = path.display().to_string();
+                        change(app, |s| s.controller.mapping_file = f.clone());
+                    }
+                    app.prefs.borrow_mut().midi.stop_learn();
+                    app.status(od_i18n::trf("Control added to {} — used from the next start", &[&path.display()]));
+                }
+                Err(e) => app.status(od_i18n::trf("The control could not be added: {}", &[&e])),
+            }
+        }
+        "flx10.apply" => crate::midi_tools::apply_flx10_now(app),
+        _ => tracing::warn!(what, "unknown controller tool action"),
+    }
+    midi_stream(app);
+    refresh(app);
 }
 
 /// Advanced > Updates: the version and when it was last checked.
@@ -631,6 +739,20 @@ fn choose(app: &App, key: &str, i: i32) {
         "mixer.eq-mode" => change_engine(app, key, |s| s.mixer.eq_mode = EQ_MODES.get(i).unwrap_or(&"isolator").to_string()),
         "mixer.fader-curve" => change_engine(app, key, |s| s.mixer.fader_curve = FADER_CURVES.get(i).unwrap_or(&"smooth").to_string()),
         "mixer.crossfader-curve" => change_engine(app, key, |s| s.mixer.crossfader_curve = CROSSFADER_CURVES.get(i).unwrap_or(&"constant_power").to_string()),
+        "learn.action" => {
+            app.prefs.borrow_mut().midi.action = i.min(od_controller::templates::ACTION_NAMES.len() - 1);
+            refresh(app);
+        }
+        "learn.deck" => {
+            app.prefs.borrow_mut().midi.deck = i.min(4) as u8;
+            refresh(app);
+        }
+        "flx10.fader-start" => change(app, |s| s.controller.flx10.fader_start = crate::midi_tools::FADER_STARTS.get(i).unwrap_or(&"on").to_string()),
+        "flx10.rec-out" => change(app, |s| s.controller.flx10.rec_out = crate::midi_tools::REC_OUTS.get(i).unwrap_or(&"with-mic").to_string()),
+        "flx10.time-mode" => change(app, |s| s.controller.flx10.time_mode = crate::midi_tools::TIME_MODES.get(i).unwrap_or(&"remaining").to_string()),
+        "flx10.slip-led" => change(app, |s| s.controller.flx10.slip_led = crate::midi_tools::SLIP_LEDS.get(i).unwrap_or(&"lit").to_string()),
+        "flx10.jog-ring" => change(app, |s| s.controller.flx10.jog_ring = (i.min(2) + 1) as u8),
+        "flx10.boost" => change(app, |s| s.controller.flx10.boost_db = crate::midi_tools::BOOSTS.get(i).copied().unwrap_or(0)),
         _ => tracing::warn!(key, "unknown choice"),
     }
 }
@@ -656,6 +778,8 @@ fn flag(app: &App, key: &str, v: bool) {
         "adv.backup" => change(app, |s| s.advanced.backup_on_start = v),
         "update.auto" => change(app, |s| s.update.auto_check = v),
         "update.pre" => change(app, |s| s.update.prereleases = v),
+        "flx10.slip-flashing" => change(app, |s| s.controller.flx10.slip_flashing = v),
+        "flx10.virtual-deck" => change(app, |s| s.controller.flx10.virtual_deck = v),
         _ => tracing::warn!(key, "unknown flag"),
     }
 }
@@ -833,8 +957,8 @@ fn with_page(app: &App) -> String {
 fn wire_window(app: &Rc<App>, w: &PreferencesWindow) {
     w.on_select_page(handler!(app, |a, p: SharedString| select_page(&a, p.as_str())));
     w.on_choose(handler!(app, |a, k: SharedString, i: i32| choose(&a, k.as_str(), i)));
-    w.on_flag(handler!(app, |a, k: SharedString, v: bool| flag(&a, k.as_str(), v)));
-    w.on_act(handler!(app, |a, k: SharedString| act(&a, k.as_str())));
+    w.on_flag(handler!(app, |a, k: SharedString, v: bool| if k == "midi.monitor" { midi_act(&a, if v { "midi.on" } else { "midi.off" }) } else { flag(&a, k.as_str(), v) }));
+    w.on_act(handler!(app, |a, k: SharedString| if k.starts_with("midi.") || k.starts_with("learn.") || k.starts_with("flx10.") { midi_act(&a, k.as_str()) } else { act(&a, k.as_str()) }));
     w.on_search_keys(handler!(app, |a, q: SharedString| {
         a.prefs.borrow_mut().search = q.to_string();
         refresh_keys(&a);

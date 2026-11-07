@@ -128,12 +128,17 @@ pub(crate) fn target_number(t: FxTarget) -> i32 {
     match t {
         FxTarget::Master => 0,
         FxTarget::Channel(c) => c as i32 + 1,
+        FxTarget::Sampler => -1,
     }
 }
 
-/// Panel channel number → target.
+/// Panel channel number → target (−1 = sampler).
 pub(crate) fn target_from_number(n: i32) -> FxTarget {
-    if n <= 0 { FxTarget::Master } else { FxTarget::Channel((n as usize - 1).min(decks::DECKS - 1)) }
+    if n < 0 {
+        FxTarget::Sampler
+    } else if n == 0 {
+        FxTarget::Master
+    } else { FxTarget::Channel((n as usize - 1).min(decks::DECKS - 1)) }
 }
 
 /// What a unit shows before audio runs (the engine's start values).
@@ -365,6 +370,7 @@ pub(crate) fn wire(app: &Rc<App>) {
     ui.on_fx_kind(handler!(app, |a, n: i32, k: i32| send(&a, u(n), BeatFxCommand::SetKind(BeatFxKind::ALL[(k.max(0) as usize).min(BeatFxKind::ALL.len() - 1)]))));
     let slots = slint::ComponentHandle::global::<crate::FxSlots>(&app.ui);
     slots.on_multi(handler!(app, |a, n: i32| toggle_multi(&a, u(n))));
+    slots.on_auto(handler!(app, |a, n: i32| auto_beat(&a, u(n))));
     slots.on_kind_step(handler!(app, |a, n: i32, k: i32, d: i32| {
         let kind = slot_state(&a, u(n), k as usize).map(|s| s.kind).unwrap_or_default();
         send_slot(&a, u(n), k as usize, BeatFxCommand::SetKind(step_kind(kind, d)));

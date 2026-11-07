@@ -548,6 +548,19 @@ pub(crate) fn load_selection(app: &App, deck: Option<usize>) -> bool {
     true
 }
 
+/// A file dropped onto a deck: added to the collection (in the
+/// background when it is new), then loaded on `deck` (0-based).
+pub(crate) fn import_and_load(app: &App, path: PathBuf, deck: usize) {
+    let known = app.state.borrow().lib.track_by_path(&path).ok().flatten().map(|t| t.id);
+    match known {
+        Some(id) => load(app, id, LoadTarget::Deck(deck)),
+        None => {
+            let title = path.file_stem().map(|s| s.to_string_lossy().into_owned()).unwrap_or_default();
+            start_import(app, ExplorerFile { path, title, ..Default::default() }, LoadTarget::Deck(deck));
+        }
+    }
+}
+
 fn start_import(app: &App, file: ExplorerFile, target: LoadTarget) {
     if !app.explorer.importing.borrow_mut().insert(file.path.clone()) {
         return;

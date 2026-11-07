@@ -109,6 +109,75 @@ pub struct GroupSettings {
     pub tilt: Option<f32>,
     /// Speed multiplier of the program (0.25 … 4, default 1).
     pub speed: Option<f32>,
+    /// Attribute effect layered over the program.
+    #[serde(default)]
+    pub effect: Option<Effect>,
+}
+
+/// Attribute an [`Effect`] moves.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Attr {
+    Dimmer,
+    Pan,
+    Tilt,
+}
+
+/// Wave shape of an [`Effect`].
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum Wave {
+    Sine,
+    Saw,
+    Square,
+    Random,
+}
+
+/// A beat-synced attribute effect (Pro mode): a wave over `beats` beats,
+/// `depth` 0..1, with the phase spread across the group's fixtures.
+#[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
+pub struct Effect {
+    pub attr: Attr,
+    pub wave: Wave,
+    pub beats: f32,
+    pub depth: f32,
+    /// Phase offset between neighbouring fixtures, 0..1 of a cycle.
+    pub spread: f32,
+}
+
+impl Effect {
+    /// Wave value 0..1 at `beat` for fixture `index`.
+    pub fn value(&self, beat: f64, index: usize) -> f32 {
+        let cycle = beat / self.beats.max(0.0625) as f64 + index as f64 * self.spread as f64;
+        let p = (cycle - cycle.floor()) as f32;
+        match self.wave {
+            Wave::Sine => 0.5 - 0.5 * (p * std::f32::consts::TAU).cos(),
+            Wave::Saw => p,
+            Wave::Square => {
+                if p < 0.5 {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
+            Wave::Random => {
+                // A new value per cycle, stable within it.
+                let n = cycle.floor() as i64 as u64
+                    ^ (index as u64).wrapping_mul(0x9E37_79B9_7F4A_7C15);
+                let x = n.wrapping_mul(0x2545_F491_4F6C_DD1D);
+                ((x >> 40) & 0xFFFF) as f32 / 65535.0
+            }
+        }
+    }
+
+    /// Applies the effect to a look.
+    pub fn apply(&self, look: &mut Look, beat: f64, index: usize) {
+        let v = self.value(beat, index);
+        let d = self.depth.clamp(0.0, 1.0);
+        match self.attr {
+            Attr::Dimmer => look.intensity *= 1.0 - d + d * v,
+            Attr::Pan => look.pan = (look.pan + (v - 0.5) * d).clamp(0.0, 1.0),
+            Attr::Tilt => look.tilt = (look.tilt + (v - 0.5) * d).clamp(0.0, 1.0),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -168,6 +237,8 @@ pub struct Momentary {
     pub flash: bool,
     /// Everything strobing.
     pub strobe: bool,
+    /// Fog machines on.
+    pub fog: bool,
 }
 
 pub struct Show {
@@ -183,6 +254,10 @@ pub struct Show {
     previous: Vec<Look>,
     fade: f32,
     fade_time: f32,
+    /// Tapped tempo for Easy / Pro when no deck plays.
+    pub tap_bpm: Option<f64>,
+    /// Free-running beat when no deck plays.
+    free_beat: f64,
 }
 
 impl Default for Show {
@@ -202,6 +277,20 @@ impl Show {
             previous: Vec::new(),
             fade: 0.0,
             fade_time: 1.0,
+            tap_bpm: None,
+            free_beat: 0.0,
+        }
+    }
+
+    /// Music to follow when no deck plays: the tapped (or 120) BPM.
+    fn free_music(&mut self, dt: f32) -> DeckMusic {
+        let bpm = self.tap_bpm.unwrap_or(120.0);
+        self.free_beat += dt as f64 * bpm / 60.0;
+        DeckMusic {
+            bpm,
+            beat: self.free_beat,
+            energy: 0.6,
+            ..Default::default()
         }
     }
 
@@ -226,7 +315,10 @@ impl Show {
                     let mut acc_w = 0.0;
                     for d in &audible {
                         let program = Program::for_phrase(d.phrase);
-                        let set = rig(patch, d, |_| (program, None, None, None, None, 1.0));
+                        let set = rig(patch, d, |_| Choice {
+                            program,
+                            ..Choice::default()
+                        });
                         acc_w += d.weight;
                         acc = Some(match acc {
                             None => set,
@@ -241,21 +333,23 @@ impl Show {
                 }
             }
             Mode::Easy => {
-                let music = dominant.copied().unwrap_or(DeckMusic {
-                    bpm: 120.0,
-                    energy: 0.5,
-                    ..Default::default()
-                });
+                let music = match dominant {
+                    Some(d) => *d,
+                    None => self.free_music(dt),
+                };
                 let program = self.settings.easy_program;
                 let color = self.settings.easy_color;
-                rig(patch, &music, |_| (program, color, None, None, None, 1.0))
+                rig(patch, &music, |_| Choice {
+                    program,
+                    color,
+                    ..Choice::default()
+                })
             }
             Mode::Pro => {
-                let music = dominant.copied().unwrap_or(DeckMusic {
-                    bpm: 120.0,
-                    energy: 0.5,
-                    ..Default::default()
-                });
+                let music = match dominant {
+                    Some(d) => *d,
+                    None => self.free_music(dt),
+                };
                 let groups = &self.settings.groups;
                 let cue = self
                     .cue_for(dominant.copied())
@@ -270,18 +364,21 @@ impl Show {
                             pan: o.pan.or(base.pan),
                             tilt: o.tilt.or(base.tilt),
                             speed: o.speed.or(base.speed),
+                            effect: o.effect.or(base.effect),
                         },
                         None => base,
                     };
-                    (
-                        g.program
+                    Choice {
+                        program: g
+                            .program
                             .unwrap_or_else(|| Program::for_phrase(music.phrase)),
-                        g.color,
-                        g.intensity,
-                        g.pan,
-                        g.tilt,
-                        g.speed.unwrap_or(1.0),
-                    )
+                        color: g.color,
+                        intensity: g.intensity,
+                        pan: g.pan,
+                        tilt: g.tilt,
+                        speed: g.speed.unwrap_or(1.0),
+                        effect: g.effect,
+                    }
                 })
             }
         };
@@ -343,6 +440,7 @@ impl Show {
                 look.intensity = 1.0;
                 look.strobe = 1.0;
             }
+            look.fog = self.momentary.fog;
             look.intensity *= master;
             for p in &mut look.pixels {
                 *p = p.map(|c| c * master);
@@ -390,14 +488,30 @@ impl Show {
     }
 }
 
-type GroupChoice = (
-    Program,
-    Option<[f32; 3]>,
-    Option<f32>,
-    Option<f32>,
-    Option<f32>,
-    f32,
-);
+/// What a group does this frame.
+struct Choice {
+    program: Program,
+    color: Option<[f32; 3]>,
+    intensity: Option<f32>,
+    pan: Option<f32>,
+    tilt: Option<f32>,
+    speed: f32,
+    effect: Option<Effect>,
+}
+
+impl Default for Choice {
+    fn default() -> Self {
+        Self {
+            program: Program::Static,
+            color: None,
+            intensity: None,
+            pan: None,
+            tilt: None,
+            speed: 1.0,
+            effect: None,
+        }
+    }
+}
 
 fn idle(patch: &Patch) -> Vec<Look> {
     patch
@@ -416,7 +530,18 @@ fn idle(patch: &Patch) -> Vec<Look> {
 }
 
 /// Looks for the whole rig from one deck's music.
-fn rig(patch: &Patch, music: &DeckMusic, choose: impl Fn(&str) -> GroupChoice) -> Vec<Look> {
+fn rig(patch: &Patch, music: &DeckMusic, choose: impl Fn(&str) -> Choice) -> Vec<Look> {
+    // Index of each fixture within its group, for effect phase spread.
+    let mut in_group: HashMap<&str, usize> = HashMap::new();
+    let group_index: Vec<usize> = patch
+        .fixtures
+        .iter()
+        .map(|f| {
+            let n = in_group.entry(f.group.as_str()).or_default();
+            *n += 1;
+            *n - 1
+        })
+        .collect();
     // Index of each fixture among its role, for chases and fans.
     let mut counts: HashMap<FixtureRole, usize> = HashMap::new();
     let roles: Vec<(FixtureRole, usize)> = patch
@@ -433,8 +558,17 @@ fn rig(patch: &Patch, music: &DeckMusic, choose: impl Fn(&str) -> GroupChoice) -
         .fixtures
         .iter()
         .zip(roles)
-        .map(|(f, (role, index))| {
-            let (program, color, intensity, pan, tilt, speed) = choose(&f.group);
+        .zip(group_index)
+        .map(|((f, (role, index)), gi)| {
+            let Choice {
+                program,
+                color,
+                intensity,
+                pan,
+                tilt,
+                speed,
+                effect,
+            } = choose(&f.group);
             let ctx = Ctx {
                 role,
                 index,
@@ -458,6 +592,9 @@ fn rig(patch: &Patch, music: &DeckMusic, choose: impl Fn(&str) -> GroupChoice) -
             }
             if let Some(t) = tilt {
                 look.tilt = t;
+            }
+            if let Some(e) = effect {
+                e.apply(&mut look, music.beat * speed as f64, gi);
             }
             look
         })
@@ -813,5 +950,93 @@ mod tests {
         let looks = Show::default().frame(&patch, &[], 0.02);
         assert!(looks[0].intensity > 0.0 && looks[0].intensity < 0.3);
         assert_eq!(looks[2].intensity, 0.0);
+    }
+
+    #[test]
+    fn effects_spread_across_a_group_on_the_beat() {
+        let e = Effect {
+            attr: Attr::Dimmer,
+            wave: Wave::Sine,
+            beats: 4.0,
+            depth: 1.0,
+            spread: 0.5,
+        };
+        // Opposite phases for neighbours, a full cycle every four beats.
+        assert!((e.value(0.0, 0) - 0.0).abs() < 1e-6);
+        assert!((e.value(0.0, 1) - 1.0).abs() < 1e-6);
+        assert!((e.value(2.0, 0) - 1.0).abs() < 1e-6);
+        let sq = Effect {
+            wave: Wave::Square,
+            ..e
+        };
+        assert_eq!((sq.value(0.5, 0), sq.value(2.5, 0)), (1.0, 0.0));
+        let rnd = Effect {
+            wave: Wave::Random,
+            ..e
+        };
+        assert_eq!(
+            rnd.value(0.1, 0),
+            rnd.value(3.9, 0),
+            "stable within a cycle"
+        );
+        // In Pro mode the movers' pan follows the effect.
+        let patch = rig_patch();
+        let mut show = Show::new(ShowSettings {
+            mode: Mode::Pro,
+            ..Default::default()
+        });
+        show.settings.groups.insert(
+            "Movers".into(),
+            GroupSettings {
+                program: Some(Program::Static),
+                effect: Some(Effect {
+                    attr: Attr::Pan,
+                    wave: Wave::Saw,
+                    beats: 1.0,
+                    depth: 0.8,
+                    spread: 0.25,
+                }),
+                ..Default::default()
+            },
+        );
+        let a = show.frame(&patch, &[deck(PhraseKind::Verse, 0.0, 0.5)], 0.02);
+        let b = show.frame(&patch, &[deck(PhraseKind::Verse, 0.5, 0.5)], 0.02);
+        assert_ne!(a[2].pan, b[2].pan, "pan moves with the beat");
+        assert_ne!(a[2].pan, a[3].pan, "the second mover is out of phase");
+    }
+
+    #[test]
+    fn fog_and_tap_tempo_without_music() {
+        let mut patch = rig_patch();
+        let def = FixtureDef::builtin("fog").unwrap();
+        let address = patch.next_free(0, 1).unwrap();
+        patch
+            .add(Patched {
+                name: "Fog".into(),
+                def,
+                universe: 0,
+                address,
+                group: "FX".into(),
+                invert_pan: false,
+            })
+            .unwrap();
+        let mut show = Show::new(ShowSettings {
+            mode: Mode::Easy,
+            easy_program: Program::Pulse,
+            ..Default::default()
+        });
+        show.momentary.fog = true;
+        let looks = show.frame(&patch, &[], 0.02);
+        let u = crate::render(&patch, &looks);
+        assert_eq!(u[0][address as usize - 1], 255, "fog output on");
+        // With no deck playing the easy look runs at the tapped tempo.
+        show.momentary.fog = false;
+        show.tap_bpm = Some(60.0);
+        let first = show.frame(&patch, &[], 0.0)[0].intensity;
+        let half = show.frame(&patch, &[], 0.5)[0].intensity;
+        assert!(
+            half < first,
+            "pulse decays within the beat: {first} → {half}"
+        );
     }
 }

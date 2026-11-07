@@ -200,3 +200,32 @@ fn sampler_cue_to_headphones() {
     assert!(rig.phones[..BLOCK * 2].iter().all(|&v| (v - 0.25).abs() < 1e-6));
     assert!(rig.state().sampler_cue);
 }
+
+/// A Beat FX unit inserted on the sampler only changes the sampler: a
+/// short sample echoes after it has ended.
+#[test]
+fn beat_fx_on_the_sampler() {
+    let run = |target: FxTarget| {
+        let mut rig = clock_rig();
+        smp(&mut rig, SamplerCommand::Load { slot: 0, sample: dc(2_400, 0.5) });
+        for c in [
+            BeatFxCommand::SetKind(BeatFxKind::Echo),
+            BeatFxCommand::SetBeats(0.5),
+            BeatFxCommand::SetLevel(1.0),
+            BeatFxCommand::SetTarget(target),
+            BeatFxCommand::SetOn(true),
+        ] {
+            rig.send(Command::BeatFx(0, c));
+        }
+        smp(&mut rig, SamplerCommand::Trigger { slot: 0 });
+        let out = rig.render(200); // 25 600 frames ≈ 1 beat at 120 BPM
+        // Half a beat (12 000 frames) after the sample: the echo.
+        let tail: f32 = (12_000..14_000).map(|i| out[i * 2].abs()).sum();
+        (tail, rig.state().beat_fx[0].target)
+    };
+    let (echo, target) = run(FxTarget::Sampler);
+    let (dry, _) = run(FxTarget::Channel(1));
+    assert_eq!(target, FxTarget::Sampler);
+    assert!(echo > 10.0, "sampler echo: {echo}");
+    assert!(dry < 1e-3, "no echo when the unit sits on another channel: {dry}");
+}

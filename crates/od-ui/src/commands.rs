@@ -109,6 +109,15 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
             g.set_panel(!g.get_panel());
         }
         "perform.sampler.panel" => crate::sampler::toggle_panel(app),
+        // Source rail: the sampler lives in Perform; show its panel there.
+        "browser.source.sampler" => {
+            if ui.get_mode() != "perform" {
+                ui.invoke_set_mode(S::from("perform"));
+            }
+            if !ui.get_sampler_panel() {
+                crate::sampler::toggle_panel(app);
+            }
+        }
         "colorfx.next" => crate::fx::step_color_fx(app, 1),
         "colorfx.prev" => crate::fx::step_color_fx(app, -1),
         "sampler.bank.prev" => crate::sampler::step_bank_by(app, -1),
@@ -180,6 +189,9 @@ pub(crate) fn run(app: &Rc<App>, id: &str) {
             ui.set_my_tag_open(!ui.get_my_tag_open());
             ui.invoke_panels_changed();
         }
+        "perform.mixer.panel" => shell::toggle_panel(app, "mixer"),
+        "perform.mpl.panel" => shell::toggle_panel(app, "mpl"),
+        "view.panel.rec" => shell::toggle_panel(app, "rec"),
         "browser.duplicates" => browser::open_duplicates(app),
         "library.export.xml" | "library.import.xml" | "library.export.archive" | "library.restore.archive" | "library.consolidate" | "library.import.rekordbox-settings" => {
             crate::import::library_action(app, id)

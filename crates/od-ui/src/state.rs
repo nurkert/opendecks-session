@@ -92,6 +92,11 @@ impl AppState {
         self.browser.stick.as_ref().map(|(_, s)| &s.library).unwrap_or(&self.lib)
     }
 
+    /// Root of the stick being browsed, if any.
+    pub fn stick_root(&self) -> Option<&Path> {
+        self.browser.stick.as_ref().map(|(_, s)| s.root.as_path())
+    }
+
     /// Absolute path of a track of the current source.
     pub fn resolve(&self, path: &Path) -> PathBuf {
         match &self.browser.stick {

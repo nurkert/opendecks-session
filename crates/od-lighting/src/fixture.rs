@@ -29,6 +29,8 @@ pub enum ChannelKind {
     PixelRed(u8),
     PixelGreen(u8),
     PixelBlue(u8),
+    /// Fog output (fog machines, hazers): full while fog is on.
+    Fog,
     /// Anything else; held at the given value.
     Fixed(u8),
 }
@@ -122,6 +124,9 @@ impl FixtureDef {
                 ("Light bar 8 × RGB", "26ch", ch)
             }
             "strobe" => ("Strobe", "2ch", vec![Dimmer, Strobe]),
+            "blinder" => ("Blinder 2 × warm white", "2ch", vec![Dimmer, Dimmer]),
+            "laser" => ("Laser", "3ch", vec![Dimmer, Fixed(0), Speed]),
+            "fog" => ("Fog machine", "1ch", vec![Fog]),
             _ => return None,
         };
         Some(Self {
@@ -132,13 +137,16 @@ impl FixtureDef {
         })
     }
 
-    pub const BUILTIN: [&'static str; 6] = [
+    pub const BUILTIN: [&'static str; 9] = [
         "dimmer",
         "rgb-par",
         "rgbw-par",
         "moving-head",
         "light-bar-8",
         "strobe",
+        "blinder",
+        "laser",
+        "fog",
     ];
 
     /// Reads one mode of an Open Fixture Library fixture (`.json`). Channels

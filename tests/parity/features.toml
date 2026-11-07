@@ -1090,12 +1090,14 @@ id = "cues-colours"
 area = "cues"
 name = "Cue colours"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P1"
 tests = [
+  "od-ui::ui_tests::perform::hot_cue_pads_show_stored_colours",
+  "od-ui::player::tests::cue_list_edits",
   "od-ui::player::tests::cue_list_edits",
 ]
-note = "Eight cue colours in the cue editor; shown on the overview, the cue list and the Prepare pads; Perform pads still use the slot colour"
+note = "Eight cue colours in the cue editor; shown on overviews, the cue list, Prepare pads and the Perform hot cue pads"
 
 [[feature]]
 id = "cues-labels"
@@ -1376,12 +1378,13 @@ id = "deck-search-buttons"
 area = "deck"
 name = "Search (FF/REW buttons)"
 scope = "in"
-status = "engine-only"
+status = "done"
 prio = "P1"
 tests = [
+  "od-ui::ui_tests::perform::search_buttons_run_while_held",
   "od-engine::deck_features::search_runs_the_playhead_fast_while_held",
 ]
-note = "`DeckCommand::Search(rate)`; controller mapping pending"
+note = "◀◀ / ▶▶ on the player screens search while held (`DeckCommand::Search`)"
 
 [[feature]]
 id = "deck-tap-bpm"
@@ -1580,10 +1583,10 @@ id = "deck-platter-readout"
 area = "deck"
 name = "Jog / platter readout in the UI: position, remaining, phrase and bar counter"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = []
-note = "Bar counter and phrase readout not verified in the rebuilt UI"
+note = "Jog display: bar counter (bars.beats, count-down modes), remaining time, phrase with its countdown"
 spec = "SPEC §10.1; UX §1.3"
 
 [[feature]]
@@ -1973,14 +1976,16 @@ id = "fx-panel"
 area = "effects"
 name = "FX panel (FX1 | FX2 with three slots, beat value, depth, assign, AUTO, TAP; CFX row)"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P1"
 tests = [
+  "od-ui::ui_tests::perform::fx_sampler_assign_and_auto",
+  "od-engine::sampler::beat_fx_on_the_sampler",
   "od-engine::fx::multi_mode_chains_three_slots",
   "od-ui::ui_tests::perform::fx_multi_mode_slots",
 ]
 evidence = ["crates/od-ui/ui/fx.slint"]
-note = "FX1 | FX2 with effect, beat, assign, level, parameter, ON, TAP, Release FX, and ×3 multi mode with three chained slots (effect, beat, depth, ON each); no sampler assign and no AUTO key yet"
+note = "FX1 | FX2: effect, beat, assign (channels, sampler, master), level, parameter, ON, AUTO, TAP, Release FX, and ×3 multi mode with three chained slots (effect, beat, depth, ON each)"
 spec = "SPEC §10.2; UX §1.5"
 
 [[feature]]
@@ -2080,12 +2085,13 @@ id = "stems-status-on-deck"
 area = "stems"
 name = "Deck shows separation progress; stem controls visible (dimmed) while separating"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-ui::decks::tests::split_progress_text",
   "od-ui::ui_tests::flows::separate_stems",
 ]
-note = "Separation is queued on load and the stem strip shows SPLIT…; the stem toggles stay in place, disabled until stems exist (flow test). No progress percentage on the deck"
+note = "Separation is queued on load; the stem strip shows SPLIT and the progress in percent; the part keys stay in place, disabled until parts exist (flow test)"
 spec = "SPEC §10.3; UX §2.4"
 
 [[feature]]
@@ -2093,12 +2099,13 @@ id = "stems-pi-playback"
 area = "stems"
 name = "Raspberry Pi plays parts separated on the desktop"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
-  "od-stems::stems::load_track_data_attaches_cached_stems",
+  "od-devices::sync::tests::cached_stems_travel_with_the_tracks",
+  "od-ui::decks::tests::stick_tracks_use_the_stems_on_the_stick",
 ]
-note = "Cached parts attach on load; carrying the cache onto sticks not verified"
+note = "The native sync copies cached parts to /OPENDECKS/stems on the stick (and prunes stale ones); tracks loaded from a stick read their parts from there, so the Pi plays parts separated on the desktop"
 spec = "SPEC §10.3"
 
 # ---- Sampler ----
@@ -2934,9 +2941,10 @@ id = "lighting-fixtures"
 area = "lighting"
 name = "Fixture library (OFL), patch, groups, moving heads / bars / PARs / strobes / lasers / fog"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-ui::lighting::tests::effect_presets_round_trip_and_ofl_import",
   "od-lighting::fixture::tests::reads_an_ofl_mode",
   "od-lighting::fixture::tests::builtins_have_roles",
   "od-lighting::fixture::tests::patch_rejects_overlaps_and_finds_space",
@@ -2944,7 +2952,7 @@ tests = [
   "od-lighting::render::tests::bar_pixels_spread_over_cells",
 ]
 spec = "SPEC §10.5"
-note = "Built-in PAR / mover / bar / strobe types patched from the LIGHTING view, OFL files via od-cli, groups; no OFL import in the UI yet, no laser / fog / blinder types"
+note = "Built-in PAR / mover / bar / strobe / blinder / laser / fog types and Open Fixture Library files (IMPORT FIXTURE FILE… or od-cli), patch with groups and overlap checks"
 
 [[feature]]
 id = "lighting-auto"
@@ -2968,14 +2976,16 @@ id = "lighting-easy"
 area = "lighting"
 name = "Easy manual mode: scene pads, dimmer, strobe, blackout, tap/sync, controller pad mode"
 scope = "in"
-status = "partial"
+status = "done"
 prio = "P2"
 tests = [
+  "od-ui::ui_tests::stage::lighting_pad_mode_drives_the_show",
+  "od-lighting::show::tests::fog_and_tap_tempo_without_music",
   "od-lighting::show::tests::manual_modes_and_master",
   "od-ui::ui_tests::stage::lighting_view_patches_and_controls_the_show",
 ]
 spec = "SPEC §10.5"
-
+note = "EASY: look pads, colour swatches, master dimmer, BLACKOUT, FLASH / STROBE / FOG hold, TAP tempo when no deck plays; LIGHTING pad mode on the decks (and the controller pads): A–F looks, G strobe, H flash"
 [[feature]]
 id = "lighting-pro"
 area = "lighting"
@@ -2984,10 +2994,12 @@ scope = "in"
 status = "partial"
 prio = "P2"
 tests = [
+  "od-lighting::show::tests::effects_spread_across_a_group_on_the_beat",
+  "od-ui::ui_tests::stage::lighting_pro_effect_xy_and_fog",
   "od-lighting::show::tests::pro_cue_stack_and_track_cues",
 ]
 spec = "SPEC §10.5"
-
+note = "PRO: program / colour / attribute effect (sine, saw, square, random on dimmer, pan, tilt with phase spread, beat-synced) and an XY pan / tilt programmer per group, cue stack with GO / BACK / STORE and beat fades, lighting cues per track (engine); timeline and MIDI mapping of lighting controls are missing"
 [[feature]]
 id = "lighting-views"
 area = "lighting"
@@ -3001,3 +3013,4 @@ tests = [
   "od-ui::ui_tests::stage::lighting_strip_in_perform",
 ]
 spec = "SPEC §10.5"
+note = "LIGHTING tab (topbar, View menu, Alt+3) with RIG | STAGE (live 2D visualiser) | SHOW, and a lighting strip inside Perform (LIGHT, Alt+K); a detachable window is missing"

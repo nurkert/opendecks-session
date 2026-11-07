@@ -15,6 +15,7 @@ export global FxSlots {
     callback beats-step(int, int, int);
     callback level(int, int, float);
     callback on(int, int);
+    callback auto(int);
 }
 
 // Effect names, in engine order (Beat FX) and settings order (Colour FX).
@@ -94,6 +95,7 @@ component FxUnit inherits Rectangle {
             alignment: center;
             spacing: 2px;
             Text {
+                accessible-role: text; accessible-label: "fx.unit\{root.u.unit}.beat-fx"; accessible-value: FxNames.beat[root.u.kind];
                 text: "FX" + root.u.unit;
                 font-family: Theme.family; font-size: 17px; font-weight: 600; letter-spacing: 1px;
                 color: root.u.on ? root.tone : root.u.ringing ? Theme.bone-2 : Theme.bone-3;
@@ -159,6 +161,14 @@ component FxUnit inherits Rectangle {
                     tone: Theme.deck-color(c + 1);
                     tooltip: @tr("Insert the effect on channel {}", c + 1);
                     clicked => { root.target(c + 1); }
+                }
+                Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.target == -1;
+                    accessible-label: "fx.unit\{root.u.unit}.assign.sampler";
+                    size: 24px; width: 34px;
+                    label: "SMP"; on: root.u.target == -1; tone: Theme.w546;
+                    tooltip: @tr("Insert the effect on the sampler");
+                    clicked => { root.target(-1); }
                 }
                 Toggle {
                     accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.target == 0;
@@ -256,6 +266,13 @@ component FxUnit inherits Rectangle {
                 tooltip: @tr("Beat FX on / off");
                 command: "fx" + root.u.unit + ".on";
                 clicked => { root.on(); }
+            }
+            Toggle {
+                accessible-role: button;
+                accessible-label: "fx.unit\{root.u.unit}.auto";
+                size: 24px; label: "AUTO"; on: !root.u.tapped; tone: Theme.live;
+                tooltip: @tr("AUTO: the effect follows the deck tempo again");
+                clicked => { FxSlots.auto(root.u.unit); }
             }
             Toggle {
                 accessible-role: button;

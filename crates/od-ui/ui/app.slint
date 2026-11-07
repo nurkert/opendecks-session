@@ -21,7 +21,9 @@ import { LightingView, Lighting, LightFixtureView, LightGroupView } from "lighti
 import { Cdj, CdjStep } from "cdj.slint";
 export { Cdj, CdjStep }
 import { Mic } from "mic.slint";
-import { Rec, RecTrack, RecPanel } from "rec.slint";
+import { Rec, RecTrack, RecPanel, RecBar } from "rec.slint";
+import { Mpl, MplDeck, MplPanel } from "mpl.slint";
+export { Mpl, MplDeck }
 export { Rec, RecTrack }
 export { Mic }
 import { CueEdit } from "player.slint";
@@ -167,6 +169,15 @@ export component AppWindow inherits Window {
     callback cycle-layout();
     // Menu bar items and other commands by keymap action id.
     callback menu-action(string);
+    // Files dragged in from Finder / the file manager: accepted when the
+    // transfer carries file paths; dropped with the deck under the pointer
+    // (1-based, Perform) or 0 (collection and the open list).
+    pure callback drop-accepts(data-transfer) -> bool;
+    callback files-dropped(data-transfer, int);
+    // A file drag hovers the window (native drops that carry no position).
+    in-out property <bool> file-drag;
+    // Where a controller's browse encoder works: "tree" or "list".
+    in property <string> browse-focus: "list";
     // Status band: summary of the open list (tracks, time, size).
     in property <string> list-summary;
     // Duplicates view: groups found.
@@ -204,6 +215,10 @@ export component AppWindow inherits Window {
     in property <bool> sampler-panel;
     callback toggle-fx-panel();
     callback toggle-sampler-panel();
+    // Top bar MIXER, MIX POINT and REC toggles (persisted in the settings).
+    in property <bool> mixer-panel: true;
+    in property <bool> mpl-panel;
+    in property <bool> rec-panel: true;
     // Beat FX units (1-based unit numbers) and the Colour FX selection.
     in property <[FxUnitView]> fx-units;
     in property <int> color-fx;
@@ -472,6 +487,12 @@ export component AppWindow inherits Window {
                 sampler-panel: root.sampler-panel;
                 toggle-fx-panel => { root.toggle-fx-panel(); }
                 toggle-sampler-panel => { root.toggle-sampler-panel(); }
+                mixer-panel: root.mixer-panel;
+                mpl-panel: root.mpl-panel;
+                rec-panel: root.rec-panel;
+                toggle-mixer-panel => { root.menu-action("perform.mixer.panel"); }
+                toggle-mpl-panel => { root.menu-action("perform.mpl.panel"); }
+                toggle-rec-panel => { root.menu-action("view.panel.rec"); }
                 status: root.mode == "perform"
                     ? (root.engine-ready ? (root.master-bpm == "" ? @tr("NO MASTER") : @tr("MASTER {} BPM", root.master-bpm)) : root.engine-message)
                     : root.analysis-text;
@@ -530,6 +551,8 @@ export component AppWindow inherits Window {
                 toggle-preview => { root.toggle-preview(); }
                 jump-start => { root.jump-start(); }
             }
+            // Mix Point Link above the waveforms (top bar MIX POINT).
+            if root.mode == "perform" && root.mpl-panel && !root.kiosk: MplPanel { }
             if root.mode == "lighting": LightingView { vertical-stretch: 1; }
             if root.mode == "perform" && !(root.kiosk && root.browser-open): PerformView {
                 vertical-stretch: 1;
@@ -580,7 +603,7 @@ export component AppWindow inherits Window {
                 headphone-level: root.headphone-level;
                 tight: root.small-screen;
                 touch-size: root.kiosk;
-                show-mixer: !root.small-screen;
+                show-mixer: !root.small-screen && root.mixer-panel;
                 recording: root.recording;
                 recording-time: root.recording-time;
                 toggle-recording => { root.toggle-recording(); }
@@ -618,6 +641,8 @@ export component AppWindow inherits Window {
                 set-headphone-level(v) => { root.set-headphone-level(v); }
             }
             }
+            // Recording bar under the player (top bar REC).
+            if root.mode == "prepare" && root.rec-panel && !root.kiosk: RecBar { }
             if !root.kiosk && !(root.mode == "prepare" && root.prepare-layout == "browser"): Splitter {
                 accessible-label: "browser.upper-splitter"; accessible-role: slider;
                 horizontal: true;
@@ -663,6 +688,9 @@ export component AppWindow inherits Window {
                     related-count: root.related-count;
                     add-to-tag-list => { root.add-to-tag-list(); }
                     node-dropped(s, t) => { root.node-dropped(s, t); }
+                    node-kind: root.node-kind;
+                    browse-focus: root.browse-focus == "tree";
+                    open-sampler => { root.menu-action("browser.source.sampler"); }
                 }
                 if !root.kiosk: Splitter {
                     accessible-label: "browser.splitter"; accessible-role: slider;
@@ -1028,6 +1056,28 @@ export component AppWindow inherits Window {
         }
     }
 
+    // Files from Finder / the file manager: the whole window takes them.
+    file-drop := DropArea {
+        can-drop(event) => { root.drop-accepts(event.data) ? DragAction.copy : DragAction.none }
+        dropped(event) => {
+            root.files-dropped(event.data,
+                root.mode == "perform" && event.position.y >= upper.y && event.position.y < upper.y + upper.height
+                    ? (event.position.x < root.width / 2 ? 1 : 2) : 0);
+            DragAction.copy
+        }
+    }
+    if file-drop.has-drag || root.file-drag: drop-hint := Rectangle {
+        accessible-label: "browser.drop-files"; accessible-role: text;
+        accessible-value: self.hint;
+        property <string> hint: root.mode == "perform" ? @tr("Drop on a deck to load, anywhere else to add to the collection") : @tr("Drop to add to the collection and the open list");
+        border-width: 2px; border-color: Theme.live;
+        background: Theme.live.with-alpha(0.06);
+        Rectangle {
+            width: t.preferred-width + 32px; height: 36px;
+            background: Theme.plate-raised; border-width: 1px; border-color: Theme.live;
+            t := Text { text: drop-hint.hint; font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone; }
+        }
+    }
     // The dragged track follows the pointer.
     DragGhost { }
     // Tooltips draw above everything.

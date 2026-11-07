@@ -3477,3 +3477,58 @@ msgstr "Den Player über dem Browser zeigen"
 msgctxt "TopBar"
 msgid "Give the whole window to the browser"
 msgstr "Dem Browser das ganze Fenster geben"
+
+#: ui/fx.slint
+msgctxt "FxUnit"
+msgid "Insert the effect on the sampler"
+msgstr "Effekt auf den Sampler legen"
+
+#: ui/fx.slint
+msgctxt "FxUnit"
+msgid "AUTO: the effect follows the deck tempo again"
+msgstr "AUTO: Der Effekt folgt wieder dem Deck-Tempo"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "IMPORT FIXTURE FILE…"
+msgstr "SCHEINWERFER-DATEI IMPORTIEREN…"
+
+#: ui/lighting.slint
+msgctxt "RigPanel"
+msgid "Patch a fixture from an Open Fixture Library file (.json)"
+msgstr "Scheinwerfer aus einer Open-Fixture-Library-Datei (.json) patchen"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "FOG"
+msgstr "NEBEL"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Fog machines on while held"
+msgstr "Nebelmaschinen an, solange gedrückt"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "TAP"
+msgstr "TAP"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Tap the tempo for the lights when no deck plays"
+msgstr "Tempo für das Licht tappen, wenn kein Deck spielt"
+
+#: ui/lighting.slint
+msgctxt "ShowPanel"
+msgid "Attribute effect: click for the next one"
+msgstr "Attribut-Effekt: Klick für den nächsten"
+
+#: ui/lighting.slint
+msgctxt "ChannelStrip"
+msgid "EQ knobs control the parts: HI vocals, MID inst, LOW drums"
+msgstr "EQ-Regler steuern die Parts: HI Vocals, MID Inst, LOW Drums"
+
+#: ui/perform.slint
+msgctxt "PadModes"
+msgid "LIGHTING"
+msgstr "LIGHTING"

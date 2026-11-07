@@ -15,12 +15,15 @@
 //! - [`views`]: SPEC §16.3 view completeness against `tests/parity/views.toml`
 //! - [`flows`]: SPEC §16.4 flows from `tests/parity/flows.toml`, counting steps
 //! - [`features`]: behaviour tests for features of `tests/parity/features.toml`
+//! - [`prepare`]: Prepare / browser behaviour tests (file drops, controller
+//!   browsing, source rail, layouts, panel toggles, batch separation)
 
 mod browser;
 mod features;
 mod flows;
 pub(crate) mod harness;
 mod perform;
+mod prepare;
 mod session;
 mod stage;
 mod views;

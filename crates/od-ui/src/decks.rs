@@ -54,6 +54,20 @@ pub(crate) struct Loaded {
     source: TrackSource,
 }
 
+/// "SPLIT 42%" while parts are separated (fraction 0..1), "SPLIT…" at the start.
+pub(crate) fn split_text(progress: Option<f32>) -> String {
+    match progress {
+        Some(p) if p > 0.005 => format!("SPLIT {:.0}%", (p * 100.0).clamp(0.0, 99.0)),
+        Some(_) => "SPLIT…".into(),
+        None => String::new(),
+    }
+}
+
+/// The stem cache a stick carries (`/OPENDECKS/stems`).
+pub(crate) fn stick_stem_cache(root: &std::path::Path) -> od_stems::StemCache {
+    od_stems::StemCache::new(root.join("OPENDECKS").join("stems"))
+}
+
 impl Loaded {
     /// Memory cue starts in seconds, in track order.
     pub(crate) fn memory_starts(&self, duration: f64) -> Vec<f64> {
@@ -292,11 +306,14 @@ pub(crate) fn load_track(app: &App, deck: usize, track: TrackId, play_from: Opti
     let read_only = st.read_only();
     drop(st);
     app.ui.set_engine_message(format!("Loading {} …", meta.title).into());
+    // Tracks from a stick use the parts separated on the desktop and carried
+    // onto the stick (SPEC §10.4), so a Raspberry Pi plays them too.
+    let stick_stems = app.state.borrow().stick_root().map(stick_stem_cache);
     let (cache, tx) = {
         let mut d = app.decks.borrow_mut();
         d.pending[deck] = Some(meta);
         d.loaded_from_stick = read_only;
-        (d.stem_cache.clone(), d.prepared_tx.clone())
+        (stick_stems.unwrap_or_else(|| d.stem_cache.clone()), d.prepared_tx.clone())
     };
     prepare_in_background(cache, tx, deck, track, source, rate, analysis.beatgrid, play_from, None);
 }
@@ -568,6 +585,7 @@ pub(crate) struct DeckFields {
     pub quantize: bool,
     pub stems_available: bool,
     pub stems_busy: bool,
+    pub split_text: SharedString,
     pub mute_vocal: bool,
     pub mute_inst: bool,
     pub mute_drums: bool,
@@ -594,7 +612,8 @@ pub(crate) struct DeckInputs<'a> {
     pub level: f32,
     pub fader: f32,
     pub quantize: bool,
-    pub stems_busy: bool,
+    /// Separation progress (0..1) while parts are being separated.
+    pub stems_busy: Option<f32>,
     /// Auto-loop size when no loop runs, in beats.
     pub loop_size: f64,
     /// Bar counter mode (Preferences › View).
@@ -676,7 +695,8 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         tempo_range: tempo_range_label(s.tempo_range).into(),
         quantize: i.quantize,
         stems_available: s.stems_available,
-        stems_busy: i.stems_busy,
+        stems_busy: i.stems_busy.is_some(),
+        split_text: split_text(i.stems_busy).into(),
         mute_vocal: muted(od_engine::Stem::Vocals),
         mute_inst: muted(od_engine::Stem::Inst),
         mute_drums: muted(od_engine::Stem::Drums),
@@ -791,6 +811,7 @@ impl Lane {
             quantize: f.quantize,
             stems_available: f.stems_available,
             stems_busy: f.stems_busy,
+            split_text: f.split_text,
             mute_vocal: f.mute_vocal,
             mute_inst: f.mute_inst,
             mute_drums: f.mute_drums,
@@ -923,7 +944,19 @@ pub(crate) fn project(app: &App, state: &EngineState) {
             sampler_slots: &sampler_slots,
             memory: &memory,
         };
-        let rows = pads::pad_views(s, &state.channels[i], &state.sampler, &ctx);
+        let mut rows = pads::pad_views(s, &state.channels[i], &state.sampler, &ctx);
+        if d.pad_mode[i] == PadMode::Lighting {
+            crate::lighting::light_pads(app, &mut rows);
+        }
+        if d.pad_mode[i] == PadMode::HotCue && let Some(m) = meta {
+            // Hot cue pads in their stored colours.
+            let bank = s.hot_cue_bank * od_engine::HOT_CUES;
+            for r in rows.iter_mut() {
+                if let Some(c) = m.cues.iter().find(|c| c.slot == bank as i32 + r.index) {
+                    r.tone = c.tone;
+                }
+            }
+        }
         let pad_param = pads::param_label(s, &ctx);
         lane.pads.sync_eq(rows.clone());
         lane.pads_left.sync_eq(rows[..4].to_vec());
@@ -936,7 +969,7 @@ pub(crate) fn project(app: &App, state: &EngineState) {
                 level: state.channels[i].meter.peak,
                 fader: state.channels[i].fader,
                 quantize: state.quantize,
-                stems_busy: meta.is_some_and(|m| d.stem_progress.contains_key(&m.id)),
+                stems_busy: meta.and_then(|m| d.stem_progress.get(&m.id).copied()),
                 loop_size: d.loop_size[i],
                 bar_counter: &bar_mode,
                 pad_mode: d.pad_mode[i],
@@ -1083,6 +1116,10 @@ pub(crate) fn pad_rows(app: &App, d: usize, state: &EngineState) -> Vec<PadView>
 
 /// Pad `index` (0..8) of deck `d` pressed or released, in the deck's mode.
 pub(crate) fn pad(app: &App, d: usize, index: usize, pressed: bool) {
+    if app.decks.borrow().pad_mode[d] == PadMode::Lighting {
+        crate::lighting::pad(app, index, pressed);
+        return;
+    }
     let cmds = with_pads(app, d, |s, ctx| pads::press_commands(s, ctx, index, pressed));
     for c in cmds {
         engine::send(app, c);
@@ -1141,7 +1178,7 @@ pub(crate) fn pad_param(app: &App, d: usize, delta: i32) {
                 engine::deck_cmd(app, d, DeckCommand::Slicer(od_engine::SlicerCommand::Enable { beats, loop_mode: s.slicer.loop_mode }));
             }
         }
-        PadMode::BeatLoop | PadMode::Stems | PadMode::MemoryCue => {}
+        PadMode::BeatLoop | PadMode::Stems | PadMode::MemoryCue | PadMode::Lighting => {}
     }
 }
 
@@ -1484,7 +1521,7 @@ mod tests {
     #[test]
     fn empty_deck_projection() {
         let s = DeckState::default();
-        let f = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5, bar_counter: "up", pad_mode: PadMode::HotCue, pad_param: String::new() });
+        let f = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: None, loop_size: 0.5, bar_counter: "up", pad_mode: PadMode::HotCue, pad_param: String::new() });
         assert_eq!(f.deck, 2);
         assert!(!f.loaded);
         assert_eq!(f.bpm, "");
@@ -1492,7 +1529,7 @@ mod tests {
         assert_eq!(f.loop_size, "1/2");
         assert_eq!(f.elapsed, "0:00.0");
         // Unchanged state projects equal, so no row is written.
-        let g = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: false, loop_size: 0.5, bar_counter: "up", pad_mode: PadMode::HotCue, pad_param: String::new() });
+        let g = deck_fields(&s, &DeckInputs { deck: 1, meta: None, level: 0.0, fader: 1.0, quantize: true, stems_busy: None, loop_size: 0.5, bar_counter: "up", pad_mode: PadMode::HotCue, pad_param: String::new() });
         assert_eq!(f, g);
     }
 
@@ -1505,6 +1542,24 @@ mod tests {
         assert_ne!(a, WaveKey::new(t, 10.01, 8.0, 800, 100));
         assert_ne!(a, WaveKey::new(t, 10.0, 8.08, 800, 100));
         assert_ne!(a, WaveKey::new(t, 10.0, 8.0, 801, 100));
+    }
+
+    #[test]
+    fn split_progress_text() {
+        assert_eq!(split_text(None), "");
+        assert_eq!(split_text(Some(0.0)), "SPLIT…");
+        assert_eq!(split_text(Some(0.423)), "SPLIT 42%");
+        assert_eq!(split_text(Some(1.0)), "SPLIT 99%");
+    }
+
+    #[test]
+    fn stick_tracks_use_the_stems_on_the_stick() {
+        let root = std::path::Path::new("/Volumes/STICK");
+        let cache = stick_stem_cache(root);
+        assert_eq!(cache.dir(), std::path::Path::new("/Volumes/STICK/OPENDECKS/stems"));
+        // Same file name as the sync writes (od-devices `stem_file`).
+        let hash = od_core::ContentHash("ab12".into());
+        assert_eq!(cache.path(&hash), std::path::Path::new("/Volumes/STICK/OPENDECKS/stems/ab12.odstem"));
     }
 
     #[test]

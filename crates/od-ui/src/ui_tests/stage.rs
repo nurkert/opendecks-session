@@ -109,3 +109,57 @@ fn mic_controls_in_the_global_bar() {
     assert!(!g.get_on(), "no capture device in the headless test");
     assert!(!g.get_error().is_empty());
 }
+
+/// Pro mode programmer: the group FX key picks an attribute effect, the XY
+/// square sets pan / tilt; FOG is held like FLASH.
+#[test]
+fn lighting_pro_effect_xy_and_fog() {
+    let ui = Ui::open((1440, 900));
+    ui.click("topbar.mode.lighting");
+    ui.pump(100);
+    let mover = od_lighting::FixtureDef::BUILTIN.iter().position(|n| *n == "moving-head").unwrap();
+    crate::lighting::add_fixture(&mut ui.app.lighting.borrow_mut().config.patch, mover, "Spot", "Movers").unwrap();
+    ui.click("lighting.mode.pro");
+    ui.pump(200);
+    ui.click("lighting.pro.group0.effect");
+    ui.pump(100);
+    assert_eq!(ui.app.lighting.borrow().config.settings.groups["Movers"].effect, crate::lighting::effect_preset(1));
+    let xy = Rect::of(&ui.get("lighting.pro.group0.xy"));
+    ui.click_at(slint::LogicalPosition::new(xy.x + xy.w * 0.75, xy.y + xy.h * 0.25), slint::platform::PointerEventButton::Left);
+    ui.pump(100);
+    {
+        let rt = ui.app.lighting.borrow();
+        let g = &rt.config.settings.groups["Movers"];
+        assert!((g.pan.unwrap() - 0.75).abs() < 0.05 && (g.tilt.unwrap() - 0.75).abs() < 0.05, "{:?} {:?}", g.pan, g.tilt);
+    }
+    let fog = Rect::of(&ui.get("lighting.fog")).centre();
+    ui.press_at(fog, slint::platform::PointerEventButton::Left);
+    ui.pump(50);
+    assert!(slint::ComponentHandle::global::<crate::Lighting>(&ui.app.ui).get_fog());
+    ui.release_at(fog, slint::platform::PointerEventButton::Left);
+    ui.pump(50);
+    assert!(!slint::ComponentHandle::global::<crate::Lighting>(&ui.app.ui).get_fog());
+}
+
+/// Lighting pad mode: A–F pick the easy look, G strobes while held.
+#[test]
+fn lighting_pad_mode_drives_the_show() {
+    let ui = Ui::open((1440, 900));
+    ui.app.ui.invoke_set_mode("perform".into());
+    crate::engine::ensure_engine(&ui.app);
+    ui.pump(200);
+    ui.app.ui.invoke_deck_pad_mode_set(1, 10);
+    ui.pump(100);
+    assert_eq!(ui.app.decks.borrow().pad_mode[0], od_controller::PadMode::Lighting);
+    crate::decks::pad(&ui.app, 0, 2, true);
+    crate::decks::pad(&ui.app, 0, 2, false);
+    {
+        let rt = ui.app.lighting.borrow();
+        assert_eq!(rt.config.settings.mode, od_lighting::Mode::Easy);
+        assert_eq!(rt.config.settings.easy_program, od_lighting::Program::Chase);
+    }
+    crate::decks::pad(&ui.app, 0, 6, true);
+    assert!(slint::ComponentHandle::global::<crate::Lighting>(&ui.app.ui).get_strobe());
+    crate::decks::pad(&ui.app, 0, 6, false);
+    assert!(!slint::ComponentHandle::global::<crate::Lighting>(&ui.app.ui).get_strobe());
+}

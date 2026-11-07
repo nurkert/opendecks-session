@@ -4,7 +4,7 @@ use crate::app::App;
 use crate::{browser, decks, engine, fx, recorder, sampler};
 use od_controller::io::{ControllerEvent, ControllerManager};
 use od_controller::{
-    BeatFxAction, BrowseAction, ColorFxAction, ControlAction, ControlFeedback, CrossfaderSide, DeckAction, DeckElement, FeedbackTarget, LedState, MixerAction,
+    BeatFxAction, ColorFxAction, ControlAction, ControlFeedback, CrossfaderSide, DeckAction, DeckElement, FeedbackTarget, LedState, MixerAction,
     MixerElement, PadMode, SamplerAction, StemPart,
 };
 use od_engine::{
@@ -86,6 +86,12 @@ pub(crate) fn start(app: &Rc<App>) {
     c.manager = Some(ControllerManager::start(mappings, Default::default()));
 }
 
+/// The controller layer's MIDI monitor (Preferences ▸ Controller: monitor
+/// and learn), once the layer runs.
+pub(crate) fn monitor(app: &App) -> Option<od_controller::monitor::MidiMonitor> {
+    app.controller.borrow().manager.as_ref().map(|m| m.monitor().clone())
+}
+
 /// Frame tick: controller events.
 pub(crate) fn poll(app: &App) {
     let events: Vec<ControllerEvent> = app.controller.borrow().manager.as_ref().map(|c| c.events().try_iter().collect()).unwrap_or_default();
@@ -153,31 +159,7 @@ fn handle_action(app: &App, action: ControlAction) {
         ControlAction::MasterLevel(v) => engine::send(app, Command::Mixer(MixerCommand::SetMasterLevel(v))),
         ControlAction::HeadphoneMix(v) => engine::send(app, Command::Mixer(MixerCommand::SetHeadphoneMix(v))),
         ControlAction::HeadphoneLevel(v) => engine::send(app, Command::Mixer(MixerCommand::SetHeadphoneLevel(v))),
-        ControlAction::Browse(b) => match b {
-            BrowseAction::Rotate { delta, .. } => {
-                app.ui.set_browser_open(true);
-                for _ in 0..delta.unsigned_abs().min(20) {
-                    browser::step_selection(app, delta < 0);
-                }
-            }
-            BrowseAction::Press { .. } => {
-                if !crate::explorer::load_selection(app, None) {
-                    decks::load_selected_into_free_deck(app);
-                }
-                if app.state.borrow().config.kiosk {
-                    app.ui.set_browser_open(false);
-                }
-            }
-            BrowseAction::Back => {
-                if app.state.borrow().config.kiosk {
-                    browser::cycle_list(app, true);
-                } else {
-                    let next = if app.ui.get_mode() == "prepare" { "perform" } else { "prepare" };
-                    app.ui.set_mode(next.into());
-                }
-            }
-            _ => {}
-        },
+        ControlAction::Browse(b) => browser::navigate::controller(app, &b),
         ControlAction::RecordingToggle => recorder::toggle_from_controller(app),
         ControlAction::BoothLevel(v) => engine::send(app, Command::Mixer(MixerCommand::SetBoothLevel(v))),
         ControlAction::MasterCue => {

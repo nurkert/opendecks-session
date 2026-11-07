@@ -1,0 +1,107 @@
+// Mix Point Link (Perform, above the waveforms): a mix-out point on the
+// outgoing track and a mix-in point on the incoming one. With LINK on, the
+// incoming deck starts from its mix-in point the moment the outgoing deck
+// passes its mix-out point.
+
+import { Theme } from "tokens.slint";
+import { HLine, VLine } from "lines.slint";
+import { Caps, PlateButton } from "controls.slint";
+
+export struct MplDeck {
+    deck: int,
+    // Memory cues plus the mix points of the loaded track.
+    points: int,
+    // "" = not set.
+    mix-in: string,
+    mix-out: string,
+}
+
+export global Mpl {
+    in property <bool> link;
+    // The deck MIX IN / MIX OUT / ◀ ▶ act on (1-based).
+    in property <int> edit-deck: 1;
+    in property <[MplDeck]> decks;
+    // "mix-in", "mix-out", "prev", "next", "edit", "link".
+    callback act(string);
+}
+
+component Readout inherits HorizontalLayout {
+    in property <string> label;
+    in property <string> value;
+    in property <string> a11y;
+    spacing: 5px;
+    Caps { text: root.label; font-size: 9px; vertical-alignment: center; }
+    Text {
+        accessible-role: text; accessible-label: root.a11y; accessible-value: self.text;
+        min-width: 58px;
+        text: root.value == "" ? "—" : root.value;
+        font-family: Theme.family; font-size: 13px; font-weight: 600;
+        color: root.value == "" ? Theme.bone-3 : Theme.bone; vertical-alignment: center;
+    }
+}
+
+component DeckPoints inherits HorizontalLayout {
+    in property <MplDeck> d;
+    in property <bool> editing;
+    spacing: 12px;
+    Rectangle {
+        width: 3px;
+        background: root.editing ? Theme.deck-color(root.d.deck) : Theme.rule-strong;
+    }
+    Caps { text: @tr("DECK {}", root.d.deck); vertical-alignment: center; color: root.editing ? Theme.bone : Theme.bone-3; }
+    Text {
+        accessible-role: text; accessible-label: "mpl.deck\{root.d.deck}.points"; accessible-value: root.d.points;
+        text: @tr("{} POINTS", root.d.points);
+        font-family: Theme.family; font-size: 11px; color: Theme.bone-2; vertical-alignment: center;
+    }
+    Readout { a11y: "mpl.deck\{root.d.deck}.mix-in-time"; label: @tr("IN"); value: root.d.mix-in; }
+    Readout { a11y: "mpl.deck\{root.d.deck}.mix-out-time"; label: @tr("OUT"); value: root.d.mix-out; }
+}
+
+export component MplPanel inherits Rectangle {
+    height: 40px;
+    background: Theme.ground-band;
+    HorizontalLayout {
+        padding-left: 12px; padding-right: 12px; padding-top: 7px; padding-bottom: 7px;
+        spacing: 6px;
+        PlateButton {
+            accessible-label: "mpl.mix-in"; accessible-role: button; horizontal-stretch: 0; compact: true;
+            label: @tr("MIX IN"); tone: Theme.live;
+            tooltip: @tr("Set the mix-in point of the edited deck at its playhead");
+            clicked => { Mpl.act("mix-in"); }
+        }
+        PlateButton {
+            accessible-label: "mpl.mix-out"; accessible-role: button; horizontal-stretch: 0; compact: true;
+            label: @tr("MIX OUT"); tone: Theme.fault;
+            tooltip: @tr("Set the mix-out point of the edited deck at its playhead");
+            clicked => { Mpl.act("mix-out"); }
+        }
+        PlateButton {
+            accessible-label: "mpl.prev"; accessible-role: button; horizontal-stretch: 0; compact: true; glyph: "prev";
+            tooltip: @tr("Edited deck: back to the previous point");
+            clicked => { Mpl.act("prev"); }
+        }
+        PlateButton {
+            accessible-label: "mpl.next"; accessible-role: button; horizontal-stretch: 0; compact: true; glyph: "next";
+            tooltip: @tr("Edited deck: on to the next point");
+            clicked => { Mpl.act("next"); }
+        }
+        PlateButton {
+            accessible-label: "mpl.edit"; accessible-role: button; accessible-value: Mpl.edit-deck; horizontal-stretch: 0; compact: true;
+            label: @tr("EDIT DECK {}", Mpl.edit-deck); tone: Theme.deck-color(Mpl.edit-deck);
+            tooltip: @tr("Switch the deck the points are set on");
+            clicked => { Mpl.act("edit"); }
+        }
+        PlateButton {
+            accessible-label: "mpl.link"; accessible-role: button; accessible-checkable: true; accessible-checked: Mpl.link;
+            horizontal-stretch: 0; compact: true;
+            label: "LINK"; active: Mpl.link; tone: Theme.attention;
+            tooltip: Mpl.link ? @tr("Stop linking the mix points") : @tr("Link: the other deck starts from its mix-in point when this one reaches its mix-out point");
+            clicked => { Mpl.act("link"); }
+        }
+        Rectangle { width: 10px; }
+        for d in Mpl.decks: DeckPoints { d: d; editing: d.deck == Mpl.edit-deck; }
+        Rectangle { horizontal-stretch: 1; }
+    }
+    HLine { y: parent.height - 1px; width: parent.width; tone: Theme.rule; }
+}

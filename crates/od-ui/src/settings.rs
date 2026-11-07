@@ -138,6 +138,45 @@ pub struct AnalysisSettings {
 pub struct ControllerSettings {
     /// An extra mapping file loaded with the built-in ones.
     pub mapping_file: String,
+    /// DDJ-FLX10 utility settings (written to the unit on APPLY).
+    pub flx10: Flx10Prefs,
+}
+
+/// DDJ-FLX10 utility settings (`midi_tools::flx10_settings`). The defaults
+/// are the vendor utility's defaults.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct Flx10Prefs {
+    /// "off", "on" or "on-sync" (fader start also turns SYNC on).
+    pub fader_start: String,
+    /// REC OUT: "with-mic" or "without-mic".
+    pub rec_out: String,
+    /// Jog display time: "remaining" or "elapsed".
+    pub time_mode: String,
+    pub slip_flashing: bool,
+    /// SLIP button while slip is on: "lit" or "blink".
+    pub slip_led: String,
+    /// Virtual deck mode (hot cue indicator on the jog display).
+    pub virtual_deck: bool,
+    /// Jog ring colour mode 1..=3.
+    pub jog_ring: u8,
+    /// USB output boost in dB (0, 3, 6, 9, 12, 15).
+    pub boost_db: i32,
+}
+
+impl Default for Flx10Prefs {
+    fn default() -> Self {
+        Self {
+            fader_start: "on".into(),
+            rec_out: "with-mic".into(),
+            time_mode: "remaining".into(),
+            slip_flashing: true,
+            slip_led: "lit".into(),
+            virtual_deck: true,
+            jog_ring: 1,
+            boost_db: 0,
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -179,11 +218,17 @@ pub struct PerformSettings {
     /// Colour FX of the CFX knobs: "filter", "echo", "noise", "space",
     /// "crush", "pitch", "dub_echo" or "sweep".
     pub color_fx: String,
+    /// Mixer column between the decks (top bar MIXER toggle).
+    pub mixer_panel: bool,
+    /// Recording section / bar (top bar REC toggle).
+    pub rec_panel: bool,
+    /// Mix Point Link panel above the waveforms (top bar MIX POINT toggle).
+    pub mpl_panel: bool,
 }
 
 impl Default for PerformSettings {
     fn default() -> Self {
-        Self { fx_panel: false, sampler_panel: false, color_fx: "filter".into() }
+        Self { fx_panel: false, sampler_panel: false, color_fx: "filter".into(), mixer_panel: true, rec_panel: true, mpl_panel: false }
     }
 }
 

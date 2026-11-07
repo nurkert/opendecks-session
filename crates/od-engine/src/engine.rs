@@ -655,6 +655,12 @@ impl EngineProcessor {
         sampler_buf.fill(0.0);
         self.sampler
             .mix_into(sampler_buf, level_gain(self.sampler_level), &clock);
+        for (k, unit) in self.beat_fx.iter_mut().enumerate() {
+            let live = k % BEAT_FX_SLOTS == 0 || self.beat_fx_multi[k / BEAT_FX_SLOTS];
+            if live && unit.target() == FxTarget::Sampler {
+                unit.process(sampler_buf, &clock);
+            }
+        }
         for (m, s) in master_buf.iter_mut().zip(sampler_buf.iter()) {
             *m += *s;
         }

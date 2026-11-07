@@ -15,7 +15,7 @@ use od_engine::{
 
 /// Pad modes offered on screen, in selector order (Pad FX page 2 is
 /// reached with the ‹ › of the Pad FX mode).
-pub(crate) const UI_MODES: [PadMode; 10] = [
+pub(crate) const UI_MODES: [PadMode; 11] = [
     PadMode::HotCue,
     PadMode::PadFx1,
     PadMode::BeatJump,
@@ -26,6 +26,17 @@ pub(crate) const UI_MODES: [PadMode; 10] = [
     PadMode::Slicer,
     PadMode::Stems,
     PadMode::MemoryCue,
+    PadMode::Lighting,
+];
+
+/// Looks of the Lighting pads A–F (G strobe, H flash).
+pub(crate) const LIGHT_LOOKS: [od_lighting::Program; 6] = [
+    od_lighting::Program::Static,
+    od_lighting::Program::Pulse,
+    od_lighting::Program::Chase,
+    od_lighting::Program::Sweep,
+    od_lighting::Program::Breathe,
+    od_lighting::Program::Build,
 ];
 
 /// Parts of the Stems pads: A–D (mute) and E–H (solo) in this order.
@@ -130,11 +141,12 @@ pub(crate) fn param_label(s: &DeckState, ctx: &PadCtx) -> String {
         PadMode::Slicer => format!("{} BEATS", beats_label(ctx.slicer_beats)),
         PadMode::Stems => if s.stems_available { "MUTE · SOLO".into() } else { "NO PARTS".into() },
         PadMode::MemoryCue => format!("{} CUES", ctx.memory.len()),
+        PadMode::Lighting => "LIGHTS".into(),
     }
 }
 
 fn pad(index: usize, caption: impl Into<String>, sub: impl Into<String>, set: bool, lit: bool, cue_slot: i32) -> PadView {
-    PadView { index: index as i32, caption: caption.into().into(), sub: sub.into().into(), set, lit, cue_slot }
+    PadView { index: index as i32, caption: caption.into().into(), sub: sub.into().into(), set, lit, cue_slot, tone: Default::default() }
 }
 
 /// The eight pads of a deck in its mode (pure).
@@ -195,6 +207,11 @@ pub(crate) fn pad_views(s: &DeckState, ch: &ChannelState, sampler: &[SamplerSlot
                     pad(i, name, "SOLO", s.stems_available, solo, -1)
                 }
             }
+            PadMode::Lighting => match i {
+                0..=5 => pad(i, format!("{:?}", LIGHT_LOOKS[i]).to_uppercase(), "LOOK", true, false, -1),
+                6 => pad(i, "STROBE", "HOLD", true, false, -1),
+                _ => pad(i, "FLASH", "HOLD", true, false, -1),
+            },
             PadMode::MemoryCue => match ctx.memory.get(i) {
                 Some(&t) => {
                     let lit = (s.cue_point - t).abs() < 0.01;
@@ -313,10 +330,11 @@ mod tests {
     #[test]
     fn modes_cycle_on_screen() {
         assert_eq!(step_mode(PadMode::HotCue, 1), PadMode::PadFx1);
-        assert_eq!(step_mode(PadMode::HotCue, -1), PadMode::MemoryCue);
+        assert_eq!(step_mode(PadMode::HotCue, -1), PadMode::Lighting);
         assert_eq!(step_mode(PadMode::PadFx2, 1), PadMode::BeatJump);
         assert_eq!(step_mode(PadMode::Slicer, 1), PadMode::Stems);
-        assert_eq!(step_mode(PadMode::MemoryCue, 1), PadMode::HotCue);
+        assert_eq!(step_mode(PadMode::MemoryCue, 1), PadMode::Lighting);
+        assert_eq!(step_mode(PadMode::Lighting, 1), PadMode::HotCue);
     }
 
     #[test]

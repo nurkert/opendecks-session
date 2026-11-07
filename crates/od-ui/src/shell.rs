@@ -43,6 +43,33 @@ pub(crate) fn next_layout(current: &str) -> &'static str {
     PREPARE_LAYOUTS[(i + 1) % PREPARE_LAYOUTS.len()]
 }
 
+/// Top-bar panel switches: "mixer", "mpl" (Mix Point Link) or "rec"
+/// (recording section / bar). Stored in the settings.
+pub(crate) fn toggle_panel(app: &App, which: &str) {
+    let on = {
+        let p = &app.state.borrow().settings.perform;
+        !match which {
+            "mixer" => p.mixer_panel,
+            "mpl" => p.mpl_panel,
+            _ => p.rec_panel,
+        }
+    };
+    app.state.borrow_mut().change_settings(|s| match which {
+        "mixer" => s.perform.mixer_panel = on,
+        "mpl" => s.perform.mpl_panel = on,
+        _ => s.perform.rec_panel = on,
+    });
+    apply_panels(app);
+}
+
+/// Shows the panels as the settings say.
+pub(crate) fn apply_panels(app: &App) {
+    let p = app.state.borrow().settings.perform.clone();
+    app.ui.set_mixer_panel(p.mixer_panel);
+    app.ui.set_mpl_panel(p.mpl_panel);
+    app.ui.set_rec_panel(p.rec_panel);
+}
+
 /// Status band summary of the open list: "12 TRACKS · 1:02:03 · 84.2 MB"
 /// and the selection count when more than one row is selected.
 pub(crate) fn list_summary(count: usize, seconds: f64, bytes: u64, selected: usize) -> String {
@@ -235,6 +262,8 @@ pub(crate) fn wire_tooltips(app: &Rc<App>, tips: &crate::TooltipState<'_>) {
 pub(crate) fn wire(app: &Rc<App>) {
     let ui = &app.ui;
     wire_tooltips(app, &ui.global::<crate::TooltipState>());
+    apply_panels(app);
+    crate::mpl::wire(app);
     ui.on_select_section(handler!(app, |a, s: SharedString| {
         a.ui.set_section(s.clone());
         match s.as_str() {
@@ -260,6 +289,13 @@ pub(crate) fn wire(app: &Rc<App>) {
         let next = next_layout(a.ui.get_prepare_layout().as_str());
         set_prepare_layout(&a, next);
     }));
+    // Files from Finder / the file manager.
+    ui.on_drop_accepts(|data| data.has_file_paths());
+    ui.on_files_dropped(handler!(app, |a, data: slint::DataTransfer, deck: i32| {
+        let paths: Vec<std::path::PathBuf> = data.file_paths().map(|p| p.map(|p| p.to_path_buf()).collect()).unwrap_or_default();
+        crate::import::files_dropped(&a, paths, deck);
+    }));
+    crate::import::wire_native_drop(app);
     let weak = Rc::downgrade(app);
     ui.on_menu_action(move |id| {
         if let Some(app) = weak.upgrade() {

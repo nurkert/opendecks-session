@@ -11,6 +11,9 @@ default = ["separation"]
 # Stem separation on this machine (ONNX Runtime). Without it, stems that were
 # separated elsewhere still play.
 separation = ["od-stems/separation"]
+# Writes the DDJ-FLX10 utility settings to the unit over USB (libusb);
+# without it Preferences store and show them only.
+flx10-usb = ["od-controller/usb-settings"]
 # Full-screen kiosk on the Raspberry Pi (no desktop environment).
 kiosk = ["slint/backend-linuxkms-noseat", "slint/renderer-femtovg"]
 
@@ -22,7 +25,9 @@ od-analysis.workspace = true
 od-devices.workspace = true
 od-format-native.workspace = true
 od-format-pioneer.workspace = true
-slint = "1.18"
+# unstable-winit-030: files dropped from Finder / the file manager (winit
+# window events) until the winit backend delivers OS drops to `DropArea`.
+slint = { version = "1.18", features = ["unstable-winit-030"] }
 anyhow.workspace = true
 tracing.workspace = true
 crossbeam-channel.workspace = true
@@ -47,6 +52,8 @@ symphonia.workspace = true
 tempfile.workspace = true
 # Headless UI tests: the Slint testing backend (must match the slint version).
 i-slint-backend-testing = "=1.18.1"
+# Delivers simulated OS drag-and-drop events to the window (file drops).
+i-slint-core = "=1.18.1"
 hound = "3"
 od-parity = { path = "../od-parity" }
 

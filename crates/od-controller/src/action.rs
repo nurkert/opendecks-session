@@ -63,10 +63,12 @@ pub enum PadMode {
     Stems,
     /// The first eight memory cues, in track order.
     MemoryCue,
+    /// The light show: A–F looks, G strobe and H flash while held.
+    Lighting,
 }
 
 impl PadMode {
-    pub const ALL: [PadMode; 11] = [
+    pub const ALL: [PadMode; 12] = [
         PadMode::HotCue,
         PadMode::BeatLoop,
         PadMode::BeatJump,
@@ -78,6 +80,7 @@ impl PadMode {
         PadMode::Slicer,
         PadMode::Stems,
         PadMode::MemoryCue,
+        PadMode::Lighting,
     ];
 
     pub fn name(self) -> &'static str {
@@ -93,6 +96,7 @@ impl PadMode {
             PadMode::Slicer => "slicer",
             PadMode::Stems => "stems",
             PadMode::MemoryCue => "memory_cue",
+            PadMode::Lighting => "lighting",
         }
     }
 
