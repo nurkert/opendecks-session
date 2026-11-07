@@ -239,8 +239,9 @@ pub(crate) fn resolve_related(app: &App) {
 }
 
 /// Sidebar rows of the play history sessions.
-pub(crate) fn history_rows(lib: &od_library::Library) -> (Vec<String>, Vec<TreeRow>) {
-    let sessions = lib.history_sessions().unwrap_or_default();
+pub(crate) fn history_rows(lib: &od_library::Library, year: Option<&str>) -> (Vec<String>, Vec<TreeRow>) {
+    let sessions: Vec<(String, String, u32)> =
+        lib.history_sessions().unwrap_or_default().into_iter().filter(|s| year.is_none_or(|y| s.1.starts_with(y))).collect();
     let names = sessions.iter().map(|s| s.0.clone()).take(HISTORY_MAX).collect();
     let rows = sessions
         .iter()
@@ -249,6 +250,20 @@ pub(crate) fn history_rows(lib: &od_library::Library) -> (Vec<String>, Vec<TreeR
         .map(|(i, (name, _, n))| TreeRow { id: history_id(i), name: name.clone().into(), kind: "history".into(), count: *n as i32, ..Default::default() })
         .collect();
     (names, rows)
+}
+
+/// Years with play history, oldest first ("2025", "2026").
+pub(crate) fn history_years(lib: &od_library::Library) -> Vec<String> {
+    let mut years: Vec<String> = lib.history_sessions().unwrap_or_default().iter().filter_map(|s| s.1.get(..4).map(str::to_string)).collect();
+    years.sort();
+    years.dedup();
+    years
+}
+
+/// The year the Histories tree shows: the chosen one while it has
+/// sessions, else the latest.
+pub(crate) fn history_year(years: &[String], chosen: Option<&str>) -> Option<String> {
+    chosen.filter(|c| years.iter().any(|y| y == c)).map(str::to_string).or_else(|| years.last().cloned())
 }
 
 /// My Tag panel chips: every value in the library, `on` when every

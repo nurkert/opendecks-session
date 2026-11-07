@@ -424,7 +424,9 @@ area = "browser"
 name = "Histories: player histories from sticks"
 scope = "in"
 status = "done"
-tests = []
+tests = [
+  "od-ui::ui_tests::features::player_history_becomes_a_history_playlist",
+]
 evidence = ["od-devices/src/pioneer.rs", "app.rs::resolve_proposal"]
 note = "`od-devices/src/pioneer.rs` history proposals → `app.rs::resolve_proposal` creates a \"History\" folder"
 
@@ -448,7 +450,9 @@ area = "browser"
 name = "Track preview (Prepare)"
 scope = "in"
 status = "done"
-tests = []
+tests = [
+  "od-ui::ui_tests::features::prepare_preview_plays_the_selected_track",
+]
 evidence = ["perform.rs::toggle_preview"]
 note = "`perform.rs::toggle_preview` on a preview deck; Space key"
 
@@ -458,7 +462,9 @@ area = "browser"
 name = "Loaded-on-deck indicator"
 scope = "in"
 status = "done"
-tests = []
+tests = [
+  "od-ui::ui_tests::features::loaded_rows_show_their_deck",
+]
 note = "`TrackRow.deck`"
 
 [[feature]]
@@ -481,7 +487,9 @@ area = "browser"
 name = "Import folder / files"
 scope = "in"
 status = "done"
-tests = []
+tests = [
+  "od-ui::workers::tests::import_adds_each_file_once",
+]
 evidence = ["app.rs::on_import_folder"]
 note = "`app.rs` `on_import_folder`, `od-cli import`"
 
@@ -758,8 +766,9 @@ tests = [
   "od-ui::ui_tests::features::row_context_menu_edits_the_library",
   "od-ui::ui_tests::features::load_gestures_double_click_and_menu",
   "od-ui::ui_tests::flows::add_to_playlist",
+  "od-ui::browser::tests::row_menu_cue_tools_and_tag_reload",
 ]
-note = "Right-click a row: Load to deck ▸ 1-4, Add to playlist ▸, Colour ▸, Rating ▸, Analyse, Show in file manager, Remove from this list. UI tests drive the real menu (rating, colour, remove, load). Further items of the layout reference (tag list, export, play count, hot-cue tools, info) are tracked by the view test `ctx.track-row`"
+note = "Right-click a row: Load to deck ▸ 1-4, Import to collection (Explorer files), Analyse, Lock / unlock analysis, Separate parts, the recently used lists inline (Add to “…”), Add to playlist ▸, Add to tag list, Reload tags from file, Export file…, Reset play count, Memory cues to hot cues, Sort hot cues by time, Show related tracks, Colour ▸, Rating ▸, Remove from this list, Show info, Show in file manager. UI tests drive the real menu (rating, colour, remove, load, inline recent list); the order is checked by the view test `ctx.track-row`"
 spec = "UX §1.9"
 
 [[feature]]
@@ -772,7 +781,7 @@ tests = [
   "od-ui::ui_tests::features::info_panel_edits_tags",
 ]
 spec = "SPEC §5.5; UX §1.6"
-note = "INFO in the list title row opens the track info panel beside the list; every tag is editable in place (Return stores, undoable). File details (type, size, sample rate, bit rate) and the tabs of the layout reference are tracked by the view test `browser.info-panel`"
+note = "INFO in the right panel strip opens the track info panel beside the list: SUMMARY (every tag editable in place, Return stores, undoable), INFO (time, file type, size, added, sample rate, bit rate, plays, path) and ARTWORK tabs; checked by the view test `browser.info-panel`"
 
 [[feature]]
 id = "browser-sub-browser"
@@ -1066,7 +1075,9 @@ area = "cues"
 name = "Memory cues: add (Prepare)"
 scope = "in"
 status = "done"
-tests = []
+tests = [
+  "od-ui::ui_tests::features::memory_cue_added_in_the_player",
+]
 evidence = ["on_add_memory_cue"]
 note = "`on_add_memory_cue`"
 
@@ -1089,7 +1100,9 @@ area = "cues"
 name = "Memory cues: call prev/next (Perform)"
 scope = "in"
 status = "done"
-tests = []
+tests = [
+  "od-ui::pads::tests::memory_cue_pads_call_cues_in_order",
+]
 note = "`MemoryCueJump` via controller"
 
 [[feature]]
@@ -1166,7 +1179,9 @@ area = "cues"
 name = "Auto cue on load (first memory cue / first beat)"
 scope = "in"
 status = "done"
-tests = []
+tests = [
+  "od-engine::deck_features::auto_cue_on_load",
+]
 evidence = ["DeckCommand::Load", "command.rs", "deck.rs"]
 note = "`DeckCommand::Load` behaviour (`command.rs` doc, `deck.rs`)"
 
@@ -1249,7 +1264,7 @@ tests = [
   "od-ui::decks::tests::tempo_ranges",
   "od-controller::mappings::tempo_is_inverted_bipolar_with_centre_detent",
 ]
-note = "`TempoRange`; controller cycles range; UI shows it but has no range button"
+note = "`TempoRange`; the range key above CUE (and on compact decks) and the controller cycle ±6 / ±10 / ±16 % / WIDE; the platter shows the range"
 
 [[feature]]
 id = "deck-key-lock"
@@ -1345,7 +1360,9 @@ area = "deck"
 name = "Censor (slip reverse)"
 scope = "in"
 status = "done"
-tests = []
+tests = [
+  "od-engine::deck_features::censor_reverses_and_resumes_where_playback_would_be",
+]
 evidence = ["DeckAction::Censor", "handle_action"]
 note = "`DeckAction::Censor` in `handle_action`"
 
@@ -1384,7 +1401,7 @@ tests = [
   "od-engine::render::manual_loop_in_out_and_reloop",
 ]
 evidence = ["LoopIn/LoopOut/Reloop/LoopExit/LoopHalve/LoopDouble"]
-note = "`LoopIn/LoopOut/Reloop/LoopExit/LoopHalve/LoopDouble`"
+note = "`LoopIn/LoopOut/Reloop/LoopExit/LoopHalve/LoopDouble`; IN / OUT / EXIT key beside LOOP on every deck and in the Prepare player"
 
 [[feature]]
 id = "deck-auto-loop"
@@ -1639,7 +1656,9 @@ name = "Jog / platter readout in the UI: position, remaining, phrase and bar cou
 scope = "in"
 status = "done"
 prio = "P2"
-tests = []
+tests = [
+  "od-ui::ui_tests::perform::platter_readout_counts_bars",
+]
 note = "Jog display: bar counter (bars.beats, count-down modes), remaining time, phrase with its countdown"
 spec = "SPEC §10.1; UX §1.3"
 
@@ -1821,9 +1840,10 @@ scope = "in"
 status = "done"
 tests = [
   "od-engine::render::crossfader_assign_and_curves",
+  "od-ui::ui_tests::features::crossfader_assign_keys",
 ]
 evidence = ["MixerAction::CrossfaderAssign"]
-note = "Controller (`MixerAction::CrossfaderAssign`); no UI control"
+note = "Controller (`MixerAction::CrossfaderAssign`) and the A / B assign grids beside the crossfader in the global bar (a key sends the deck to its side, again to THRU)"
 
 [[feature]]
 id = "mixer-headphones"
@@ -2251,7 +2271,7 @@ tests = [
   "od-ui::sampler::tests::panel_projection",
 ]
 evidence = ["sampler.slint::SamplerPanel"]
-note = "16 steps of the selected slot under the pads, PLAY / REC / CLR, playing step shown; patterns saved with the slots"
+note = "Footer row of the sampler panel: REC / PLAY / SAVE (onto the next free Sequence Call pad), the 16 steps of the selected slot, the playing step and CLR; patterns saved with the slots"
 
 [[feature]]
 id = "sampler-panel"
@@ -2775,7 +2795,9 @@ area = "shell"
 name = "Prepare / Perform mode switch that keeps loaded tracks"
 scope = "in"
 status = "done"
-tests = []
+tests = [
+  "od-ui::ui_tests::features::mode_switch_keeps_loaded_decks",
+]
 evidence = ["crates/od-ui/src/shell.rs"]
 spec = "SPEC §3.1"
 
@@ -2933,8 +2955,10 @@ name = "Raspberry Pi kiosk (linuxkms, Perform, controller browsing)"
 scope = "in"
 status = "done"
 qualifier = "beyond the usual"
-tests = []
-note = "Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); no cargo test"
+tests = [
+  "od-ui::ui_tests::features::kiosk_opens_perform_with_touch_targets",
+]
+note = "Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); the kiosk configuration (Perform, browse screen, 44 px touch rows and keys) is driven by a UI test"
 spec = "SPEC §3.3"
 
 [[feature]]

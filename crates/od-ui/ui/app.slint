@@ -6,7 +6,7 @@ export { DragState }
 import { InfoPanel, TrackInfo } from "info.slint";
 import { Caps, PlateButton, Field, LineToggle, Splitter, TooltipState } from "controls.slint";
 import { TooltipLayer } from "tooltip.slint";
-import { Sidebar } from "sidebar.slint";
+import { Sidebar, RailItem } from "sidebar.slint";
 import { TopBar } from "topbar.slint";
 import { PreparePlayer } from "player.slint";
 import { TrackTable, TableStyle } from "table.slint";
@@ -214,6 +214,11 @@ export component AppWindow inherits Window {
     in property <bool> recording;
     in property <string> recording-time;
     in property <string> master-bpm;
+    // Top bar: connected controller, master meter (0..1, clip) and the clock.
+    in property <string> midi-device;
+    in property <float> master-meter;
+    in property <bool> master-clip;
+    in property <string> clock;
     in property <float> crossfader: 0.5;
     in property <bool> engine-ready;
     in property <string> engine-message;
@@ -226,6 +231,35 @@ export component AppWindow inherits Window {
     in property <bool> sampler-panel;
     callback toggle-fx-panel();
     callback toggle-sampler-panel();
+    // Where a double-click in the list loads in Perform: 0 = the free deck,
+    // 1..4 = that deck; and the list row density ("compact", "normal", "roomy").
+    in-out property <int> load-target;
+    in property <string> density: "normal";
+    callback cycle-density();
+    // Histories: the year shown ("" = none yet) and how many years exist.
+    in property <string> history-year;
+    in property <int> history-year-count;
+    callback tree-filter(string);
+    // Window shorter than 860 px (set from the frame tick, like small-screen).
+    in property <bool> short-screen;
+    // Window narrower than 1500 px: compact top bar.
+    in property <bool> narrow-screen;
+    callback toggle-full-screen();
+    callback explorer-open-roots();
+    // Prepare player: time left, loop / quantize state of the preview, the
+    // jump size and the zoom of the enlarged waveform, and its actions.
+    in property <string> track-remaining;
+    in property <string> player-loop-size: "4";
+    in property <bool> player-looping;
+    in property <bool> player-loop-in-set;
+    in property <bool> player-quantize: true;
+    in property <string> player-jump-size: "2 S";
+    in property <string> player-zoom: "8 S";
+    callback player-act(string);
+    callback sampler-bpm-scale(float);
+    callback sampler-seq-save();
+    callback sync-all-devices();
+    callback history-year-step(int);
     // Top bar MIXER, MIX POINT and REC toggles (persisted in the settings).
     in property <bool> mixer-panel: true;
     in property <bool> mpl-panel;
@@ -302,6 +336,8 @@ export component AppWindow inherits Window {
     callback row-rated(int, int);
     callback row-menu(int, string);
     in property <[MenuTarget]> menu-playlists;
+    // Lists added to last: inline in the row menu.
+    in property <[MenuTarget]> menu-recent;
     // Sub-browser under the list (View > Sub Browser, SUB in the list header).
     in-out property <bool> sub-browser-open;
     callback toggle-sub-browser();
@@ -419,6 +455,8 @@ export component AppWindow inherits Window {
     callback deck-loop-exit(int);
     callback deck-loop-scale(int, float);
     callback deck-beat-jump(int, float);
+    callback deck-loop-manual(int);
+    callback deck-tempo-range(int);
     callback deck-load(int);
     callback mixer-trim(int, float);
     callback mixer-eq(int, int, float);
@@ -427,6 +465,9 @@ export component AppWindow inherits Window {
     callback mixer-cue(int);
     callback set-crossfader(float);
     callback set-master-level(float);
+    // Crossfader assignment per deck ("A", "B", "T"), and its keys (deck 1..4, side).
+    in property <[string]> xf-assign: ["T", "T", "T", "T"];
+    callback mixer-xf-assign(int, string);
     callback set-headphone-mix(float);
     callback set-headphone-level(float);
 
@@ -455,6 +496,8 @@ export component AppWindow inherits Window {
         }
         Menu {
             title: @tr("View");
+            MenuItem { title: @tr("Full Screen"); activated => { root.toggle-full-screen(); } }
+            MenuSeparator { }
             MenuItem { title: @tr("Prepare"); activated => { root.set-mode("prepare"); } }
             MenuItem { title: @tr("Perform"); activated => { root.set-mode("perform"); } }
             MenuItem { title: @tr("Lighting"); activated => { root.set-mode("lighting"); } }
@@ -474,9 +517,9 @@ export component AppWindow inherits Window {
                 MenuItem { title: @tr("Browse"); checkable: true; checked: PerformLayout.layout == "browse"; activated => { root.menu-action("perform.layout.set.browse"); } }
             }
             MenuSeparator { }
-            MenuItem { title: @tr("Info Panel"); checkable: true; checked: root.info-open; activated => { root.menu-action("view.panel.info"); } }
-            MenuItem { title: @tr("Related Tracks"); checkable: true; checked: root.related-open; activated => { root.menu-action("view.panel.related"); } }
             MenuItem { title: @tr("My Tag"); checkable: true; checked: root.my-tag-open; activated => { root.menu-action("view.panel.my-tag"); } }
+            MenuItem { title: @tr("Related Tracks"); checkable: true; checked: root.related-open; activated => { root.menu-action("view.panel.related"); } }
+            MenuItem { title: @tr("Info Panel"); checkable: true; checked: root.info-open; activated => { root.menu-action("view.panel.info"); } }
             MenuItem { title: @tr("Filter Bar"); checkable: true; checked: root.filter-open; activated => { root.menu-action("browser.filter"); } }
             MenuItem { title: @tr("Sub Browser"); checkable: true; checked: root.sub-browser-open; activated => { root.menu-action("view.panel.sub-browser"); } }
             MenuSeparator { }
@@ -507,6 +550,7 @@ export component AppWindow inherits Window {
                 cycle-appearance => { root.cycle-appearance(); }
                 mode: root.mode;
                 kiosk: root.kiosk;
+                narrow: root.narrow-screen;
                 prepare-layout: root.prepare-layout;
                 cycle-layout => { root.cycle-layout(); }
                 show-record: root.mode != "perform";
@@ -527,6 +571,12 @@ export component AppWindow inherits Window {
                 recording: root.recording;
                 recording-time: root.recording-time;
                 undo-label: root.undo-label;
+                midi-device: root.midi-device;
+                master-level: root.master-level;
+                master-meter: root.master-meter;
+                master-clip: root.master-clip;
+                clock: root.clock;
+                set-master-level(v) => { root.set-master-level(v); }
                 set-mode(m) => { root.set-mode(m); }
                 toggle-recording => { root.toggle-recording(); }
                 undo => { root.undo(); }
@@ -542,7 +592,7 @@ export component AppWindow inherits Window {
             upper := VerticalLayout {
             vertical-stretch: root.kiosk ? 1 : 0;
             preferred-height: root.mode == "prepare" && root.prepare-layout == "browser" ? 0px : root.upper-height > 0 ? root.upper-height
-                : (root.mode == "prepare" ? (root.prepare-layout == "two" ? 400px : root.prepare-layout == "dual" ? 150px : root.prepare-layout == "simple" ? 120px : 280px) : PerformLayout.layout == "browse" ? 220px : 560px);
+                : (root.mode == "prepare" ? (root.prepare-layout == "two" ? 400px : root.prepare-layout == "dual" ? 150px : root.prepare-layout == "simple" ? 60px : 280px) : PerformLayout.layout == "browse" ? 220px : 560px + (PerformLayout.layout == "standard" ? (PerformLayout.wave-size == 2 ? 140px : PerformLayout.wave-size == 0 ? -40px : 0px) : 0px));
             if root.mode == "prepare" && (root.prepare-layout == "player" || root.prepare-layout == "two"): PreparePlayer {
                 phrases: root.show-phrases-overview ? root.track-phrases : [];
                 info-width: root.sidebar-width;
@@ -582,6 +632,14 @@ export component AppWindow inherits Window {
                 analyse => { root.analyse-selected(); }
                 toggle-preview => { root.toggle-preview(); }
                 jump-start => { root.jump-start(); }
+                remaining: root.track-remaining;
+                loop-size: root.player-loop-size;
+                looping: root.player-looping;
+                loop-in-set: root.player-loop-in-set;
+                quantize: root.player-quantize;
+                jump-size: root.player-jump-size;
+                zoom: root.player-zoom;
+                act(w) => { root.player-act(w); }
             }
             // Mix Point Link above the waveforms (top bar MIX POINT).
             if root.mode == "perform" && root.mpl-panel && !root.kiosk: MplPanel { }
@@ -598,6 +656,7 @@ export component AppWindow inherits Window {
             }
             if root.mode == "prepare" && root.prepare-layout == "simple": MiniPlayer {
                 vertical-stretch: 1;
+                single-line: true;
                 index: 1; can-load: false; view: root.mini1;
                 seek(p) => { root.mini-seek(1, p); }
                 act(w) => { root.mini-act(1, w); }
@@ -644,6 +703,8 @@ export component AppWindow inherits Window {
                 sampler-seq-play => { root.sampler-seq-play(); }
                 sampler-seq-record => { root.sampler-seq-record(); }
                 sampler-seq-clear => { root.sampler-seq-clear(); }
+                sampler-bpm-scale(f) => { root.sampler-bpm-scale(f); }
+                sampler-seq-save => { root.sampler-seq-save(); }
                 decks-left: root.decks-left;
                 decks-right: root.decks-right;
                 channels: root.channels;
@@ -652,6 +713,7 @@ export component AppWindow inherits Window {
                 headphone-mix: root.headphone-mix;
                 headphone-level: root.headphone-level;
                 tight: root.small-screen;
+                short: root.short-screen;
                 touch-size: root.kiosk;
                 show-mixer: !root.small-screen && root.mixer-panel;
                 recording: root.recording;
@@ -680,11 +742,15 @@ export component AppWindow inherits Window {
                 loop-scale(d, f) => { root.deck-loop-scale(d, f); }
                 beat-jump-step(d, f) => { root.deck-beat-jump-step(d, f); }
                 load(d) => { root.deck-load(d); }
+                loop-manual(d) => { root.deck-loop-manual(d); }
+                tempo-range(d) => { root.deck-tempo-range(d); }
                 trim(c, v) => { root.mixer-trim(c, v); }
                 eq(c, b, v) => { root.mixer-eq(c, b, v); }
                 cfx(c, v) => { root.mixer-cfx(c, v); }
                 fader(c, v) => { root.mixer-fader(c, v); }
                 channel-cue(c) => { root.mixer-cue(c); }
+                xf-assign: root.xf-assign;
+                xf-assign-set(d, x) => { root.mixer-xf-assign(d, x); }
                 set-crossfader(v) => { root.set-crossfader(v); }
                 set-master-level(v) => { root.set-master-level(v); }
                 set-headphone-mix(v) => { root.set-headphone-mix(v); }
@@ -704,7 +770,8 @@ export component AppWindow inherits Window {
             // ── Lower half: the browser ──
             if !root.kiosk || root.browser-open: HorizontalLayout {
                 vertical-stretch: 1;
-                min-height: 180px;
+                // The source rail needs its nine sources at the 24 px minimum.
+                min-height: root.kiosk ? 180px : 218px;
                 if !root.kiosk: Sidebar {
                     width: root.sidebar-width;
                     tree: root.tree;
@@ -721,6 +788,7 @@ export component AppWindow inherits Window {
                     explorer-select(i) => { root.explorer-select(i); }
                     explorer-toggle(i) => { root.explorer-toggle(i); }
                     explorer-add-root => { root.explorer-add-root(); }
+                    explorer-open-roots => { root.explorer-open-roots(); }
                     explorer-remove-root(i) => { root.explorer-remove-root(i); }
                     select-node(id) => { root.select-node(id); }
                     toggle-node(id) => { root.toggle-node(id); }
@@ -729,11 +797,16 @@ export component AppWindow inherits Window {
                     select-section(s) => { root.select-section(s); }
                     open-device(id) => { root.open-device(id); }
                     sync-device(id) => { root.sync-device(id); }
+                    sync-all-devices => { root.sync-all-devices(); }
+                    tree-filter(t) => { root.tree-filter(t); }
                     eject-device(id) => { root.eject-device(id); }
                     register-volume(i) => { root.register-volume(i); }
                     import-folder => { root.import-folder(); }
                     import-rekordbox => { root.import-rekordbox(); }
                     histories: root.histories;
+                    history-year: root.history-year;
+                    history-year-count: root.history-year-count;
+                    history-year-step(d) => { root.history-year-step(d); }
                     tag-list-count: root.tag-list-count;
                     related-count: root.related-count;
                     add-to-tag-list => { root.add-to-tag-list(); }
@@ -751,7 +824,7 @@ export component AppWindow inherits Window {
                 }
                 VerticalLayout {
                     horizontal-stretch: 1;
-                    padding-left: 14px;
+                    padding-left: root.kiosk ? 14px : 4px;
                     padding-right: 12px;
                     padding-top: 8px;
                     spacing: 8px;
@@ -808,49 +881,37 @@ export component AppWindow inherits Window {
                         if root.node-kind == "taglist" && !root.kiosk: PlateButton { accessible-label: "browser.tag-list.save"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("SAVE AS PLAYLIST"); tone: Theme.live; tooltip: @tr("Make a playlist of the tag list"); clicked => { root.tag-list-action("save"); } }
                         if root.node-kind == "taglist" && !root.kiosk: PlateButton { accessible-label: "browser.tag-list.clear"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("CLEAR"); tone: Theme.fault; tooltip: @tr("Empty the tag list"); clicked => { root.tag-list-action("clear"); } }
                         if root.node-kind != "all" && root.node-kind != "stick" && root.node-kind != "explorer" && root.node-kind != "related" && root.node-kind != "history" && root.node-kind != "taglist" && !root.read-only && !root.kiosk: PlateButton { accessible-label: "browser.delete-list"; accessible-role: button; horizontal-stretch: 0; compact: true; label: @tr("DELETE"); tone: Theme.fault; tooltip: @tr("Delete the open list"); command: "browser.delete.list"; clicked => { root.delete-node(); } }
+                        // Load target of a double-click (Perform): the free deck or a fixed one.
+                        PlateButton {
+                            accessible-label: "browser.target"; accessible-role: button;
+                            accessible-value: root.load-target == 0 ? "auto" : root.load-target;
+                            horizontal-stretch: 0; compact: !root.kiosk; tall: root.kiosk;
+                            enabled: root.mode == "perform";
+                            label: root.load-target == 0 ? @tr("LOAD → FREE") : @tr("LOAD → {}", root.load-target);
+                            active: root.load-target > 0; tone: Theme.deck-color(root.load-target);
+                            tooltip: root.mode == "perform" ? @tr("Where a double-click loads: the free deck or a fixed deck — click for the next") : @tr("In Prepare a double-click opens the track in the player");
+                            clicked => { root.load-target = Math.mod(root.load-target + 1, max(2, root.decks.length) + 1); }
+                        }
+                        // Row density of the list (Preferences > View > Line spacing).
+                        if !root.kiosk: PlateButton {
+                            accessible-label: "browser.density"; accessible-role: button;
+                            accessible-value: root.density;
+                            horizontal-stretch: 0; compact: true;
+                            label: root.density == "compact" ? @tr("COMPACT") : root.density == "roomy" ? @tr("ROOMY") : @tr("NORMAL");
+                            tooltip: @tr("Row spacing of the list: compact, normal, roomy — click for the next");
+                            clicked => { root.cycle-density(); }
+                        }
                         Field {
                             accessible-label: "browser.search"; accessible-role: text-input;
                             accessible-value: self.text; accessible-placeholder-text: self.placeholder;
                             property <int> focus-request: root.search-focus;
                             changed focus-request => { self.focus-field(); }
-                            width: 260px;
+                            min-width: 120px; preferred-width: 260px; max-width: 260px;
+                            horizontal-stretch: 1;
                             height: root.kiosk ? 44px : 32px;
                             placeholder: @tr("SEARCH  ⌘F");
                             text <=> root.search-text;
                             edited(t) => { root.search(t); }
-                        }
-                        if !root.kiosk: PlateButton {
-                            accessible-label: "browser.panel.my-tag"; accessible-role: button;
-                            accessible-checkable: true; accessible-checked: root.my-tag-open;
-                            horizontal-stretch: 0; compact: true; label: @tr("MY TAG");
-                            active: root.my-tag-open; tone: Theme.w436;
-                            tooltip: @tr("Tag the selected tracks with your own categories");
-                            clicked => { root.my-tag-open = !root.my-tag-open; root.panels-changed(); }
-                        }
-                        if !root.kiosk: PlateButton {
-                            accessible-label: "browser.panel.related"; accessible-role: button;
-                            accessible-checkable: true; accessible-checked: root.related-open;
-                            horizontal-stretch: 0; compact: true; label: @tr("RELATED");
-                            active: root.related-open; tone: Theme.w546;
-                            tooltip: @tr("Show tracks that fit after the selected one");
-                            clicked => { root.related-open = !root.related-open; root.panels-changed(); }
-                        }
-                        if !root.kiosk: PlateButton {
-                            accessible-label: "browser.panel.sub-browser"; accessible-role: button;
-                            accessible-checkable: true; accessible-checked: root.sub-browser-open;
-                            horizontal-stretch: 0; compact: true; label: @tr("SUB");
-                            active: root.sub-browser-open; tone: Theme.attention;
-                            tooltip: @tr("A second tree and list under this one, to drag tracks between lists");
-                            command: "view.panel.sub-browser";
-                            clicked => { root.toggle-sub-browser(); }
-                        }
-                        if !root.kiosk: PlateButton {
-                            accessible-label: "browser.panel.info"; accessible-role: button;
-                            accessible-checkable: true; accessible-checked: root.info-open;
-                            horizontal-stretch: 0; compact: true; label: "INFO";
-                            active: root.info-open; tone: Theme.w486;
-                            tooltip: @tr("Show the tags of the selected track");
-                            clicked => { root.info-open = !root.info-open; }
                         }
                     }
                     if root.section == "library" && root.node-kind == "smart": VerticalLayout {
@@ -940,6 +1001,8 @@ export component AppWindow inherits Window {
                         row-rated(i, n) => { root.row-rated(i, n); }
                         row-menu(i, a) => { root.row-menu(i, a); }
                         playlists: root.menu-playlists;
+                        recent: root.menu-recent;
+                        explorer: root.node-kind == "explorer";
                         columns: root.columns;
                         column-choices: root.column-choices;
                         reorderable: root.reorderable;
@@ -1080,6 +1143,48 @@ export component AppWindow inherits Window {
                     accessible-label: "info.panel"; accessible-role: groupbox;
                     info: root.track-info;
                     edit(f, v) => { root.info-edit(f, v); }
+                }
+                // Right panel strip: the panels beside the list.
+                if !root.kiosk: HorizontalLayout {
+                    VLine { weight: 1px; tone: Theme.rule; }
+                    VerticalLayout {
+                        width: 38px;
+                        padding-top: 8px;
+                        spacing: 0px;
+                        RailItem {
+                            accessible-label: "browser.panel.my-tag"; label: @tr("MYTAG"); tone: Theme.w436;
+                            current: root.my-tag-open;
+                            tooltip: @tr("My Tag: tag the selected tracks with your own categories");
+                            clicked => { root.my-tag-open = !root.my-tag-open; root.panels-changed(); }
+                        }
+                        RailItem {
+                            accessible-label: "browser.panel.related"; label: @tr("REL"); tone: Theme.w546;
+                            current: root.related-open;
+                            tooltip: @tr("Related: tracks that fit after the selected one");
+                            clicked => { root.related-open = !root.related-open; root.panels-changed(); }
+                        }
+                        RailItem {
+                            accessible-label: "browser.panel.sampler"; label: @tr("SMPL"); tone: Theme.w656;
+                            current: root.sampler-panel && root.mode == "perform";
+                            enabled: root.mode == "perform";
+                            tooltip: root.mode == "perform" ? @tr("Show or hide the sampler panel") : @tr("The sampler panel is part of Perform");
+                            clicked => { root.toggle-sampler-panel(); }
+                        }
+                        RailItem {
+                            accessible-label: "browser.panel.info"; label: "INFO"; tone: Theme.w486;
+                            current: root.info-open;
+                            tooltip: @tr("Info: the tags and file details of the selected track");
+                            clicked => { root.info-open = !root.info-open; }
+                        }
+                        RailItem {
+                            accessible-label: "browser.panel.sub-browser"; label: @tr("SUB"); tone: Theme.attention;
+                            current: root.sub-browser-open;
+                            tooltip: @tr("Sub browser: a second tree and list under this one, to drag tracks between lists");
+                            command: "view.panel.sub-browser";
+                            clicked => { root.toggle-sub-browser(); }
+                        }
+                        Rectangle { vertical-stretch: 1; min-height: 0px; }
+                    }
                 }
             }
 

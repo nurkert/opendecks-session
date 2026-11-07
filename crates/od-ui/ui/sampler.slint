@@ -93,89 +93,21 @@ export component SamplerPanel inherits Rectangle {
     callback seq-play();
     callback seq-record();
     callback seq-clear();
+    callback bpm-scale(float);
+    callback seq-save();
     property <length> row-h: 32px;
     property <length> gap: 4px;
-    height: 2 * root.row-h + 24px + 2 * root.gap + 18px;
+    height: 2 * root.row-h + 26px + 2 * root.gap + 18px;
     background: Theme.ground;
 
-    HorizontalLayout {
+    VerticalLayout {
         padding-left: 14px; padding-right: 14px; padding-top: 9px; padding-bottom: 9px;
-        spacing: 14px;
-        // Bank, quantise / cue, sequencer transport.
-        VerticalLayout {
-            width: 150px;
-            spacing: root.gap;
-            HorizontalLayout {
-                height: root.row-h;
-                spacing: 3px;
-                Caps { text: @tr("BANK"); font-size: 9px; vertical-alignment: center; width: 34px; }
-                for b in 4: Toggle {
-                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.bank == b;
-                    accessible-label: "sampler.bank\{b + 1}";
-                    size: 26px; y: 3px; horizontal-stretch: 1;
-                    label: b + 1; on: root.s.bank == b; tone: Theme.w546;
-                    tooltip: @tr("Sampler bank {}", b + 1);
-                    command: "sampler.bank.next";
-                    clicked => { root.bank(b); }
-                }
-            }
-            HorizontalLayout {
-                height: root.row-h;
-                spacing: 3px;
-                Rectangle { width: 34px; }
-                Toggle {
-                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.quantize;
-                    accessible-label: "sampler.quantize";
-                    size: 26px; y: 3px; horizontal-stretch: 1;
-                    label: @tr("QUANT"); on: root.s.quantize; tone: Theme.attention;
-                    tooltip: @tr("Quantise: pads start on the next beat of the master tempo");
-                    clicked => { root.quantize(); }
-                }
-                Toggle {
-                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.cue;
-                    accessible-label: "sampler.cue";
-                    size: 26px; y: 3px; horizontal-stretch: 1;
-                    label: "CUE"; on: root.s.cue; tone: Theme.attention;
-                    tooltip: @tr("Sampler to the headphones");
-                    clicked => { root.cue(); }
-                }
-            }
-            HorizontalLayout {
-                height: 24px;
-                spacing: 3px;
-                Caps { text: "SEQ"; font-size: 9px; vertical-alignment: center; width: 34px; }
-                Toggle {
-                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.seq-playing;
-                    accessible-label: "sampler.seq.play";
-                    size: 24px; horizontal-stretch: 1;
-                    label: root.s.seq-playing ? @tr("STOP") : @tr("PLAY"); on: root.s.seq-playing; tone: Theme.live;
-                    tooltip: @tr("Start / stop the step sequencer (locked to the master beat)");
-                    command: "sampler.seq.play";
-                    clicked => { root.seq-play(); }
-                }
-                Toggle {
-                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.seq-recording;
-                    accessible-label: "sampler.seq.rec";
-                    size: 24px; horizontal-stretch: 1;
-                    label: "REC"; on: root.s.seq-recording; tone: Theme.fault;
-                    tooltip: @tr("Record pads into the pattern while the sequencer plays");
-                    clicked => { root.seq-record(); }
-                }
-                Toggle {
-                    accessible-role: button;
-                    accessible-label: "sampler.seq.erase";
-                    size: 24px; width: 30px;
-                    label: "CLR";
-                    tooltip: @tr("Clear the selected slot's pattern");
-                    clicked => { root.seq-clear(); }
-                }
-            }
-        }
-        // Pads 1–8 / 9–16 and the 16 steps of the selected slot.
-        VerticalLayout {
-            horizontal-stretch: 1;
-            spacing: root.gap;
+        spacing: root.gap;
+        HorizontalLayout {
+            spacing: 14px;
+            // Pads 1–8 over 9–16.
             Rectangle {
+                horizontal-stretch: 1;
                 height: 2 * root.row-h + root.gap;
                 property <length> w: (self.width - 7 * root.gap) / 8;
                 for p[i] in root.pads: SamplerPad {
@@ -190,12 +122,169 @@ export component SamplerPanel inherits Rectangle {
                     dropped => { root.select(i); root.load(i); }
                 }
             }
+            // The selected slot: name, mode, load / clear.
+            VerticalLayout {
+                width: 210px;
+                spacing: root.gap;
+                HorizontalLayout {
+                    height: 24px;
+                    spacing: 6px;
+                    Text {
+                        text: root.s.selected-number;
+                        font-family: Theme.family; font-size: 17px; font-weight: 600; color: Theme.w546;
+                        vertical-alignment: center; width: 22px;
+                    }
+                    Text {
+                        text: root.s.selected-loaded ? root.s.selected-name : @tr("Empty slot");
+                        font-family: Theme.family; font-size: 12px; font-weight: 600; vertical-alignment: center;
+                        color: root.s.selected-loaded ? Theme.bone : Theme.bone-3; overflow: elide;
+                    }
+                }
+                HorizontalLayout {
+                    height: 24px;
+                    spacing: 3px;
+                    Toggle { size: 24px; horizontal-stretch: 1; label: @tr("1-SHOT"); on: root.s.selected-mode == 0; tone: Theme.w486; enabled: root.s.selected-loaded;
+                        tooltip: @tr("One-shot: plays to the end once"); clicked => { root.mode(0); } }
+                    Toggle { size: 24px; horizontal-stretch: 1; label: @tr("LOOP"); on: root.s.selected-mode == 1; tone: Theme.w486; enabled: root.s.selected-loaded;
+                        tooltip: @tr("Loop: repeats until stopped"); clicked => { root.mode(1); } }
+                    Toggle { size: 24px; horizontal-stretch: 1; label: @tr("GATE"); on: root.s.selected-mode == 2; tone: Theme.w486; enabled: root.s.selected-loaded;
+                        tooltip: @tr("Gate: plays only while the pad is held"); clicked => { root.mode(2); } }
+                }
+                HorizontalLayout {
+                    height: 24px;
+                    spacing: 3px;
+                    PlateButton { compact: true; height: 24px; horizontal-stretch: 1; label: @tr("LOAD SELECTED"); tone: Theme.w546;
+                        tooltip: @tr("Load the selected track into this slot"); clicked => { root.load(-1); } }
+                    PlateButton { compact: true; height: 24px; label: @tr("CLEAR"); tone: Theme.bone-3; enabled: root.s.selected-loaded;
+                        tooltip: @tr("Empty this slot"); clicked => { root.unload(); } }
+                }
+            }
+            // Gain and headphone cue of the slot, its tempo (½ / 2× when the
+            // analysis halved or doubled it), stop.
             HorizontalLayout {
-                height: 24px;
+                spacing: 8px;
+                alignment: start;
+                VerticalLayout {
+                    alignment: start;
+                    Knob {
+                        accessible-role: slider; accessible-label: "sampler.gain"; accessible-value: root.s.selected-gain;
+                        label: @tr("GAIN"); size: 26px; minimum: 0; maximum: 2; default-value: 1;
+                        value: root.s.selected-gain; tone: Theme.w546;
+                        tooltip: @tr("Gain of the selected slot");
+                        changed(v) => { root.gain(v); }
+                    }
+                }
+                VerticalLayout {
+                    spacing: root.gap;
+                    alignment: start;
+                    Toggle {
+                        accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.cue;
+                        accessible-label: "sampler.cue";
+                        size: 24px; width: 98px;
+                        label: "CUE"; on: root.s.cue; tone: Theme.attention;
+                        tooltip: @tr("Sampler to the headphones");
+                        clicked => { root.cue(); }
+                    }
+                    HorizontalLayout {
+                        spacing: 3px;
+                        Rectangle {
+                            accessible-role: text; accessible-label: "sampler.bpm"; accessible-value: root.s.selected-bpm;
+                            width: 44px; height: 24px;
+                            background: Theme.plate; border-width: 1px; border-color: Theme.rule;
+                            Text { text: root.s.selected-bpm == "" ? "—" : root.s.selected-bpm; font-family: Theme.family; font-size: 11px; font-weight: 600; color: Theme.bone-2; }
+                        }
+                        Toggle { accessible-role: button; accessible-label: "sampler.bpm-up"; size: 24px; width: 24px; label: "2×"; enabled: root.s.selected-bpm != "";
+                            tooltip: @tr("Double the slot's tempo (detected at half speed)"); clicked => { root.bpm-scale(2); } }
+                        Toggle { accessible-role: button; accessible-label: "sampler.bpm-down"; size: 24px; width: 24px; label: "½"; enabled: root.s.selected-bpm != "";
+                            tooltip: @tr("Halve the slot's tempo (detected at double speed)"); clicked => { root.bpm-scale(0.5); } }
+                    }
+                    Toggle {
+                        size: 24px; width: 98px; label: @tr("STOP ALL");
+                        tooltip: @tr("Stop every sample");
+                        command: "sampler.stop.all";
+                        clicked => { root.stop-all(); }
+                    }
+                }
+            }
+        }
+        // Footer: bank, quantise, sync, volume, then the sequencer: record,
+        // play, save, the pattern of the selected slot, the step, clear.
+        HorizontalLayout {
+            height: 26px;
+            spacing: 4px;
+            HorizontalLayout {
+                accessible-role: tab-list; accessible-label: "sampler.bank"; accessible-value: root.s.bank + 1;
+                spacing: 2px;
+                Caps { text: @tr("BANK"); font-size: 9px; vertical-alignment: center; width: 30px; }
+                for b in 4: Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.bank == b;
+                    accessible-label: "sampler.bank\{b + 1}";
+                    size: 24px; width: 24px;
+                    label: b + 1; on: root.s.bank == b; tone: Theme.w546;
+                    tooltip: @tr("Sampler bank {}", b + 1);
+                    command: "sampler.bank.next";
+                    clicked => { root.bank(b); }
+                }
+            }
+            Toggle {
+                accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.quantize;
+                accessible-label: "sampler.quantize";
+                size: 24px;
+                label: @tr("QUANT"); on: root.s.quantize; tone: Theme.attention;
+                tooltip: @tr("Quantise: pads start on the next beat of the master tempo");
+                clicked => { root.quantize(); }
+            }
+            Toggle { size: 24px; accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.selected-sync; accessible-label: "sampler.bpm-sync";
+                label: "SYNC"; on: root.s.selected-sync; tone: Theme.w486; enabled: root.s.selected-loaded && root.s.selected-bpm != "";
+                tooltip: @tr("Sync the selected sample to the master tempo"); clicked => { root.sync(); } }
+            Rectangle {
+                accessible-role: slider; accessible-label: "sampler.master"; accessible-value: Math.round(root.s.volume * 100) + "%";
+                width: 96px;
+                Caps { x: 0; text: @tr("VOL"); font-size: 9px; vertical-alignment: center; height: parent.height; }
+                Rectangle { x: 26px; y: (parent.height - 2px) / 2; width: parent.width - 26px; height: 2px; background: Theme.rule-strong; }
+                Rectangle { x: 26px; y: (parent.height - 2px) / 2; width: (parent.width - 26px) * clamp(root.s.volume, 0, 1); height: 2px; background: Theme.attention; }
+                Rectangle { x: 26px + (parent.width - 38px) * clamp(root.s.volume, 0, 1); y: 5px; width: 12px; height: parent.height - 10px; background: Theme.plate-raised; border-width: 1px; border-color: Theme.bone-3; }
+                vt := TipArea {
+                    x: 26px; width: parent.width - 26px;
+                    tooltip: @tr("Sampler volume (double-click: full)");
+                    mouse-cursor: ew-resize;
+                    moved => { if (self.pressed) { root.volume(clamp((self.mouse-x - 6px) / (self.width - 12px), 0, 1)); } }
+                    clicked => { root.volume(clamp((self.mouse-x - 6px) / (self.width - 12px), 0, 1)); }
+                    double-clicked => { root.volume(1); }
+                }
+            }
+            Rectangle { width: 8px; }
+            Caps { text: "SEQ"; font-size: 9px; vertical-alignment: center; width: 24px; }
+            Toggle {
+                accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.seq-recording;
+                accessible-label: "sampler.seq.rec";
+                size: 24px;
+                label: "REC"; on: root.s.seq-recording; tone: Theme.fault;
+                tooltip: @tr("Record pads into the pattern while the sequencer plays");
+                clicked => { root.seq-record(); }
+            }
+            Toggle {
+                accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.seq-playing;
+                accessible-label: "sampler.seq.play";
+                size: 24px;
+                label: root.s.seq-playing ? @tr("STOP") : @tr("PLAY"); on: root.s.seq-playing; tone: Theme.live;
+                tooltip: @tr("Start / stop the step sequencer (locked to the master beat)");
+                command: "sampler.seq.play";
+                clicked => { root.seq-play(); }
+            }
+            Toggle {
+                accessible-role: button; accessible-label: "sampler.seq.save";
+                size: 24px; label: @tr("SAVE");
+                tooltip: @tr("Store the patterns on the next free Sequence Call pad");
+                clicked => { root.seq-save(); }
+            }
+            // The 16 steps of the selected slot.
+            HorizontalLayout {
+                accessible-role: list; accessible-label: "sampler.seq.pattern";
+                horizontal-stretch: 1;
                 spacing: 2px;
                 for on[k] in root.steps: Rectangle {
                     horizontal-stretch: 1;
-                    // A wider gap after every beat (four steps).
                     property <bool> playing: root.s.step == k;
                     background: on ? Theme.w546.with-alpha(st.has-hover ? 0.6 : 0.45) : st.has-hover ? Theme.plate-raised.mix(Theme.plate, 0.5) : Math.mod(k, 8) < 4 ? Theme.plate : Theme.ground-band;
                     border-width: 1px;
@@ -212,80 +301,20 @@ export component SamplerPanel inherits Rectangle {
                     }
                 }
             }
-        }
-        // The selected slot: name, mode, sync, load / clear.
-        VerticalLayout {
-            width: 236px;
-            spacing: root.gap;
-            HorizontalLayout {
-                height: root.row-h;
-                spacing: 6px;
-                Text {
-                    text: root.s.selected-number;
-                    font-family: Theme.family; font-size: 17px; font-weight: 600; color: Theme.w546;
-                    vertical-alignment: center; width: 22px;
-                }
-                VerticalLayout {
-                    alignment: center;
-                    spacing: 0;
-                    Text {
-                        text: root.s.selected-loaded ? root.s.selected-name : @tr("Empty slot");
-                        font-family: Theme.family; font-size: 12px; font-weight: 600;
-                        color: root.s.selected-loaded ? Theme.bone : Theme.bone-3; overflow: elide;
-                    }
-                    Caps {
-                        accessible-role: text; accessible-label: "sampler.bpm"; accessible-value: root.s.selected-bpm;
-                        text: root.s.selected-bpm == "" ? "" : root.s.selected-bpm + " BPM"; font-size: 9px;
-                    }
-                }
-            }
-            HorizontalLayout {
-                height: root.row-h;
-                spacing: 3px;
-                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; label: @tr("1-SHOT"); on: root.s.selected-mode == 0; tone: Theme.w486; enabled: root.s.selected-loaded;
-                    tooltip: @tr("One-shot: plays to the end once"); clicked => { root.mode(0); } }
-                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; label: @tr("LOOP"); on: root.s.selected-mode == 1; tone: Theme.w486; enabled: root.s.selected-loaded;
-                    tooltip: @tr("Loop: repeats until stopped"); clicked => { root.mode(1); } }
-                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; label: @tr("GATE"); on: root.s.selected-mode == 2; tone: Theme.w486; enabled: root.s.selected-loaded;
-                    tooltip: @tr("Gate: plays only while the pad is held"); clicked => { root.mode(2); } }
-                Toggle { size: 26px; y: 3px; horizontal-stretch: 1; accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.s.selected-sync; accessible-label: "sampler.bpm-sync";
-                    label: "SYNC"; on: root.s.selected-sync; tone: Theme.w486; enabled: root.s.selected-loaded && root.s.selected-bpm != "";
-                    tooltip: @tr("Sync the sample to the master tempo"); clicked => { root.sync(); } }
-            }
-            HorizontalLayout {
-                height: 24px;
-                spacing: 3px;
-                PlateButton { compact: true; height: 24px; horizontal-stretch: 1; label: @tr("LOAD SELECTED"); tone: Theme.w546;
-                    tooltip: @tr("Load the selected track into this slot"); clicked => { root.load(-1); } }
-                PlateButton { compact: true; height: 24px; label: @tr("CLEAR"); tone: Theme.bone-3; enabled: root.s.selected-loaded;
-                    tooltip: @tr("Empty this slot"); clicked => { root.unload(); } }
-            }
-        }
-        // Slot gain, sampler volume, stop.
-        VerticalLayout {
-            spacing: root.gap;
-            alignment: center;
-            HorizontalLayout {
-                spacing: 8px;
-                Knob {
-                    accessible-role: slider; accessible-label: "sampler.gain"; accessible-value: root.s.selected-gain;
-                    label: @tr("GAIN"); size: 26px; minimum: 0; maximum: 2; default-value: 1;
-                    value: root.s.selected-gain; tone: Theme.w546;
-                    tooltip: @tr("Gain of the selected slot");
-                    changed(v) => { root.gain(v); }
-                }
-                Knob {
-                    label: @tr("VOL"); size: 26px; minimum: 0; maximum: 1; default-value: 1;
-                    value: root.s.volume; tone: Theme.attention;
-                    tooltip: @tr("Sampler volume");
-                    changed(v) => { root.volume(v); }
-                }
+            Text {
+                accessible-role: text; accessible-label: "sampler.seq.position"; accessible-value: self.text;
+                width: 44px;
+                text: root.s.step < 0 ? "—/16" : (root.s.step + 1) + "/16";
+                font-family: Theme.family; font-size: 11px; font-weight: 600; color: root.s.seq-playing ? Theme.bone : Theme.bone-3;
+                horizontal-alignment: center; vertical-alignment: center;
             }
             Toggle {
-                size: 24px; label: @tr("STOP ALL");
-                tooltip: @tr("Stop every sample");
-                command: "sampler.stop.all";
-                clicked => { root.stop-all(); }
+                accessible-role: button;
+                accessible-label: "sampler.seq.erase";
+                size: 24px; width: 34px;
+                label: "CLR";
+                tooltip: @tr("Clear the selected slot's pattern");
+                clicked => { root.seq-clear(); }
             }
         }
     }

@@ -11,6 +11,8 @@
 import { Theme } from "tokens.slint";
 
 export global TooltipState {
+    // Preferences > View > Tooltips.
+    in-out property <bool> enabled: true;
     // The tooltip being shown or waiting for its delay.
     in-out property <string> text;
     in-out property <string> keys;
@@ -36,7 +38,7 @@ export global TooltipState {
         self.x = x;
         self.y = y;
         self.shown = false;
-        self.pending = text != "";
+        self.pending = self.enabled && text != "";
         return self.serial;
     }
 

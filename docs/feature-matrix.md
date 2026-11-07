@@ -56,12 +56,12 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Related tracks | DONE | `sets.rs::suggest_next`, `browser/sources.rs`; RELATED in the tree: tracks within ±6 % tempo and a compatible key after the master deck or deck 1–4 (selector in the title row), or after the selected track (row menu "Show related tracks"); FLX10 `browse.related` is still not mapped | 2 | P2 |
 | Track suggestion / harmonic matching | DONE | `ui/mytag.slint::SuggestionPanel`, `browser/sources.rs`; RELATED panel: what fits after the selected track (tempo ±6 %, compatible key), double-click loads into a free deck, SHOW AS LIST opens it as the Related list; key-distance marks in the KEY column | 3 | P2 |
 | Intelligent (smart) playlists | DONE | `od-library/src/smart.rs`, text rule editor `od-ui/src/smart_text.rs`, `on_set_smart_rule` | 4 |  |
-| Histories: player histories from sticks | DONE | `od-devices/src/pioneer.rs` history proposals → `app.rs::resolve_proposal` creates a "History" folder | — |  |
+| Histories: player histories from sticks | DONE | `od-devices/src/pioneer.rs` history proposals → `app.rs::resolve_proposal` creates a "History" folder | 1 |  |
 | Histories: own play history | DONE | `recorder.rs::log_play`, `browser/sources.rs`; Every track that becomes the audible deck is logged in the run's session ("Session 2026-11-07 21:30"), recording or not; HISTORIES in the tree lists the sessions, each opens its plays in order | 2 | P2 |
-| Track preview (Prepare) | DONE | `perform.rs::toggle_preview` on a preview deck; Space key | — |  |
-| Loaded-on-deck indicator | DONE | `TrackRow.deck` | — |  |
+| Track preview (Prepare) | DONE | `perform.rs::toggle_preview` on a preview deck; Space key | 1 |  |
+| Loaded-on-deck indicator | DONE | `TrackRow.deck` | 1 |  |
 | Duplicate track check | DONE | `crates/od-ui/src/browser/sources.rs::duplicates_action`; File ▸ Find Duplicate Tracks (⌥⌘Y) lists the groups in the browser; REMOVE SELECTED and KEEP ONE OF EACH remove copies from the collection (files stay on disk) | 3 |  |
-| Import folder / files | DONE | `app.rs` `on_import_folder`, `od-cli import` | — |  |
+| Import folder / files | DONE | `app.rs` `on_import_folder`, `od-cli import` | 1 |  |
 | rekordbox library + stick migration | DONE | `od-import-rekordbox`, `od-ui/src/import.rs` | 7 |  |
 | rekordbox preferences and keyboard shortcuts migration | DONE | `crates/od-import-rekordbox/src/settings.rs`, `crates/od-ui/src/import.rs::import_rekordbox_settings`; File ▸ Import rekordbox Preferences and Shortcuts and Preferences > Advanced: view, analysis, recording, deck and mixer values are applied; shortcuts are taken where they do not collide; `od-cli rekordbox-settings` reports the mapping; (SPEC §7) | 5 |  |
 | rekordbox XML / iTunes library import-export (compatibility) | DONE | `crates/od-ui/src/import.rs::export_xml`, `crates/od-ui/src/import.rs::import_xml`; File ▸ Import / Export Library XML (rekordbox-compatible), also `od-cli xml-export` / `xml-import`; File ▸ Import Music / iTunes Library XML reads a `Library.xml` export (tracks with tags and rating, playlist folders; built-in lists skipped) | 6 | P3 |
@@ -79,8 +79,8 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Re-orderable columns and multi-sort | DONE | `browser/columns.rs`, `browser/tracks.rs::sort_rows`; Drag a header cell onto another column to move it there; ⇧-click adds (or reverses) up to three secondary sort columns, shown with their rank; order and secondary sort persist in the settings; (SPEC §5.5) | 3 | P3 |
 | Load a track: drag to deck, double-click (Prepare), context menu Load ▸ Deck n | DONE | `crates/od-ui/src/decks.rs::free_deck`; Double-click / activate loads into a free deck, drag a row onto a deck, context menu Load to deck ▸ Deck n, controller load; all driven through the window by UI tests; (UX §2.1) | 3 |  |
 | Drag tracks from the browser (and Explorer, Finder) onto a deck or the Prepare player | DONE | `crates/od-ui/src/import.rs::files_dropped`, `crates/od-ui/ui/app.slint`; List, Explorer and sub-browser rows and files from Finder / the file manager onto any deck (1–4) or either Prepare player, with drag ghost and the target highlighting while dragging; files dropped on a list in the tree go into that list, elsewhere into the collection and the open list (at the row under the pointer when it is in its own order). UI-tested on the Slint drop path. Native winit drops carry no position: on macOS the pointer is read from AppKit while files hover; on Linux they go to the collection and the open list; (SPEC §5.5) | 5 | **P1** |
-| Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | DONE | Right-click a row: Load to deck ▸ 1-4, Add to playlist ▸, Colour ▸, Rating ▸, Analyse, Show in file manager, Remove from this list. UI tests drive the real menu (rating, colour, remove, load). Further items of the layout reference (tag list, export, play count, hot-cue tools, info) are tracked by the view test `ctx.track-row`; (UX §1.9) | 3 |  |
-| Info panel (track details beside the list) | DONE | INFO in the list title row opens the track info panel beside the list; every tag is editable in place (Return stores, undoable). File details (type, size, sample rate, bit rate) and the tabs of the layout reference are tracked by the view test `browser.info-panel`; (SPEC §5.5; UX §1.6) | 1 |  |
+| Track row context menu (Load ▸, Add to playlist ▸, Analyse, Show in Finder, …) | DONE | Right-click a row: Load to deck ▸ 1-4, Import to collection (Explorer files), Analyse, Lock / unlock analysis, Separate parts, the recently used lists inline (Add to “…”), Add to playlist ▸, Add to tag list, Reload tags from file, Export file…, Reset play count, Memory cues to hot cues, Sort hot cues by time, Show related tracks, Colour ▸, Rating ▸, Remove from this list, Show info, Show in file manager. UI tests drive the real menu (rating, colour, remove, load, inline recent list); the order is checked by the view test `ctx.track-row`; (UX §1.9) | 4 |  |
+| Info panel (track details beside the list) | DONE | INFO in the right panel strip opens the track info panel beside the list: SUMMARY (every tag editable in place, Return stores, undoable), INFO (time, file type, size, added, sample rate, bit rate, plays, path) and ARTWORK tabs; checked by the view test `browser.info-panel`; (SPEC §5.5; UX §1.6) | 1 |  |
 | Sub-browser (second tree + list for dragging between playlists) | DONE | `crates/od-ui/src/browser/sub.rs`, `crates/od-ui/ui/subbrowser.slint`; SUB in the list header, View > Sub Browser and a shortcut open a second tree (all library lists) and list under the main list; main-list rows dropped on its lists are added there, its rows go to main-tree lists, the open list, decks and players; (UX §1.6, §4 P4.12) | 2 | P3 |
 | Automatic database backups (rotating) | DONE (beyond the usual) | `crates/od-library/src/backup.rs`; (SPEC §5.3) | 1 |  |
 | Export / import the whole library as one archive (database + analysis, optional audio) | DONE | `crates/od-ui/src/import.rs::export_archive`, `crates/od-ui/src/import.rs::restore_archive`; File ▸ Export Library Archive (asks whether to include the audio; runs in the background) and Restore Library Archive (into a chosen folder, opened from the next start); (SPEC §5.3) | 2 |  |
@@ -111,15 +111,15 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | 8 hot cues A–H (Prepare) | DONE | `app.rs` `on_hot_cue/on_remove_hot_cue`; keys 1–8 | 2 |  |
 | 8 hot cues A–H (Perform, pads/UI) | DONE | `DeckCommand::HotCue`, `od-ui/src/decks.rs::persist_cue_events`; Set/delete on pads or the controller are saved to the library (one undo step each) and reach sticks through the normal sync | 2 | **P1** |
 | Hot cue banks / hot cue bank lists | DONE | `pads.rs::bank_label`; Banks A–H, I–P, Q–X, Y–AF with ‹ › in Hot Cue mode (keyboard too); pads show the bank's letters and labels | 2 | P3 |
-| Memory cues: add (Prepare) | DONE | `on_add_memory_cue` | — |  |
+| Memory cues: add (Prepare) | DONE | `on_add_memory_cue` | 1 |  |
 | Memory cues: delete, move (Prepare) | DONE | Cue list (ALL / MEMORY / HOT CUE): select a cue to edit it: name, colour, move to the cursor (beat-snapped, loops keep their length), make a memory cue a hot cue, delete | 2 | **P1** |
-| Memory cues: call prev/next (Perform) | DONE | `MemoryCueJump` via controller | — |  |
+| Memory cues: call prev/next (Perform) | DONE | `MemoryCueJump` via controller | 1 |  |
 | Memory cue set/delete from controller | DONE | `decks.rs::memory_cue`; `deck.memory_cue_set` / `_delete` edit the library cue list (one undo step) and update the deck without a gap | 1 | **P1** |
 | Saved loops (memory/hot-cue loops) | DONE | Loop hot cues and memory loops (MEMORY while a loop plays) are stored with their loop end; the Prepare cue editor moves loops keeping their length; import / export / playback carry them | 3 | **P1** |
 | Active loop (auto-engaged saved loop) | DONE | ACTIVE in the cue editor marks a saved loop; it is stored (library schema 3) and engages by itself when the playhead reaches it (`DeckCommand::SetActiveLoop` on load) | 3 | P3 |
 | Cue colours | DONE | Eight cue colours in the cue editor; shown on overviews, the cue list, Prepare pads and the Perform hot cue pads | 3 | **P1** |
 | Cue comments / labels | DONE | Double-click a cue in the list, type the name, Return; names show on pads and in the list | 2 | **P1** |
-| Auto cue on load (first memory cue / first beat) | DONE | `DeckCommand::Load` behaviour (`command.rs` doc, `deck.rs`) | — |  |
+| Auto cue on load (first memory cue / first beat) | DONE | `DeckCommand::Load` behaviour (`command.rs` doc, `deck.rs`) | 1 |  |
 | Cues set on players → library | DONE (beyond the usual) | `od-devices/src/pioneer.rs` proposals, `on_accept_proposal` | 2 |  |
 
 ## 4. Deck / player
@@ -130,7 +130,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Play / Cue (CDJ cue logic) | DONE | `DeckCommand::Cue`; UI + controller | 2 |  |
 | Jog: vinyl scratch, bend, search; vinyl mode toggle | DONE | `DeckCommand::JogTurn/JogTouch/SetJogMode`, `handle_action` | 2 |  |
 | Jog display (FLX10 screens) | MISSING, deferred to M4 | Needs the non-MIDI protocol (SPEC M4, `docs/ddj-flx10-usb-protocol.md`) (M4) | — | P3 |
-| Tempo fader, ranges ±6/10/16/WIDE, reset | DONE | `TempoRange`; controller cycles range; UI shows it but has no range button | 3 |  |
+| Tempo fader, ranges ±6/10/16/WIDE, reset | DONE | `TempoRange`; the range key above CUE (and on compact decks) and the controller cycle ±6 / ±10 / ±16 % / WIDE; the platter shows the range | 3 |  |
 | Master tempo / key lock (Rubber Band) | DONE | `od-engine/src/keylock`, UI toggle + controller | 4 |  |
 | Key shift (±semitones) | DONE | `decks.rs::key_shift`; ‹ ±0 › in the deck header (click resets), Key Shift pad mode, keyboard | 2 | P2 |
 | Key sync | DONE | `decks.rs::toggle_key_sync`; KEY SYNC in the deck header, keyboard and controller (`deck.key_sync` with LED); the track key reaches the engine on load | 1 | P2 |
@@ -138,10 +138,10 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Quantize | DONE | `Command::SetQuantize`; UI + controller | 1 |  |
 | Slip | DONE | `SetSlip`; UI + controller | 1 |  |
 | Reverse | DONE | `SetReverse` via controller; no UI button | 2 |  |
-| Censor (slip reverse) | DONE | `DeckAction::Censor` in `handle_action` | — |  |
+| Censor (slip reverse) | DONE | `DeckAction::Censor` in `handle_action` | 1 |  |
 | Beat jump | DONE | `DeckCommand::BeatJump`; UI ±4, controller, pad mode | 1 |  |
 | Beat jump size setting | DONE | `decks.rs::step_jump_size`; ‹ › in Beat Jump pad mode (1/8 … 64); the deck's −/+ buttons and the keyboard jump by it | 1 | P3 |
-| Manual loop in/out, reloop/exit, ½ / 2× | DONE | `LoopIn/LoopOut/Reloop/LoopExit/LoopHalve/LoopDouble` | 1 |  |
+| Manual loop in/out, reloop/exit, ½ / 2× | DONE | `LoopIn/LoopOut/Reloop/LoopExit/LoopHalve/LoopDouble`; IN / OUT / EXIT key beside LOOP on every deck and in the Prepare player | 1 |  |
 | Auto beat loop (1/32 … 32) | DONE | `DeckCommand::AutoLoop`; UI size stepper | 1 |  |
 | Loop roll | DONE | `DeckCommand::LoopRoll` via controller | 1 |  |
 | Needle search | DONE | `NeedleSearch`; overview click + FLX touch strip | 1 |  |
@@ -160,7 +160,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Waveform overview + scrolling detail, cue markers, beat ticks | DONE | `render.rs::overview/detail`, `ui/plate.slint` | 3 |  |
 | Phrases on the overview and enlarged waveform, with display options | DONE | `crates/od-ui/src/player.rs::phrase_marks`, `crates/od-ui/src/render.rs`, `crates/od-ui/src/settings.rs::PHRASE_TYPES`; Phrases on the enlarged waveforms and the phrase bar under the overviews switch separately (Preferences > View), phrase types as names or colours only; Prepare player and Perform decks; (SPEC §10.1; UX §2.5) | 3 | P2 |
 | Deck header: title, artist, artwork, BPM, remaining / elapsed time | DONE | `crates/od-ui/src/format.rs`; Number, cover art (from the library, as a thumbnail), title, artist, BPM, remaining / elapsed time, key, SYNC / MASTER; (SPEC §10.1; UX §1.3) | 5 | P2 |
-| Jog / platter readout in the UI: position, remaining, phrase and bar counter | DONE | Jog display: bar counter (bars.beats, count-down modes), remaining time, phrase with its countdown; (SPEC §10.1; UX §1.3) | — | P2 |
+| Jog / platter readout in the UI: position, remaining, phrase and bar counter | DONE | Jog display: bar counter (bars.beats, count-down modes), remaining time, phrase with its countdown; (SPEC §10.1; UX §1.3) | 1 | P2 |
 | Full-width enlarged waveform zone, one stacked lane per deck (2 and 4 decks), centre playhead | DONE | `crates/od-ui/src/decks.rs`; One full-width lane per deck (2 and 4 decks), stacked, playhead at the centre. The zone column (collapse / zoom buttons / expand) is tracked by the view test; (SPEC §10.1; UX §1.3, §4 P1.1) | 1 |  |
 | Pad mode: Stems (part mutes and stem FX on pads) | DONE | (UX §2.4) | 2 | P2 |
 | Pad mode: Memory Cue | DONE | (UX §1.3) | 2 | P3 |
@@ -180,7 +180,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Channel fader curve | DONE | `crates/od-ui/src/preferences.rs::mixer_settings`; Preferences > Controller > Mixer: linear / smooth / sharp | 3 |  |
 | Crossfader | DONE | UI + controller | 2 |  |
 | Crossfader curve | DONE | `crates/od-ui/src/preferences.rs::mixer_settings`; Preferences > Controller > Mixer: constant power / linear / cut | 3 |  |
-| Crossfader assign A/THRU/B | DONE | Controller (`MixerAction::CrossfaderAssign`); no UI control | 1 |  |
+| Crossfader assign A/THRU/B | DONE | Controller (`MixerAction::CrossfaderAssign`) and the A / B assign grids beside the crossfader in the global bar (a key sends the deck to its side, again to THRU) | 2 |  |
 | Headphone cue, mix, level | DONE | `SetCue`, `SetHeadphoneMix/Level`; UI + controller | 2 |  |
 | Master level, VU meters, limiter | DONE | `SetMasterLevel`, meters in `ChannelView`, limiter on by default | 3 |  |
 | Master cue | DONE | `controller.rs::handle_action`; Controller `master_cue` toggles it, with LED | 1 | P2 |
@@ -225,7 +225,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Load samples / sample library | DONE | `sampler.rs::load_selected`, `sampler.slint::SampleDrop`; LOAD SELECTED or drop a track row on a pad; decoded off the UI thread; slot contents kept in the library meta and restored when audio starts | 2 | P2 |
 | Banks (bank next/prev) | DONE | `sampler.rs::step_bank`; Four banks (panel, keyboard, controller `sampler.bank_*`) | 1 | P2 |
 | Sampler volume, cue | DONE | `sampler.rs::set_volume`; VOL knob and CUE in the panel; controller `sampler.volume` / `sampler.cue` with LED | 2 | P2 |
-| Sequencer | DONE | `sampler.slint::SamplerPanel`; 16 steps of the selected slot under the pads, PLAY / REC / CLR, playing step shown; patterns saved with the slots | 4 | P3 |
+| Sequencer | DONE | `sampler.slint::SamplerPanel`; Footer row of the sampler panel: REC / PLAY / SAVE (onto the next free Sequence Call pad), the 16 steps of the selected slot, the playing step and CLR; patterns saved with the slots | 4 | P3 |
 | Sampler panel (2 x 8 slots, gain, cue, BPM, bank row) | DONE | `crates/od-ui/ui/sampler.slint`; Between the global bar and the browser (top bar SAMPLER): bank, 2 × 8 pads, selected slot (mode, sync, BPM, gain), quantise, cue, volume; (SPEC §10.3a; UX §1.5) | 2 | P2 |
 | Gate mode, quantised triggering, sample sync to the master tempo | DONE | `sampler.slint::SamplerPanel`; 1-SHOT / LOOP / GATE (pads report press and release), QUANT, SYNC per slot; (SPEC §10.3a) | 4 | P2 |
 
@@ -281,7 +281,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Feature | Status | Evidence / note | Tests | Prio |
 |---|---|---|---|---|
 | Edit mode (track editing / remix) | DONE | `crates/od-ui/src/track_edit.rs`; Minimal edit mode (EDIT tab of the Prepare player): a region (IN / OUT at the cursor or shift-drag on the overview) is cut out, trimmed to or repeated with 5 ms crossfades at the joins; the result is a new 24-bit WAV next to the original, added as "<title> (Edit)" with the original tags and artwork and analysed; the original stays untouched. No multi-track arrangement | 5 | P3 |
-| Prepare / Perform mode switch that keeps loaded tracks | DONE | `crates/od-ui/src/shell.rs`; (SPEC §3.1) | — |  |
+| Prepare / Perform mode switch that keeps loaded tracks | DONE | `crates/od-ui/src/shell.rs`; (SPEC §3.1) | 1 |  |
 | Perform layouts: 2 / 4 decks horizontal and vertical, Browse | DONE | 2 and 4 decks in three layouts (persisted): standard (lanes across the top), vertical (Alt+V: upright lanes with zoom keys above the mixer) and Browse (Alt+B: header, overview and parts per deck, browser enlarged); (SPEC §10.1; UX §1.4) | 5 | P2 |
 | Prepare layouts: 1 player, 2 players, dual, simple, full browser | DONE | `crates/od-ui/src/shell.rs::set_prepare_layout`; Player and browser, 2 players (full player plus a compact second player), dual (two compact players side by side), simple (one compact player) and full browser: top-bar switch, View menu, ⌥⌘4–⌥⌘8, persisted. Player 2 takes the selected track (LOAD) or a dragged row and plays on the preview deck; (UX §1.7) | 3 | P2 |
 | Top-bar panel toggles: FX, Mix Point Link, Sampler, Mixer, Recording | DONE | FX, MIX POINT, SAMPLER, MIXER and REC in the top bar (stored): MIXER hides the mixer column, MIX POINT shows the Mix Point Link panel, REC shows or hides the recording section, plus CDJ and LIGHT; (UX §1.2, §2.8) | 3 | P2 |
@@ -292,7 +292,7 @@ Priority (gaps only): **P1** = an experienced DJ hits it in the first session an
 | Colour-blind palette and high-contrast theme | DONE | Preferences > View switches (and the CLI flags) set the colour-blind-safe palette and the high-contrast theme live; stored in the settings; (SPEC §12) | 1 |  |
 | English and German UI | DONE | `crates/od-i18n`; (SPEC §2) | 2 |  |
 | Lite / Full performance profiles | DONE | (SPEC §3.2) | 2 |  |
-| Raspberry Pi kiosk (linuxkms, Perform, controller browsing) | DONE (beyond the usual) | Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); no cargo test; (SPEC §3.3) | — |  |
+| Raspberry Pi kiosk (linuxkms, Perform, controller browsing) | DONE (beyond the usual) | Built and driven headless on CI (`packaging/ci/headless-e2e.sh`); the kiosk configuration (Perform, browse screen, 44 px touch rows and keys) is driven by a UI test; (SPEC §3.3) | 1 |  |
 | Keyboard shortcuts for layouts and a View menu | DONE | `crates/od-ui/ui/app.slint::MenuBar`; View menu (modes, Prepare layout, info / related / My Tag / filter panels, sections) and keys ⌥⌘4 / ⌥⌘5 (layouts), ⌥⌘I / ⌥⌘E / ⌥⌘G (panels); the menu bar is native on macOS, elsewhere its actions are reached by the keys; (UX §1.9, §4 P3.7) | 3 |  |
 
 ## 13. DMX lighting

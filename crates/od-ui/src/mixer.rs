@@ -5,6 +5,7 @@ use crate::models::Rows;
 use crate::{ChannelView, decks, engine};
 use od_engine::{ChannelCommand, ChannelState, Command, DeckCommand, DeckState, EngineState, MixerCommand, Stem};
 use slint::ComponentHandle;
+use slint::Model as _;
 use std::cell::Cell;
 use std::rc::Rc;
 
@@ -88,6 +89,21 @@ pub(crate) fn project(app: &App, state: &EngineState) {
     ui.set_headphone_level(state.headphone_level);
     ui.set_master_bpm(if state.master_deck.is_some() { format!("{:.1}", state.master_bpm) } else { String::new() }.into());
     ui.set_crossfader((state.crossfader + 1.0) / 2.0);
+    let xf: Vec<slint::SharedString> = state
+        .channels
+        .iter()
+        .take(decks::DECKS)
+        .map(|c| match c.xf_assign {
+            od_engine::XfAssign::A => "A",
+            od_engine::XfAssign::B => "B",
+            od_engine::XfAssign::Thru => "T",
+        })
+        .map(Into::into)
+        .collect();
+    let now = ui.get_xf_assign();
+    if now.row_count() != xf.len() || xf.iter().enumerate().any(|(i, x)| now.row_data(i).as_ref() != Some(x)) {
+        ui.set_xf_assign(crate::models::model(xf));
+    }
 }
 
 /// Smart Fader: moves the low EQs of the A and B channels with the
@@ -171,6 +187,15 @@ pub(crate) fn wire(app: &Rc<App>) {
         let i = (c as usize).saturating_sub(1).min(decks::DECKS - 1);
         let on = engine::snapshot(&a).map(|s| s.channels[i].cue).unwrap_or(false);
         ch(&a, c, ChannelCommand::SetCue(!on));
+    }));
+    // Crossfader assign keys: a deck goes to the pressed side, or back to THRU.
+    ui.on_mixer_xf_assign(handler!(app, |a, d: i32, side: slint::SharedString| {
+        engine::ensure_engine(&a);
+        let i = (d as usize).saturating_sub(1).min(decks::DECKS - 1);
+        let want = if side.as_str() == "A" { od_engine::XfAssign::A } else { od_engine::XfAssign::B };
+        let now = engine::snapshot(&a).map(|s| s.channels[i].xf_assign).unwrap_or_default();
+        let next = if now == want { od_engine::XfAssign::Thru } else { want };
+        ch(&a, d, ChannelCommand::SetCrossfaderAssign(next));
     }));
     ui.on_set_crossfader(handler!(app, |a, v: f32| engine::send(&a, Command::Mixer(MixerCommand::SetCrossfader(v * 2.0 - 1.0)))));
     ui.on_set_master_level(handler!(app, |a, v: f32| engine::send(&a, Command::Mixer(MixerCommand::SetMasterLevel(v)))));

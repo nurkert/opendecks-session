@@ -129,6 +129,10 @@ component TrackLine inherits Rectangle {
     // Context menu action, e.g. "deck:2", "color:3", "playlist:17".
     callback menu(string);
     in property <[MenuTarget]> playlists;
+    // Lists added to last (inline in the menu) and whether the row is a
+    // file of the Explorer (Import instead of library edits).
+    in property <[MenuTarget]> recent;
+    in property <bool> explorer;
     in property <int> deck-count: 2;
     height: Theme.row-height;
     background: touch.has-hover ? Theme.ground-band : transparent;
@@ -162,11 +166,26 @@ component TrackLine inherits Rectangle {
                 MenuItem { title: @tr("Deck 3"); activated => { root.menu("deck:3"); } }
                 MenuItem { title: @tr("Deck 4"); activated => { root.menu("deck:4"); } }
             }
+            MenuItem { title: @tr("Import to collection"); enabled: root.explorer; activated => { root.menu("import"); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Analyse"); activated => { root.menu("analyse"); } }
+            MenuItem { title: @tr("Lock / unlock analysis"); activated => { root.menu("analysis-lock"); } }
+            MenuItem { title: @tr("Separate parts"); activated => { root.menu("stems"); } }
+            MenuSeparator { }
+            // The lists added to last, one click away; every list in the submenu.
+            for p in root.recent: MenuItem { title: @tr("Add to “{}”", p.name); activated => { root.menu("playlist:" + p.id); } }
             Menu {
                 title: @tr("Add to playlist");
                 for p in root.playlists: MenuItem { title: p.name; activated => { root.menu("playlist:" + p.id); } }
             }
             MenuItem { title: @tr("Add to tag list"); activated => { root.menu("taglist"); } }
+            MenuSeparator { }
+            MenuItem { title: @tr("Reload tags from file"); enabled: !root.explorer; activated => { root.menu("reload-tags"); } }
+            MenuItem { title: @tr("Export file…"); activated => { root.menu("export"); } }
+            MenuItem { title: @tr("Reset play count"); enabled: !root.explorer; activated => { root.menu("reset-plays"); } }
+            MenuItem { title: @tr("Memory cues to hot cues"); enabled: !root.explorer; activated => { root.menu("memory-to-hot"); } }
+            MenuItem { title: @tr("Sort hot cues by time"); enabled: !root.explorer; activated => { root.menu("sort-hot"); } }
+            MenuSeparator { }
             MenuItem { title: @tr("Show related tracks"); activated => { root.menu("related"); } }
             Menu {
                 title: @tr("Colour");
@@ -189,10 +208,10 @@ component TrackLine inherits Rectangle {
                 MenuItem { title: "★"; activated => { root.menu("rating:1"); } }
                 MenuItem { title: @tr("No rating"); activated => { root.menu("rating:0"); } }
             }
-            MenuItem { title: @tr("Analyse"); activated => { root.menu("analyse"); } }
-            MenuItem { title: @tr("Separate parts"); activated => { root.menu("stems"); } }
-            MenuItem { title: @tr("Show in file manager"); activated => { root.menu("reveal"); } }
+            MenuSeparator { }
             MenuItem { title: @tr("Remove from this list"); activated => { root.menu("remove"); } }
+            MenuItem { title: @tr("Show info"); activated => { root.menu("info"); } }
+            MenuItem { title: @tr("Show in file manager"); activated => { root.menu("reveal"); } }
         }
         touch := TouchArea {
             accessible-label: "browser.row\{root.index}";
@@ -255,7 +274,7 @@ component TrackLine inherits Rectangle {
 
     HorizontalLayout {
         padding-left: 16px;
-        padding-right: 12px;
+        padding-right: 36px;
         spacing: 12px;
         Cell {
             width: Columns.pos;
@@ -355,6 +374,8 @@ export component TrackTable inherits Rectangle {
     callback row-rated(int, int);
     callback row-menu(int, string);
     in property <[MenuTarget]> playlists;
+    in property <[MenuTarget]> recent;
+    in property <bool> explorer;
 
     VerticalLayout {
         header := Rectangle {
@@ -374,7 +395,7 @@ export component TrackTable inherits Rectangle {
             }
             HorizontalLayout {
                 padding-left: 16px;
-                padding-right: 12px;
+                padding-right: 36px;
                 spacing: 12px;
                 HeaderCell {
                     accessible-label: "browser.header.position"; accessible-role: button;
@@ -396,7 +417,14 @@ export component TrackTable inherits Rectangle {
                     moved-to(id, to) => { root.move-column(id, to); }
                     menu(x, y) => { column-menu.show({ x: x - header.absolute-position.x, y: y - header.absolute-position.y }); }
                 }
-                Rectangle { width: Columns.state; }
+                // Attribute column: the analysis / file state of each row.
+                Rectangle {
+                    accessible-label: "browser.header.attribute"; accessible-role: text;
+                    accessible-value: @tr("State");
+                    width: Columns.state;
+                    VLine { x: parent.width / 2; y: 10px; height: parent.height - 20px; weight: 1px; tone: Theme.bone-3; form: "half"; }
+                    TipArea { tooltip: @tr("State column: a short line = waiting for analysis, a struck line = file missing, empty = ready"); }
+                }
             }
             // Filter bar toggle (left edge) and the column menu (right edge).
             Rectangle {
@@ -474,6 +502,8 @@ export component TrackTable inherits Rectangle {
                 rate(n) => { root.row-rated(i, n == row.rating ? 0 : n); }
                 menu(a) => { root.row-menu(i, a); }
                 playlists: root.playlists;
+                recent: root.recent;
+                explorer: root.explorer;
             }
         }
     }

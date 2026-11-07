@@ -342,6 +342,8 @@ enum LoadTarget {
     Free,
     /// A Prepare player (1 = the main player, 2 = the second player).
     Player(u8),
+    /// Only add it to the collection (row menu Import).
+    Collection,
 }
 
 struct Imported {
@@ -481,6 +483,8 @@ pub(crate) fn refresh_files(app: &App) {
     ui.set_node_sub(od_i18n::trf("{} TRACKS  ·  {}", &[&ex.files.len(), &format::time(total)]).into());
     ui.set_read_only(false);
     ui.set_register_target(SharedString::new());
+    drop(st);
+    browser::refresh_columns(app);
 }
 
 // ── Commands ────────────────────────────────────────────────────────────
@@ -608,7 +612,30 @@ fn load(app: &App, id: TrackId, target: LoadTarget) {
     match target {
         LoadTarget::Deck(d) => decks::load_track(app, d, id, None),
         LoadTarget::Free => decks::load_selected_into_free_deck(app),
-        LoadTarget::Player(_) => {}
+        LoadTarget::Player(_) | LoadTarget::Collection => {}
+    }
+}
+
+/// Row menu Import: adds the selected files of the open folder to the
+/// collection (in the background) without loading them.
+pub(crate) fn import_selection(app: &App) {
+    let files: Vec<ExplorerFile> = {
+        let st = app.state.borrow();
+        if st.explorer.open.is_none() {
+            return;
+        }
+        st.browser.selection.iter().filter_map(|i| st.explorer.files.get(*i).cloned()).collect()
+    };
+    let mut queued = 0;
+    for f in files {
+        if f.track.is_some_and(|t| app.state.borrow().lib.track(t).is_ok()) {
+            continue;
+        }
+        start_import(app, f, LoadTarget::Collection);
+        queued += 1;
+    }
+    if queued == 0 {
+        app.status("Already in the collection");
     }
 }
 
@@ -747,6 +774,20 @@ pub(crate) fn wire(app: &Rc<App>) {
             let mut st = a.state.borrow_mut();
             let Some(p) = st.explorer.path_of(row) else { return };
             st.explorer.toggle(&p);
+        }
+        refresh_tree(&a);
+    }));
+    // The Explorer source of the rail: every root opens one level, so its
+    // folders are one click away.
+    ui.on_explorer_open_roots(handler!(app, |a| {
+        {
+            let mut st = a.state.borrow_mut();
+            let roots: Vec<PathBuf> = st.explorer.roots.clone();
+            for r in roots {
+                if !st.explorer.expanded.contains(&r) {
+                    st.explorer.expand(&r);
+                }
+            }
         }
         refresh_tree(&a);
     }));

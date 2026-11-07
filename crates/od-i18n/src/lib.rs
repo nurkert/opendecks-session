@@ -23,6 +23,20 @@ pub fn language() -> Language {
 }
 
 const DE: &[(&str, &str)] = &[
+    ("Export the files to a folder", "Dateien in einen Ordner exportieren"),
+    ("Analyse the track first: there is no beatgrid to lock", "Zuerst den Track analysieren: es gibt kein Beatgrid zum Sperren"),
+    ("Analysis locked", "Analyse gesperrt"),
+    ("Analysis unlocked", "Analyse entsperrt"),
+    ("Tags reloaded from the files", "Tags neu aus den Dateien gelesen"),
+    ("Exported {} file(s) to {}", "{} Datei(en) nach {} exportiert"),
+    ("Play count reset", "Wiedergabezähler zurückgesetzt"),
+    ("Memory cues made hot cues", "Memory Cues zu Hot Cues gemacht"),
+    ("Hot cues sorted by time", "Hot Cues nach Zeit sortiert"),
+    ("Nothing to change", "Nichts zu ändern"),
+    ("Already in the collection", "Schon in der Sammlung"),
+    ("Syncing sticks…", "Sticks werden synchronisiert…"),
+    ("Sequence stored on Sequence Call pad {}", "Sequenz auf Sequence-Call-Pad {} gespeichert"),
+    ("Every Sequence Call pad holds a sequence: clear one first", "Jedes Sequence-Call-Pad hält eine Sequenz: zuerst eines leeren"),
     ("All tracks", "Alle Tracks"),
     ("{} TRACKS  ·  {}", "{} TRACKS  ·  {}"),
     ("Not connected", "Nicht verbunden"),

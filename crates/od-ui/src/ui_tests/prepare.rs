@@ -484,9 +484,10 @@ fn artwork_in_info_panel_and_player() {
     let ui = Ui::start(fx, (1440, 900), false);
     ui.app.ui.set_info_open(true);
     ui.click_el(&ui.by_value("browser.row", &ui.fx.tracks[0].1.clone()).unwrap().1);
-    assert!(!ui.has("info.artwork") && !ui.has("player1.artwork"), "no art, no image");
+    ui.click("info.tab.artwork");
+    assert!(!ui.has("info.artwork") && ui.value("player1.artwork") == "none", "no art, no image (the player keeps an empty frame)");
     ui.click_el(&ui.by_value("browser.row", &ui.fx.tracks[1].1.clone()).unwrap().1);
-    assert!(ui.has("info.artwork") && ui.has("player1.artwork"), "the cover shows");
+    assert!(ui.has("info.artwork") && ui.value("player1.artwork") == "cover", "the cover shows");
     let size = ui.app.ui.get_track_info().artwork.size();
     assert_eq!((size.width, size.height), (264, 264), "a square thumbnail");
 }

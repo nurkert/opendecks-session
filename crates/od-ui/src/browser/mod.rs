@@ -15,13 +15,18 @@ pub(crate) use sources::load_tag_list;
 pub(crate) use tracks::{SortFields, default_descending, key_distance, refresh_tracks, same_row, sort_key_known, sort_rows};
 pub(crate) use tree::{refresh_tree, stick_root_id};
 
+/// The column headers (the Explorer shows its own reduced set).
+pub(crate) fn refresh_columns(app: &App) {
+    columns::refresh(app);
+}
+
 use crate::app::{App, handler};
 use crate::models::Rows;
 use crate::workers::spawn_import;
 use crate::{TrackRow, decks, player, smart_text};
 use od_core::TrackId;
 use od_library::{MyTag, NodeId, NodeKind, TrackRecord};
-use slint::{Model, SharedString};
+use slint::{ComponentHandle, Model, SharedString};
 use std::collections::{BTreeSet, HashMap, HashSet};
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -36,6 +41,9 @@ pub(crate) struct BrowserState {
     pub selection: BTreeSet<usize>,
     pub anchor: Option<usize>,
     pub expanded: HashSet<NodeId>,
+    /// Tree filter: only lists whose name contains it (lower case) and the
+    /// folders above them.
+    pub tree_filter: String,
     /// Selected position in a set's flow.
     pub flow_selected: Option<usize>,
     /// Mounted sticks carrying an OpenDecks library: (name, root).
@@ -57,8 +65,10 @@ pub(crate) struct BrowserState {
     /// Related list: "master" or a deck number, and the track it follows.
     pub related_source: String,
     pub related_track: Option<TrackId>,
-    /// History sessions in sidebar order.
+    /// History sessions in sidebar order (of the shown year).
     pub histories: Vec<String>,
+    /// Year the Histories tree shows (None = the latest).
+    pub history_year: Option<String>,
     /// The controller's browse encoder works in the tree (else the list).
     pub focus_tree: bool,
 }
@@ -97,6 +107,8 @@ impl Default for BrowserState {
             related_source: "master".into(),
             related_track: None,
             histories: Vec::new(),
+            history_year: None,
+            tree_filter: String::new(),
             focus_tree: false,
         }
     }
@@ -411,6 +423,7 @@ pub(crate) fn wire(app: &Rc<App>) {
         let name = a.state.borrow().lib.node(NodeId(id as i64)).map(|n| n.name).unwrap_or_default();
         let r = a.state.borrow_mut().lib.add_to_node(NodeId(id as i64), &ids, None);
         if a.report(r).is_some() {
+            remember_recent_list(&a, NodeId(id as i64));
             a.after_edit(&format!("Added {} track(s) to {name}", ids.len()));
         }
     }));
@@ -488,9 +501,30 @@ pub(crate) fn wire(app: &Rc<App>) {
     sources::wire(app);
     sub::wire(app);
     ui.on_row_clicked(handler!(app, |a, i: i32, toggle: bool, range: bool| select_row(&a, i as usize, toggle, range)));
+    ui.on_toggle_full_screen(handler!(app, |a| {
+        let w = a.ui.window();
+        w.set_fullscreen(!w.is_fullscreen());
+    }));
+    ui.on_tree_filter(handler!(app, |a, t: SharedString| {
+        a.state.borrow_mut().browser.tree_filter = t.trim().to_lowercase();
+        refresh_tree(&a);
+    }));
+    ui.on_history_year_step(handler!(app, |a, d: i32| {
+        let years = sources::history_years(&a.state.borrow().lib);
+        let now = sources::history_year(&years, a.state.borrow().browser.history_year.as_deref());
+        let i = now.and_then(|y| years.iter().position(|x| *x == y)).unwrap_or(0) as i32;
+        let next = years.get((i + d.signum()).clamp(0, years.len().max(1) as i32 - 1) as usize).cloned();
+        a.state.borrow_mut().browser.history_year = next;
+        refresh_tree(&a);
+    }));
+    ui.on_cycle_density(handler!(app, |a| crate::preferences::cycle_line_spacing(&a)));
     ui.on_row_activated(handler!(app, |a, i: i32| {
         select_row(&a, i as usize, false, false);
-        if a.state.borrow().explorer.open.is_some() {
+        // A fixed load target (the list title row) in Perform.
+        let target = a.ui.get_load_target();
+        if target > 0 && a.ui.get_mode() == "perform" {
+            decks::load_selected(&a, (target as usize - 1).min(decks::DECKS - 1));
+        } else if a.state.borrow().explorer.open.is_some() {
             crate::explorer::activate(&a, i as usize, None);
         } else {
             decks::load_selected_into_free_deck(&a);
@@ -670,6 +704,7 @@ fn drop_on_tree(app: &App, row: usize, id: i32) {
     let name = app.state.borrow().lib.node(node).map(|n| n.name).unwrap_or_default();
     let r = app.state.borrow_mut().lib.add_to_node(node, &ids, None);
     if app.report(r).is_some() {
+        remember_recent_list(app, node);
         app.after_edit(&format!("Added {} track(s) to {name}", ids.len()));
     }
 }
@@ -791,6 +826,7 @@ fn row_menu(app: &App, i: usize, action: &str) {
             let name = app.state.borrow().lib.node(node).map(|n| n.name).unwrap_or_default();
             let r = app.state.borrow_mut().lib.add_to_node(node, &ids, None);
             if app.report(r).is_some() {
+                remember_recent_list(app, node);
                 app.after_edit(&format!("Added {} track(s) to {name}", ids.len()));
             }
         }
@@ -821,6 +857,77 @@ fn row_menu(app: &App, i: usize, action: &str) {
             }
         }
         "remove" => remove_selected(app),
+        "import" => crate::explorer::import_selection(app),
+        "analysis-lock" => {
+            if app.guard_read_only() {
+                return;
+            }
+            let ids = app.state.borrow().selected_ids();
+            let grids: Vec<_> = ids.iter().filter_map(|id| app.state.borrow().lib.beatgrid(*id).ok().flatten().map(|g| (*id, g))).collect();
+            if grids.is_empty() {
+                app.status("Analyse the track first: there is no beatgrid to lock");
+                return;
+            }
+            // One state for the whole selection: lock unless all are locked.
+            let lock = !grids.iter().all(|(_, g)| g.locked);
+            for (id, mut g) in grids {
+                g.locked = lock;
+                let r = app.state.borrow_mut().lib.set_beatgrid(id, g);
+                if app.report(r).is_none() {
+                    return;
+                }
+            }
+            app.after_edit(if lock { "Analysis locked" } else { "Analysis unlocked" });
+        }
+        "reload-tags" => {
+            let paths: Vec<(TrackId, std::path::PathBuf)> = {
+                let st = app.state.borrow();
+                st.selected_ids().into_iter().filter_map(|id| st.lib.track(id).ok().map(|t| (id, st.resolve(&t.path)))).collect()
+            };
+            if app.guard_read_only() {
+                return;
+            }
+            for (id, path) in paths {
+                let Ok(info) = od_decode::probe(&path) else { continue };
+                let r = app.state.borrow().lib.track(id).map(|t| reload_tags(t.tags, info.tags));
+                let Ok(tags) = r else { continue };
+                let r = app.state.borrow_mut().lib.set_tags(id, tags);
+                if app.report(r).is_none() {
+                    return;
+                }
+            }
+            app.after_edit("Tags reloaded from the files");
+        }
+        "export" => {
+            let paths: Vec<std::path::PathBuf> = {
+                let st = app.state.borrow();
+                st.selected_ids().into_iter().filter_map(|id| st.src().track(id).ok().map(|t| st.resolve(&t.path))).collect()
+            };
+            if paths.is_empty() {
+                return;
+            }
+            let Some(dir) = rfd::FileDialog::new().set_title(od_i18n::tr("Export the files to a folder")).pick_folder() else { return };
+            let copied = paths.iter().filter(|p| p.file_name().is_some_and(|f| std::fs::copy(p, dir.join(f)).is_ok())).count();
+            app.status(format!("Exported {copied} file(s) to {}", dir.display()));
+        }
+        "reset-plays" => {
+            if app.guard_read_only() {
+                return;
+            }
+            let ids = app.state.borrow().selected_ids();
+            for id in &ids {
+                let _ = app.state.borrow().lib.conn().execute("UPDATE track SET play_count = 0, last_played = NULL WHERE id = ?1", [id.0]);
+            }
+            app.state.borrow_mut().load_rows();
+            refresh_tracks(app);
+            app.status("Play count reset");
+        }
+        "memory-to-hot" => edit_selected_cues(app, "Memory cues made hot cues", memory_to_hot),
+        "sort-hot" => edit_selected_cues(app, "Hot cues sorted by time", sort_hot_cues),
+        "info" => {
+            app.ui.set_info_open(true);
+            refresh_info(app);
+        }
         "taglist" => sources::add_selected_to_tag_list(app),
         "stems" => crate::stems_batch::separate_selected(app),
         "related" => {
@@ -834,6 +941,83 @@ fn row_menu(app: &App, i: usize, action: &str) {
         }
         _ => {}
     }
+}
+
+/// File tags read again: the text fields come from the file, rating and
+/// colour (library data) stay.
+pub(crate) fn reload_tags(old: od_core::TrackTags, file: od_core::TrackTags) -> od_core::TrackTags {
+    od_core::TrackTags { rating: old.rating, color: old.color, ..file }
+}
+
+/// Memory cues become hot cues on the free pads, earliest first (cues
+/// beyond the free pads stay memory cues).
+pub(crate) fn memory_to_hot(cues: &mut [od_core::Cue]) -> bool {
+    use od_core::CueKind;
+    let mut free: Vec<u8> = (0..od_core::cue::HOT_CUE_SLOTS).filter(|s| !cues.iter().any(|c| c.kind == CueKind::Hot(*s))).collect();
+    free.reverse();
+    let mut order: Vec<usize> = (0..cues.len()).filter(|&i| cues[i].kind == CueKind::Memory).collect();
+    order.sort_by(|&a, &b| cues[a].start.total_cmp(&cues[b].start));
+    let mut changed = false;
+    for i in order {
+        let Some(slot) = free.pop() else { break };
+        cues[i].kind = CueKind::Hot(slot);
+        changed = true;
+    }
+    changed
+}
+
+/// Hot cues re-lettered by time: the earliest becomes A.
+pub(crate) fn sort_hot_cues(cues: &mut [od_core::Cue]) -> bool {
+    use od_core::CueKind;
+    let idx: Vec<usize> = (0..cues.len()).filter(|&i| matches!(cues[i].kind, CueKind::Hot(_))).collect();
+    let before: Vec<CueKind> = idx.iter().map(|&i| cues[i].kind).collect();
+    let mut slots: Vec<u8> = before.iter().filter_map(|k| if let CueKind::Hot(s) = k { Some(*s) } else { None }).collect();
+    slots.sort_unstable();
+    let mut by_time = idx.clone();
+    by_time.sort_by(|&a, &b| cues[a].start.total_cmp(&cues[b].start));
+    for (&i, slot) in by_time.iter().zip(slots) {
+        cues[i].kind = CueKind::Hot(slot);
+    }
+    idx.iter().zip(before).any(|(&i, k)| cues[i].kind != k)
+}
+
+/// Applies `f` to the cue lists of the selected tracks (one undo step per
+/// changed track).
+fn edit_selected_cues(app: &App, done: &str, f: fn(&mut [od_core::Cue]) -> bool) {
+    if app.guard_read_only() {
+        return;
+    }
+    let ids = app.state.borrow().selected_ids();
+    let mut any = false;
+    for id in ids {
+        let mut cues = app.state.borrow().lib.cues(id).unwrap_or_default();
+        if !f(&mut cues) {
+            continue;
+        }
+        let r = app.state.borrow_mut().lib.set_cues(id, cues);
+        if app.report(r).is_none() {
+            return;
+        }
+        any = true;
+    }
+    if any {
+        app.after_edit(done);
+    } else {
+        app.status("Nothing to change");
+    }
+}
+
+/// Lists recently added to: the row menu offers them inline (most recent
+/// first, three at most; kept in the library meta).
+pub(crate) const RECENT_LISTS_META: &str = "browser.recent-lists";
+
+pub(crate) fn remember_recent_list(app: &App, node: NodeId) {
+    let mut st = app.state.borrow_mut();
+    let mut ids: Vec<i64> = st.lib.meta(RECENT_LISTS_META).ok().flatten().and_then(|j| serde_json::from_str(&j).ok()).unwrap_or_default();
+    ids.retain(|i| *i != node.0);
+    ids.insert(0, node.0);
+    ids.truncate(3);
+    let _ = st.lib.set_meta(RECENT_LISTS_META, &serde_json::to_string(&ids).unwrap_or_default());
 }
 
 /// Track colour for menu entry `n` (1..=8 the eight colour tags, else none).
@@ -890,6 +1074,10 @@ pub(crate) fn refresh_info(app: &App) {
         path: st.resolve(&t.path).display().to_string().into(),
         added: t.date_added.clone().into(),
         plays: t.play_count.to_string().into(),
+        file_type: t.format.map(|f| format!("{f:?}").to_uppercase()).unwrap_or_default().into(),
+        size: crate::format::bytes(t.file_size).into(),
+        sample_rate: if t.sample_rate > 0 { format!("{:.1} kHz", t.sample_rate as f64 / 1000.0) } else { String::new() }.into(),
+        bitrate: t.bit_rate.map(|b| format!("{b} kbps")).unwrap_or_default().into(),
         has_artwork: false,
         artwork: Default::default(),
     });
@@ -925,5 +1113,35 @@ mod tag_tests {
         assert_eq!((t.comment.as_str(), t.year, t.genre.as_str()), ("warm-up opener", Some(2019), "Drum & Bass"));
         set_tag_field(&mut t, "year", "");
         assert_eq!(t.year, None);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use od_core::{Cue, CueKind};
+
+    /// Row menu cue tools: memory cues fill the free pads earliest first,
+    /// sorting re-letters the hot cues by time; reloading tags keeps the
+    /// library's rating and colour.
+    #[test]
+    fn row_menu_cue_tools_and_tag_reload() {
+        let mut cues = vec![Cue::hot(0, 30.0), Cue::memory(20.0), Cue::memory(5.0), Cue::hot(3, 10.0)];
+        assert!(super::memory_to_hot(&mut cues));
+        assert_eq!(cues[2].kind, CueKind::Hot(1), "earliest memory cue takes the first free pad");
+        assert_eq!(cues[1].kind, CueKind::Hot(2));
+        assert!(!super::memory_to_hot(&mut cues), "no memory cues left");
+        assert!(super::sort_hot_cues(&mut cues));
+        let by_time: Vec<(f64, CueKind)> = {
+            let mut v: Vec<_> = cues.iter().map(|c| (c.start, c.kind)).collect();
+            v.sort_by(|a, b| a.0.total_cmp(&b.0));
+            v
+        };
+        assert_eq!(by_time.iter().map(|(_, k)| *k).collect::<Vec<_>>(), [CueKind::Hot(0), CueKind::Hot(1), CueKind::Hot(2), CueKind::Hot(3)], "A is the earliest");
+        assert!(!super::sort_hot_cues(&mut cues), "already sorted");
+        let old = od_core::TrackTags { title: "Old".into(), rating: 4, color: super::menu_color(2), ..Default::default() };
+        let file = od_core::TrackTags { title: "From file".into(), artist: "Artist".into(), ..Default::default() };
+        let t = super::reload_tags(old, file);
+        assert_eq!((t.title.as_str(), t.artist.as_str(), t.rating), ("From file", "Artist", 4));
+        assert_eq!(t.color, super::menu_color(2));
     }
 }

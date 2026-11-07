@@ -5,7 +5,7 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, PlateButton, Toggle, Transport, Splitter, Field } from "controls.slint";
+import { Caps, PlateButton, Toggle, Transport, Splitter, Field, Stepper, Glyph, TipArea } from "controls.slint";
 import { Pad, PhraseBar } from "perform.slint";
 import { DropZone } from "drag.slint";
 import { CueMark, HotCueSlot, PhraseMark } from "structs.slint";
@@ -13,11 +13,13 @@ import { CueMark, HotCueSlot, PhraseMark } from "structs.slint";
 component Tab inherits Rectangle {
     in property <string> label;
     in property <bool> current;
+    // Room beside the legend.
+    in property <length> pad: 24px;
     callback clicked();
     accessible-role: tab;
     accessible-item-selectable: true;
     accessible-item-selected: root.current;
-    min-width: t.preferred-width + 24px;
+    min-width: t.preferred-width + root.pad;
     height: 26px;
     background: root.current ? Theme.plate : touch.has-hover ? Theme.ground-band : transparent;
     border-width: 1px;
@@ -117,6 +119,17 @@ export component PreparePlayer inherits Rectangle {
     in property <[HotCueSlot]> hot-cues;
     in property <float> cursor;
     in property <bool> previewing;
+    // Time left, loop state of the preview, global quantize, the jump size
+    // of − / + and the zoom of the enlarged waveform.
+    in property <string> remaining;
+    in property <string> loop-size: "4";
+    in property <bool> looping;
+    in property <bool> loop-in-set;
+    in property <bool> quantize;
+    in property <string> jump-size: "2 S";
+    in property <string> zoom: "8 S";
+    // Loops, quantize, memory cue stepping, zoom, jump size and the menu.
+    callback act(string);
     in property <length> info-width: 260px;
     callback seek(float);
     callback nudge(float);
@@ -149,17 +162,27 @@ export component PreparePlayer inherits Rectangle {
 
         // Transport column.
         VerticalLayout {
-            width: 84px;
+            width: 96px;
             padding: 10px;
-            spacing: 10px;
+            spacing: 8px;
             alignment: center;
             HorizontalLayout {
                 spacing: 4px;
-                Toggle { accessible-label: "player1.jump-back"; accessible-role: button; horizontal-stretch: 1; label: "−2"; clicked => { root.nudge(-2.0); } }
-                Toggle { accessible-label: "player1.jump-forward"; accessible-role: button; horizontal-stretch: 1; label: "+2"; clicked => { root.nudge(2.0); } }
+                Toggle { accessible-label: "player1.loop-in"; accessible-role: button; horizontal-stretch: 1; size: 24px; label: "IN"; on: root.loop-in-set; tone: Theme.w615; tooltip: @tr("Loop in point at the playhead (while the track plays)"); enabled: root.has-track; clicked => { root.act("loop-in"); } }
+                Toggle { accessible-label: "player1.loop-out"; accessible-role: button; horizontal-stretch: 1; size: 24px; label: "OUT"; on: root.looping; tone: Theme.w615; tooltip: @tr("Loop out point: the loop starts"); enabled: root.has-track; clicked => { root.act("loop-out"); } }
             }
-            Caps { text: @tr("SECONDS"); font-size: 10px; horizontal-alignment: center; }
-            Rectangle { height: 6px; }
+            HorizontalLayout {
+                spacing: 4px;
+                Toggle { accessible-label: "player1.jump-back"; accessible-role: button; horizontal-stretch: 1; size: 24px; label: "−"; tooltip: @tr("Jump back by the jump size"); clicked => { root.act("jump-back"); } }
+                Toggle { accessible-label: "player1.jump-forward"; accessible-role: button; horizontal-stretch: 1; size: 24px; label: "+"; tooltip: @tr("Jump forward by the jump size"); clicked => { root.act("jump-forward"); } }
+            }
+            Stepper {
+                accessible-role: spinbox; accessible-label: "player1.jump-size"; accessible-value: root.jump-size;
+                size: 24px; arrow: 18px; font-size: 10px; template: "16 S";
+                value: root.jump-size;
+                tooltip: @tr("Jump size of − / +: shorter / longer");
+                step(d) => { root.act(d > 0 ? "jump-size-up" : "jump-size-down"); }
+            }
             HorizontalLayout { alignment: center; Transport { accessible-label: "player1.cue"; accessible-role: button; kind: "cue"; tone: Theme.attention; size: 52px; clicked => { root.jump-start(); } } }
             HorizontalLayout { alignment: center; Transport { accessible-label: "player1.play"; accessible-role: button; accessible-checkable: true; accessible-checked: root.previewing; kind: "play"; on: root.previewing; tone: Theme.live; size: 52px; clicked => { root.toggle-preview(); } } }
         }
@@ -173,10 +196,15 @@ export component PreparePlayer inherits Rectangle {
                 height: 34px;
                 padding-left: 12px; padding-right: 12px;
                 spacing: 18px;
-                if root.has-artwork && root.has-track: Image {
+                // Cover art, an outlined square when the track has none.
+                VerticalLayout { alignment: center; Rectangle {
                     accessible-role: image; accessible-label: "player1.artwork";
-                    y: 4px; width: 26px; height: 26px; source: root.artwork; image-fit: cover;
-                }
+                    accessible-value: root.has-artwork && root.has-track ? "cover" : "none";
+                    width: 26px; height: 26px;
+                    background: Theme.plate;
+                    border-width: root.has-artwork && root.has-track ? 0px : 1px; border-color: Theme.rule;
+                    if root.has-artwork && root.has-track: Image { width: parent.width; height: parent.height; source: root.artwork; image-fit: cover; }
+                } }
                 Text {
                     accessible-role: text;
                     accessible-label: "player1.title";
@@ -187,6 +215,7 @@ export component PreparePlayer inherits Rectangle {
                     color: root.has-track ? Theme.bone : Theme.bone-3; overflow: elide;
                 }
                 Text { accessible-role: text; accessible-label: "player1.artist"; accessible-value: self.text; horizontal-stretch: 1; text: root.artist; font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center; overflow: elide; }
+                Reading { a11y-label: "player1.time-remaining"; label: @tr("REMAIN"); template: "-00:00"; value: root.has-track ? root.remaining : ""; }
                 Reading { a11y-label: "player1.time-elapsed"; label: @tr("POS"); template: "00:00.000"; value: root.position; }
                 Reading { a11y-label: "player1.duration"; label: @tr("TIME"); template: "00:00"; value: root.duration; }
                 Reading { a11y-label: "player1.bpm"; label: "BPM"; template: "000.00"; value: root.bpm; }
@@ -243,6 +272,22 @@ export component PreparePlayer inherits Rectangle {
             }
             PhraseBar { phrases: root.has-track ? root.phrases : []; }
             HLine { tone: Theme.rule; }
+            // Zoom of the enlarged waveform: in, reset, out, and the span shown.
+            HorizontalLayout {
+                height: 24px;
+                spacing: 0px;
+                for z in [{ id: "zoom-in", glyph: "plus", tip: @tr("Zoom in") }, { id: "zoom-reset", glyph: "", tip: @tr("Reset the zoom (Preferences > View > Waveform zoom)") }, { id: "zoom-out", glyph: "minus", tip: @tr("Zoom out") }]: Rectangle {
+                    accessible-role: button; accessible-label: "player1." + z.id;
+                    width: 28px;
+                    background: zt.has-hover ? Theme.plate-raised : Theme.plate;
+                    border-width: 1px; border-color: Theme.ground;
+                    if z.glyph != "": Glyph { x: 9px; y: 7px; width: 10px; height: 10px; kind: z.glyph; tone: Theme.bone-2; }
+                    if z.glyph == "": Rectangle { width: 5px; height: 5px; border-radius: 2.5px; background: Theme.bone-2; }
+                    zt := TipArea { tooltip: z.tip; mouse-cursor: pointer; clicked => { root.act(z.id); } }
+                }
+                Caps { text: "  " + root.zoom; font-size: 10px; vertical-alignment: center; }
+                Rectangle { horizontal-stretch: 1; }
+            }
             Rectangle {
                 accessible-role: image;
                 accessible-label: "player1.enlarged";
@@ -268,27 +313,23 @@ export component PreparePlayer inherits Rectangle {
             HLine { tone: Theme.rule; }
             // Tool bar.
             HorizontalLayout {
-                height: 44px;
+                height: 60px;
                 padding-left: 8px; padding-right: 8px;
                 spacing: 6px;
+                // The tool tabs, two by two: CUE / LOOP over GRID, PHRASE over EDIT.
                 VerticalLayout {
                     alignment: center;
-                    spacing: 0;
-                    Tab { accessible-label: "player1.tab.cue-loop"; label: "CUE / LOOP"; current: root.tool-tab == "cue"; clicked => { root.tool-tab = "cue"; } }
+                    spacing: 2px;
+                    Tab { accessible-label: "player1.tab.cue-loop"; pad: 14px; label: "CUE / LOOP"; current: root.tool-tab == "cue"; clicked => { root.tool-tab = "cue"; } }
+                    Tab { accessible-label: "player1.tab.grid"; pad: 14px; label: @tr("GRID"); current: root.tool-tab == "grid"; clicked => { root.tool-tab = "grid"; } }
                 }
                 VerticalLayout {
                     alignment: center;
-                    Tab { accessible-label: "player1.tab.grid"; label: @tr("GRID"); current: root.tool-tab == "grid"; clicked => { root.tool-tab = "grid"; } }
+                    spacing: 2px;
+                    Tab { accessible-label: "player1.tab.phrase"; pad: 14px; label: @tr("PHRASE"); current: root.tool-tab == "phrase"; clicked => { root.tool-tab = "phrase"; } }
+                    Tab { accessible-label: "player1.tab.edit"; pad: 14px; label: @tr("EDIT"); current: root.tool-tab == "edit"; clicked => { root.tool-tab = "edit"; } }
                 }
-                VerticalLayout {
-                    alignment: center;
-                    Tab { accessible-label: "player1.tab.phrase"; label: @tr("PHRASE"); current: root.tool-tab == "phrase"; clicked => { root.tool-tab = "phrase"; } }
-                }
-                VerticalLayout {
-                    alignment: center;
-                    Tab { accessible-label: "player1.tab.edit"; label: @tr("EDIT"); current: root.tool-tab == "edit"; clicked => { root.tool-tab = "edit"; } }
-                }
-                Rectangle { width: 10px; }
+                Rectangle { width: 6px; }
                 if root.tool-tab == "cue": HorizontalLayout {
                     horizontal-stretch: 1;
                     spacing: 4px;
@@ -300,6 +341,36 @@ export component PreparePlayer inherits Rectangle {
                         horizontal-stretch: 1; cue: c; pressed => { root.hot-cue(c.slot); } }
                     Rectangle { width: 8px; }
                     PlateButton { accessible-role: button; accessible-label: "player1.memory.set"; horizontal-stretch: 0; compact: true; height: 30px; label: @tr("MEMORY"); glyph: "plus"; enabled: root.has-track && !root.read-only; clicked => { root.add-memory-cue(); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.memory.prev"; size: 30px; width: 26px; label: "‹"; tooltip: @tr("Previous cue"); enabled: root.has-track; clicked => { root.act("memory-prev"); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.memory.next"; size: 30px; width: 26px; label: "›"; tooltip: @tr("Next cue"); enabled: root.has-track; clicked => { root.act("memory-next"); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.memory.delete"; size: 30px; label: @tr("DEL"); tone: Theme.fault; tooltip: @tr("Delete the memory cue at the cursor"); enabled: root.has-track && !root.read-only; clicked => { root.act("memory-delete"); } }
+                    Rectangle { width: 6px; }
+                    Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.looping; accessible-label: "player1.loop.auto"; size: 30px; label: "LOOP"; on: root.looping; tone: Theme.w615; tooltip: @tr("Auto loop of the shown length while the track plays; again to leave"); enabled: root.has-track; clicked => { root.act("loop-auto"); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.loop.manual"; size: 30px; label: root.looping ? @tr("EXIT") : root.loop-in-set ? @tr("OUT") : @tr("IN"); on: root.loop-in-set; tone: Theme.w615; tooltip: @tr("Manual loop: in point, then out point; again to leave"); enabled: root.has-track; clicked => { root.act("loop-manual"); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.loop.halve"; size: 30px; width: 26px; label: "½"; tooltip: @tr("Halve the loop"); clicked => { root.act("loop-halve"); } }
+                    Rectangle {
+                        accessible-role: text; accessible-label: "player1.loop.size"; accessible-value: root.loop-size;
+                        width: 34px;
+                        background: Theme.plate; border-width: 1px; border-color: root.looping ? Theme.w615 : Theme.rule;
+                        Text { text: root.loop-size; font-family: Theme.family; font-size: 13px; font-weight: 600; color: Theme.bone; }
+                    }
+                    Toggle { accessible-role: button; accessible-label: "player1.loop.double"; size: 30px; width: 26px; label: "2×"; tooltip: @tr("Double the loop"); clicked => { root.act("loop-double"); } }
+                    Toggle { accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.quantize; accessible-label: "player1.quantize"; size: 30px; width: 28px; label: "Q"; on: root.quantize; tone: Theme.attention; tooltip: @tr("Quantize loops and cues to the beat"); clicked => { root.act("quantize"); } }
+                    player-menu := ContextMenuArea {
+                        width: 28px;
+                        Menu {
+                            MenuItem { title: @tr("Analyse again"); enabled: root.has-track && !root.read-only; activated => { root.act("menu:analyse"); } }
+                            MenuItem { title: @tr("Show info"); enabled: root.has-track; activated => { root.act("menu:info"); } }
+                            MenuItem { title: @tr("Show in file manager"); enabled: root.has-track; activated => { root.act("menu:reveal"); } }
+                        }
+                        Rectangle {
+                            accessible-role: button; accessible-label: "player1.menu";
+                            background: mt.has-hover ? Theme.plate-raised : Theme.plate;
+                            border-width: 1px; border-color: Theme.rule;
+                            Text { text: "⋯"; font-family: Theme.family; font-size: 14px; font-weight: 600; color: Theme.bone-2; }
+                            mt := TipArea { tooltip: @tr("More for this track"); mouse-cursor: pointer; clicked => { player-menu.show({ x: 0, y: self.height }); } }
+                        }
+                    }
                 }
                 if root.tool-tab == "grid": HorizontalLayout {
                     horizontal-stretch: 1;
@@ -318,11 +389,13 @@ export component PreparePlayer inherits Rectangle {
                     Toggle { accessible-role: button; accessible-label: "player1.grid.tap"; label: @tr("TAP"); command: "player.grid.tap"; tooltip: @tr("Tap along with the beat: from the fourth tap the grid takes the tapped tempo"); enabled: !root.grid-locked && !root.read-only && root.has-track; clicked => { root.grid-tap(); } }
                     Toggle { accessible-role: button; accessible-label: "player1.grid.shift-left"; label: "−10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(-10); } }
                     Toggle { accessible-role: button; accessible-label: "player1.grid.shift-right"; label: "+10 MS"; enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-shift(10); } }
-                    Toggle { accessible-role: button; accessible-label: "player1.grid.halve"; label: @tr("HALF"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(0.5); } }
                     Toggle { accessible-role: button; accessible-label: "player1.grid.double"; label: @tr("DOUBLE"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(2.0); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.grid.halve"; label: @tr("HALF"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-scale(0.5); } }
                     Toggle { accessible-role: button; accessible-label: "player1.grid.downbeat"; label: @tr("DOWNBEAT AT CURSOR"); enabled: !root.grid-locked && !root.read-only; clicked => { root.grid-downbeat(); } }
                     Rectangle { horizontal-stretch: 1; }
                     Caps { accessible-role: text; accessible-label: "player1.grid.source"; accessible-value: self.text; text: root.grid-source; font-size: 10px; vertical-alignment: center; }
+                    Toggle { accessible-role: button; accessible-label: "player1.grid.undo"; label: "↶"; tooltip: @tr("Undo the last change"); command: "library.undo"; enabled: !root.read-only; clicked => { root.act("undo"); } }
+                    Toggle { accessible-role: button; accessible-label: "player1.grid.redo"; label: "↷"; tooltip: @tr("Redo"); command: "library.redo"; enabled: !root.read-only; clicked => { root.act("redo"); } }
                     Toggle { accessible-role: checkbox; accessible-label: "player1.grid.lock"; accessible-checkable: true; accessible-checked: root.grid-locked; label: root.grid-locked ? @tr("GRID LOCKED") : @tr("LOCK GRID"); on: root.grid-locked; tone: Theme.attention; enabled: !root.read-only; clicked => { root.grid-lock(); } }
                 }
                 if root.tool-tab == "phrase": HorizontalLayout {
@@ -473,12 +546,12 @@ export component PreparePlayer inherits Rectangle {
             }
             HLine { tone: Theme.rule; }
             HorizontalLayout {
-                padding: 8px;
-                spacing: 4px;
-                Tab { accessible-label: "player1.cue-list.tab.all"; horizontal-stretch: 1; label: @tr("ALL"); current: root.list-tab == "all"; clicked => { root.list-tab = "all"; } }
-                Tab { accessible-label: "player1.cue-list.tab.memory"; horizontal-stretch: 1; label: "MEMORY"; current: root.list-tab == "memory"; clicked => { root.list-tab = "memory"; } }
-                Tab { accessible-label: "player1.cue-list.tab.hot-cue"; horizontal-stretch: 1; label: "HOT CUE"; current: root.list-tab == "hot"; clicked => { root.list-tab = "hot"; } }
-                Tab { accessible-label: "player1.cue-list.tab.info"; horizontal-stretch: 1; label: "INFO"; current: root.list-tab == "info"; clicked => { root.list-tab = "info"; } }
+                padding: 6px;
+                spacing: 2px;
+                Tab { accessible-label: "player1.cue-list.tab.all"; horizontal-stretch: 1; pad: 12px; label: @tr("ALL"); current: root.list-tab == "all"; clicked => { root.list-tab = "all"; } }
+                Tab { accessible-label: "player1.cue-list.tab.memory"; horizontal-stretch: 1; pad: 12px; label: "MEMORY"; current: root.list-tab == "memory"; clicked => { root.list-tab = "memory"; } }
+                Tab { accessible-label: "player1.cue-list.tab.hot-cue"; horizontal-stretch: 1; pad: 12px; label: "HOT CUE"; current: root.list-tab == "hot"; clicked => { root.list-tab = "hot"; } }
+                Tab { accessible-label: "player1.cue-list.tab.info"; horizontal-stretch: 1; pad: 12px; label: "INFO"; current: root.list-tab == "info"; clicked => { root.list-tab = "info"; } }
             }
         }
     }
@@ -499,6 +572,11 @@ export struct MiniView {
     overview: image,
     cursor: float,
     previewing: bool,
+    // Time left, rating as stars, cover art (player 1).
+    remaining: string,
+    rating: string,
+    has-artwork: bool,
+    artwork: image,
 }
 
 export component MiniPlayer inherits Rectangle {
@@ -511,9 +589,49 @@ export component MiniPlayer inherits Rectangle {
     // "play", "cue" or "load".
     callback act(string);
     property <string> p: "player\{root.index}";
+    // SIMPLE layout: everything on one line.
+    in property <bool> single-line;
     background: Theme.ground;
-    min-height: 110px;
-    HorizontalLayout {
+    min-height: root.single-line ? 48px : 110px;
+    if root.single-line: HorizontalLayout {
+        padding-left: 10px; padding-right: 12px; padding-top: 6px; padding-bottom: 6px;
+        spacing: 12px;
+        VerticalLayout { alignment: center; Transport { accessible-label: root.p + ".play"; accessible-role: button; accessible-checkable: true; accessible-checked: root.view.previewing; kind: "play"; on: root.view.previewing; tone: Theme.live; size: 32px; clicked => { root.act("play"); } } }
+        VerticalLayout { alignment: center; Rectangle {
+            accessible-role: image; accessible-label: root.p + ".artwork"; accessible-value: root.view.has-artwork ? "cover" : "none";
+            width: 30px; height: 30px;
+            background: Theme.plate; border-width: root.view.has-artwork ? 0px : 1px; border-color: Theme.rule;
+            if root.view.has-artwork: Image { width: parent.width; height: parent.height; source: root.view.artwork; image-fit: cover; }
+        } }
+        Text {
+            accessible-role: text; accessible-label: root.p + ".title"; accessible-value: self.text;
+            width: 220px;
+            text: root.view.has-track ? root.view.title : @tr("No track selected");
+            font-family: Theme.family; font-size: 15px; font-weight: 600; vertical-alignment: center;
+            color: root.view.has-track ? Theme.bone : Theme.bone-3; overflow: elide;
+        }
+        Rectangle {
+            accessible-role: slider; accessible-label: root.p + ".overview";
+            accessible-value: round(root.view.cursor * 100) + "%";
+            horizontal-stretch: 1;
+            background: Theme.ground-band;
+            Image { width: parent.width; height: parent.height; source: root.view.overview; image-fit: fill; }
+            if root.view.has-track: Rectangle { x: parent.width * root.view.cursor - 1px; width: 2px; height: parent.height; background: Theme.bone; }
+            TouchArea {
+                mouse-cursor: crosshair;
+                clicked => { root.seek(clamp(self.mouse-x / self.width, 0, 1)); }
+                moved => { if (self.pressed) { root.seek(clamp(self.mouse-x / self.width, 0, 1)); } }
+            }
+        }
+        Reading { a11y-label: root.p + ".time-remaining"; label: @tr("REMAIN"); template: "-00:00"; value: root.view.remaining; }
+        Reading { a11y-label: root.p + ".bpm"; label: "BPM"; template: "000.00"; value: root.view.bpm; }
+        Text {
+            accessible-role: text; accessible-label: root.p + ".rating"; accessible-value: self.text;
+            text: root.view.has-track ? root.view.rating : "☆☆☆☆☆";
+            font-family: Theme.family; font-size: 13px; color: Theme.bone-2; vertical-alignment: center;
+        }
+    }
+    if !root.single-line: HorizontalLayout {
         VerticalLayout {
             width: 84px;
             padding: 8px;

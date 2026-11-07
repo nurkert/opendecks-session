@@ -279,6 +279,7 @@ pub(crate) fn refresh(app: &App) {
         w.set_appearance(index_of(&crate::settings::APPEARANCES, &s.view.appearance.as_str()));
         w.set_waveform(index_of(&["3band", "blue", "rgb"], &s.view.waveform.as_str()));
         w.set_phrases(s.view.phrases);
+        w.set_tooltips(s.view.tooltips);
         w.set_phrases_overview(s.view.phrases_overview);
         w.set_phrase_types(index_of(&crate::settings::PHRASE_TYPES, &s.view.phrase_types.as_str()));
         w.set_zoom_span(index_of(&ZOOM_SPANS, &s.view.zoom_span));
@@ -626,6 +627,27 @@ fn start_recording(app: &App, id: &str) {
 
 pub(crate) const PAGES: [&str; 7] = ["audio", "view", "analysis", "controller", "keyboard", "recording", "advanced"];
 
+/// Words that find each page in the preferences search (English and
+/// German, lower case).
+const PAGE_TERMS: &[(&str, &[&str])] = &[
+    ("audio", &["audio", "output", "device", "buffer", "latency", "sample rate", "headphone", "ausgang", "gerät", "puffer", "kopfhörer", "abtastrate"]),
+    ("view", &["view", "language", "tooltip", "text size", "font", "line", "appearance", "dark", "light", "phrase", "waveform", "zoom", "bar counter", "colour", "color", "contrast", "motion", "scale", "ansicht", "sprache", "schrift", "zeilen", "darstellung", "wellenform", "farbe", "kontrast", "skalierung"]),
+    ("analysis", &["analysis", "analyse", "bpm", "key", "notation", "camelot", "phrase detection", "tonart", "analyse"]),
+    ("controller", &["controller", "midi", "learn", "tempo range", "quantize", "sync", "jog", "auto cue", "eq", "fader", "crossfader", "gain", "flx", "mapping", "quantisier", "regler"]),
+    ("keyboard", &["keyboard", "shortcut", "key binding", "keys", "tastatur", "kürzel", "tasten"]),
+    ("recording", &["recording", "record", "format", "flac", "mp3", "silence", "split", "aufnahme", "stille"]),
+    ("advanced", &["advanced", "library", "backup", "update", "relocate", "moved", "consolidate", "rekordbox", "erweitert", "bibliothek", "sicherung", "verschob", "zusammenführ"]),
+];
+
+/// The page a search text points to (first match in page order).
+pub(crate) fn page_for_search(text: &str) -> Option<&'static str> {
+    let t = text.trim().to_lowercase();
+    if t.is_empty() {
+        return None;
+    }
+    PAGE_TERMS.iter().find(|(_, terms)| terms.iter().any(|w| w.contains(t.as_str()) || t.contains(w))).map(|(p, _)| *p)
+}
+
 fn select_page(app: &App, page: &str) {
     app.prefs.borrow_mut().recording = None;
     with_window(app, |w| w.set_page(page.into()));
@@ -671,6 +693,8 @@ fn apply_live(app: &App) {
     shell::apply_language(&settings.language());
     shell::apply_theme(&app.ui.global::<crate::Theme>(), &settings, lite);
     with_window(app, |w| shell::apply_theme(&w.global::<crate::Theme>(), &settings, lite));
+    app.ui.global::<crate::TooltipState>().set_enabled(settings.view.tooltips);
+    with_window(app, |w| w.global::<crate::TooltipState>().set_enabled(settings.view.tooltips));
     app.ui.set_show_phrases(settings.view.phrases);
     app.ui.set_show_phrases_overview(settings.view.phrases_overview);
     crate::player::refresh_detail(app);
@@ -693,6 +717,14 @@ fn change(app: &App, f: impl Fn(&mut Settings)) {
     store_stick_settings(app);
     apply_live(app);
     refresh(app);
+}
+
+/// The list's row density button: compact → normal → roomy → compact.
+pub(crate) fn cycle_line_spacing(app: &App) {
+    change(app, |s| {
+        let i = LINE_SPACINGS.iter().position(|l| *l == s.browser.line_spacing).unwrap_or(1);
+        s.browser.line_spacing = LINE_SPACINGS[(i + 1) % LINE_SPACINGS.len()].to_string();
+    });
 }
 
 /// Keeps the player preferences that sticks carry (`MYSETTING.DAT`, written
@@ -782,6 +814,7 @@ fn flag(app: &App, key: &str, v: bool) {
         "view.phrases" => change(app, |s| s.view.phrases = v),
         "view.phrases-overview" => change(app, |s| s.view.phrases_overview = v),
         "view.colorblind" => change(app, |s| s.view.colorblind_safe = v),
+        "view.tooltips" => change(app, |s| s.view.tooltips = v),
         "view.contrast" => change(app, |s| s.view.high_contrast = v),
         "view.motion" => change(app, |s| s.view.reduced_motion = v),
         "analysis.key" => change(app, |s| s.analysis.detect_key = v),
@@ -878,6 +911,8 @@ fn act(app: &App, what: &str) {
             }
         }
         "library.show" => reveal(&app.state.borrow().config.library_path),
+        "library.relocate" => app.ui.invoke_find_moved_files(),
+        "library.consolidate" => app.ui.invoke_menu_action("library.consolidate".into()),
         "backup.now" => {
             let r = app.state.borrow().lib.backup_now("manual");
             match r {
@@ -977,6 +1012,11 @@ fn with_page(app: &App) -> String {
 
 fn wire_window(app: &Rc<App>, w: &PreferencesWindow) {
     w.on_select_page(handler!(app, |a, p: SharedString| select_page(&a, p.as_str())));
+    w.on_search_settings(handler!(app, |a, t: SharedString| {
+        if let Some(page) = page_for_search(t.as_str()) {
+            select_page(&a, page);
+        }
+    }));
     w.on_choose(handler!(app, |a, k: SharedString, i: i32| choose(&a, k.as_str(), i)));
     w.on_flag(handler!(app, |a, k: SharedString, v: bool| if k == "midi.monitor" { midi_act(&a, if v { "midi.on" } else { "midi.off" }) } else { flag(&a, k.as_str(), v) }));
     w.on_act(handler!(app, |a, k: SharedString| if k.starts_with("midi.") || k.starts_with("learn.") || k.starts_with("flx10.") { midi_act(&a, k.as_str()) } else { act(&a, k.as_str()) }));

@@ -479,6 +479,36 @@ pub(crate) fn wire(app: &Rc<App>) {
         cmd(&a, SamplerCommand::SeqRecord(!on));
         save_soon(&a);
     }));
+    // The selected slot's tempo halved / doubled (an analysis at the wrong
+    // octave would sync it at half or double speed).
+    ui.on_sampler_bpm_scale(handler!(app, |a, f: f32| {
+        let slot = a.sampler.selected.get();
+        let bpm = {
+            let mut slots = a.sampler.slots.borrow_mut();
+            let Some(Some(info)) = slots.get_mut(slot) else { return };
+            let Some(b) = info.bpm else { return };
+            let b = (b * f as f64).clamp(20.0, 400.0);
+            info.bpm = Some(b);
+            b
+        };
+        cmd(&a, SamplerCommand::SetBpm { slot, bpm: Some(bpm) });
+        save_soon(&a);
+        if engine::snapshot(&a).is_none() {
+            show_idle(&a);
+        }
+    }));
+    // SAVE: the patterns go onto the first free Sequence Call pad.
+    ui.on_sampler_seq_save(handler!(app, |a| {
+        let Some(state) = engine::snapshot(&a) else { return };
+        let free = a.sampler.sequences.borrow().iter().position(|s| s.is_none());
+        match free {
+            Some(i) => {
+                seq_call(&a, i, &state);
+                a.status(format!("Sequence stored on Sequence Call pad {}", i + 1));
+            }
+            None => a.status("Every Sequence Call pad holds a sequence: clear one first"),
+        }
+    }));
     ui.on_sampler_seq_clear(handler!(app, |a| {
         let slot = a.sampler.selected.get();
         cmd(&a, SamplerCommand::SeqPattern { slot, mask: 0 });

@@ -68,8 +68,10 @@ cargo run -p od-parity --bin parity -- check
 ```
 
 Context-menu items are native `MenuItem`s and cannot carry an accessible
-label; the view test maps `ctx.row.*` labels to their English titles
-(`MENU_ITEMS` in `ui_tests/views.rs`), listing only items that exist.
+label; the view test maps `ctx.*` and `menu.*` labels to their English titles
+(`MENU_ITEMS` in `ui_tests/views.rs`), listing only items that exist. The
+View menu (`menu.view`) is the platform menu bar, which the testing backend
+draws in the window on macOS only; elsewhere that view reports as unavailable.
 Element debug info (needed by the testing backend's element search) is
 compiled into non-release builds (`crates/od-ui/build.rs`).
 

@@ -299,6 +299,8 @@ export struct DeckView {
     jog-angle: float,
     // Bar.beat counter, e.g. "33.2".
     beat-pos: string,
+    // Manual loop: the in point is set and waits for the out point.
+    loop-in-set: bool,
 }
 
 // One mixer channel.

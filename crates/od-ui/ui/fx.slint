@@ -88,213 +88,205 @@ component FxUnit inherits Rectangle {
         }
     }
 
-    HorizontalLayout {
-        padding-left: 14px; padding-right: 14px; padding-top: 8px; padding-bottom: 8px;
-        spacing: 12px;
-        // Unit number, lit while on; tempo it follows underneath.
-        if !root.tiny: VerticalLayout {
-            width: 46px;
-            alignment: center;
-            spacing: 2px;
-            Text {
-                accessible-role: text; accessible-label: "fx.unit\{root.u.unit}.beat-fx"; accessible-value: FxNames.beat[root.u.kind];
-                text: "FX" + root.u.unit;
-                font-family: Theme.family; font-size: 17px; font-weight: 600; letter-spacing: 1px;
-                color: root.u.on ? root.tone : root.u.ringing ? Theme.bone-2 : Theme.bone-3;
+    // One line, left to right as on the unit: channel assign, single /
+    // multi, the effect slots (effect over level and beat length), the
+    // parameter, the unit readout, AUTO, TAP and ON. PART and the release
+    // effects sit on a second line.
+    VerticalLayout {
+        padding-left: 14px; padding-right: 14px; padding-top: 6px; padding-bottom: 6px;
+        spacing: 4px;
+        HorizontalLayout {
+            spacing: 8px;
+            alignment: start;
+            // Assign: 1 2 S 3 4 M (channels that are not shown stay, dimmed).
+            VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 2px;
+                    for t[k] in [{ id: "ch1", label: "1", target: 1 }, { id: "ch2", label: "2", target: 2 }, { id: "sampler", label: "S", target: -1 }, { id: "ch3", label: "3", target: 3 }, { id: "ch4", label: "4", target: 4 }, { id: "master", label: "M", target: 0 }]: Toggle {
+                        accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.target == t.target;
+                        accessible-label: "fx.unit\{root.u.unit}.assign." + t.id;
+                        size: 24px; width: 24px;
+                        label: t.label;
+                        enabled: t.target <= root.channels;
+                        on: root.u.target == t.target;
+                        tone: t.target > 0 ? Theme.deck-color(t.target) : t.target < 0 ? Theme.w546 : Theme.bone-2;
+                        tooltip: t.target > 0 ? @tr("Insert the effect on channel {}", t.target) : t.target < 0 ? @tr("Insert the effect on the sampler") : @tr("Insert the effect on the master output");
+                        clicked => { root.target(t.target); }
+                    }
+                }
             }
-            Text {
-                // Fixed width ("000.0"), so the column never moves.
-                min-width: bp.preferred-width;
-                text: root.u.bpm == "" ? "—" : root.u.bpm;
-                font-family: Theme.family; font-size: 11px; font-weight: 600;
-                color: root.u.tapped ? Theme.attention : Theme.bone-2;
-                bp := Text { visible: false; text: "000.0"; font-family: Theme.family; font-size: 11px; font-weight: 600; }
+            VerticalLayout {
+                alignment: center;
+                Toggle {
+                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.multi;
+                    accessible-label: "fx.unit\{root.u.unit}.menu";
+                    size: 24px; width: 30px; label: root.u.multi ? "×3" : "×1"; on: root.u.multi; tone: root.tone;
+                    tooltip: @tr("Single effect or three effects in a chain");
+                    clicked => { FxSlots.multi(root.u.unit); }
+                }
             }
-            Caps { text: root.u.tapped ? @tr("TAP") : "BPM"; font-size: 9px; }
-            Toggle {
-                accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.multi;
-                accessible-label: "fx.unit\{root.u.unit}.menu";
-                size: 20px; label: root.u.multi ? "×3" : "×1"; on: root.u.multi; tone: root.tone;
-                tooltip: @tr("Single effect or three effects in a chain");
-                clicked => { FxSlots.multi(root.u.unit); }
-            }
-        }
-        VerticalLayout {
-            width: root.narrow ? 140px : 168px;
-            spacing: 6px;
-            alignment: center;
-            Stepper {
-                accessible-role: combobox;
-                accessible-label: "fx.unit\{root.u.unit}.slot1.type";
-                accessible-value: self.value;
-                value: FxNames.beat[root.u.kind]; template: "VINYL BRAKE"; lit: root.u.on; tone: root.tone;
-                tooltip: @tr("Beat FX: previous / next effect — click the name for the list");
-                command: "fx" + root.u.unit + ".next";
-                step(d) => { root.kind-step(d); }
-                value-clicked => { kinds.show(); }
-            }
-            HorizontalLayout {
-                spacing: 6px;
-                if !root.narrow: Caps { text: @tr("BEAT"); font-size: 9px; vertical-alignment: center; width: 30px; }
+            // Slot 1: the unit's own effect, level and beat length.
+            VerticalLayout {
+                spacing: 4px; alignment: center;
                 Stepper {
-                    a11y-prev: "fx.unit\{root.u.unit}.slot1.beats-down";
-                    a11y-value: "fx.unit\{root.u.unit}.slot1.beats";
-                    a11y-next: "fx.unit\{root.u.unit}.slot1.beats-up";
-                    horizontal-stretch: 1;
-                    value: root.u.beats; template: "1/16";
-                    tooltip: @tr("Beat length: shorter / longer");
-                    command: "fx" + root.u.unit + ".beat.up";
-                    step(d) => { root.beats-step(d); }
+                    accessible-role: combobox;
+                    accessible-label: "fx.unit\{root.u.unit}.slot1.type";
+                    accessible-value: self.value;
+                    size: 24px; arrow: 18px; font-size: 10px;
+                    value: FxNames.beat[root.u.kind]; template: "VINYL BRAKE"; lit: root.u.on; tone: root.tone;
+                    tooltip: @tr("Beat FX: previous / next effect — click the name for the list");
+                    command: "fx" + root.u.unit + ".next";
+                    step(d) => { root.kind-step(d); }
+                    value-clicked => { kinds.show(); }
+                }
+                HorizontalLayout {
+                    spacing: 4px;
+                    Knob {
+                        accessible-role: slider;
+                        accessible-label: "fx.unit\{root.u.unit}.slot1.depth";
+                        accessible-value: root.u.level;
+                        label: ""; size: 24px; minimum: 0; maximum: 1; default-value: 0.5;
+                        value: root.u.level; tone: root.tone;
+                        tooltip: @tr("Level / depth of the effect");
+                        changed(v) => { root.level(v); }
+                    }
+                    Stepper {
+                        a11y-prev: "fx.unit\{root.u.unit}.slot1.beats-down";
+                        a11y-value: "fx.unit\{root.u.unit}.slot1.beats";
+                        a11y-next: "fx.unit\{root.u.unit}.slot1.beats-up";
+                        horizontal-stretch: 1; size: 24px; font-size: 10px;
+                        value: root.u.beats; template: "1/16";
+                        tooltip: @tr("Beat length: shorter / longer");
+                        command: "fx" + root.u.unit + ".beat.up";
+                        step(d) => { root.beats-step(d); }
+                    }
+                }
+            }
+            if root.u.multi: HorizontalLayout {
+                spacing: 8px;
+                for sl in root.u.slots: VerticalLayout {
+                    spacing: 4px; alignment: center;
+                    HorizontalLayout {
+                        spacing: 2px;
+                        Stepper {
+                            accessible-role: combobox;
+                            accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.type";
+                            accessible-value: self.value;
+                            horizontal-stretch: 1; size: 24px; arrow: 18px; font-size: 10px;
+                            value: FxNames.beat[sl.kind]; template: "PING PONG"; lit: sl.on; tone: root.tone;
+                            tooltip: @tr("Effect of this slot");
+                            step(d) => { FxSlots.kind-step(root.u.unit, sl.slot, d); }
+                        }
+                        Toggle {
+                            accessible-role: checkbox; accessible-checkable: true; accessible-checked: sl.on;
+                            accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.on";
+                            size: 24px; width: 30px; label: "ON"; on: sl.on; tone: root.tone;
+                            clicked => { FxSlots.on(root.u.unit, sl.slot); }
+                        }
+                    }
+                    HorizontalLayout {
+                        spacing: 4px;
+                        Knob {
+                            accessible-role: slider;
+                            accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.depth";
+                            accessible-value: sl.level;
+                            label: ""; size: 24px; minimum: 0; maximum: 1; default-value: 0.5;
+                            value: sl.level; tone: root.tone;
+                            changed(v) => { FxSlots.level(root.u.unit, sl.slot, v); }
+                        }
+                        Stepper {
+                            a11y-prev: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats-down";
+                            a11y-value: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats";
+                            a11y-next: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats-up";
+                            horizontal-stretch: 1; size: 24px; font-size: 10px;
+                            value: sl.beats; template: "1/16";
+                            step(d) => { FxSlots.beats-step(root.u.unit, sl.slot, d); }
+                        }
+                    }
+                }
+            }
+            if !root.narrow: VerticalLayout {
+                alignment: center;
+                Knob {
+                    label: @tr("PARAM"); size: 22px; minimum: -1; maximum: 1; default-value: 0;
+                    value: root.u.param; tone: Theme.w436;
+                    tooltip: @tr("Effect parameter (filter direction, pitch, reverb colour)");
+                    changed(v) => { root.param(v); }
+                }
+            }
+            // Unit readout: number and tempo of the effect.
+            VerticalLayout {
+                alignment: center;
+                spacing: 0px;
+                Text {
+                    accessible-role: text; accessible-label: "fx.unit\{root.u.unit}.beat-fx"; accessible-value: FxNames.beat[root.u.kind];
+                    text: "FX" + root.u.unit;
+                    font-family: Theme.family; font-size: 17px; font-weight: 600; letter-spacing: 1px;
+                    color: root.u.on ? root.tone : root.u.ringing ? Theme.bone-2 : Theme.bone-3;
+                }
+                Text {
+                    min-width: bp.preferred-width;
+                    text: (root.u.bpm == "" ? "—" : root.u.bpm) + (root.u.tapped ? " TAP" : "");
+                    font-family: Theme.family; font-size: 11px; font-weight: 600;
+                    color: root.u.tapped ? Theme.attention : Theme.bone-2;
+                    bp := Text { visible: false; text: "000.0 TAP"; font-family: Theme.family; font-size: 11px; font-weight: 600; }
+                }
+            }
+            VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    spacing: 4px;
+                    Toggle {
+                        accessible-role: button;
+                        accessible-label: "fx.unit\{root.u.unit}.auto";
+                        size: 24px; label: "AUTO"; on: !root.u.tapped; tone: Theme.live;
+                        tooltip: @tr("AUTO: the effect follows the deck tempo again");
+                        clicked => { FxSlots.auto(root.u.unit); }
+                    }
+                    Toggle {
+                        accessible-role: button;
+                        accessible-label: "fx.unit\{root.u.unit}.tap";
+                        size: 24px; label: "TAP"; on: root.u.tapped; tone: Theme.w486;
+                        tooltip: @tr("Tap the tempo of the effect; AUTO returns to the deck tempo");
+                        command: "fx" + root.u.unit + ".tap";
+                        clicked => { root.tap(); }
+                    }
+                    Toggle {
+                        accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.on;
+                        accessible-label: "fx.unit\{root.u.unit}.on";
+                        size: 24px; width: 40px; label: "ON"; on: root.u.on; tone: root.tone;
+                        tooltip: @tr("Beat FX on / off");
+                        command: "fx" + root.u.unit + ".on";
+                        clicked => { root.on(); }
+                    }
                 }
             }
         }
-        VerticalLayout {
-            spacing: 6px;
-            alignment: center;
-            HorizontalLayout {
-                spacing: 3px;
-                if !root.narrow: Caps { text: "CH"; font-size: 9px; vertical-alignment: center; width: 22px; }
-                for c in root.channels: Toggle {
-                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.target == c + 1;
-                    accessible-label: "fx.unit\{root.u.unit}.assign.ch\{c + 1}";
-                    size: 24px; width: 26px;
-                    label: c + 1;
-                    on: root.u.target == c + 1;
-                    tone: Theme.deck-color(c + 1);
-                    tooltip: @tr("Insert the effect on channel {}", c + 1);
-                    clicked => { root.target(c + 1); }
-                }
-                Toggle {
-                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.target == -1;
-                    accessible-label: "fx.unit\{root.u.unit}.assign.sampler";
-                    size: 24px; width: 34px;
-                    label: "SMP"; on: root.u.target == -1; tone: Theme.w546;
-                    tooltip: @tr("Insert the effect on the sampler");
-                    clicked => { root.target(-1); }
-                }
-                Toggle {
-                    accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.target == 0;
-                    accessible-label: "fx.unit\{root.u.unit}.assign.master";
-                    size: 24px; width: 34px;
-                    label: "M"; on: root.u.target == 0; tone: Theme.bone-2;
-                    tooltip: @tr("Insert the effect on the master output");
-                    clicked => { root.target(0); }
-                }
-            }
-            // Stem FX: which part of the channel the effect takes.
+        if !root.tiny: HorizontalLayout {
+            spacing: 3px;
+            alignment: start;
+            if root.u.target > 0: Caps { text: "PART"; font-size: 9px; vertical-alignment: center; width: 30px; }
             if root.u.target > 0: HorizontalLayout {
                 spacing: 3px;
-                if !root.narrow: Caps { text: "PART"; font-size: 9px; vertical-alignment: center; width: 22px; }
                 for p[k] in [{ id: "all", label: "ALL", i: -1 }, { id: "vocal", label: "VOC", i: 0 }, { id: "drums", label: "DRUM", i: 1 }, { id: "bass", label: "BASS", i: 2 }, { id: "inst", label: "INST", i: 3 }]: Toggle {
                     accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.part == p.i;
                     accessible-label: "fx.unit\{root.u.unit}.part." + p.id;
-                    size: 20px; width: 38px; label: p.label; on: root.u.part == p.i; tone: Theme.w656;
+                    size: 24px; width: 40px; label: p.label; on: root.u.part == p.i; tone: Theme.w656;
                     tooltip: p.i < 0 ? @tr("The effect takes the whole channel") : @tr("Stem FX: the effect takes only this part of the channel");
                     clicked => { FxSlots.part(root.u.unit, p.i); }
                 }
             }
-            if !root.tiny: HorizontalLayout {
-                spacing: 3px;
-                if !root.narrow: Caps { text: "REL"; font-size: 9px; vertical-alignment: center; width: 22px; }
-                for name[k] in FxNames.release: HoldButton {
-                    horizontal-stretch: 1;
-                    label: name; on: root.u.release == k; tone: Theme.w656;
-                    tooltip: k == 0 ? @tr("Release FX: slow the target to a stop while held")
-                        : k == 1 ? @tr("Release FX: spin the target backwards while held")
-                        : @tr("Release FX: cut the target and let it echo out while held");
-                    command: "fx" + root.u.unit + (k == 0 ? ".release.brake" : k == 1 ? ".release.backspin" : ".release.echo");
-                    pressed => { root.release(k, true); }
-                    released => { root.release(k, false); }
-                }
-            }
-        }
-        // Slots 2 and 3 (multi mode): effect, beat, depth, on.
-        if root.u.multi: HorizontalLayout {
-            spacing: 10px;
-            for sl in root.u.slots: VerticalLayout {
-                width: root.narrow ? 112px : 132px;
-                spacing: 4px; alignment: center;
-                HorizontalLayout {
-                    spacing: 4px;
-                    Stepper {
-                        accessible-role: combobox;
-                        accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.type";
-                        accessible-value: self.value;
-                        horizontal-stretch: 1; size: 22px; font-size: 10px;
-                        value: FxNames.beat[sl.kind]; template: "PING PONG"; lit: sl.on; tone: root.tone;
-                        tooltip: @tr("Effect of this slot");
-                        step(d) => { FxSlots.kind-step(root.u.unit, sl.slot, d); }
-                    }
-                    Toggle {
-                        accessible-role: checkbox; accessible-checkable: true; accessible-checked: sl.on;
-                        accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.on";
-                        size: 22px; width: 30px; label: "ON"; on: sl.on; tone: root.tone;
-                        clicked => { FxSlots.on(root.u.unit, sl.slot); }
-                    }
-                }
-                HorizontalLayout {
-                    spacing: 4px;
-                    Stepper {
-                        a11y-prev: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats-down";
-                        a11y-value: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats";
-                        a11y-next: "fx.unit\{root.u.unit}.slot\{sl.slot}.beats-up";
-                        horizontal-stretch: 1; size: 22px; font-size: 10px;
-                        value: sl.beats; template: "1/16";
-                        step(d) => { FxSlots.beats-step(root.u.unit, sl.slot, d); }
-                    }
-                    Knob {
-                        accessible-role: slider;
-                        accessible-label: "fx.unit\{root.u.unit}.slot\{sl.slot}.depth";
-                        accessible-value: sl.level;
-                        label: ""; size: 22px; minimum: 0; maximum: 1; default-value: 0.5;
-                        value: sl.level; tone: root.tone;
-                        changed(v) => { FxSlots.level(root.u.unit, sl.slot, v); }
-                    }
-                }
-            }
-        }
-        if !root.tiny: Knob {
-            accessible-role: slider;
-            accessible-label: "fx.unit\{root.u.unit}.slot1.depth";
-            accessible-value: root.u.level;
-            label: @tr("LEVEL"); size: 28px; minimum: 0; maximum: 1; default-value: 0.5;
-            value: root.u.level; tone: root.tone;
-            tooltip: @tr("Level / depth of the effect");
-            changed(v) => { root.level(v); }
-        }
-        if !root.narrow: Knob {
-            label: @tr("PARAM"); size: 28px; minimum: -1; maximum: 1; default-value: 0;
-            value: root.u.param; tone: Theme.w436;
-            tooltip: @tr("Effect parameter (filter direction, pitch, reverb colour)");
-            changed(v) => { root.param(v); }
-        }
-        Rectangle { horizontal-stretch: 1; }
-        VerticalLayout {
-            width: 58px;
-            spacing: 6px;
-            alignment: center;
-            Toggle {
-                accessible-role: checkbox; accessible-checkable: true; accessible-checked: root.u.on;
-                accessible-label: "fx.unit\{root.u.unit}.on";
-                size: 24px; label: "ON"; on: root.u.on; tone: root.tone;
-                tooltip: @tr("Beat FX on / off");
-                command: "fx" + root.u.unit + ".on";
-                clicked => { root.on(); }
-            }
-            Toggle {
-                accessible-role: button;
-                accessible-label: "fx.unit\{root.u.unit}.auto";
-                size: 24px; label: "AUTO"; on: !root.u.tapped; tone: Theme.live;
-                tooltip: @tr("AUTO: the effect follows the deck tempo again");
-                clicked => { FxSlots.auto(root.u.unit); }
-            }
-            Toggle {
-                accessible-role: button;
-                accessible-label: "fx.unit\{root.u.unit}.tap";
-                size: 24px; label: "TAP"; on: root.u.tapped; tone: Theme.w486;
-                tooltip: @tr("Tap the tempo of the effect; AUTO returns to the deck tempo");
-                command: "fx" + root.u.unit + ".tap";
-                clicked => { root.tap(); }
+            if root.u.target > 0: Rectangle { width: 12px; }
+            Caps { text: "REL"; font-size: 9px; vertical-alignment: center; width: 24px; }
+            for name[k] in FxNames.release: HoldButton {
+                label: name; on: root.u.release == k; tone: Theme.w656;
+                tooltip: k == 0 ? @tr("Release FX: slow the target to a stop while held")
+                    : k == 1 ? @tr("Release FX: spin the target backwards while held")
+                    : @tr("Release FX: cut the target and let it echo out while held");
+                command: "fx" + root.u.unit + (k == 0 ? ".release.brake" : k == 1 ? ".release.backspin" : ".release.echo");
+                pressed => { root.release(k, true); }
+                released => { root.release(k, false); }
             }
         }
     }
@@ -314,13 +306,17 @@ export component FxPanel inherits Rectangle {
     callback tap(int);
     callback release(int, int, bool);
     background: Theme.ground;
-    height: 74px;
-    HorizontalLayout {
+    // Side by side while both units show one effect; one unit per line
+    // once a unit chains three.
+    property <bool> stack: root.units.length > 1 && (root.units[0].multi || root.units[1].multi);
+    GridLayout {
         spacing: 0;
         for u[i] in root.units: HorizontalLayout {
+            row: root.stack ? i : 0;
+            col: root.stack ? 0 : i;
             horizontal-stretch: 1;
             spacing: 0;
-            if i > 0: VLine { weight: 1px; tone: Theme.rule; }
+            if i > 0 && !root.stack: VLine { weight: 1px; tone: Theme.rule; }
             FxUnit {
                 horizontal-stretch: 1;
                 u: u;
@@ -348,13 +344,13 @@ export component ColorFxSelector inherits Rectangle {
     in property <int> current;
     callback select(int);
     callback step(int);
-    height: 22px;
+    height: 24px;
     min-width: lay.min-width;
     lay := HorizontalLayout {
         spacing: 0px;
         Stepper {
             horizontal-stretch: 1;
-            size: 20px; font-size: 10px;
+            size: 24px; arrow: 18px; font-size: 10px;
             value: FxNames.color[root.current]; template: "DUB ECHO"; lit: root.current != 0; tone: Theme.w405;
             tooltip: @tr("Colour FX of the CFX knobs: previous / next — click the name for the list");
             command: "colorfx.next";

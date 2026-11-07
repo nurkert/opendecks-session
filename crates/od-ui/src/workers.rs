@@ -193,3 +193,21 @@ impl Drop for AnalysisWorker {
         let _ = self.wake.send(());
     }
 }
+
+#[cfg(test)]
+mod tests {
+    /// Importing a file adds it with its audio facts; importing it again
+    /// finds the same track.
+    #[test]
+    fn import_adds_each_file_once() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("music/a.wav");
+        crate::ui_tests::harness::write_wav(&path, 2.0, 440.0);
+        let mut lib = od_library::Library::open(&dir.path().join("lib/library.sqlite")).unwrap();
+        let id = super::import_file(&mut lib, &path).unwrap();
+        assert_eq!(super::import_file(&mut lib, &path).unwrap(), id, "a second import finds the track");
+        let t = lib.track(id).unwrap();
+        assert!(t.duration > 1.9 && t.sample_rate > 0, "duration and sample rate are read: {} s, {} Hz", t.duration, t.sample_rate);
+        assert_eq!(lib.track_count().unwrap(), 1);
+    }
+}

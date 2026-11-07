@@ -21,7 +21,7 @@ reference_path = [
 ]
 target_steps = 3
 opendecks_path = [
-  "click Explorer in the source rail (roots list the music folders and the last opened folder)",
+  "click Explorer in the source rail (scrolls the tree to the Explorer and opens every root one level)",
   "click the folder",
   "double-click the file (loads into the free deck, imports and analyses it in the background)",
 ]

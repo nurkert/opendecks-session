@@ -667,6 +667,7 @@ pub(crate) struct DeckFields {
     pub key_shift: SharedString,
     pub key_sync: bool,
     pub jump_size: SharedString,
+    pub loop_in_set: bool,
 }
 
 /// What the projection needs besides the engine's deck state.
@@ -779,6 +780,7 @@ pub(crate) fn deck_fields(s: &DeckState, i: &DeckInputs) -> DeckFields {
         key_shift: pads::key_shift_label(s.key_shift).into(),
         key_sync: s.key_sync,
         jump_size: pads::beats_label(if s.beat_jump_size > 0.0 { s.beat_jump_size } else { 4.0 }).into(),
+        loop_in_set: !s.loop_state.active && s.loop_state.start.is_some() && s.loop_state.end.is_none(),
     }
 }
 
@@ -897,6 +899,7 @@ impl Lane {
             key_shift: f.key_shift,
             key_sync: f.key_sync,
             jump_size: f.jump_size,
+            loop_in_set: f.loop_in_set,
         }
     }
 }
@@ -1509,6 +1512,28 @@ pub(crate) fn wire(app: &Rc<App>) {
         let d = idx(d);
         let b = if beats > 0.0 { beats as f64 } else { a.decks.borrow().loop_size[d] };
         engine::deck_cmd(&a, d, DeckCommand::AutoLoop { beats: b });
+    }));
+    // Manual loop: in point, then out point (the loop starts); a running
+    // loop is left.
+    ui.on_deck_loop_manual(handler!(app, |a, d: i32| {
+        engine::ensure_engine(&a);
+        let d = idx(d);
+        let l = deck_state(&a, d).map(|s| s.loop_state).unwrap_or_default();
+        let cmd = if l.active {
+            DeckCommand::LoopExit
+        } else if l.start.is_some() && l.end.is_none() {
+            DeckCommand::LoopOut
+        } else {
+            DeckCommand::LoopIn
+        };
+        engine::deck_cmd(&a, d, cmd);
+    }));
+    // Tempo range of the fader: ±6 → ±10 → ±16 → WIDE → ±6.
+    ui.on_deck_tempo_range(handler!(app, |a, d: i32| {
+        engine::ensure_engine(&a);
+        let d = idx(d);
+        let r = deck_state(&a, d).map(|s| s.tempo_range).unwrap_or(TempoRange::Ten);
+        engine::deck_cmd(&a, d, DeckCommand::SetTempoRange(crate::controller::next_tempo_range(r)));
     }));
     ui.on_deck_loop_exit(handler!(app, |a, d: i32| {
         engine::ensure_engine(&a);

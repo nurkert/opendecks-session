@@ -185,9 +185,11 @@ export component Knob inherits Rectangle {
     in property <string> label;
     in property <color> tone: Theme.bone-2;
     in property <length> size: 30px;
+    // Room under the ring for the legend (smaller on compact strips).
+    in property <length> label-h: 16px;
     callback changed(float);
     width: max(root.size + 8px, lbl.preferred-width + 4px);
-    height: root.size + 16px;
+    height: root.size + root.label-h;
 
     property <float> norm: (root.value - root.minimum) / (root.maximum - root.minimum);
     property <angle> a: -225deg + 270deg * root.norm;
@@ -209,9 +211,9 @@ export component Knob inherits Rectangle {
         }
     }
     lbl := Text {
-        y: root.size + 3px; width: parent.width;
+        y: root.size + (root.label-h >= 16px ? 3px : 1px); width: parent.width;
         text: root.label;
-        font-family: Theme.family; font-size: 9px; font-weight: 600; letter-spacing: 1.2px;
+        font-family: Theme.family; font-size: root.label-h >= 16px ? 9px : 8px; font-weight: 600; letter-spacing: root.label-h >= 16px ? 1.2px : 0.8px;
         color: Theme.bone-3;
         horizontal-alignment: center;
     }
@@ -308,26 +310,29 @@ export component Splitter inherits Rectangle {
     in property <bool> horizontal: true;
     callback dragged(length);
     callback reset();
+    // Thickness across: a vertical splitter is a full 24 px grab zone (the
+    // minimum target), the horizontal one stays slim to save height.
+    in property <length> thickness: root.horizontal ? 7px : 24px;
     // Fixed thickness across, free along (a fixed 0 length would cap the
     // surrounding layout).
-    min-width: root.horizontal ? 0px : 7px;
-    max-width: root.horizontal ? 100000px : 7px;
-    min-height: root.horizontal ? 7px : 0px;
-    max-height: root.horizontal ? 7px : 100000px;
+    min-width: root.horizontal ? 0px : root.thickness;
+    max-width: root.horizontal ? 100000px : root.thickness;
+    min-height: root.horizontal ? root.thickness : 0px;
+    max-height: root.horizontal ? root.thickness : 100000px;
     horizontal-stretch: root.horizontal ? 1 : 0;
     vertical-stretch: root.horizontal ? 0 : 1;
-    background: touch.pressed || touch.has-hover ? Theme.plate : Theme.ground;
+    background: touch.pressed || touch.has-hover ? Theme.plate : transparent;
     animate background { duration: Theme.motion ? 90ms : 0ms; }
     Rectangle {
-        x: root.horizontal ? 0 : 3px; y: root.horizontal ? 3px : 0;
+        x: root.horizontal ? 0 : (root.thickness - 1px) / 2; y: root.horizontal ? (root.thickness - 1px) / 2 : 0;
         width: root.horizontal ? parent.width : 1px;
         height: root.horizontal ? 1px : parent.height;
         background: touch.pressed ? Theme.attention : Theme.rule;
     }
     // Grip in the middle.
     Rectangle {
-        x: root.horizontal ? (parent.width - 28px) / 2 : 2px;
-        y: root.horizontal ? 2px : (parent.height - 28px) / 2;
+        x: root.horizontal ? (parent.width - 28px) / 2 : (root.thickness - 3px) / 2;
+        y: root.horizontal ? (root.thickness - 3px) / 2 : (parent.height - 28px) / 2;
         width: root.horizontal ? 28px : 3px;
         height: root.horizontal ? 3px : 28px;
         background: touch.has-hover || touch.pressed ? Theme.bone-3 : Theme.rule-strong;

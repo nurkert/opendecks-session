@@ -325,6 +325,15 @@ fn resolve_proposal(app: &App, index: usize, accept: bool) {
 pub(crate) fn wire(app: &Rc<App>) {
     let ui = &app.ui;
     ui.on_sync_device(handler!(app, |a, id: i32| a.device_manager.send(Command::SyncNow(DeviceId(id as i64)))));
+    // DEVICES heading: sync every registered stick now (sticks that are not
+    // plugged in are skipped by the device manager).
+    ui.on_sync_all_devices(handler!(app, |a| {
+        let ids: Vec<DeviceId> = a.state.borrow().lib.devices().unwrap_or_default().iter().map(|d| d.id).collect();
+        for id in ids {
+            a.device_manager.send(Command::SyncNow(id));
+        }
+        a.status("Syncing sticks…");
+    }));
     ui.on_rebuild_device(handler!(app, |a, id: i32| {
         a.device_manager.send(Command::Rebuild(DeviceId(id as i64)));
         a.status("Rebuilding stick…");

@@ -70,11 +70,10 @@ fn load_from_explorer() {
     let before = ui.fx.lib().track_count().unwrap();
     assert!(!deck_title(&ui, 1).contains("Outside"));
     ui.steps.set(0);
-    // The Explorer roots are always listed in the sidebar (no source switch
-    // needed); the folder sits one level below the root.
-    ui.click("browser.tree.home.expand");
-    // In Perform the tree pane is short: the user scrolls it to the folder.
-    let crate_row = ui.scroll_into_view("browser.tree", |u| u.by_value("browser.tree.folder", "Crate").map(|x| x.1)).expect("folder below the Explorer root");
+    // The Explorer source of the rail scrolls the tree to the Explorer and
+    // opens its roots one level, so the folder is listed right away.
+    ui.click("browser.rail.explorer");
+    let crate_row = ui.by_value("browser.tree.folder", "Crate").map(|x| x.1).expect("folder below the Explorer root, in view");
     ui.click_el(&crate_row);
     assert!(ui.wait_until(10.0, |u| u.by_value("browser.row", "Outside Loop").is_some()), "folder lists its file");
     let (_, file_row) = ui.by_value("browser.row", "Outside Loop").unwrap();
@@ -85,7 +84,7 @@ fn load_from_explorer() {
     let imported = ui.fx.lib().track_by_path(&ui.fx.outside_file).unwrap().is_some();
     assert!(loaded, "deck 1 shows the file, got `{}`", deck_title(&ui, 1));
     assert!(imported && ui.fx.lib().track_count().unwrap() == before + 1, "the file is in the collection");
-    record(FlowResult { id: "load-from-explorer", steps, achieved: loaded && imported, note: format!("expand the root, {}click the folder, double-click the file", if steps > 3 { "scroll the short Perform tree pane, " } else { "" }) });
+    record(FlowResult { id: "load-from-explorer", steps, achieved: loaded && imported, note: "Explorer in the source rail (opens the roots), click the folder, double-click the file".into() });
 }
 
 /// Set hot cue A at the playhead and name it.
@@ -121,17 +120,25 @@ fn set_and_name_hot_cue() {
 #[test]
 fn add_to_playlist() {
     let ui = Ui::open((1440, 900));
+    // Start state: the playlist was used before (another track added
+    // through the submenu), so the row menu offers it inline.
+    let (_, first) = ui.fx.tracks[2].clone();
+    let (_, row) = ui.by_value("browser.row", &first).expect("row");
+    ui.click_el(&row);
+    ui.right_click_el(&row);
+    assert!(ui.click_menu_item("Add to playlist"), "row menu has Add to playlist");
+    assert!(ui.click_menu_item("Warm-up"), "submenu lists the playlist");
+    ui.pump(200);
     let (id, title) = ui.fx.tracks[1].clone();
     let (_, row) = ui.by_value("browser.row", &title).expect("row");
     ui.click_el(&row);
     ui.steps.set(0);
     ui.right_click_el(&row);
-    assert!(ui.click_menu_item("Add to playlist"), "row menu has Add to playlist");
-    assert!(ui.click_menu_item("Warm-up"), "submenu lists the playlist");
+    assert!(ui.click_menu_item("Add to “Warm-up”"), "row menu offers the recent playlist inline");
     let steps = ui.steps.get();
     let added = ui.wait_until(5.0, |u| u.fx.lib().entries(u.fx.playlist).unwrap().iter().any(|e| e.track == id));
     assert!(added, "the track is in the playlist");
-    record(FlowResult { id: "add-to-playlist", steps, achieved: added, note: "right-click, open the Add to playlist submenu, click the playlist (no inline recent-playlists group)".into() });
+    record(FlowResult { id: "add-to-playlist", steps, achieved: added, note: "right-click, click the playlist in the inline group of recent lists".into() });
 }
 
 /// Bring an edited playlist onto a registered USB stick: no step at all.

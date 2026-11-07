@@ -135,11 +135,13 @@ fn tag_list_collects_and_saves() {
     let (a, ta) = ui.fx.tracks[0].clone();
     let (b, tb) = ui.fx.tracks[2].clone();
     ui.click_el(&row(&ui, &ta));
-    ui.click("browser.tree.tag-list.add");
+    let add = ui.scroll_into_view("browser.tree", |u| u.find("browser.tree.tag-list.add")).expect("tag list + in the tree");
+    ui.click_el(&add);
     ui.right_click_el(&row(&ui, &tb));
     assert!(ui.click_menu_item("Add to tag list"));
     assert_eq!(ui.app.ui.get_tag_list_count(), 2);
-    ui.click("browser.tree.tag-list");
+    let list = ui.scroll_into_view("browser.tree", |u| u.find("browser.tree.tag-list")).expect("tag list row in the tree");
+    ui.click_el(&list);
     assert!(ui.wait_until(5.0, |u| titles(u) == [ta.clone(), tb.clone()]), "tag list in order of adding: {:?}", titles(&ui));
     assert_eq!(ui.app.ui.get_node_kind(), "taglist");
     ui.click_el(&row(&ui, &tb));

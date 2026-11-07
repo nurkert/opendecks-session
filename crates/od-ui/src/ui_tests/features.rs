@@ -170,6 +170,8 @@ fn colour_blind_and_high_contrast() {
     ui.click("topbar.settings");
     let prefs = ui.app.prefs.borrow().window.as_ref().map(|w| w.clone_strong()).expect("Preferences open");
     prefs.set_page("view".into());
+    // Tall enough to show the whole View page.
+    prefs.window().set_size(slint::LogicalSize::new(1000.0, 900.0));
     ui.pump(200);
     let cb = i_slint_backend_testing::ElementHandle::find_by_accessible_label(&prefs, "prefs.view.colour-blind").next().expect("switch");
     cb.mock_single_click(slint::platform::PointerEventButton::Left);
@@ -246,4 +248,116 @@ fn deck_header_readouts() {
     ui.click("deck1.play");
     assert!(ui.wait_until(10.0, |u| u.value("deck1.time-remaining") != before), "time runs while playing");
     assert!(deck_views(&ui).iter().any(|d| d.deck == 1 && d.playing));
+}
+
+/// Track preview (Prepare): PLAY in the player plays the selected track on
+/// the preview deck from the cursor; PLAY again pauses.
+#[test]
+fn prepare_preview_plays_the_selected_track() {
+    let ui = Ui::open((1440, 900));
+    let (id, title) = ui.fx.tracks[0].clone();
+    ui.click_el(&row(&ui, &title));
+    assert!(ui.wait_until(10.0, |u| u.has("player1.play")));
+    ui.click("player1.play");
+    assert!(ui.wait_until(20.0, |u| u.app.decks.borrow().loaded_id(crate::decks::PREVIEW_DECK) == Some(id)), "the preview deck holds the track");
+    assert!(ui.app.ui.get_previewing(), "PLAY is lit while previewing");
+    ui.click("player1.play");
+    assert!(!ui.app.ui.get_previewing(), "PLAY again pauses");
+}
+
+/// Loaded-on-deck indicator: the list row of a loaded track carries the
+/// deck's numeral.
+#[test]
+fn loaded_rows_show_their_deck() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let (id, title) = ui.fx.tracks[1].clone();
+    crate::decks::load_track(&ui.app, 1, id, None);
+    let deck_of = |u: &Ui| {
+        use slint::Model;
+        u.app.ui.get_tracks().iter().find(|r| r.title == title.as_str()).map(|r| r.deck)
+    };
+    assert!(ui.wait_until(20.0, |u| deck_of(u) == Some(2)), "row shows deck 2, got {:?}", deck_of(&ui));
+}
+
+/// Memory cue (Prepare): MEMORY in the player toolbar stores a memory cue
+/// at the cursor.
+#[test]
+fn memory_cue_added_in_the_player() {
+    let ui = Ui::open((1440, 900));
+    let (id, title) = ui.fx.tracks[0].clone();
+    ui.click_el(&row(&ui, &title));
+    assert!(ui.wait_until(10.0, |u| u.has("player1.memory.set")));
+    ui.click("player1.memory.set");
+    let stored = ui.wait_until(10.0, |u| u.fx.lib().cues(id).unwrap().iter().any(|c| c.kind == od_core::CueKind::Memory));
+    assert!(stored, "a memory cue is in the library");
+}
+
+/// Prepare / Perform switch: the decks keep their tracks across the switch.
+#[test]
+fn mode_switch_keeps_loaded_decks() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    let (id, title) = ui.fx.tracks[2].clone();
+    crate::decks::load_track(&ui.app, 0, id, None);
+    assert!(ui.wait_until(20.0, |u| deck_title(u, 1) == title));
+    ui.click("topbar.mode.prepare");
+    assert_eq!(ui.app.ui.get_mode(), "prepare");
+    ui.click("topbar.mode.perform");
+    assert_eq!(ui.app.ui.get_mode(), "perform");
+    assert!(ui.wait_until(10.0, |u| deck_title(u, 1) == title), "deck 1 still holds `{title}`");
+    assert_eq!(ui.app.decks.borrow().loaded_id(0), Some(id));
+}
+
+/// Kiosk: the Raspberry Pi configuration opens in Perform on the browse
+/// screen (nothing is loaded yet) with touch-sized rows; DECKS leads to the
+/// decks with touch-sized transport keys.
+#[test]
+fn kiosk_opens_perform_with_touch_targets() {
+    let ui = Ui::start(Fixture::new(), (800, 480), true);
+    ui.pump(300);
+    assert!(ui.app.ui.get_kiosk());
+    assert_eq!(ui.app.ui.get_mode(), "perform", "the kiosk starts in Perform");
+    assert!(ui.app.ui.get_browser_open(), "on the browse screen");
+    assert!(!ui.has("browser.tree"), "no sidebar on the small screen");
+    assert_eq!(ui.app.ui.global::<crate::Theme>().get_row_height(), 44.0, "touch rows");
+    ui.click("browser.decks");
+    assert!(!ui.app.ui.get_browser_open());
+    assert!(ui.wait_until(5.0, |u| u.has("deck1.play")), "the decks show");
+    let play = Rect::of(&ui.get("deck1.play"));
+    assert!(play.w >= 44.0 && play.h >= 44.0, "PLAY is a touch target: {play:?}");
+    assert!(ui.has("rec.toggle"), "recording one touch away");
+}
+
+/// Player histories from a stick: accepting the proposal files the history
+/// as a playlist in the History folder.
+#[test]
+fn player_history_becomes_a_history_playlist() {
+    let ui = Ui::open((1440, 900));
+    let tracks = vec![ui.fx.tracks[0].0, ui.fx.tracks[1].0];
+    ui.app.state.borrow_mut().devices.proposals.push((od_core::DeviceId(1), od_devices::Proposal::History { name: "HISTORY 001".into(), tracks: tracks.clone() }));
+    ui.app.ui.invoke_accept_proposal(0);
+    ui.pump(200);
+    let lib = ui.fx.lib();
+    let folder = lib.children(None).unwrap().into_iter().find(|n| n.name == "History").expect("History folder");
+    let list = lib.children(Some(folder.id)).unwrap().into_iter().find(|n| n.name == "HISTORY 001").expect("history playlist");
+    let entries: Vec<_> = lib.entries(list.id).unwrap().into_iter().map(|e| e.track).collect();
+    assert_eq!(entries, tracks, "the played tracks in their order");
+}
+
+/// Crossfader assign grids: a key sends its deck to that side, a second
+/// press back to THRU.
+#[test]
+fn crossfader_assign_keys() {
+    let ui = Ui::open((1440, 900));
+    perform(&ui);
+    crate::engine::ensure_engine(&ui.app);
+    ui.pump(300);
+    let side = |u: &Ui, d: usize| crate::engine::snapshot(&u.app).map(|s| s.channels[d].xf_assign);
+    ui.click("global.xf-a.deck1");
+    assert!(ui.wait_until(5.0, |u| side(u, 0) == Some(od_engine::XfAssign::A)), "deck 1 on side A");
+    ui.click("global.xf-b.deck2");
+    assert!(ui.wait_until(5.0, |u| side(u, 1) == Some(od_engine::XfAssign::B)), "deck 2 on side B");
+    ui.click("global.xf-a.deck1");
+    assert!(ui.wait_until(5.0, |u| side(u, 0) == Some(od_engine::XfAssign::Thru)), "deck 1 back to THRU");
 }

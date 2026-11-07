@@ -49,6 +49,10 @@ pub(crate) const COLUMNS: &[Column] = &[
 /// The columns of a fresh install.
 pub(crate) const DEFAULT_COLUMNS: &[&str] = &["preview", "title", "artist", "genre", "bpm", "key", "time", "rating"];
 
+/// The columns of an Explorer folder (files that may not be in the
+/// collection: no genre, rating or play data).
+pub(crate) const EXPLORER_COLUMNS: &[&str] = &["preview", "title", "bpm", "key", "artist", "time"];
+
 /// The column that cannot be hidden.
 pub(crate) const FIXED: &str = "title";
 
@@ -116,7 +120,8 @@ pub(crate) fn shift_sort(then: &[SortSpec], primary: &str, column: &str, default
 /// Header models: the shown columns (with their sort rank) and the menu.
 pub(crate) fn refresh(app: &App) {
     let st = app.state.borrow();
-    let ids = sanitize(&st.settings.browser.columns);
+    // A folder of the Explorer: the reduced set that files on disk carry.
+    let ids = if st.explorer.open.is_some() { EXPLORER_COLUMNS.iter().map(|s| s.to_string()).collect() } else { sanitize(&st.settings.browser.columns) };
     let b = &st.browser;
     let then = &st.settings.browser.sort_then;
     let views: Vec<ColumnView> = ids

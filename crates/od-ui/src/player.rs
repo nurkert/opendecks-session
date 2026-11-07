@@ -26,6 +26,32 @@ pub(crate) struct PlayerState {
     pub preview_slot: u8,
     /// Edit mode: the region of the current track (EDIT tab).
     pub edit: crate::track_edit::Region,
+    /// Zoom of the enlarged waveform: a power of two applied to the span
+    /// from Preferences (0 = as set there; +1 = twice the detail).
+    pub zoom: i32,
+    /// Auto loop length (beats) and jump size of − / + (index into
+    /// [`JUMP_SIZES`]) of the player.
+    pub loop_beats: f64,
+    pub jump: Option<usize>,
+}
+
+/// Jump sizes of the player's − / + in seconds.
+pub(crate) const JUMP_SIZES: [f64; 6] = [0.5, 1.0, 2.0, 4.0, 8.0, 16.0];
+/// The jump size a new player starts with (2 s).
+const JUMP_DEFAULT: usize = 2;
+
+impl PlayerState {
+    pub(crate) fn jump_seconds(&self) -> f64 {
+        JUMP_SIZES[self.jump.unwrap_or(JUMP_DEFAULT).min(JUMP_SIZES.len() - 1)]
+    }
+    pub(crate) fn loop_len(&self) -> f64 {
+        if self.loop_beats > 0.0 { self.loop_beats } else { 4.0 }
+    }
+}
+
+/// "0.5 S", "2 S" for the jump size stepper.
+pub(crate) fn jump_label(s: f64) -> String {
+    if s < 1.0 { format!("{s:.1} S") } else { format!("{s:.0} S") }
 }
 
 /// Taps further apart than this start a new count (seconds).
@@ -386,9 +412,18 @@ pub(crate) fn refresh_minis(app: &App) {
             overview,
             cursor: (cursor / t.duration.max(0.001)) as f32,
             previewing,
+            remaining: format!("-{}", format::time((t.duration - cursor).max(0.0))).into(),
+            rating: (0..5).map(|i| if i < t.tags.rating { '★' } else { '☆' }).collect::<String>().into(),
+            has_artwork: false,
+            artwork: Default::default(),
         }
     };
-    let one = view(p.current, p.cursor, p.previewing && p.preview_slot != 2, Some(app.ui.get_track_overview()));
+    let mut one = view(p.current, p.cursor, p.previewing && p.preview_slot != 2, Some(app.ui.get_track_overview()));
+    if one.has_track {
+        let info = app.ui.get_track_info();
+        one.has_artwork = info.has_artwork;
+        one.artwork = info.artwork;
+    }
     let cached = SECOND_OVERVIEW.with(|c| c.borrow().as_ref().filter(|(t, _)| Some(*t) == p.second).map(|(_, i)| i.clone()));
     let two = view(p.second, p.second_cursor, p.previewing && p.preview_slot == 2, cached);
     if let Some(t) = p.second {
@@ -512,7 +547,7 @@ fn render_detail(app: &App) {
     let width = ((ui.window().size().width as f32 / scale - 680.0).max(300.0) * scale) as u32;
     let (cursor, current, span) = {
         let st = app.state.borrow();
-        (st.player.cursor, st.player.current, st.settings.view.zoom_span as f64)
+        (st.player.cursor, st.player.current, st.settings.view.zoom_span as f64 / 2f64.powi(st.player.zoom))
     };
     DETAIL_SRC.with(|d| {
         let mut d = d.borrow_mut();
@@ -635,6 +670,127 @@ fn edit_grid(app: &App, f: impl FnOnce(&mut Beatgrid, f64)) {
 }
 
 /// Moves the cursor to the next (or previous) cue of the current track.
+/// The player's own controls (loops on the preview deck, quantize, memory
+/// cue stepping, zoom, jump size and the track menu).
+pub(crate) fn act(app: &App, what: &str) {
+    let preview = decks::PREVIEW_DECK;
+    let loop_state = || engine::snapshot(app).map(|s| s.decks[preview].loop_state).unwrap_or_default();
+    match what {
+        "loop-in" | "loop-out" | "loop-auto" | "loop-manual" | "loop-halve" | "loop-double" | "quantize" => {
+            engine::ensure_engine(app);
+        }
+        _ => {}
+    }
+    match what {
+        "loop-in" => engine::deck_cmd(app, preview, DeckCommand::LoopIn),
+        "loop-out" => engine::deck_cmd(app, preview, DeckCommand::LoopOut),
+        "loop-auto" => {
+            let l = loop_state();
+            let beats = app.state.borrow().player.loop_len();
+            engine::deck_cmd(app, preview, if l.active { DeckCommand::LoopExit } else { DeckCommand::AutoLoop { beats } });
+        }
+        "loop-manual" => {
+            let l = loop_state();
+            let cmd = if l.active {
+                DeckCommand::LoopExit
+            } else if l.start.is_some() && l.end.is_none() {
+                DeckCommand::LoopOut
+            } else {
+                DeckCommand::LoopIn
+            };
+            engine::deck_cmd(app, preview, cmd);
+        }
+        "loop-halve" | "loop-double" => {
+            let half = what == "loop-halve";
+            if loop_state().active {
+                engine::deck_cmd(app, preview, if half { DeckCommand::LoopHalve } else { DeckCommand::LoopDouble });
+            }
+            let mut st = app.state.borrow_mut();
+            let b = st.player.loop_len() * if half { 0.5 } else { 2.0 };
+            st.player.loop_beats = b.clamp(1.0 / 32.0, 32.0);
+        }
+        "quantize" => {
+            let q = engine::snapshot(app).map(|s| s.quantize).unwrap_or(true);
+            engine::send(app, Command::SetQuantize(!q));
+        }
+        "memory-prev" | "memory-next" => step_cue(app, what == "memory-next"),
+        "memory-delete" => delete_memory_cue(app),
+        "zoom-in" | "zoom-out" | "zoom-reset" => {
+            {
+                let mut st = app.state.borrow_mut();
+                st.player.zoom = match what {
+                    "zoom-in" => (st.player.zoom + 1).min(3),
+                    "zoom-out" => (st.player.zoom - 1).max(-2),
+                    _ => 0,
+                };
+            }
+            DETAIL_SRC.with(|d| {
+                if let Some(d) = d.borrow_mut().as_mut() {
+                    d.last_px = None;
+                }
+            });
+            render_detail(app);
+        }
+        "jump-size-up" | "jump-size-down" => {
+            let mut st = app.state.borrow_mut();
+            let i = JUMP_SIZES.iter().position(|j| *j == st.player.jump_seconds()).unwrap_or(JUMP_DEFAULT);
+            st.player.jump = Some(if what == "jump-size-up" { (i + 1).min(JUMP_SIZES.len() - 1) } else { i.saturating_sub(1) });
+        }
+        "jump-back" | "jump-forward" => {
+            let s = app.state.borrow().player.jump_seconds();
+            app.ui.invoke_nudge(if what == "jump-back" { -s as f32 } else { s as f32 });
+        }
+        "undo" => app.undo(),
+        "redo" => app.redo(),
+        "menu:analyse" => app.ui.invoke_analyse_selected(),
+        "menu:info" => {
+            app.ui.set_info_open(true);
+            crate::browser::refresh_info(app);
+        }
+        "menu:reveal" => {
+            let path = {
+                let st = app.state.borrow();
+                st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| st.resolve(&t.path))
+            };
+            if let Some(p) = path {
+                crate::preferences::reveal(&p);
+            }
+        }
+        _ => {}
+    }
+    project_controls(app, engine::snapshot(app).as_ref());
+}
+
+/// The player's loop, quantize, jump size, zoom and time-left read-outs.
+pub(crate) fn project_controls(app: &App, state: Option<&od_engine::EngineState>) {
+    let ui = &app.ui;
+    let (loop_len, jump, zoom_span, remaining) = {
+        let st = app.state.borrow();
+        let duration = st.player.current.and_then(|id| st.src().track(id).ok()).map(|t| t.duration).unwrap_or(0.0);
+        let span = st.settings.view.zoom_span as f64 / 2f64.powi(st.player.zoom);
+        (st.player.loop_len(), st.player.jump_seconds(), span, format!("-{}", format::time((duration - st.player.cursor).max(0.0))))
+    };
+    let l = state.map(|s| s.decks[decks::PREVIEW_DECK].loop_state).unwrap_or_default();
+    let set = |a: SharedString, b: &str| a.as_str() != b;
+    if set(ui.get_player_loop_size(), &format::beats(if l.active { l.beats.unwrap_or(loop_len) } else { loop_len })) {
+        ui.set_player_loop_size(format::beats(if l.active { l.beats.unwrap_or(loop_len) } else { loop_len }).into());
+    }
+    ui.set_player_looping(l.active);
+    ui.set_player_loop_in_set(!l.active && l.start.is_some() && l.end.is_none());
+    ui.set_player_quantize(state.map(|s| s.quantize).unwrap_or(true));
+    let jl = jump_label(jump);
+    if set(ui.get_player_jump_size(), &jl) {
+        ui.set_player_jump_size(jl.into());
+    }
+    let zl = if zoom_span < 1.0 { format!("{zoom_span:.1} S") } else { format!("{zoom_span:.0} S") };
+    if set(ui.get_player_zoom(), &zl) {
+        ui.set_player_zoom(zl.into());
+    }
+    if set(ui.get_track_remaining(), &remaining) {
+        ui.set_track_remaining(remaining.into());
+    }
+}
+
 pub(crate) fn step_cue(app: &App, forward: bool) {
     move_cursor(app, |st| {
         let Some(id) = st.player.current else { return };
@@ -760,6 +916,7 @@ pub(crate) fn wire(app: &Rc<App>) {
         }
     }));
     ui.on_toggle_preview(handler!(app, |a| toggle_preview(&a)));
+    ui.on_player_act(handler!(app, |a, w: SharedString| act(&a, w.as_str())));
 }
 
 #[cfg(test)]

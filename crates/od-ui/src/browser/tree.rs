@@ -50,8 +50,14 @@ fn row(id: i32, name: impl Into<SharedString>, kind: &str, depth: i32, count: i3
 }
 
 /// Library nodes below `parent`, depth first, expanded folders opened.
+/// Whether `n` or a node below it matches the tree filter (lower case).
+pub(crate) fn filter_matches(all: &[od_library::Node], n: &od_library::Node, filter: &str) -> bool {
+    filter.is_empty() || n.name.to_lowercase().contains(filter) || all.iter().filter(|c| c.parent == Some(n.id)).any(|c| filter_matches(all, c, filter))
+}
+
 fn walk(st: &AppState, all: &[od_library::Node], parent: Option<NodeId>, depth: i32, out: &mut Vec<TreeRow>, longest: &mut f64, device_nodes: &HashSet<NodeId>) {
-    for n in all.iter().filter(|n| n.parent == parent) {
+    let filter = st.browser.tree_filter.as_str();
+    for n in all.iter().filter(|n| n.parent == parent && filter_matches(all, n, filter)) {
         let has_children = all.iter().any(|c| c.parent == Some(n.id));
         let (count, duration) = if n.kind == NodeKind::Folder {
             (0, 0.0)
@@ -60,7 +66,8 @@ fn walk(st: &AppState, all: &[od_library::Node], parent: Option<NodeId>, depth: 
             (t.len(), t.iter().map(|t| t.duration).sum())
         };
         *longest = longest.max(duration);
-        let expanded = st.browser.expanded.contains(&n.id);
+        // A filter opens the folders that hold a match.
+        let expanded = st.browser.expanded.contains(&n.id) || (!filter.is_empty() && has_children);
         out.push(TreeRow {
             length_frac: duration as f32,
             duration: format::time(duration).into(),
@@ -78,9 +85,14 @@ fn walk(st: &AppState, all: &[od_library::Node], parent: Option<NodeId>, depth: 
 pub(crate) fn refresh_tree(app: &App) {
     refresh_menu_targets(app);
     super::sub::refresh(app);
-    let (names, histories) = super::sources::history_rows(&app.state.borrow().lib);
+    let years = super::sources::history_years(&app.state.borrow().lib);
+    let year = super::sources::history_year(&years, app.state.borrow().browser.history_year.as_deref());
+    let (names, histories) = super::sources::history_rows(&app.state.borrow().lib, year.as_deref());
     app.state.borrow_mut().browser.histories = names;
+    app.state.borrow_mut().browser.history_year = year.clone();
     app.ui.set_histories(model(histories));
+    app.ui.set_history_year(year.unwrap_or_default().into());
+    app.ui.set_history_year_count(years.len() as i32);
     let st = app.state.borrow();
     let b = &st.browser;
     let all = st.lib.all_nodes().unwrap_or_default();
@@ -171,5 +183,8 @@ fn refresh_menu_targets(app: &App) {
         .filter(|n| matches!(n.kind, od_library::NodeKind::Playlist | od_library::NodeKind::Set))
         .map(|n| crate::MenuTarget { id: n.id.0 as i32, name: n.name.into() })
         .collect();
+    let recent_ids: Vec<i64> = st.lib.meta(super::RECENT_LISTS_META).ok().flatten().and_then(|j| serde_json::from_str(&j).ok()).unwrap_or_default();
+    let recent: Vec<crate::MenuTarget> = recent_ids.iter().filter_map(|id| targets.iter().find(|t| t.id as i64 == *id).cloned()).collect();
+    app.ui.set_menu_recent(crate::models::model(recent));
     app.ui.set_menu_playlists(crate::models::model(targets));
 }

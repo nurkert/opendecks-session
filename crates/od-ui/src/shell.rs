@@ -136,6 +136,7 @@ pub(crate) fn apply_browser_style(ui: &AppWindow, settings: &Settings, kiosk: bo
     ui.global::<crate::TableStyle>().set_text(size);
     let row = if kiosk { 44.0 } else { settings.row_height().max(size + 10.0) };
     ui.global::<crate::Theme>().set_row_height(row);
+    ui.set_density(settings.browser.line_spacing.clone().into());
 }
 
 /// Palette, contrast and motion of one window's theme.

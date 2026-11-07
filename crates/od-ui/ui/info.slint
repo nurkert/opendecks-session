@@ -3,7 +3,7 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, Field } from "controls.slint";
+import { Caps, Field, TipArea } from "controls.slint";
 
 export struct TrackInfo {
     has-track: bool,
@@ -23,6 +23,11 @@ export struct TrackInfo {
     path: string,
     added: string,
     plays: string,
+    // File details: format, size, sample rate, bit rate.
+    file-type: string,
+    size: string,
+    sample-rate: string,
+    bitrate: string,
     // Cover art from the file's tags (thumbnail).
     has-artwork: bool,
     artwork: image,
@@ -48,48 +53,99 @@ component InfoField inherits VerticalLayout {
     }
 }
 
+// A tab of the info panel: its legend, lit while open.
+component InfoTab inherits Rectangle {
+    in property <string> label;
+    in property <bool> current;
+    callback clicked();
+    accessible-role: tab;
+    accessible-item-selectable: true; accessible-item-selected: root.current;
+    height: 26px;
+    min-width: t.preferred-width + 20px;
+    horizontal-stretch: 1;
+    background: root.current ? Theme.plate : tt.has-hover ? Theme.ground-band : transparent;
+    Rectangle { y: parent.height - 2px; height: 2px; background: root.current ? Theme.w486 : transparent; }
+    t := Text {
+        text: root.label;
+        font-family: Theme.family; font-size: 11px; font-weight: 600; letter-spacing: 1.4px;
+        color: root.current ? Theme.bone : Theme.bone-3;
+    }
+    tt := TipArea { mouse-cursor: pointer; clicked => { root.clicked(); } }
+}
+
 export component InfoPanel inherits Rectangle {
     in property <TrackInfo> info;
+    // "summary" (the tags, editable), "info" (file details) or "artwork".
+    in-out property <string> tab: "summary";
     // field ("title", "artist", …), new value
     callback edit(string, string);
     background: Theme.ground;
-    width: 300px;
+    width: 272px;
     VLine { x: 0; height: parent.height; weight: 1px; tone: Theme.rule; }
-    if !root.info.has-track: Text {
-        text: @tr("Select a track to see and edit its tags.");
-        font-family: Theme.family; font-size: 13px; color: Theme.bone-3; wrap: word-wrap;
-        x: 16px; width: parent.width - 32px;
-    }
-    if root.info.has-track: Flickable {
+    VerticalLayout {
         x: 1px; width: parent.width - 1px;
-        VerticalLayout {
+        HorizontalLayout {
+            padding-left: 8px; padding-right: 8px; padding-top: 8px;
+            spacing: 2px;
+            InfoTab { accessible-label: "info.tab.summary"; label: @tr("SUMMARY"); current: root.tab == "summary"; clicked => { root.tab = "summary"; } }
+            InfoTab { accessible-label: "info.tab.info"; label: "INFO"; current: root.tab == "info"; clicked => { root.tab = "info"; } }
+            InfoTab { accessible-label: "info.tab.artwork"; label: @tr("ARTWORK"); current: root.tab == "artwork"; clicked => { root.tab = "artwork"; } }
+        }
+        HLine { tone: Theme.rule; }
+        if !root.info.has-track: Text {
+            vertical-stretch: 1;
+            text: @tr("Select a track to see and edit its tags.");
+            font-family: Theme.family; font-size: 13px; color: Theme.bone-3; wrap: word-wrap;
+        }
+        if root.info.has-track && root.tab == "summary": Flickable {
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                InfoField { field: "info.title"; label: @tr("TITLE"); value: root.info.title; editable: !root.info.read-only; save(v) => { root.edit("title", v); } }
+                InfoField { field: "info.artist"; label: @tr("ARTIST"); value: root.info.artist; editable: !root.info.read-only; save(v) => { root.edit("artist", v); } }
+                InfoField { field: "info.album"; label: @tr("ALBUM"); value: root.info.album; editable: !root.info.read-only; save(v) => { root.edit("album", v); } }
+                InfoField { field: "info.genre"; label: @tr("GENRE"); value: root.info.genre; editable: !root.info.read-only; save(v) => { root.edit("genre", v); } }
+                InfoField { field: "info.label"; label: @tr("LABEL"); value: root.info.label; editable: !root.info.read-only; save(v) => { root.edit("label", v); } }
+                InfoField { field: "info.remixer"; label: @tr("REMIXER"); value: root.info.remixer; editable: !root.info.read-only; save(v) => { root.edit("remixer", v); } }
+                InfoField { field: "info.composer"; label: @tr("COMPOSER"); value: root.info.composer; editable: !root.info.read-only; save(v) => { root.edit("composer", v); } }
+                InfoField { field: "info.year"; label: @tr("YEAR"); value: root.info.year; editable: !root.info.read-only; save(v) => { root.edit("year", v); } }
+                InfoField { field: "info.comment"; label: @tr("COMMENT"); value: root.info.comment; editable: !root.info.read-only; save(v) => { root.edit("comment", v); } }
+                HorizontalLayout {
+                    spacing: 12px;
+                    InfoField { field: "info.bpm"; label: "BPM"; value: root.info.bpm; editable: false; }
+                    InfoField { field: "info.key"; label: @tr("KEY"); value: root.info.key; editable: false; }
+                }
+            }
+        }
+        if root.info.has-track && root.tab == "info": Flickable {
+            vertical-stretch: 1;
+            VerticalLayout {
+                padding: 14px;
+                spacing: 10px;
+                InfoField { field: "info.time"; label: @tr("TIME"); value: root.info.time; editable: false; }
+                InfoField { field: "info.file-type"; label: @tr("FILE TYPE"); value: root.info.file-type; editable: false; }
+                InfoField { field: "info.size"; label: @tr("SIZE"); value: root.info.size; editable: false; }
+                InfoField { field: "info.created"; label: @tr("ADDED"); value: root.info.added; editable: false; }
+                InfoField { field: "info.sample-rate"; label: @tr("SAMPLE RATE"); value: root.info.sample-rate; editable: false; }
+                InfoField { field: "info.bitrate"; label: @tr("BIT RATE"); value: root.info.bitrate; editable: false; }
+                InfoField { field: "info.play-count"; label: @tr("PLAYS"); value: root.info.plays; editable: false; }
+                InfoField { field: "info.path"; label: @tr("FILE"); value: root.info.path; editable: false; }
+            }
+        }
+        if root.info.has-track && root.tab == "artwork": VerticalLayout {
+            vertical-stretch: 1;
             padding: 14px;
-            spacing: 10px;
-            Caps { text: @tr("TRACK INFO"); color: Theme.bone-2; }
+            alignment: start;
             if root.info.has-artwork: Image {
                 accessible-role: image; accessible-label: "info.artwork";
-                width: 132px; height: 132px;
+                width: 240px; height: 240px;
                 source: root.info.artwork; image-fit: cover;
             }
-            InfoField { field: "info.title"; label: @tr("TITLE"); value: root.info.title; editable: !root.info.read-only; save(v) => { root.edit("title", v); } }
-            InfoField { field: "info.artist"; label: @tr("ARTIST"); value: root.info.artist; editable: !root.info.read-only; save(v) => { root.edit("artist", v); } }
-            InfoField { field: "info.album"; label: @tr("ALBUM"); value: root.info.album; editable: !root.info.read-only; save(v) => { root.edit("album", v); } }
-            InfoField { field: "info.genre"; label: @tr("GENRE"); value: root.info.genre; editable: !root.info.read-only; save(v) => { root.edit("genre", v); } }
-            InfoField { field: "info.label"; label: @tr("LABEL"); value: root.info.label; editable: !root.info.read-only; save(v) => { root.edit("label", v); } }
-            InfoField { field: "info.remixer"; label: @tr("REMIXER"); value: root.info.remixer; editable: !root.info.read-only; save(v) => { root.edit("remixer", v); } }
-            InfoField { field: "info.composer"; label: @tr("COMPOSER"); value: root.info.composer; editable: !root.info.read-only; save(v) => { root.edit("composer", v); } }
-            InfoField { field: "info.year"; label: @tr("YEAR"); value: root.info.year; editable: !root.info.read-only; save(v) => { root.edit("year", v); } }
-            InfoField { field: "info.comment"; label: @tr("COMMENT"); value: root.info.comment; editable: !root.info.read-only; save(v) => { root.edit("comment", v); } }
-            HLine { tone: Theme.rule; }
-            HorizontalLayout {
-                spacing: 12px;
-                InfoField { field: "info.bpm"; label: "BPM"; value: root.info.bpm; editable: false; }
-                InfoField { field: "info.key"; label: @tr("KEY"); value: root.info.key; editable: false; }
-                InfoField { field: "info.time"; label: @tr("TIME"); value: root.info.time; editable: false; }
+            if !root.info.has-artwork: Text {
+                text: @tr("This track has no cover art.");
+                font-family: Theme.family; font-size: 13px; color: Theme.bone-3; wrap: word-wrap;
             }
-            InfoField { field: "info.added"; label: @tr("ADDED"); value: root.info.added; editable: false; }
-            InfoField { field: "info.play-count"; label: @tr("PLAYS"); value: root.info.plays; editable: false; }
-            InfoField { field: "info.path"; label: @tr("FILE"); value: root.info.path; editable: false; }
         }
     }
 }

@@ -3,7 +3,7 @@
 
 import { Theme } from "tokens.slint";
 import { VLine, HLine } from "lines.slint";
-import { Caps, Toggle, PlateButton, Glyph, TipArea } from "controls.slint";
+import { Caps, Toggle, PlateButton, Glyph, TipArea, Stepper, Field } from "controls.slint";
 import { TreeItem } from "rail.slint";
 import { TreeRow, DeviceRow, VolumeRow, ExplorerRow } from "structs.slint";
 
@@ -14,15 +14,21 @@ component Heading inherits Rectangle {
     in property <string> command;
     // Accessible label of the action button (test hook).
     in property <string> action-label;
+    in property <bool> action-enabled: true;
+    // Accessible label of the heading text (test hook).
+    in property <string> heading-label;
     callback act();
     height: 30px;
-    Caps { x: 12px; y: 12px; text: root.label; color: Theme.bone-2; font-weight: 600; }
+    Caps {
+        accessible-label: root.heading-label;
+        x: 12px; y: 3px; height: 24px; vertical-alignment: center; text: root.label; color: Theme.bone-2; font-weight: 600;
+    }
     if root.action != "": Rectangle {
         accessible-label: root.action-label; accessible-role: button;
-        x: parent.width - 30px; y: 7px; width: 22px; height: 20px;
-        background: t.has-hover ? Theme.plate : transparent;
-        Glyph { x: 6px; y: 5px; width: 10px; height: 10px; kind: root.action; tone: Theme.bone-2; }
-        t := TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.act(); } }
+        x: parent.width - 32px; y: 3px; width: 24px; height: 24px;
+        background: t.has-hover && root.action-enabled ? Theme.plate : transparent;
+        Glyph { x: 7px; y: 7px; width: 10px; height: 10px; kind: root.action; tone: root.action-enabled ? Theme.bone-2 : Theme.bone-3.with-alpha(0.5); }
+        t := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.action-enabled; mouse-cursor: root.action-enabled ? pointer : default; clicked => { root.act(); } }
     }
 }
 
@@ -160,30 +166,32 @@ component ExplorerItem inherits Rectangle {
 
 // One source of the rail: a short legend with a tick that lights while
 // the source is open; a click opens the source (or scrolls the tree to it).
-component RailItem inherits Rectangle {
+export component RailItem inherits Rectangle {
     in property <string> label;
     in property <string> tooltip;
     in property <string> command;
     in property <bool> current;
+    in property <bool> enabled: true;
     in property <color> tone: Theme.bone-2;
     callback clicked();
     accessible-role: button;
     accessible-checkable: true;
     accessible-checked: root.current;
-    height: 32px;
+    // Shrinks to the 24 px minimum target when the browser pane is short.
+    min-height: 24px; preferred-height: 32px; max-height: 32px;
     background: touch.has-hover ? Theme.plate : transparent;
     Rectangle {
-        x: 0; y: 6px; width: root.current ? 3px : 1px; height: parent.height - 12px;
+        x: 0; y: 4px; width: root.current ? 3px : 1px; height: parent.height - 8px;
         background: root.current ? root.tone : Theme.rule-strong;
     }
     Text {
         x: 5px; width: parent.width - 7px;
         text: root.label;
         font-family: Theme.family; font-size: 9px; font-weight: 600; letter-spacing: 0.6px;
-        color: root.current ? Theme.bone : Theme.bone-3;
+        color: !root.enabled ? Theme.bone-3.with-alpha(0.5) : root.current ? Theme.bone : Theme.bone-3;
         horizontal-alignment: center; vertical-alignment: center;
     }
-    touch := TipArea { tooltip: root.tooltip; command: root.command; mouse-cursor: pointer; clicked => { root.clicked(); } }
+    touch := TipArea { tooltip: root.tooltip; command: root.command; enabled: root.enabled; mouse-cursor: root.enabled ? pointer : default; clicked => { root.clicked(); } }
 }
 
 export component Sidebar inherits Rectangle {
@@ -201,6 +209,7 @@ export component Sidebar inherits Rectangle {
     callback explorer-select(int);
     callback explorer-toggle(int);
     callback explorer-add-root();
+    callback explorer-open-roots();
     callback explorer-remove-root(int);
     callback select-node(int);
     callback toggle-node(int);
@@ -210,12 +219,17 @@ export component Sidebar inherits Rectangle {
     callback open-device(int);
     callback sync-device(int);
     callback eject-device(int);
+    callback sync-all-devices();
+    callback tree-filter(string);
     callback register-volume(int);
     callback import-folder();
     callback import-rekordbox();
     // Histories (play history sessions), the tag list and the drop of a
     // dragged tree node (source id, DragState.target).
     in property <[TreeRow]> histories;
+    in property <string> history-year;
+    in property <int> history-year-count;
+    callback history-year-step(int);
     in property <int> tag-list-count;
     in property <int> related-count;
     callback add-to-tag-list();
@@ -236,8 +250,8 @@ export component Sidebar inherits Rectangle {
       // Source rail (UX §1.6 order, without the streaming and cloud sources).
       VerticalLayout {
         width: 38px;
-        padding-top: 4px;
-        spacing: 2px;
+        padding-top: 0px;
+        spacing: 0px;
         RailItem {
             accessible-label: "browser.rail.collection"; label: @tr("ALL"); tone: Theme.w486;
             tooltip: @tr("Collection: every track"); current: root.section == "library" && root.selected-node == -1 && root.node-kind == "all";
@@ -261,7 +275,7 @@ export component Sidebar inherits Rectangle {
         RailItem {
             accessible-label: "browser.rail.explorer"; label: @tr("FILES"); tone: Theme.bone-2;
             tooltip: @tr("Explorer: folders on disk"); current: root.section == "library" && root.node-kind == "explorer";
-            clicked => { root.reveal(ex-h.y); }
+            clicked => { root.explorer-open-roots(); root.reveal(ex-h.y); }
         }
         RailItem {
             accessible-label: "browser.rail.devices"; label: "USB"; tone: Theme.live;
@@ -283,11 +297,23 @@ export component Sidebar inherits Rectangle {
             tooltip: @tr("Tag list: tracks collected for later"); current: root.section == "library" && root.selected-node == -3;
             clicked => { root.reveal(tag-h.y); root.select-node(-3); }
         }
-        Rectangle { vertical-stretch: 1; }
+        Rectangle { vertical-stretch: 1; min-height: 0px; }
       }
       VLine { weight: 1px; tone: Theme.rule; }
       VerticalLayout {
         if root.browse-focus: Rectangle { height: 2px; background: Theme.attention; }
+        // Filter the lists by name (folders that hold a match stay open).
+        HorizontalLayout {
+            padding: 6px; padding-bottom: 2px;
+            Field {
+                accessible-label: "browser.tree.filter"; accessible-role: text-input;
+                accessible-value: self.text; accessible-placeholder-text: self.placeholder;
+                height: 26px;
+                placeholder: @tr("FILTER LISTS");
+                tone: Theme.attention;
+                edited(t) => { root.tree-filter(t); }
+            }
+        }
         tree := Flickable {
             accessible-label: "browser.tree"; accessible-role: AccessibleRole.tree;
             accessible-value: root.browse-focus ? "controller" : "";
@@ -299,6 +325,7 @@ export component Sidebar inherits Rectangle {
                 alignment: start;
                 coll-h := Heading { action-label: "browser.tree.add-music"; label: @tr("COLLECTION"); action: "plus"; tooltip: @tr("Add a music folder"); command: "browser.add.music"; act => { root.import-folder(); } }
                 for r in root.tree: TreeItem {
+                    label: "browser.tree.all";
                     labelled: r.kind == "all";
                     visible: r.kind == "all";
                     height: r.kind == "all" ? 26px : 0px;
@@ -307,7 +334,7 @@ export component Sidebar inherits Rectangle {
                     can-add: false;
                     clicked => { root.select-node(r.id); }
                 }
-                pl-h := Heading { action-label: "browser.tree.add"; label: @tr("PLAYLISTS"); action: "plus"; tooltip: @tr("New playlist"); command: "browser.new.playlist"; act => { root.create-node("playlist"); } }
+                pl-h := Heading { heading-label: "browser.tree.playlists"; action-label: "browser.tree.add"; label: @tr("PLAYLISTS"); action: "plus"; tooltip: @tr("New playlist"); command: "browser.new.playlist"; act => { root.create-node("playlist"); } }
                 for r in root.tree: TreeItem {
                     labelled: r.kind != "all" && r.kind != "stick" && r.id > -100;
                     visible: r.kind != "all" && r.kind != "stick" && r.id > -100;
@@ -343,7 +370,21 @@ export component Sidebar inherits Rectangle {
                     selected: root.selected-node == -4 && root.section == "library";
                     clicked => { root.select-node(-4); }
                 }
-                dev-h := Heading { label: @tr("DEVICES"); }
+                // The rules the related list follows.
+                Caps {
+                    accessible-label: "browser.tree.rules"; accessible-role: text; accessible-value: self.text;
+                    x: 38px; height: 18px;
+                    text: @tr("TEMPO ±6 % · COMPATIBLE KEY");
+                    font-size: 9px; color: Theme.bone-3; vertical-alignment: top;
+                }
+                dev-h := Heading {
+                    heading-label: "browser.tree.devices";
+                    label: @tr("DEVICES");
+                    action: "sync"; action-label: "browser.tree.device-sync";
+                    action-enabled: root.devices.length > 0;
+                    tooltip: @tr("Sync every plugged-in stick now");
+                    act => { root.sync-all-devices(); }
+                }
                 if root.devices.length == 0 && root.volumes.length == 0: Text {
                     x: 12px; width: root.width - 24px;
                     text: @tr("Plug in a USB stick to register it.");
@@ -391,11 +432,31 @@ export component Sidebar inherits Rectangle {
                     text: @tr("Every session you play is listed here.");
                     font-family: Theme.family; font-size: 12px; color: Theme.bone-3; wrap: word-wrap;
                 }
-                for h[i] in root.histories: TreeItem {
-                    label: "browser.tree.history\{i}";
-                    item: h;
-                    selected: root.selected-node == h.id && root.section == "library";
-                    clicked => { root.select-node(h.id); }
+                // Year, then the sessions played in it (newest first).
+                HorizontalLayout {
+                    padding-left: 12px; padding-right: 12px;
+                    Stepper {
+                        accessible-role: spinbox;
+                        accessible-label: "browser.tree.years";
+                        accessible-value: root.history-year;
+                        size: 24px; font-size: 11px; template: "0000";
+                        value: root.history-year == "" ? "—" : root.history-year;
+                        enabled: root.history-year-count > 1;
+                        tooltip: @tr("Year of the sessions shown: earlier / later");
+                        step(d) => { root.history-year-step(d); }
+                    }
+                    Rectangle { horizontal-stretch: 1; }
+                }
+                VerticalLayout {
+                    accessible-role: list;
+                    accessible-label: "browser.tree.sessions";
+                    accessible-item-count: root.histories.length;
+                    for h[i] in root.histories: TreeItem {
+                        label: "browser.tree.history\{i}";
+                        item: h;
+                        selected: root.selected-node == h.id && root.section == "library";
+                        clicked => { root.select-node(h.id); }
+                    }
                 }
                 rec-h := Heading { label: @tr("RECORDINGS"); }
                 Rectangle {

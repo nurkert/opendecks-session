@@ -30,10 +30,26 @@ use std::path::PathBuf;
 /// menu instead. Only items that exist are listed.
 pub(crate) const MENU_ITEMS: &[(&str, &str)] = &[
     ("ctx.row.load", "Load to deck"),
-    ("ctx.row.add-to-playlist", "Add to playlist"),
+    ("ctx.row.import", "Import to collection"),
     ("ctx.row.analyse", "Analyse"),
-    ("ctx.row.show-in-finder", "Show in file manager"),
+    ("ctx.row.analysis-lock", "Lock / unlock analysis"),
+    ("ctx.row.add-to-playlist", "Add to playlist"),
+    ("ctx.row.add-to-tag-list", "Add to tag list"),
+    ("ctx.row.reload-tag", "Reload tags from file"),
+    ("ctx.row.export-track", "Export file…"),
+    ("ctx.row.reset-play-count", "Reset play count"),
+    ("ctx.row.memory-to-hot-cues", "Memory cues to hot cues"),
+    ("ctx.row.sort-hot-cues", "Sort hot cues by time"),
     ("ctx.row.remove", "Remove from this list"),
+    ("ctx.row.show-info", "Show info"),
+    ("ctx.row.show-in-finder", "Show in file manager"),
+    ("ctx.header.columns", "PREVIEW"),
+    ("menu.view.full-screen", "Full Screen"),
+    ("menu.view.layouts", "Prepare Layout"),
+    ("menu.view.my-tag", "My Tag"),
+    ("menu.view.related", "Related Tracks"),
+    ("menu.view.info", "Info Panel"),
+    ("menu.view.sub-browser", "Sub Browser"),
 ];
 
 pub(crate) fn workspace_root() -> PathBuf {
@@ -52,6 +68,12 @@ pub(crate) fn strict() -> bool {
 fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String> {
     let w = &ui.app.ui;
     let id = view.id.as_str();
+    // Clicks an element when the view shows it (the kiosk has no sidebar).
+    let click_if = |label: &str| {
+        if let Some(e) = ui.find(label) {
+            ui.click_el(&e);
+        }
+    };
     let perform = |decks: i32| {
         // Perform with audio running (the mixer strips appear with the engine).
         crate::engine::ensure_engine(&ui.app);
@@ -108,6 +130,10 @@ fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String> {
             }
             prepare_library();
             w.invoke_row_clicked(0, false, false);
+            if id.ends_with(".grid") {
+                ui.pump(200);
+                click_if("player1.tab.grid");
+            }
         }
         "prepare.2-players" | "prepare.dual-player" | "prepare.simple-player" | "prepare.full-browser" | "prepare.recording-bar" => {
             if kiosk {
@@ -144,18 +170,29 @@ fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String> {
             w.invoke_explorer_select(0);
         }
         "browser.devices" => {
+            // The Devices source of the rail: the tree shows the sticks, the
+            // list keeps the open list.
             prepare_library();
-            w.invoke_select_section("devices".into());
+            ui.pump(200);
+            click_if("browser.rail.devices");
         }
         "browser.recordings" => {
+            // The rail's REC source: the recordings page, the tree at its row.
             prepare_library();
-            w.invoke_select_section("recordings".into());
+            ui.pump(200);
+            click_if("browser.rail.recordings");
+            if w.get_section() != "recordings" {
+                w.invoke_select_section("recordings".into());
+            }
         }
         "browser.info-panel" => {
             prepare_library();
             w.invoke_select_node(-1);
             w.invoke_row_clicked(0, false, false);
             w.set_info_open(true);
+            ui.pump(200);
+            // The file details of the INFO tab.
+            click_if("info.tab.info");
         }
         "ctx.track-row" => {
             prepare_library();
@@ -164,7 +201,67 @@ fn open_view(ui: &Ui, view: &View, kiosk: bool) -> Result<(), String> {
             let row = ui.find("browser.row0").ok_or("no track row to right-click")?;
             ui.right_click_el(&row);
         }
-        "ctx.column-header" => return Err("the column header has no context menu".into()),
+        "ctx.column-header" => {
+            prepare_library();
+            w.invoke_select_node(-1);
+            ui.pump(200);
+            let header = ui.find("browser.header.title").ok_or("no column header to right-click")?;
+            ui.right_click_el(&header);
+        }
+        "perform.mixer-off" => {
+            perform(2);
+            if w.get_mixer_panel() {
+                w.invoke_menu_action("perform.mixer.panel".into());
+            }
+        }
+        "panel.mix-point-link" => {
+            perform(2);
+            if !w.get_mpl_panel() {
+                w.invoke_menu_action("perform.mpl.panel".into());
+            }
+        }
+        "browser.histories" => {
+            // One played session, as the decks log it.
+            let track = ui.fx.tracks[0].0;
+            let _ = ui.app.state.borrow_mut().lib.record_play(track, "Session 2026-11-07 21:30", "opendecks");
+            crate::browser::refresh_tree(&ui.app);
+            prepare_library();
+            ui.pump(200);
+            click_if("browser.rail.histories");
+            click_if("browser.tree.history0");
+        }
+        "browser.tag-list" => {
+            // The rail's TAG source: opens the tag list and scrolls the tree to it.
+            prepare_library();
+            ui.pump(200);
+            click_if("browser.rail.tag-list");
+            if w.get_selected_node() != -3 {
+                w.invoke_select_node(-3);
+            }
+        }
+        "browser.sub-browser" => {
+            prepare_library();
+            w.invoke_select_node(-1);
+            if !w.get_sub_browser_open() {
+                w.invoke_toggle_sub_browser();
+            }
+        }
+        "browser.sampler" => {
+            prepare_library();
+            ui.pump(200);
+            click_if("browser.rail.sampler");
+        }
+        "menu.view" => {
+            // The View menu lives in the platform menu bar (shown in the
+            // window on macOS; elsewhere only its shortcuts work).
+            if !cfg!(target_os = "macos") {
+                return Err("the View menu is the platform menu bar (macOS only)".into());
+            }
+            prepare_library();
+            ui.pump(200);
+            let view = ui.menu_item("View").ok_or("no View menu in the menu bar")?;
+            ui.click_el(&view);
+        }
         _ if id.starts_with("prefs.") => {
             if kiosk {
                 return Err("Preferences are not part of the kiosk".into());
@@ -287,7 +384,7 @@ fn check_view(view: &View, size: &Size) -> ViewResult {
     } else {
         let (w, h) = ui.size();
         let mut found = ui.labelled();
-        if view.id.starts_with("ctx.") {
+        if view.id.starts_with("ctx.") || view.id.starts_with("menu.") {
             for (label, title) in MENU_ITEMS {
                 if let Some(e) = ui.menu_item(title) {
                     found.insert(label.to_string(), vec![e]);

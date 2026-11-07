@@ -206,6 +206,14 @@ fn frame(app: &App) {
     if app.ui.get_small_screen() != small {
         app.ui.set_small_screen(small);
     }
+    let narrow = (app.ui.window().size().width as f32 / scale) < 1500.0;
+    if app.ui.get_narrow_screen() != narrow {
+        app.ui.set_narrow_screen(narrow);
+    }
+    let short = (app.ui.window().size().height as f32 / scale) < 860.0;
+    if app.ui.get_short_screen() != short {
+        app.ui.set_short_screen(short);
+    }
     decks::receive_prepared(app);
     decks::poll_stems(app);
     explorer::poll(app);
@@ -221,6 +229,10 @@ fn frame(app: &App) {
     };
     decks::persist_cue_events(app, &events);
     crate::lighting::frame(app, state.as_ref());
+    top_bar(app, state.as_ref());
+    if app.ui.get_mode() == "prepare" {
+        player::project_controls(app, state.as_ref());
+    }
     let Some(state) = state else {
         // Before audio starts: empty deck plates, so the layout is complete.
         if app.ui.get_mode() == "perform" {
@@ -245,6 +257,28 @@ fn frame(app: &App) {
         if s.xruns > 0 || s.overruns > 0 {
             app.ui.set_engine_message(format!("Audio dropouts: {}", s.xruns + s.overruns).into());
         }
+    }
+}
+
+thread_local! {
+    /// Minute (since the epoch) the top bar clock shows.
+    static CLOCK_MINUTE: std::cell::Cell<i64> = const { std::cell::Cell::new(-1) };
+}
+
+/// Top bar: controller state, master meter and the wall clock (local time
+/// from SQLite, refreshed once a minute).
+fn top_bar(app: &App, state: Option<&od_engine::EngineState>) {
+    let midi = app.controller.borrow().name.clone().unwrap_or_default();
+    if app.ui.get_midi_device() != midi.as_str() {
+        app.ui.set_midi_device(midi.into());
+    }
+    let (meter, clip) = state.map(|s| (s.master_meter.rms.max(s.master_meter.peak * 0.8).min(1.0), s.master_meter.clipped)).unwrap_or((0.0, false));
+    app.ui.set_master_meter(meter);
+    app.ui.set_master_clip(clip);
+    let minute = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|d| d.as_secs() as i64 / 60).unwrap_or(0);
+    if CLOCK_MINUTE.with(|c| c.replace(minute)) != minute || app.ui.get_clock().is_empty() {
+        let now: Option<String> = app.state.borrow().lib.conn().query_row("SELECT strftime('%H:%M', 'now', 'localtime')", [], |r| r.get(0)).ok();
+        app.ui.set_clock(now.unwrap_or_default().into());
     }
 }
 

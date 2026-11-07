@@ -130,6 +130,8 @@ pub struct ViewSettings {
     /// Seconds across the zoomed waveform at start (Prepare player; the
     /// decks start at the matching zoom).
     pub zoom_span: f32,
+    /// Hover help on controls (what it does and its shortcut).
+    pub tooltips: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -348,6 +350,7 @@ impl Default for ViewSettings {
             phrase_types: "names".into(),
             bar_counter: "to-phrase".into(),
             zoom_span: 8.0,
+            tooltips: true,
         }
     }
 }

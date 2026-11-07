@@ -4478,3 +4478,440 @@ msgstr "Der Effekt nimmt den ganzen Kanal"
 msgctxt "FxUnit"
 msgid "Stem FX: the effect takes only this part of the channel"
 msgstr "Stem FX: Der Effekt nimmt nur diesen Part des Kanals"
+
+msgctxt "AppWindow"
+msgid "COMPACT"
+msgstr "KOMPAKT"
+
+msgctxt "AppWindow"
+msgid "Full Screen"
+msgstr "Vollbild"
+
+msgctxt "AppWindow"
+msgid "In Prepare a double-click opens the track in the player"
+msgstr "In Prepare öffnet ein Doppelklick den Track im Player"
+
+msgctxt "AppWindow"
+msgid "Info: the tags and file details of the selected track"
+msgstr "Info: Tags und Dateidetails des gewählten Tracks"
+
+msgctxt "AppWindow"
+msgid "LOAD → FREE"
+msgstr "LADEN → FREI"
+
+msgctxt "AppWindow"
+msgid "LOAD → {}"
+msgstr "LADEN → {}"
+
+msgctxt "AppWindow"
+msgid "MYTAG"
+msgstr "MYTAG"
+
+msgctxt "AppWindow"
+msgid "My Tag: tag the selected tracks with your own categories"
+msgstr "My Tag: die gewählten Tracks mit eigenen Kategorien taggen"
+
+msgctxt "AppWindow"
+msgid "NORMAL"
+msgstr "NORMAL"
+
+msgctxt "AppWindow"
+msgid "REL"
+msgstr "VERW"
+
+msgctxt "AppWindow"
+msgid "ROOMY"
+msgstr "LUFTIG"
+
+msgctxt "AppWindow"
+msgid "Related: tracks that fit after the selected one"
+msgstr "Verwandt: Tracks, die nach dem gewählten passen"
+
+msgctxt "AppWindow"
+msgid "Row spacing of the list: compact, normal, roomy — click for the next"
+msgstr "Zeilenabstand der Liste: kompakt, normal, luftig — klicken für den nächsten"
+
+msgctxt "AppWindow"
+msgid "SMPL"
+msgstr "SMPL"
+
+msgctxt "AppWindow"
+msgid "Show or hide the sampler panel"
+msgstr "Sampler-Panel zeigen oder ausblenden"
+
+msgctxt "AppWindow"
+msgid "Sub browser: a second tree and list under this one, to drag tracks between lists"
+msgstr "Sub-Browser: ein zweiter Baum mit Liste darunter, um Tracks zwischen Listen zu ziehen"
+
+msgctxt "AppWindow"
+msgid "The sampler panel is part of Perform"
+msgstr "Das Sampler-Panel gehört zu Perform"
+
+msgctxt "AppWindow"
+msgid "Where a double-click loads: the free deck or a fixed deck — click for the next"
+msgstr "Wohin ein Doppelklick lädt: freies Deck oder ein festes Deck — klicken für das nächste"
+
+msgctxt "DeckPanel"
+msgid "Double the loop"
+msgstr "Loop verdoppeln"
+
+msgctxt "DeckPanel"
+msgid "Halve the loop"
+msgstr "Loop halbieren"
+
+msgctxt "InfoPanel"
+msgid "ARTWORK"
+msgstr "COVER"
+
+msgctxt "InfoPanel"
+msgid "BIT RATE"
+msgstr "BITRATE"
+
+msgctxt "InfoPanel"
+msgid "FILE TYPE"
+msgstr "DATEITYP"
+
+msgctxt "InfoPanel"
+msgid "SAMPLE RATE"
+msgstr "ABTASTRATE"
+
+msgctxt "InfoPanel"
+msgid "SIZE"
+msgstr "GRÖSSE"
+
+msgctxt "InfoPanel"
+msgid "SUMMARY"
+msgstr "ÜBERSICHT"
+
+msgctxt "InfoPanel"
+msgid "This track has no cover art."
+msgstr "Dieser Track hat kein Cover."
+
+msgctxt "LoopColumn"
+msgid "Auto loop of the shown length; press again to leave it"
+msgstr "Auto-Loop der angezeigten Länge; erneut drücken zum Verlassen"
+
+msgctxt "ManualLoop"
+msgid "EXIT"
+msgstr "EXIT"
+
+msgctxt "ManualLoop"
+msgid "IN"
+msgstr "IN"
+
+msgctxt "ManualLoop"
+msgid "Manual loop: set the in point, then the out point; press again to leave the loop"
+msgstr "Manueller Loop: Startpunkt setzen, dann Endpunkt; erneut drücken verlässt den Loop"
+
+msgctxt "ManualLoop"
+msgid "OUT"
+msgstr "OUT"
+
+msgctxt "MiniPlayer"
+msgid "REMAIN"
+msgstr "REST"
+
+msgctxt "PreferencesWindow"
+msgid "CONSOLIDATE…"
+msgstr "ZUSAMMENFÜHREN…"
+
+msgctxt "PreferencesWindow"
+msgid "COUNT UP"
+msgstr "AUFWÄRTS"
+
+msgctxt "PreferencesWindow"
+msgid "Colour and accessibility"
+msgstr "Farbe und Barrierefreiheit"
+
+msgctxt "PreferencesWindow"
+msgid "Consolidate"
+msgstr "Zusammenführen"
+
+msgctxt "PreferencesWindow"
+msgid "Copy every track into a folder you pick (Artist / file) and point the library at the copies"
+msgstr "Jeden Track in einen gewählten Ordner kopieren (Künstler / Datei) und die Bibliothek auf die Kopien umstellen"
+
+msgctxt "PreferencesWindow"
+msgid "Copy every track into one music folder"
+msgstr "Alle Tracks in einen Musikordner kopieren"
+
+msgctxt "PreferencesWindow"
+msgid "FIND A SETTING"
+msgstr "EINSTELLUNG FINDEN"
+
+msgctxt "PreferencesWindow"
+msgid "Find tracks whose files were moved or renamed"
+msgstr "Tracks finden, deren Dateien verschoben oder umbenannt wurden"
+
+msgctxt "PreferencesWindow"
+msgid "Moved files"
+msgstr "Verschobene Dateien"
+
+msgctxt "PreferencesWindow"
+msgid "RELOCATE…"
+msgstr "NEU ZUORDNEN…"
+
+msgctxt "PreferencesWindow"
+msgid "Search a folder for the missing files and point the tracks at them"
+msgstr "Einen Ordner nach den fehlenden Dateien durchsuchen und die Tracks darauf umstellen"
+
+msgctxt "PreferencesWindow"
+msgid "Show what a control does and its shortcut on hover"
+msgstr "Beim Darüberfahren zeigen, was ein Bedienelement tut, und sein Tastenkürzel"
+
+msgctxt "PreferencesWindow"
+msgid "TO NEXT MEMORY CUE"
+msgstr "BIS ZUM NÄCHSTEN MEMORY CUE"
+
+msgctxt "PreferencesWindow"
+msgid "TO PHRASE END"
+msgstr "BIS ZUM PHRASENENDE"
+
+msgctxt "PreferencesWindow"
+msgid "Tooltips"
+msgstr "Tooltips"
+
+msgctxt "PreferencesWindow"
+msgid "Waveforms and phrases"
+msgstr "Wellenformen und Phrasen"
+
+msgctxt "PreparePlayer"
+msgid "Analyse again"
+msgstr "Erneut analysieren"
+
+msgctxt "PreparePlayer"
+msgid "Auto loop of the shown length while the track plays; again to leave"
+msgstr "Auto-Loop der angezeigten Länge, während der Track spielt; erneut drücken zum Verlassen"
+
+msgctxt "PreparePlayer"
+msgid "DEL"
+msgstr "ENTF"
+
+msgctxt "PreparePlayer"
+msgid "Delete the memory cue at the cursor"
+msgstr "Memory Cue am Cursor löschen"
+
+msgctxt "PreparePlayer"
+msgid "Double the loop"
+msgstr "Loop verdoppeln"
+
+msgctxt "PreparePlayer"
+msgid "EXIT"
+msgstr "EXIT"
+
+msgctxt "PreparePlayer"
+msgid "Halve the loop"
+msgstr "Loop halbieren"
+
+msgctxt "PreparePlayer"
+msgid "IN"
+msgstr "IN"
+
+msgctxt "PreparePlayer"
+msgid "Jump back by the jump size"
+msgstr "Um die Sprungweite zurückspringen"
+
+msgctxt "PreparePlayer"
+msgid "Jump forward by the jump size"
+msgstr "Um die Sprungweite vorspringen"
+
+msgctxt "PreparePlayer"
+msgid "Jump size of − / +: shorter / longer"
+msgstr "Sprungweite von − / +: kürzer / länger"
+
+msgctxt "PreparePlayer"
+msgid "Loop in point at the playhead (while the track plays)"
+msgstr "Loop-Startpunkt am Abspielkopf (während der Track spielt)"
+
+msgctxt "PreparePlayer"
+msgid "Loop out point: the loop starts"
+msgstr "Loop-Endpunkt: der Loop startet"
+
+msgctxt "PreparePlayer"
+msgid "Manual loop: in point, then out point; again to leave"
+msgstr "Manueller Loop: Startpunkt, dann Endpunkt; erneut zum Verlassen"
+
+msgctxt "PreparePlayer"
+msgid "More for this track"
+msgstr "Mehr zu diesem Track"
+
+msgctxt "PreparePlayer"
+msgid "Next cue"
+msgstr "Nächster Cue"
+
+msgctxt "PreparePlayer"
+msgid "OUT"
+msgstr "OUT"
+
+msgctxt "PreparePlayer"
+msgid "Previous cue"
+msgstr "Vorheriger Cue"
+
+msgctxt "PreparePlayer"
+msgid "Quantize loops and cues to the beat"
+msgstr "Loops und Cues auf den Beat quantisieren"
+
+msgctxt "PreparePlayer"
+msgid "REMAIN"
+msgstr "REST"
+
+msgctxt "PreparePlayer"
+msgid "Redo"
+msgstr "Wiederholen"
+
+msgctxt "PreparePlayer"
+msgid "Reset the zoom (Preferences > View > Waveform zoom)"
+msgstr "Zoom zurücksetzen (Einstellungen > Ansicht > Wellenform-Zoom)"
+
+msgctxt "PreparePlayer"
+msgid "Show in file manager"
+msgstr "Im Dateimanager zeigen"
+
+msgctxt "PreparePlayer"
+msgid "Show info"
+msgstr "Info zeigen"
+
+msgctxt "PreparePlayer"
+msgid "Undo the last change"
+msgstr "Letzte Änderung rückgängig machen"
+
+msgctxt "PreparePlayer"
+msgid "Zoom in"
+msgstr "Hineinzoomen"
+
+msgctxt "PreparePlayer"
+msgid "Zoom out"
+msgstr "Herauszoomen"
+
+msgctxt "SamplerPanel"
+msgid "Double the slot's tempo (detected at half speed)"
+msgstr "Tempo des Slots verdoppeln (mit halbem Tempo erkannt)"
+
+msgctxt "SamplerPanel"
+msgid "Halve the slot's tempo (detected at double speed)"
+msgstr "Tempo des Slots halbieren (mit doppeltem Tempo erkannt)"
+
+msgctxt "SamplerPanel"
+msgid "SAVE"
+msgstr "SPEICHERN"
+
+msgctxt "SamplerPanel"
+msgid "Sampler volume (double-click: full)"
+msgstr "Sampler-Lautstärke (Doppelklick: voll)"
+
+msgctxt "SamplerPanel"
+msgid "Store the patterns on the next free Sequence Call pad"
+msgstr "Die Patterns auf dem nächsten freien Sequence-Call-Pad speichern"
+
+msgctxt "SamplerPanel"
+msgid "Sync the selected sample to the master tempo"
+msgstr "Das gewählte Sample zum Master-Tempo synchronisieren"
+
+msgctxt "Sidebar"
+msgid "FILTER LISTS"
+msgstr "LISTEN FILTERN"
+
+msgctxt "Sidebar"
+msgid "Sync every plugged-in stick now"
+msgstr "Jeden eingesteckten Stick jetzt synchronisieren"
+
+msgctxt "Sidebar"
+msgid "TEMPO ±6 % · COMPATIBLE KEY"
+msgstr "TEMPO ±6 % · PASSENDE TONART"
+
+msgctxt "Sidebar"
+msgid "Year of the sessions shown: earlier / later"
+msgstr "Jahr der gezeigten Sessions: früher / später"
+
+msgctxt "TempoRange"
+msgid "Tempo range of the fader — click for the next"
+msgstr "Tempobereich des Faders — klicken für den nächsten"
+
+msgctxt "TopBar"
+msgid "Controller connected: {}"
+msgstr "Controller verbunden: {}"
+
+msgctxt "TopBar"
+msgid "MASTER"
+msgstr "MASTER"
+
+msgctxt "TopBar"
+msgid "Master out level (double-click resets)"
+msgstr "Master-Ausgangspegel (Doppelklick setzt zurück)"
+
+msgctxt "TopBar"
+msgid "No controller connected"
+msgstr "Kein Controller verbunden"
+
+msgctxt "TrackLine"
+msgid "Add to “{}”"
+msgstr "Zu „{}“ hinzufügen"
+
+msgctxt "TrackLine"
+msgid "Export file…"
+msgstr "Datei exportieren…"
+
+msgctxt "TrackLine"
+msgid "Import to collection"
+msgstr "In die Sammlung importieren"
+
+msgctxt "TrackLine"
+msgid "Lock / unlock analysis"
+msgstr "Analyse sperren / entsperren"
+
+msgctxt "TrackLine"
+msgid "Memory cues to hot cues"
+msgstr "Memory Cues zu Hot Cues"
+
+msgctxt "TrackLine"
+msgid "Reload tags from file"
+msgstr "Tags neu aus der Datei lesen"
+
+msgctxt "TrackLine"
+msgid "Reset play count"
+msgstr "Wiedergabezähler zurücksetzen"
+
+msgctxt "TrackLine"
+msgid "Show info"
+msgstr "Info zeigen"
+
+msgctxt "TrackLine"
+msgid "Sort hot cues by time"
+msgstr "Hot Cues nach Zeit sortieren"
+
+msgctxt "TrackTable"
+msgid "State"
+msgstr "Status"
+
+msgctxt "TrackTable"
+msgid "State column: a short line = waiting for analysis, a struck line = file missing, empty = ready"
+msgstr "Statusspalte: kurze Linie = wartet auf Analyse, durchgestrichene Linie = Datei fehlt, leer = bereit"
+
+msgctxt "WaveZoneColumn"
+msgid "Larger waveform zone"
+msgstr "Größerer Wellenformbereich"
+
+msgctxt "WaveZoneColumn"
+msgid "Reset the zoom (all decks)"
+msgstr "Zoom zurücksetzen (alle Decks)"
+
+msgctxt "WaveZoneColumn"
+msgid "Smaller waveform zone"
+msgstr "Kleinerer Wellenformbereich"
+
+msgctxt "WaveZoneColumn"
+msgid "Zoom in (all decks)"
+msgstr "Hineinzoomen (alle Decks)"
+
+msgctxt "WaveZoneColumn"
+msgid "Zoom out (all decks)"
+msgstr "Herauszoomen (alle Decks)"
+
+msgctxt "XfAssignGrid"
+msgid "Crossfader: deck to side A (again: through)"
+msgstr "Crossfader: Deck auf Seite A (erneut: durch)"
+
+msgctxt "XfAssignGrid"
+msgid "Crossfader: deck to side B (again: through)"
+msgstr "Crossfader: Deck auf Seite B (erneut: durch)"
+

@@ -112,7 +112,11 @@ export component SubBrowserPane inherits Rectangle {
     HorizontalLayout {
         padding-top: 1px;
         // Lists.
-        Flickable {
+        Rectangle {
+          accessible-role: list;
+          accessible-label: "subbrowser.tree";
+          width: root.tree-width;
+          Flickable {
             accessible-role: list;
             accessible-label: "browser.sub.tree";
             width: root.tree-width;
@@ -127,6 +131,7 @@ export component SubBrowserPane inherits Rectangle {
                     clicked => { SubBrowser.select(l.id); }
                 }
             }
+          }
         }
         VLine { weight: 1px; tone: Theme.rule; }
         // Tracks of the selected list.
@@ -146,6 +151,9 @@ export component SubBrowserPane inherits Rectangle {
             }
             HLine { tone: Theme.rule; }
             Rectangle {
+                accessible-role: list;
+                accessible-label: "subbrowser.rows";
+                accessible-value: SubBrowser.tracks.length;
                 vertical-stretch: 1;
                 Flickable {
                     accessible-role: list;

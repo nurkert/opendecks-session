@@ -105,6 +105,7 @@ mode = "perform"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop", "kiosk"]
 bands = ["topbar", "wave", "deck-row", "global", "browser", "status"]
+note = "Deviation: no PADS / GRID view rail per deck (deckN.view.pads / .view.grid): the control area always shows the pads, the pad-mode selector switches what they do, and beatgrids are edited in Prepare (player GRID tab), where they are safe to change."
 features = ["deck-waveform-zone", "deck-header-readouts", "mixer-trim", "mixer-eq", "mixer-headphones", "mixer-crossfader-assign", "rec-one-button"]
 
 [[view.region]]
@@ -150,9 +151,18 @@ order = "column"
 elements = [
   "wave.lane1",
   "wave.lane2",
-  "wave.playhead",
 ]
 note = "UX §1.3; 4 decks: lane numbers at the right edge (§1.4)"
+
+[[view.region]]
+id = "wave.playhead"
+band = "wave"
+place = "centre line across all lanes"
+order = "any"
+elements = [
+  "wave.playhead",
+]
+note = "Drawn over the lanes by design, so it is not a sibling of them (no-overlap does not apply)."
 
 [[view.region]]
 id = "deck1.header"
@@ -198,17 +208,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck1.rail"
-band = "deck-row"
-place = "left deck control area, outer edge"
-order = "column"
-elements = [
-  "deck1.view.pads",
-  "deck1.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck1.pads"
 band = "deck-row"
 place = "left deck control area, after the rail"
@@ -218,13 +217,22 @@ elements = [
   "deck1.pad.B",
   "deck1.pad.C",
   "deck1.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck1.pads.right"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
   "deck1.pad.E",
   "deck1.pad.F",
   "deck1.pad.G",
   "deck1.pad.H",
   "deck1.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck1.loop"
@@ -285,11 +293,11 @@ elements = [
   "mixer.ch1.eq-high",
   "mixer.ch1.eq-mid",
   "mixer.ch1.eq-low",
+  "mixer.ch1.stem",
   "mixer.ch1.cue",
   "mixer.ch1.fader",
-  "mixer.ch1.stem",
 ]
-note = "UX §1.3 mixer; channel order 1-2"
+note = "UX §1.3 mixer; channel order 1-2. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "mixer.ch2"
@@ -301,11 +309,11 @@ elements = [
   "mixer.ch2.eq-high",
   "mixer.ch2.eq-mid",
   "mixer.ch2.eq-low",
+  "mixer.ch2.stem",
   "mixer.ch2.cue",
   "mixer.ch2.fader",
-  "mixer.ch2.stem",
 ]
-note = "UX §1.3 mixer; channel order 1-2"
+note = "UX §1.3 mixer; channel order 1-2. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "deck2.header"
@@ -351,17 +359,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck2.rail"
-band = "deck-row"
-place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
-order = "column"
-elements = [
-  "deck2.view.pads",
-  "deck2.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck2.pads"
 band = "deck-row"
 place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
@@ -371,13 +368,22 @@ elements = [
   "deck2.pad.B",
   "deck2.pad.C",
   "deck2.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck2.pads.right"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
   "deck2.pad.E",
   "deck2.pad.F",
   "deck2.pad.G",
   "deck2.pad.H",
   "deck2.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck2.loop"
@@ -592,7 +598,7 @@ mode = "perform"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop", "kiosk"]
 bands = ["topbar", "wave", "deck-row", "global", "browser", "status"]
-note = "Decks 2 x 2: 1 above 3 left, 2 above 4 right; mixer order 3-1-2-4"
+note = "Decks 2 x 2: 1 above 3 left, 2 above 4 right; mixer order 3-1-2-4 Deviation: no PADS / GRID view rail per deck (deckN.view.pads / .view.grid): the control area always shows the pads, the pad-mode selector switches what they do, and beatgrids are edited in Prepare (player GRID tab), where they are safe to change."
 
 [[view.region]]
 id = "topbar"
@@ -639,9 +645,18 @@ elements = [
   "wave.lane2",
   "wave.lane3",
   "wave.lane4",
-  "wave.playhead",
 ]
 note = "UX §1.3; 4 decks: lane numbers at the right edge (§1.4)"
+
+[[view.region]]
+id = "wave.playhead"
+band = "wave"
+place = "centre line across all lanes"
+order = "any"
+elements = [
+  "wave.playhead",
+]
+note = "Drawn over the lanes by design, so it is not a sibling of them (no-overlap does not apply)."
 
 [[view.region]]
 id = "deck1.header"
@@ -687,17 +702,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck1.rail"
-band = "deck-row"
-place = "left deck control area, outer edge"
-order = "column"
-elements = [
-  "deck1.view.pads",
-  "deck1.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck1.pads"
 band = "deck-row"
 place = "left deck control area, after the rail"
@@ -707,13 +711,22 @@ elements = [
   "deck1.pad.B",
   "deck1.pad.C",
   "deck1.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck1.pads.right"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
   "deck1.pad.E",
   "deck1.pad.F",
   "deck1.pad.G",
   "deck1.pad.H",
   "deck1.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck1.loop"
@@ -808,17 +821,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck3.rail"
-band = "deck-row"
-place = "left deck control area, outer edge"
-order = "column"
-elements = [
-  "deck3.view.pads",
-  "deck3.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck3.pads"
 band = "deck-row"
 place = "left deck control area, after the rail"
@@ -828,13 +830,22 @@ elements = [
   "deck3.pad.B",
   "deck3.pad.C",
   "deck3.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck3.pads.right"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
   "deck3.pad.E",
   "deck3.pad.F",
   "deck3.pad.G",
   "deck3.pad.H",
   "deck3.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck3.loop"
@@ -895,11 +906,11 @@ elements = [
   "mixer.ch3.eq-high",
   "mixer.ch3.eq-mid",
   "mixer.ch3.eq-low",
+  "mixer.ch3.stem",
   "mixer.ch3.cue",
   "mixer.ch3.fader",
-  "mixer.ch3.stem",
 ]
-note = "UX §1.3 mixer; channel order 3-1-2-4"
+note = "UX §1.3 mixer; channel order 3-1-2-4. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "mixer.ch1"
@@ -911,11 +922,11 @@ elements = [
   "mixer.ch1.eq-high",
   "mixer.ch1.eq-mid",
   "mixer.ch1.eq-low",
+  "mixer.ch1.stem",
   "mixer.ch1.cue",
   "mixer.ch1.fader",
-  "mixer.ch1.stem",
 ]
-note = "UX §1.3 mixer; channel order 3-1-2-4"
+note = "UX §1.3 mixer; channel order 3-1-2-4. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "mixer.ch2"
@@ -927,11 +938,11 @@ elements = [
   "mixer.ch2.eq-high",
   "mixer.ch2.eq-mid",
   "mixer.ch2.eq-low",
+  "mixer.ch2.stem",
   "mixer.ch2.cue",
   "mixer.ch2.fader",
-  "mixer.ch2.stem",
 ]
-note = "UX §1.3 mixer; channel order 3-1-2-4"
+note = "UX §1.3 mixer; channel order 3-1-2-4. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "mixer.ch4"
@@ -943,11 +954,11 @@ elements = [
   "mixer.ch4.eq-high",
   "mixer.ch4.eq-mid",
   "mixer.ch4.eq-low",
+  "mixer.ch4.stem",
   "mixer.ch4.cue",
   "mixer.ch4.fader",
-  "mixer.ch4.stem",
 ]
-note = "UX §1.3 mixer; channel order 3-1-2-4"
+note = "UX §1.3 mixer; channel order 3-1-2-4. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "deck2.header"
@@ -993,17 +1004,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck2.rail"
-band = "deck-row"
-place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
-order = "column"
-elements = [
-  "deck2.view.pads",
-  "deck2.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck2.pads"
 band = "deck-row"
 place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
@@ -1013,13 +1013,22 @@ elements = [
   "deck2.pad.B",
   "deck2.pad.C",
   "deck2.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck2.pads.right"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
   "deck2.pad.E",
   "deck2.pad.F",
   "deck2.pad.G",
   "deck2.pad.H",
   "deck2.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck2.loop"
@@ -1114,17 +1123,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck4.rail"
-band = "deck-row"
-place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
-order = "column"
-elements = [
-  "deck4.view.pads",
-  "deck4.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck4.pads"
 band = "deck-row"
 place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
@@ -1134,13 +1132,22 @@ elements = [
   "deck4.pad.B",
   "deck4.pad.C",
   "deck4.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck4.pads.right"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
   "deck4.pad.E",
   "deck4.pad.F",
   "deck4.pad.G",
   "deck4.pad.H",
   "deck4.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck4.loop"
@@ -1355,7 +1362,7 @@ mode = "perform"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop", "kiosk"]
 bands = ["topbar", "deck-row", "global", "browser", "status"]
-note = "Taller decks: the pad list shows A–H as one vertical list"
+note = "Taller decks: the pad list shows A–H as one vertical list Deviation: no PADS / GRID view rail per deck (deckN.view.pads / .view.grid): the control area always shows the pads, the pad-mode selector switches what they do, and beatgrids are edited in Prepare (player GRID tab), where they are safe to change."
 
 [[view.region]]
 id = "topbar"
@@ -1436,17 +1443,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck1.rail"
-band = "deck-row"
-place = "left deck control area, outer edge"
-order = "column"
-elements = [
-  "deck1.view.pads",
-  "deck1.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck1.pads"
 band = "deck-row"
 place = "left deck control area, after the rail"
@@ -1456,13 +1452,22 @@ elements = [
   "deck1.pad.B",
   "deck1.pad.C",
   "deck1.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck1.pads.right"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
   "deck1.pad.E",
   "deck1.pad.F",
   "deck1.pad.G",
   "deck1.pad.H",
   "deck1.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck1.loop"
@@ -1523,11 +1528,11 @@ elements = [
   "mixer.ch1.eq-high",
   "mixer.ch1.eq-mid",
   "mixer.ch1.eq-low",
+  "mixer.ch1.stem",
   "mixer.ch1.cue",
   "mixer.ch1.fader",
-  "mixer.ch1.stem",
 ]
-note = "UX §1.3 mixer; channel order 1-2"
+note = "UX §1.3 mixer; channel order 1-2. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "mixer.ch2"
@@ -1539,11 +1544,11 @@ elements = [
   "mixer.ch2.eq-high",
   "mixer.ch2.eq-mid",
   "mixer.ch2.eq-low",
+  "mixer.ch2.stem",
   "mixer.ch2.cue",
   "mixer.ch2.fader",
-  "mixer.ch2.stem",
 ]
-note = "UX §1.3 mixer; channel order 1-2"
+note = "UX §1.3 mixer; channel order 1-2. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "deck2.header"
@@ -1589,17 +1594,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck2.rail"
-band = "deck-row"
-place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
-order = "column"
-elements = [
-  "deck2.view.pads",
-  "deck2.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck2.pads"
 band = "deck-row"
 place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
@@ -1609,13 +1603,22 @@ elements = [
   "deck2.pad.B",
   "deck2.pad.C",
   "deck2.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck2.pads.right"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
   "deck2.pad.E",
   "deck2.pad.F",
   "deck2.pad.G",
   "deck2.pad.H",
   "deck2.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck2.loop"
@@ -1830,6 +1833,7 @@ mode = "perform"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop", "kiosk"]
 bands = ["topbar", "deck-row", "global", "browser", "status"]
+note = "Deviation: no PADS / GRID view rail per deck (deckN.view.pads / .view.grid): the control area always shows the pads, the pad-mode selector switches what they do, and beatgrids are edited in Prepare (player GRID tab), where they are safe to change."
 
 [[view.region]]
 id = "topbar"
@@ -1911,17 +1915,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck1.rail"
-band = "deck-row"
-place = "left deck control area, outer edge"
-order = "column"
-elements = [
-  "deck1.view.pads",
-  "deck1.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck1.pads"
 band = "deck-row"
 place = "left deck control area, after the rail"
@@ -1931,13 +1924,22 @@ elements = [
   "deck1.pad.B",
   "deck1.pad.C",
   "deck1.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck1.pads.right"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
   "deck1.pad.E",
   "deck1.pad.F",
   "deck1.pad.G",
   "deck1.pad.H",
   "deck1.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck1.loop"
@@ -2032,17 +2034,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck3.rail"
-band = "deck-row"
-place = "left deck control area, outer edge"
-order = "column"
-elements = [
-  "deck3.view.pads",
-  "deck3.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck3.pads"
 band = "deck-row"
 place = "left deck control area, after the rail"
@@ -2052,13 +2043,22 @@ elements = [
   "deck3.pad.B",
   "deck3.pad.C",
   "deck3.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck3.pads.right"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
   "deck3.pad.E",
   "deck3.pad.F",
   "deck3.pad.G",
   "deck3.pad.H",
   "deck3.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck3.loop"
@@ -2119,11 +2119,11 @@ elements = [
   "mixer.ch3.eq-high",
   "mixer.ch3.eq-mid",
   "mixer.ch3.eq-low",
+  "mixer.ch3.stem",
   "mixer.ch3.cue",
   "mixer.ch3.fader",
-  "mixer.ch3.stem",
 ]
-note = "UX §1.3 mixer; channel order 3-1-2-4"
+note = "UX §1.3 mixer; channel order 3-1-2-4. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "mixer.ch1"
@@ -2135,11 +2135,11 @@ elements = [
   "mixer.ch1.eq-high",
   "mixer.ch1.eq-mid",
   "mixer.ch1.eq-low",
+  "mixer.ch1.stem",
   "mixer.ch1.cue",
   "mixer.ch1.fader",
-  "mixer.ch1.stem",
 ]
-note = "UX §1.3 mixer; channel order 3-1-2-4"
+note = "UX §1.3 mixer; channel order 3-1-2-4. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "mixer.ch2"
@@ -2151,11 +2151,11 @@ elements = [
   "mixer.ch2.eq-high",
   "mixer.ch2.eq-mid",
   "mixer.ch2.eq-low",
+  "mixer.ch2.stem",
   "mixer.ch2.cue",
   "mixer.ch2.fader",
-  "mixer.ch2.stem",
 ]
-note = "UX §1.3 mixer; channel order 3-1-2-4"
+note = "UX §1.3 mixer; channel order 3-1-2-4. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "mixer.ch4"
@@ -2167,11 +2167,11 @@ elements = [
   "mixer.ch4.eq-high",
   "mixer.ch4.eq-mid",
   "mixer.ch4.eq-low",
+  "mixer.ch4.stem",
   "mixer.ch4.cue",
   "mixer.ch4.fader",
-  "mixer.ch4.stem",
 ]
-note = "UX §1.3 mixer; channel order 3-1-2-4"
+note = "UX §1.3 mixer; channel order 3-1-2-4. STEM sits right under the EQ knobs it switches to part isolation (SPEC §10.3), above CUE and the fader"
 
 [[view.region]]
 id = "deck2.header"
@@ -2217,17 +2217,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck2.rail"
-band = "deck-row"
-place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
-order = "column"
-elements = [
-  "deck2.view.pads",
-  "deck2.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck2.pads"
 band = "deck-row"
 place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
@@ -2237,13 +2226,22 @@ elements = [
   "deck2.pad.B",
   "deck2.pad.C",
   "deck2.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck2.pads.right"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
   "deck2.pad.E",
   "deck2.pad.F",
   "deck2.pad.G",
   "deck2.pad.H",
   "deck2.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck2.loop"
@@ -2338,17 +2336,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck4.rail"
-band = "deck-row"
-place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
-order = "column"
-elements = [
-  "deck4.view.pads",
-  "deck4.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck4.pads"
 band = "deck-row"
 place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
@@ -2358,13 +2345,22 @@ elements = [
   "deck4.pad.B",
   "deck4.pad.C",
   "deck4.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck4.pads.right"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
   "deck4.pad.E",
   "deck4.pad.F",
   "deck4.pad.G",
   "deck4.pad.H",
   "deck4.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck4.loop"
@@ -2792,7 +2788,7 @@ mode = "perform"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop", "kiosk"]
 bands = ["topbar", "wave", "deck-row", "global", "browser", "status"]
-note = "Mixer column and headphone / crossfader half of the global bar disappear; decks meet in the centre"
+note = "Mixer column and headphone / crossfader half of the global bar disappear; decks meet in the centre Deviation: no PADS / GRID view rail per deck (deckN.view.pads / .view.grid): the control area always shows the pads, the pad-mode selector switches what they do, and beatgrids are edited in Prepare (player GRID tab), where they are safe to change."
 
 [[view.region]]
 id = "topbar"
@@ -2837,9 +2833,18 @@ order = "column"
 elements = [
   "wave.lane1",
   "wave.lane2",
-  "wave.playhead",
 ]
 note = "UX §1.3; 4 decks: lane numbers at the right edge (§1.4)"
+
+[[view.region]]
+id = "wave.playhead"
+band = "wave"
+place = "centre line across all lanes"
+order = "any"
+elements = [
+  "wave.playhead",
+]
+note = "Drawn over the lanes by design, so it is not a sibling of them (no-overlap does not apply)."
 
 [[view.region]]
 id = "deck1.header"
@@ -2885,17 +2890,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck1.rail"
-band = "deck-row"
-place = "left deck control area, outer edge"
-order = "column"
-elements = [
-  "deck1.view.pads",
-  "deck1.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck1.pads"
 band = "deck-row"
 place = "left deck control area, after the rail"
@@ -2905,13 +2899,22 @@ elements = [
   "deck1.pad.B",
   "deck1.pad.C",
   "deck1.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck1.pads.right"
+band = "deck-row"
+place = "left deck control area, after the rail"
+order = "column"
+elements = [
   "deck1.pad.E",
   "deck1.pad.F",
   "deck1.pad.G",
   "deck1.pad.H",
   "deck1.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck1.loop"
@@ -3006,17 +3009,6 @@ elements = [
 note = "UX §1.3 item 3 / §2.4. BASS is ours (SPEC §10.3 four parts); visible but dimmed while separating"
 
 [[view.region]]
-id = "deck2.rail"
-band = "deck-row"
-place = "right deck control area, outer edge, mirrors deck 1 (pads on the outer right edge)"
-order = "column"
-elements = [
-  "deck2.view.pads",
-  "deck2.view.grid",
-]
-note = "UX §1.3 item 4"
-
-[[view.region]]
 id = "deck2.pads"
 band = "deck-row"
 place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
@@ -3026,13 +3018,22 @@ elements = [
   "deck2.pad.B",
   "deck2.pad.C",
   "deck2.pad.D",
+]
+note = "Left pad column A–D (2 columns x 4 rows, column-major); 4 decks: one row A–H"
+
+[[view.region]]
+id = "deck2.pads.right"
+band = "deck-row"
+place = "right deck control area, after the rail, mirrors deck 1 (pads on the outer right edge)"
+order = "column"
+elements = [
   "deck2.pad.E",
   "deck2.pad.F",
   "deck2.pad.G",
   "deck2.pad.H",
   "deck2.pad-mode",
 ]
-note = "2 columns x 4 rows, column-major (A–D | E–H); pad-mode dropdown below"
+note = "Right pad column E–H, the pad-mode selector below the grid (one row with the pads on compact decks)"
 
 [[view.region]]
 id = "deck2.loop"
@@ -3201,7 +3202,7 @@ source = "SPEC §12 layout"
 sizes = ["desktop", "laptop", "kiosk"]
 bands = ["topbar", "fx", "wave", "deck-row", "global", "browser", "status"]
 features = ["fx-panel", "fx-beat-fx", "fx-beat-fx-controls", "fx-colour-fx-select", "fx-stem-fx"]
-note = "Docked above the waveform zone; the browser loses exactly the panel height (UX §2.8)"
+note = "Docked above the waveform zone; the browser loses exactly the panel height (UX §2.8) Deviation: stem FX targets belong to each unit (PART: ALL / VOC / DRUM / BASS / INST once a channel is the target, fx.unitN.part.*), not one column shared by both units."
 
 [[view.region]]
 id = "topbar"
@@ -3294,34 +3295,16 @@ elements = [
 ]
 
 [[view.region]]
-id = "fx.stem-target"
-band = "fx"
-place = "far right column"
-order = "column"
-elements = [
-  "fx.stem.vocal",
-  "fx.stem.inst",
-  "fx.stem.drums",
-  "fx.stem.bass",
-]
-
-[[view.region]]
 id = "fx.cfx"
 band = "fx"
-place = "row 2"
+place = "mixer column: type selector under the strips, one CFX knob per channel strip"
 order = "row"
 elements = [
-  "fx.cfx.preset",
   "fx.cfx.type",
-  "fx.cfx.param",
-  "fx.cfx.sampler",
-  "fx.cfx.ch3",
   "fx.cfx.ch1",
   "fx.cfx.ch2",
-  "fx.cfx.ch4",
-  "fx.cfx.master",
 ]
-note = "CFX knobs S, 3, 1, 2, 4, M"
+note = "Deviation: Colour FX stay in the mixer as on the hardware (a CFX knob in every channel strip, the type selector under them) so they work with the FX panel closed; they act on the channels only, so there are no sampler / master CFX knobs, and the effect has no separate preset or parameter control. 4 decks add fx.cfx.ch3 / ch4."
 
 [[view.region]]
 id = "wave.zoom"
@@ -3345,11 +3328,20 @@ order = "column"
 elements = [
   "wave.lane1",
   "wave.lane2",
-  "wave.playhead",
 ]
 note = "UX §1.3; 4 decks: lane numbers at the right edge (§1.4)"
 
 # ---- Mix Point Link panel ----
+[[view.region]]
+id = "wave.playhead"
+band = "wave"
+place = "centre line across all lanes"
+order = "any"
+elements = [
+  "wave.playhead",
+]
+note = "Drawn over the lanes by design, so it is not a sibling of them (no-overlap does not apply)."
+
 [[view]]
 id = "panel.mix-point-link"
 title = "Mix Point Link panel"
@@ -3508,13 +3500,13 @@ elements = [
   "sampler.seq.play",
   "sampler.seq.save",
   "sampler.seq.pattern",
-  "sampler.seq.length",
   "sampler.seq.position",
-  "sampler.seq.mute",
   "sampler.seq.erase",
 ]
 
 # ---- Recording section (Perform) ----
+note = "Deviation: a pattern is always 16 steps (one bar of sixteenths), so there is no length choice, and there is no sequence mute (PLAY stops the sequencer, CLR empties a slot’s pattern)."
+
 [[view]]
 id = "panel.recording"
 title = "Recording section (Perform)"
@@ -3856,14 +3848,11 @@ elements = [
   "player1.grid.shift-right",
   "player1.grid.double",
   "player1.grid.halve",
-  "player1.grid.metronome",
   "player1.grid.undo",
   "player1.grid.redo",
   "player1.grid.lock",
-  "player1.phrase.cut",
-  "player1.phrase.clear",
 ]
-note = "GRID tab swaps the toolbar for grid tools"
+note = "GRID tab swaps the toolbar for grid tools. Deviation: no metronome click; phrase CUT / CLEAR live in their own PHRASE tab (player1.tab.phrase) next to GRID."
 
 # ---- Prepare: 2 players ----
 [[view]]
@@ -3873,7 +3862,7 @@ mode = "prepare"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop"]
 bands = ["topbar", "player", "browser", "status"]
-note = "Shared enlarged-waveform area and a single transport / crossfader column at the left"
+note = "Shared enlarged-waveform area and a single transport / crossfader column at the left Deviation: player 2 is a compact player (CUE / PLAY, title, artist, position, BPM, key, overview, LOAD); cues, loops and grids are edited in player 1, where the track opens with a click."
 
 [[view.region]]
 id = "topbar"
@@ -3984,11 +3973,6 @@ band = "player"
 place = "left, 80 pt transport column"
 order = "column"
 elements = [
-  "player2.loop-in",
-  "player2.loop-out",
-  "player2.jump-back",
-  "player2.jump-forward",
-  "player2.jump-size",
   "player2.cue",
   "player2.play",
 ]
@@ -3999,10 +3983,8 @@ band = "player"
 place = "waveform block, top line"
 order = "row"
 elements = [
-  "player2.artwork",
   "player2.title",
   "player2.artist",
-  "player2.time-remaining",
   "player2.time-elapsed",
   "player2.bpm",
 ]
@@ -4014,55 +3996,8 @@ place = "waveform block"
 order = "column"
 elements = [
   "player2.overview",
-  "player2.zoom-in",
-  "player2.zoom-reset",
-  "player2.zoom-out",
-  "player2.enlarged",
 ]
 note = "overview, then zoom column + enlarged waveform"
-
-[[view.region]]
-id = "player2.toolbar"
-band = "player"
-place = "bottom toolbar of the player, 28 pt"
-order = "row"
-elements = [
-  "player2.tab.cue-loop",
-  "player2.tab.grid",
-  "player2.hot-cue.A",
-  "player2.hot-cue.B",
-  "player2.hot-cue.C",
-  "player2.hot-cue.D",
-  "player2.hot-cue.E",
-  "player2.hot-cue.F",
-  "player2.hot-cue.G",
-  "player2.hot-cue.H",
-  "player2.memory.set",
-  "player2.memory.prev",
-  "player2.memory.next",
-  "player2.memory.delete",
-  "player2.loop.auto",
-  "player2.loop.manual",
-  "player2.loop.halve",
-  "player2.loop.size",
-  "player2.loop.double",
-  "player2.quantize",
-  "player2.menu",
-]
-note = "UX §1.7"
-
-[[view.region]]
-id = "player2.cue-list"
-band = "player"
-place = "right, about 210 pt"
-order = "column"
-elements = [
-  "player2.cue-list.rows",
-  "player2.cue-list.tab.memory",
-  "player2.cue-list.tab.hot-cue",
-  "player2.cue-list.tab.info",
-]
-note = "UX §1.7 cue list panel"
 
 [[view.region]]
 id = "browser.rail"
@@ -4168,6 +4103,7 @@ mode = "prepare"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop"]
 bands = ["topbar", "player", "browser", "status"]
+note = "Deviation: DUAL shows two compact players side by side for comparing tracks; Prepare previews one track at a time on the master, so there is no mini mixer (trim / EQ) or key sync here (they are Perform features)."
 
 [[view.region]]
 id = "topbar"
@@ -4192,11 +4128,6 @@ band = "player"
 place = "left, 80 pt transport column"
 order = "column"
 elements = [
-  "player1.loop-in",
-  "player1.loop-out",
-  "player1.jump-back",
-  "player1.jump-forward",
-  "player1.jump-size",
   "player1.cue",
   "player1.play",
 ]
@@ -4207,10 +4138,8 @@ band = "player"
 place = "waveform block, top line"
 order = "row"
 elements = [
-  "player1.artwork",
   "player1.title",
   "player1.artist",
-  "player1.time-remaining",
   "player1.time-elapsed",
   "player1.bpm",
 ]
@@ -4222,55 +4151,8 @@ place = "waveform block"
 order = "column"
 elements = [
   "player1.overview",
-  "player1.zoom-in",
-  "player1.zoom-reset",
-  "player1.zoom-out",
-  "player1.enlarged",
 ]
 note = "overview, then zoom column + enlarged waveform"
-
-[[view.region]]
-id = "player1.toolbar"
-band = "player"
-place = "bottom toolbar of the player, 28 pt"
-order = "row"
-elements = [
-  "player1.tab.cue-loop",
-  "player1.tab.grid",
-  "player1.hot-cue.A",
-  "player1.hot-cue.B",
-  "player1.hot-cue.C",
-  "player1.hot-cue.D",
-  "player1.hot-cue.E",
-  "player1.hot-cue.F",
-  "player1.hot-cue.G",
-  "player1.hot-cue.H",
-  "player1.memory.set",
-  "player1.memory.prev",
-  "player1.memory.next",
-  "player1.memory.delete",
-  "player1.loop.auto",
-  "player1.loop.manual",
-  "player1.loop.halve",
-  "player1.loop.size",
-  "player1.loop.double",
-  "player1.quantize",
-  "player1.menu",
-]
-note = "UX §1.7"
-
-[[view.region]]
-id = "player1.cue-list"
-band = "player"
-place = "right, about 210 pt"
-order = "column"
-elements = [
-  "player1.cue-list.rows",
-  "player1.cue-list.tab.memory",
-  "player1.cue-list.tab.hot-cue",
-  "player1.cue-list.tab.info",
-]
-note = "UX §1.7 cue list panel"
 
 [[view.region]]
 id = "player2.transport"
@@ -4278,11 +4160,6 @@ band = "player"
 place = "left, 80 pt transport column"
 order = "column"
 elements = [
-  "player2.loop-in",
-  "player2.loop-out",
-  "player2.jump-back",
-  "player2.jump-forward",
-  "player2.jump-size",
   "player2.cue",
   "player2.play",
 ]
@@ -4293,10 +4170,8 @@ band = "player"
 place = "waveform block, top line"
 order = "row"
 elements = [
-  "player2.artwork",
   "player2.title",
   "player2.artist",
-  "player2.time-remaining",
   "player2.time-elapsed",
   "player2.bpm",
 ]
@@ -4308,89 +4183,8 @@ place = "waveform block"
 order = "column"
 elements = [
   "player2.overview",
-  "player2.zoom-in",
-  "player2.zoom-reset",
-  "player2.zoom-out",
-  "player2.enlarged",
 ]
 note = "overview, then zoom column + enlarged waveform"
-
-[[view.region]]
-id = "player2.toolbar"
-band = "player"
-place = "bottom toolbar of the player, 28 pt"
-order = "row"
-elements = [
-  "player2.tab.cue-loop",
-  "player2.tab.grid",
-  "player2.hot-cue.A",
-  "player2.hot-cue.B",
-  "player2.hot-cue.C",
-  "player2.hot-cue.D",
-  "player2.hot-cue.E",
-  "player2.hot-cue.F",
-  "player2.hot-cue.G",
-  "player2.hot-cue.H",
-  "player2.memory.set",
-  "player2.memory.prev",
-  "player2.memory.next",
-  "player2.memory.delete",
-  "player2.loop.auto",
-  "player2.loop.manual",
-  "player2.loop.halve",
-  "player2.loop.size",
-  "player2.loop.double",
-  "player2.quantize",
-  "player2.menu",
-]
-note = "UX §1.7"
-
-[[view.region]]
-id = "player2.cue-list"
-band = "player"
-place = "right, about 210 pt"
-order = "column"
-elements = [
-  "player2.cue-list.rows",
-  "player2.cue-list.tab.memory",
-  "player2.cue-list.tab.hot-cue",
-  "player2.cue-list.tab.info",
-]
-note = "UX §1.7 cue list panel"
-
-[[view.region]]
-id = "player.mixer.p1"
-band = "player"
-place = "small mixer column"
-order = "column"
-elements = [
-  "player1.trim",
-  "player1.eq-high",
-  "player1.eq-mid",
-  "player1.eq-low",
-]
-
-[[view.region]]
-id = "player.mixer.p2"
-band = "player"
-place = "small mixer column"
-order = "column"
-elements = [
-  "player2.trim",
-  "player2.eq-high",
-  "player2.eq-mid",
-  "player2.eq-low",
-]
-
-[[view.region]]
-id = "player.key-sync"
-band = "player"
-place = "player headers"
-order = "row"
-elements = [
-  "player1.key-sync",
-  "player2.key-sync",
-]
 
 [[view.region]]
 id = "browser.rail"
@@ -4839,11 +4633,8 @@ place = "tree pane, 28 % of the width"
 order = "column"
 elements = [
   "browser.tree.all",
-  "browser.tree.date-added",
-  "browser.tree.genre",
-  "browser.tree.artist",
-  "browser.tree.album",
 ]
+note = "Deviation: the collection is one All tracks row; it is browsed by sorting any column (⇧-click adds a second key), the search and the filter bar (BPM, key, rating, My Tag) rather than by genre / artist / album / date-added sub-trees."
 
 [[view.region]]
 id = "browser.splitter"
@@ -4965,12 +4756,12 @@ band = "browser"
 place = "tree pane, 28 % of the width"
 order = "column"
 elements = [
-  "browser.tree.view-switch",
   "browser.tree.filter",
-  "browser.tree.all-tracks",
+  "browser.tree.all",
   "browser.tree.playlists",
   "browser.tree.add",
 ]
+note = "Filter field on top, All tracks (the same row as browser.tree.all), the PLAYLISTS heading with its +. Deviation: no tree / list view switch, the lists show as one tree."
 
 [[view.region]]
 id = "browser.splitter"
@@ -5231,8 +5022,8 @@ place = "tree pane, 28 % of the width"
 order = "column"
 elements = [
   "browser.tree.home",
-  "browser.tree.volumes",
 ]
+note = "Deviation: no volumes node; the Explorer roots are the folders you add with + (any folder or drive), the first is browser.tree.home."
 
 [[view.region]]
 id = "browser.splitter"
@@ -5562,6 +5353,7 @@ mode = "prepare"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop", "kiosk"]
 bands = ["topbar", "browser", "status"]
+note = "Deviation: recordings are not part of the collection, so the Recordings source opens their own page (each mix with date and length, SHOW FILE, SPLIT INTO TRACKS) instead of a track list with title row and columns; split tracks become normal collection rows."
 features = ["rec-library-section"]
 
 [[view.region]]
@@ -5617,43 +5409,6 @@ elements = [
   "browser.splitter",
 ]
 note = "draggable, double-click resets (SPEC §12)"
-
-[[view.region]]
-id = "browser.title"
-band = "browser"
-place = "list area, title row 34 pt"
-order = "row"
-elements = [
-  "browser.list-title",
-  "browser.target",
-  "browser.density",
-  "browser.search",
-]
-note = "UX §1.6 list area"
-
-[[view.region]]
-id = "browser.header"
-band = "browser"
-place = "list area, column header 29 pt"
-order = "row"
-elements = [
-  "browser.header.preview",
-  "browser.header.summary",
-  "browser.header.title",
-  "browser.header.artist",
-  "browser.header.album",
-  "browser.header.genre",
-]
-
-[[view.region]]
-id = "browser.list"
-band = "browser"
-place = "list area, rows"
-order = "column"
-elements = [
-  "browser.rows",
-]
-note = "loaded rows carry the deck numeral next to the first column"
 
 [[view.region]]
 id = "browser.panels"
@@ -5811,6 +5566,7 @@ mode = "prepare"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop"]
 bands = ["topbar", "browser", "status"]
+note = "Deviation: the Sampler source opens the sampler panel in Perform; its slots take any track of the library or a file dropped on them, so there is no separate sample tree (all samples / capture / packs)."
 features = ["sampler-load-library"]
 
 [[view.region]]
@@ -5847,17 +5603,6 @@ elements = [
   "browser.rail.tag-list",
 ]
 note = "UX §1.6 source order without the streaming, Apple Music and cloud sources (SPEC §1); Tag list added (SPEC §5.5)"
-
-[[view.region]]
-id = "browser.tree"
-band = "browser"
-place = "tree pane, 28 % of the width"
-order = "column"
-elements = [
-  "browser.tree.all-samples",
-  "browser.tree.capture",
-  "browser.tree.packs",
-]
 
 [[view.region]]
 id = "browser.splitter"
@@ -6188,10 +5933,10 @@ band = "browser"
 place = "beside the list, narrower"
 order = "row"
 elements = [
-  "subbrowser.rail",
   "subbrowser.tree",
   "subbrowser.rows",
 ]
+note = "Deviation: no source rail of its own; the sub-browser tree lists every library list."
 
 [[view.region]]
 id = "status"
@@ -6212,6 +5957,7 @@ mode = "preferences"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop"]
 bands = ["prefs"]
+note = "Deviation: each page is one scrolling page with section headings instead of tabs; every page fits a screen, and prefs.search opens the page that holds a setting."
 features = ["prefs-window", "prefs-display", "prefs-browser-font", "prefs-waveform-options"]
 
 [[view.region]]
@@ -6221,25 +5967,14 @@ place = "left column, about 150 pt"
 order = "column"
 elements = [
   "prefs.search",
-  "prefs.nav.view",
   "prefs.nav.audio",
+  "prefs.nav.view",
   "prefs.nav.analysis",
   "prefs.nav.controller",
   "prefs.nav.keyboard",
   "prefs.nav.advanced",
 ]
-note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
-
-[[view.region]]
-id = "prefs.view.tabs"
-band = "prefs"
-place = "top tabs"
-order = "row"
-elements = [
-  "prefs.view.tab.display-type",
-  "prefs.view.tab.layout",
-  "prefs.view.tab.color",
-]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1). Audio first, as SPEC §12.2 orders the sections"
 
 [[view.region]]
 id = "prefs.view.content"
@@ -6250,11 +5985,7 @@ elements = [
   "prefs.view.language",
   "prefs.view.tooltips",
   "prefs.view.font-size",
-  "prefs.view.font-bold",
   "prefs.view.line-space",
-  "prefs.view.center-selected",
-  "prefs.view.played-colour",
-  "prefs.view.media-browser",
   "prefs.view.phrase-enlarged",
   "prefs.view.phrase-overview",
   "prefs.view.phrase-types",
@@ -6263,7 +5994,7 @@ elements = [
   "prefs.view.scale",
   "prefs.reset",
 ]
-note = "fixed 'Reset to defaults' at the bottom left"
+note = "fixed 'Reset to defaults' at the bottom left. Deviation: Not provided: bold list text, centring the selected row, a colour for played tracks and an iTunes media browser (an iTunes library is imported once from the File menu)."
 
 # ---- Preferences: Audio ----
 [[view]]
@@ -6273,6 +6004,7 @@ mode = "preferences"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop"]
 bands = ["prefs"]
+note = "Deviation: each page is one scrolling page with section headings instead of tabs; every page fits a screen, and prefs.search opens the page that holds a setting."
 features = ["prefs-window", "prefs-audio-device"]
 
 [[view.region]]
@@ -6282,24 +6014,14 @@ place = "left column, about 150 pt"
 order = "column"
 elements = [
   "prefs.search",
-  "prefs.nav.view",
   "prefs.nav.audio",
+  "prefs.nav.view",
   "prefs.nav.analysis",
   "prefs.nav.controller",
   "prefs.nav.keyboard",
   "prefs.nav.advanced",
 ]
-note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
-
-[[view.region]]
-id = "prefs.audio.tabs"
-band = "prefs"
-place = "top tabs"
-order = "row"
-elements = [
-  "prefs.audio.tab.configuration",
-  "prefs.audio.tab.input-output",
-]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1). Audio first, as SPEC §12.2 orders the sections"
 
 [[view.region]]
 id = "prefs.audio.content"
@@ -6310,11 +6032,10 @@ elements = [
   "prefs.audio.device",
   "prefs.audio.buffer",
   "prefs.audio.sample-rate",
-  "prefs.audio.output-routing",
   "prefs.audio.headphone-routing",
   "prefs.reset",
 ]
-note = "fixed 'Reset to defaults' at the bottom left"
+note = "fixed 'Reset to defaults' at the bottom left. Deviation: No master output routing choice: the master plays on outputs 1/2 of the chosen device; the headphones choice (prefs.audio.headphone-routing) picks outputs 3/4."
 
 # ---- Preferences: Analysis ----
 [[view]]
@@ -6324,6 +6045,7 @@ mode = "preferences"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop"]
 bands = ["prefs"]
+note = "Deviation: each page is one scrolling page with section headings instead of tabs; every page fits a screen, and prefs.search opens the page that holds a setting."
 features = ["prefs-window", "analysis-bpm-range"]
 
 [[view.region]]
@@ -6333,24 +6055,14 @@ place = "left column, about 150 pt"
 order = "column"
 elements = [
   "prefs.search",
-  "prefs.nav.view",
   "prefs.nav.audio",
+  "prefs.nav.view",
   "prefs.nav.analysis",
   "prefs.nav.controller",
   "prefs.nav.keyboard",
   "prefs.nav.advanced",
 ]
-note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
-
-[[view.region]]
-id = "prefs.analysis.tabs"
-band = "prefs"
-place = "top tabs"
-order = "row"
-elements = [
-  "prefs.analysis.tab.track-analysis",
-  "prefs.analysis.tab.cue-analysis",
-]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1). Audio first, as SPEC §12.2 orders the sections"
 
 [[view.region]]
 id = "prefs.analysis.content"
@@ -6358,15 +6070,13 @@ band = "prefs"
 place = "stacked cards"
 order = "column"
 elements = [
-  "prefs.analysis.bpm-grid",
   "prefs.analysis.bpm-range",
   "prefs.analysis.key",
   "prefs.analysis.phrase",
-  "prefs.analysis.vocal",
   "prefs.analysis.key-notation",
   "prefs.reset",
 ]
-note = "fixed 'Reset to defaults' at the bottom left"
+note = "fixed 'Reset to defaults' at the bottom left. Deviation: BPM and beatgrid are always analysed (no switch); vocal positions come from the separated parts, not from an analysis option."
 
 # ---- Preferences: Controller ----
 [[view]]
@@ -6376,6 +6086,7 @@ mode = "preferences"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop"]
 bands = ["prefs"]
+note = "Deviation: each page is one scrolling page with section headings instead of tabs; every page fits a screen, and prefs.search opens the page that holds a setting."
 features = ["prefs-window", "prefs-deck-defaults", "mixer-eq-mode", "mixer-fader-curve", "mixer-crossfader-curve", "ctrl-midi-learn-monitor"]
 
 [[view.region]]
@@ -6385,29 +6096,14 @@ place = "left column, about 150 pt"
 order = "column"
 elements = [
   "prefs.search",
-  "prefs.nav.view",
   "prefs.nav.audio",
+  "prefs.nav.view",
   "prefs.nav.analysis",
   "prefs.nav.controller",
   "prefs.nav.keyboard",
   "prefs.nav.advanced",
 ]
-note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
-
-[[view.region]]
-id = "prefs.controller.tabs"
-band = "prefs"
-place = "top tabs"
-order = "row"
-elements = [
-  "prefs.controller.tab.deck",
-  "prefs.controller.tab.mixer",
-  "prefs.controller.tab.effect",
-  "prefs.controller.tab.sampler",
-  "prefs.controller.tab.recordings",
-  "prefs.controller.tab.mix-point-link",
-  "prefs.controller.tab.others",
-]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1). Audio first, as SPEC §12.2 orders the sections"
 
 [[view.region]]
 id = "prefs.controller.content"
@@ -6436,6 +6132,7 @@ mode = "preferences"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop"]
 bands = ["prefs"]
+note = "Deviation: each page is one scrolling page with section headings instead of tabs; every page fits a screen, and prefs.search opens the page that holds a setting."
 features = ["prefs-window", "browser-keyboard-shortcuts"]
 
 [[view.region]]
@@ -6445,23 +6142,14 @@ place = "left column, about 150 pt"
 order = "column"
 elements = [
   "prefs.search",
-  "prefs.nav.view",
   "prefs.nav.audio",
+  "prefs.nav.view",
   "prefs.nav.analysis",
   "prefs.nav.controller",
   "prefs.nav.keyboard",
   "prefs.nav.advanced",
 ]
-note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
-
-[[view.region]]
-id = "prefs.keyboard.tabs"
-band = "prefs"
-place = "top tabs"
-order = "row"
-elements = [
-  "prefs.keyboard.tab.shortcuts",
-]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1). Audio first, as SPEC §12.2 orders the sections"
 
 [[view.region]]
 id = "prefs.keyboard.content"
@@ -6482,6 +6170,7 @@ mode = "preferences"
 source = "SPEC §12 layout"
 sizes = ["desktop", "laptop"]
 bands = ["prefs"]
+note = "Deviation: each page is one scrolling page with section headings instead of tabs; every page fits a screen, and prefs.search opens the page that holds a setting."
 features = ["prefs-window", "browser-library-backups", "browser-relocate", "browser-consolidate"]
 
 [[view.region]]
@@ -6491,25 +6180,14 @@ place = "left column, about 150 pt"
 order = "column"
 elements = [
   "prefs.search",
-  "prefs.nav.view",
   "prefs.nav.audio",
+  "prefs.nav.view",
   "prefs.nav.analysis",
   "prefs.nav.controller",
   "prefs.nav.keyboard",
   "prefs.nav.advanced",
 ]
-note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1)"
-
-[[view.region]]
-id = "prefs.advanced.tabs"
-band = "prefs"
-place = "top tabs"
-order = "row"
-elements = [
-  "prefs.advanced.tab.database",
-  "prefs.advanced.tab.browse",
-  "prefs.advanced.tab.others",
-]
+note = "PLAN, CLOUD, DVS and Extensions are excluded (SPEC §1). Audio first, as SPEC §12.2 orders the sections"
 
 [[view.region]]
 id = "prefs.advanced.content"
@@ -6573,11 +6251,9 @@ band = "menu"
 place = "popup at the pointer"
 order = "column"
 elements = [
-  "ctx.header.auto-size",
-  "ctx.header.auto-size-all",
   "ctx.header.columns",
 ]
-note = "checkable list of every column"
+note = "Checkable list of every column plus Default columns. Deviation: no auto-size items, columns have fixed widths and the text columns share the rest, so there is nothing to size."
 
 # ---- View menu ----
 [[view]]
@@ -6597,14 +6273,12 @@ order = "column"
 elements = [
   "menu.view.full-screen",
   "menu.view.layouts",
-  "menu.view.pad-platter",
   "menu.view.my-tag",
   "menu.view.related",
-  "menu.view.suggestion",
   "menu.view.info",
   "menu.view.sub-browser",
 ]
-note = "Layout entries with ⌘7–⌘0 in Prepare"
+note = "Layout entries in the Prepare Layout submenu. Deviation: no pad / platter switch (the decks show pads and platter side by side) and no separate suggestion entry (Related Tracks is the suggestion panel)."
 
 
 [[view]]
